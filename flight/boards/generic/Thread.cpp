@@ -1,12 +1,18 @@
 #include <unistd.h>
+#include <wiringPi.h>
 #include "Thread.h"
 
-Thread::Thread()
+// This fil contains a pthread implementation (same as used in 'rpi' board)
+
+Thread::Thread( const std::string& name )
 	: mRunning( false )
 	, mIsRunning( false )
 	, mFinished( false )
+	, mPriority( 0 )
+	, mSetPriority( 0 )
 {
-	pthread_create( &mThread, nullptr, (void*(*)(void*))(void*)&Thread::ThreadEntry, this );
+	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 }
 
 
@@ -41,6 +47,18 @@ bool Thread::running()
 }
 
 
+void Thread::setMainPriority( int p )
+{
+	piHiPri( p );
+}
+
+
+void Thread::setPriority( int p )
+{
+	mSetPriority = p;
+}
+
+
 void Thread::ThreadEntry()
 {
 	do {
@@ -49,7 +67,11 @@ void Thread::ThreadEntry()
 			usleep( 1000 * 10 );
 		}
 		mIsRunning = true;
-	} while ( run() );
+		if ( mSetPriority != mPriority ) {
+			mPriority = mSetPriority;
+			piHiPri( mPriority );
+		}
+	} while ( run() ); // A thread should return 'true' to keep looping on it, or 'false' for one-shot mode or to exit
 	mIsRunning = false;
 	mFinished = true;
 }

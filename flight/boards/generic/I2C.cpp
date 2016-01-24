@@ -14,6 +14,9 @@ I2C::~I2C()
 
 int I2C::Read( uint8_t reg, void* buf, uint32_t len )
 {
+	// Depending on your hardware/software implementation, you may be able to do
+	// only one I2C communication at a time, in this case a mutex should be
+	// used to avoid any undefined behaviors (see boards/rpi/I2C.cpp implementation)
 	return len;
 }
 
@@ -63,5 +66,6 @@ int I2C::Write32( uint8_t reg, uint32_t value )
 std::list< int > I2C::ScanAll()
 {
 	std::list< int > ret;
+	// See boards/rpi/I2C.cpp implementation
 	return ret;
 }

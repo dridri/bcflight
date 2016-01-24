@@ -2,6 +2,7 @@
 #define I2C_H
 
 #include <stdint.h>
+#include <pthread.h>
 #include <list>
 
 class I2C
