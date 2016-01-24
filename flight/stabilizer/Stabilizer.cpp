@@ -160,11 +160,8 @@ Vector3f Stabilizer::ProcessRate( IMU* imu, const Vector3f& ctrl_rate, float dt 
 // 	Vector3f error = ctrl_rate - imu->rate();
 	Vector3f error = smooth_rate - imu->rate();
 	if ( mMode == Rate ) {
-		error *= 100.0f;
+		error *= 100.0f; // TBD
 	}
-
-	error.x = 0.0f;
-	error.z = 0.0f;
 
 	mIntegral += error * dt;
 	Vector3f derivative = ( error - mLastError ) / dt;
