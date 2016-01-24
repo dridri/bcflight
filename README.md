@@ -1,5 +1,6 @@
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
+
 At this time, you won't be able to fly a drone using this project, as the controller is not finished yet.
 
 ## flight
@@ -12,7 +13,9 @@ This subfolder contains a ground controller specifically designed for Raspberry 
 
 ## librawwifi
 Current status : in progress
-This is a fork of wifibroadcast from befinitiv, it allows to directly use WiFi in analog-like transmission. Alternatively, hostapd is used on the drone and wpa_supplicant on the controller to allow socket communication.
+This is a fork of wifibroadcast from befinitiv, it allows to directly use WiFi in analog-like transmission.
+
+Alternatively, hostapd is used on the drone and wpa_supplicant on the controller to allow socket communication.
 
 ## tools
 Current status : ok
