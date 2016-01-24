@@ -1,0 +1,1 @@
+set( BOARD_LIBS -lpthread )
