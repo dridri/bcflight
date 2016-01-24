@@ -1,0 +1,11 @@
+[Unit]
+Description=Host AP Daemon
+After=network.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/hostapd/start.sh
+
+[Install]
+WantedBy=multi-user.target 

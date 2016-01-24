@@ -26,6 +26,6 @@ Current status : ok
 Generation scripts for easier building
 
 ## buildroot
-Current status : ok
+Current status : in progress
 
 Contains buildroot configuration for both flight and ground targets.

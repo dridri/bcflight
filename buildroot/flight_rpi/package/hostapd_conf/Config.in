@@ -1,0 +1,8 @@
+config BR2_PACKAGE_HOSTAPD_CONF
+	bool "hostapd drone configuration"
+#	depends on BR2_PACKAGE_HOSTAPD
+	help
+	  Default hostapd configuration files for raspidrone
+
+comment "hostapd drone configuration depends on hostapd itself"
+	depends on !BR2_PACKAGE_HOSTAPD
