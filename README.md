@@ -1,1 +1,17 @@
-# bcflight
+# BeyondChaos Flight
+This project aims to create open-source flight controller and ground controller for Linux based drones.
+
+# flight
+The 'flight' subfolder contains the flight controller itself, currently supporting only Raspberry Pi board, but can be easily extended to any kind of board (including non-Linux ones, but it is not the purpose of this project).
+
+# controller_rpi
+This subfolder contains a ground controller specifically designed for Raspberry Pi.
+
+# librawwifi (work in progress)
+This is a fork of wifibroadcast from befinitiv, it allows to directly use WiFi in analog-like transmission.
+
+# tools
+Generation scripts for easier building
+
+# buildroot
+Contains buildroot configuration for both flight and ground targets.
