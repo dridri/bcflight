@@ -5,7 +5,6 @@
 #include "Accelerometer.h"
 #include "Gyroscope.h"
 #include "Magnetometer.h"
-#include <MadgwickAHRS.h>
 
 IMU::IMU()
 	: mState( Off )
