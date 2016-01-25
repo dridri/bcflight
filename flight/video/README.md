@@ -1,4 +1,7 @@
 ## Cameras
+All the cameras must inherit for 'Camera' class, this class is empty for now but it should not last.
+
+A camera may run as many threads as it needs, and can use on-board or USB camera, or just control an external analog camera.
 
 ### Raspicam
 This is the handler of the Raspberry Pi camera, it is a wrapper around the low-level system calls (OpenMAX IL) that sends live video to ground, it can also record it with higher image quality on the drone itself.
