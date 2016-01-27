@@ -21,19 +21,46 @@ Config::~Config()
 
 std::string Config::string( const std::string& name )
 {
+	Debug() << "Config::string( " << name << " )";
+
 	if ( LocateValue( name ) < 0 ) {
+		Debug() << " => not found !\n";
 		return "";
 	}
-	return lua_tolstring( L, -1, nullptr );
+
+	std::string ret = lua_tolstring( L, -1, nullptr );
+	Debug() << " => " << ret << "\n";
+	return ret;
 }
 
 
 int Config::integer( const std::string& name )
 {
+	Debug() << "Config::integer( " << name << " )";
+
 	if ( LocateValue( name ) < 0 ) {
+		Debug() << " => not found !\n";
 		return 0;
 	}
-	return lua_tointeger( L, -1 );
+
+	int ret = lua_tointeger( L, -1 );
+	Debug() << " => " << ret << "\n";
+	return ret;
+}
+
+
+float Config::number( const std::string& name )
+{
+	Debug() << "Config::number( " << name << " )";
+
+	if ( LocateValue( name ) < 0 ) {
+		Debug() << " => not found !\n";
+		return 0;
+	}
+
+	float ret = lua_tonumber( L, -1 );
+	Debug() << " => " << ret << "\n";
+	return ret;
 }
 
 
@@ -72,8 +99,13 @@ int Config::LocateValue( const std::string& _name )
 
 void Config::Reload()
 {
+	luaL_dostring( L, "function Vector( x, y, z ) return { x = x, y = y, z = z } end" );
 	luaL_loadfile( L, mFilename.c_str() );
-	lua_pcall( L, 0, LUA_MULTRET, 0 );
+	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
+
+	if ( ret != 0 ) {
+		gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : \"" << lua_tostring( L, -1 ) << "\"\n";
+	}
 }
 
 

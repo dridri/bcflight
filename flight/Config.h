@@ -21,6 +21,7 @@ public:
 
 	std::string string( const std::string& name );
 	int integer( const std::string& name );
+	float number( const std::string& name );
 
 protected:
 	std::string mFilename;

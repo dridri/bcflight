@@ -10,7 +10,7 @@ public:
 	~FakeGyroscope();
 
 	void Read( Vector3f* v, bool raw = false );
-	void Calibrate( float dt );
+	void Calibrate( float dt, bool last_pass = false );
 
 protected:
 	int mAxisCount;

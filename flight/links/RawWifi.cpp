@@ -62,7 +62,7 @@ int RawWifi::Connect()
 		ss << " && iw dev " << mDevice << " set txpower fixed " << ( mTxPower * 1000 );
 	}
 	gDebug() << "executing : " << ss.str().c_str() << "\n";
-	system( ss.str().c_str() );
+	(void)system( ss.str().c_str() );
 
 	if ( mOutputPort >= 0 ) {
 		mTx = rwifi_tx_init( mDevice.c_str(), mOutputPort, 1 );

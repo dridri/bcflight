@@ -4,7 +4,6 @@ include(ProcessorCount)
 ProcessorCount(NCPU)
 
 SET( board "rpi" CACHE BOOL "board" )
-SET( camera "Raspicam" CACHE BOOL "camera" )
 SET( socket 1 CACHE BOOL "socket" )
 SET( rawwifi 1 CACHE BOOL "rawwifi" )
 
@@ -14,7 +13,7 @@ option(debug "debug")
 option(socket "socket")
 option(rawwifi "rawwifi")
 
-if ( NOT ${board} MATCHES OFF )
+if ( NOT ${board} MATCHES OFF AND NOT ${board} MATCHES "generic" )
 	set( CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/../Toolchain-${board}.cmake )
 endif()
 
@@ -53,20 +52,25 @@ endif()
 
 if ( ${board} MATCHES "rpi" )
 	set( CAMERAS Raspicam )
+	if ( ${camera} MATCHES OFF )
+		set( camera Raspicam )
+	endif()
 endif()
 
 if ( ${camera} MATCHES OFF )
-	message( FATAL_ERROR "You must specify a camera.\nAvailable cameras for this board are :\n${CAMERAS}" )
+# 	message( FATAL_ERROR "You must specify a camera.\nAvailable cameras for this board are :\n${CAMERAS}" )
 endif()
 
 list( FIND CAMERAS ${camera} camera_found )
-if ( ${camera_found} LESS 0 )
-	message( FATAL_ERROR "Board ${camera} not supported.\nAvailable cameras for this board are :\n${CAMERAS}" )
+if ( NOT ${camera} MATCHES OFF AND ${camera_found} LESS 0 )
+	message( FATAL_ERROR "Camera ${camera} not supported.\nAvailable cameras for this board are :\n${CAMERAS}" )
 endif()
 
 include( boards/${board}/board.cmake )
 add_definitions( -DBOARD=${board} -DBOARD_${board} )
-add_definitions( -DCAMERA=${camera} -DCAMERA_INCLUDE="${camera}.h" )
+if ( NOT ${camera} MATCHES OFF )
+	add_definitions( -DCAMERA=${camera} -DCAMERA_INCLUDE="${camera}.h" )
+endif()
 add_definitions( -DBUILD_SOCKET=${socket} )
 add_definitions( -DBUILD_RAWWIFI=${rawwifi} )
 
@@ -124,17 +128,22 @@ list( APPEND SOURCES ${VIDEO_SOURCES} )
 
 set_source_files_properties( ${CMAKE_BINARY_DIR}/flight_register.cpp PROPERTIES GENERATED TRUE )
 add_custom_target( flight_register COMMAND ${CMAKE_SOURCE_DIR}/../tools/startup_gen.py ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/flight_register.cpp )
-# add_custom_target( libluajit COMMAND make clean libluajit.a -C ${CMAKE_SOURCE_DIR}/../external/luajit/src HOST_CC=\"gcc -m32\" BUILDMODE=static CC=${CMAKE_C_COMPILER} ASM=${CMAKE_ASM_COMPILER} STRIP=${CROSS}strip )
-add_custom_target( libluajit COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${NCPU} )
+
+if ( NOT ${TARGET_CPU_BITS} MATCHES OFF )
+	set( LUA_CC_OPTIONS "-m${TARGET_CPU_BITS}" )
+else()
+	set( LUA_CC_OPTIONS "" )
+endif()
+add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_CC_OPTIONS} )
 
 add_executable( flight_unstripped ${SOURCES} )
 
 add_dependencies( flight_unstripped flight_register )
-add_dependencies( flight_unstripped libluajit )
+add_dependencies( flight_unstripped libluajit_static )
 if ( "${rawwifi}" MATCHES 1 )
 	add_dependencies( flight_unstripped rawwifi )
 endif()
 
-target_link_libraries( flight_unstripped ${LIBS} ${BOARD_LIBS} -L./ -lluajit )
+target_link_libraries( flight_unstripped -L./ -lluajit_static ${LIBS} ${BOARD_LIBS} )
 
 board_strip()

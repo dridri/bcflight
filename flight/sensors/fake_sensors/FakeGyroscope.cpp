@@ -16,7 +16,7 @@ FakeGyroscope::~FakeGyroscope()
 }
 
 
-void FakeGyroscope::Calibrate( float dt )
+void FakeGyroscope::Calibrate( float dt, bool last_pass )
 {
 }
 

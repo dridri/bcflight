@@ -23,6 +23,7 @@ Frame* XFrame::Instanciate( Config* config )
 XFrame::XFrame( Config* config )
 	: Frame()
 	, mStabSpeeds{ 0.0f }
+	, mPIDMultipliers{ Vector3f() }
 {
 	mMotors.resize( 4 );
 
@@ -55,6 +56,35 @@ XFrame::XFrame( Config* config )
 	if ( rr_min == 0 ) { rr_min = 1060; }
 	if ( rr_max == 0 ) { rr_max = 1860; }
 	mMotors[3] = new Generic( new Servo( rr_pin, rr_min, rr_max ) );
+
+
+	mPIDMultipliers[0].x = config->number( "frame.motors.front_left.pid_vector.x" );
+	mPIDMultipliers[0].y = config->number( "frame.motors.front_left.pid_vector.y" );
+	mPIDMultipliers[0].z = config->number( "frame.motors.front_left.pid_vector.z" );
+	if ( mPIDMultipliers[0].length() == 0.0f ) {
+		gDebug() << "WARNING : PID multipliers for motor 0 seem to be not set !\n";
+	}
+
+	mPIDMultipliers[1].x = config->number( "frame.motors.front_right.pid_vector.x" );
+	mPIDMultipliers[1].y = config->number( "frame.motors.front_right.pid_vector.y" );
+	mPIDMultipliers[1].z = config->number( "frame.motors.front_right.pid_vector.z" );
+	if ( mPIDMultipliers[1].length() == 0.0f ) {
+		gDebug() << "WARNING : PID multipliers for motor 1 seem to be not set !\n";
+	}
+
+	mPIDMultipliers[2].x = config->number( "frame.motors.rear_left.pid_vector.x" );
+	mPIDMultipliers[2].y = config->number( "frame.motors.rear_left.pid_vector.y" );
+	mPIDMultipliers[2].z = config->number( "frame.motors.rear_left.pid_vector.z" );
+	if ( mPIDMultipliers[2].length() == 0.0f ) {
+		gDebug() << "WARNING : PID multipliers for motor 2 seem to be not set !\n";
+	}
+
+	mPIDMultipliers[3].x = config->number( "frame.motors.rear_right.pid_vector.x" );
+	mPIDMultipliers[3].y = config->number( "frame.motors.rear_right.pid_vector.y" );
+	mPIDMultipliers[3].z = config->number( "frame.motors.rear_right.pid_vector.z" );
+	if ( mPIDMultipliers[3].length() == 0.0f ) {
+		gDebug() << "WARNING : PID multipliers for motor 3 seem to be not set !\n";
+	}
 }
 
 
@@ -99,10 +129,10 @@ void XFrame::WarmUp()
 
 void XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 {
-	mStabSpeeds[0] = Vector3f( +1.0f, -1.0f, -1.0f ) * pid_output + thrust; // Front L
-	mStabSpeeds[1] = Vector3f( -1.0f, -1.0f, +1.0f ) * pid_output + thrust; // Front R
-	mStabSpeeds[2] = Vector3f( +1.0f, +1.0f, -1.0f ) * pid_output + thrust; // Rear L
-	mStabSpeeds[3] = Vector3f( -1.0f, +1.0f, +1.0f ) * pid_output + thrust; // Rear R
+	mStabSpeeds[0] = mPIDMultipliers[0] * pid_output + thrust; // Front L
+	mStabSpeeds[1] = mPIDMultipliers[1] * pid_output + thrust; // Front R
+	mStabSpeeds[2] = mPIDMultipliers[2] * pid_output + thrust; // Rear L
+	mStabSpeeds[3] = mPIDMultipliers[3] * pid_output + thrust; // Rear R
 
 	float motor_max = 1.0f;
 	float max = std::max( std::max( std::max( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );

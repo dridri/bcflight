@@ -22,6 +22,7 @@ public:
 
 protected:
 	float mStabSpeeds[4];
+	Vector3f mPIDMultipliers[4];
 };
 
 #endif // XFRAME_H

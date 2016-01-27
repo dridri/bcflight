@@ -1,4 +1,4 @@
-set( CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/../Toolchain-RaspberryPi.cmake )
+set( CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/../Toolchain-rpi.cmake )
 
 cmake_minimum_required( VERSION 2.6 )
 project( controller_rpi )

@@ -1,3 +1,5 @@
+#ifdef BOARD_rpi
+
 #include <unistd.h>
 #include <netinet/in.h>
 #include <Debug.h>
@@ -270,6 +272,7 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 
 void Raspicam::SetupRecord()
 {
+/*
 	gDebug() << "1\n";
 	AVOutputFormat* fmt;
 	char filename[256];
@@ -326,4 +329,7 @@ void Raspicam::SetupRecord()
 
 	mRecordPTSBase = Board::GetTicks();
 	mRecordFrameCounter = 0;
+*/
 }
+
+#endif // BOARD_rpi

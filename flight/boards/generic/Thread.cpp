@@ -1,5 +1,4 @@
 #include <unistd.h>
-#include <wiringPi.h>
 #include "Thread.h"
 
 // This fil contains a pthread implementation (same as used in 'rpi' board)
@@ -49,7 +48,7 @@ bool Thread::running()
 
 void Thread::setMainPriority( int p )
 {
-	piHiPri( p );
+	// set priority of main thread here
 }
 
 
@@ -69,7 +68,7 @@ void Thread::ThreadEntry()
 		mIsRunning = true;
 		if ( mSetPriority != mPriority ) {
 			mPriority = mSetPriority;
-			piHiPri( mPriority );
+			// set priority here
 		}
 	} while ( run() ); // A thread should return 'true' to keep looping on it, or 'false' for one-shot mode or to exit
 	mIsRunning = false;

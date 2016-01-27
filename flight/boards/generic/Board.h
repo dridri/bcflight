@@ -6,10 +6,6 @@
 #include <string>
 #include <map>
 
-extern "C" {
-#include <interface/vchi/vchi.h>
-};
-
 class Main;
 
 class Board

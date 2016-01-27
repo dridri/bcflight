@@ -14,7 +14,9 @@
 #include <Servo.h>
 #include <Stabilizer.h>
 #include <Frame.h>
-#include CAMERA_INCLUDE // defined in CMakeLists.txt
+#ifdef CAMERA_INCLUDE
+	#include CAMERA_INCLUDE // defined in CMakeLists.txt
+#endif
 #include <Socket.h> // TODO : Generate this / use on-the-fly configuration
 #include <RawWifi.h> // TODO : Generate this / use on-the-fly configuration
 
@@ -46,7 +48,7 @@ Main::Main()
 	Board::InformLoading();
 
 	mConfig = new Config( "config.lua" );
-	std::string frameName = mConfig->string( "frame.name" );
+	std::string frameName = mConfig->string( "frame.type" );
 	if ( Frame::knownFrames().find( frameName ) == Frame::knownFrames().end() ) {
 		gDebug() << "FATAL ERROR : unknown frame \"" << frameName << "\" !\n";
 		return;
@@ -73,12 +75,14 @@ Main::Main()
 	mStabilizer = new Stabilizer( mFrame );
 	Board::InformLoading();
 
+#ifdef CAMERA
 	//	TODO : generate these lines
 	mCamera = new CAMERA( new Socket( 2021, Socket::UDPLite, false ) );
 // 	RawWifi* camlink = new RawWifi( "wlan0", 0 );
 // 	camlink->SetTxPower( 20 );
 // 	mCamera = new CAMERA( camlink );
 	Board::InformLoading();
+#endif
 /*
 	while ( 1 ) {
 		usleep( 1000 * 1000 );

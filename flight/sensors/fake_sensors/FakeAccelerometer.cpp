@@ -17,7 +17,7 @@ FakeAccelerometer::~FakeAccelerometer()
 }
 
 
-void FakeAccelerometer::Calibrate( float dt )
+void FakeAccelerometer::Calibrate( float dt, bool last_pass )
 {
 }
 
