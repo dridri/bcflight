@@ -11,6 +11,6 @@ if [ ! -d ${DIR}/LuaJIT-2.0.4 ]; then
 fi
 
 if [ ! -f $1/libluajit_static.a ]; then
-	make clean libluajit.a -C ${DIR}/LuaJIT-2.0.4/src HOST_CC="cc $5" BUILDMODE=static CC="$2 $5" ASM="$3 $5" STRIP=$4
+	make clean libluajit.a -C ${DIR}/LuaJIT-2.0.4/src HOST_CC="cc $5" BUILDMODE=static CC="$2" ASM="$3" STRIP=$4
 	cp ${DIR}/LuaJIT-2.0.4/src/libluajit.a libluajit_static.a
 fi

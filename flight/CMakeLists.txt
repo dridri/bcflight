@@ -130,11 +130,11 @@ set_source_files_properties( ${CMAKE_BINARY_DIR}/flight_register.cpp PROPERTIES 
 add_custom_target( flight_register COMMAND ${CMAKE_SOURCE_DIR}/../tools/startup_gen.py ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/flight_register.cpp )
 
 if ( NOT ${TARGET_CPU_BITS} MATCHES OFF )
-	set( LUA_CC_OPTIONS "-m${TARGET_CPU_BITS}" )
+	set( LUA_HOST_CC_OPTIONS "-m${TARGET_CPU_BITS}" )
 else()
-	set( LUA_CC_OPTIONS "" )
+	set( LUA_HOST_CC_OPTIONS "" )
 endif()
-add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_CC_OPTIONS} )
+add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} )
 
 add_executable( flight_unstripped ${SOURCES} )
 
