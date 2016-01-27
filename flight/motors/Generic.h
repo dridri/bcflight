@@ -1,14 +1,14 @@
-#ifndef GENERIC400HZ_H
-#define GENERIC400HZ_H
+#ifndef GENERIC_H
+#define GENERIC_H
 
 #include <Servo.h>
 #include "Motor.h"
 
-class Generic400Hz : public Motor
+class Generic : public Motor
 {
 public:
-	Generic400Hz( Servo* servo, float minspeed = 0.0f, float maxSpeed = 1.0f );
-	~Generic400Hz();
+	Generic( Servo* servo, float minspeed = 0.0f, float maxSpeed = 1.0f );
+	~Generic();
 
 	void Disarm();
 
@@ -19,4 +19,4 @@ protected:
 	float mMaxSpeed;
 };
 
-#endif // GENERIC400HZ_H
+#endif // GENERIC_H

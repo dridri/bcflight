@@ -2,6 +2,7 @@
 #define MAIN_H
 
 #include <stdint.h>
+#include "Config.h"
 #include <Board.h>
 #include "Debug.h"
 #include "PowerThread.h"
@@ -27,9 +28,10 @@ public:
 	Frame* frame() const;
 
 private:
-	static int flight_register( Main* main );
+	int flight_register();
 	void DetectDevices();
 
+	Config* mConfig;
 	Board* mBoard;
 	PowerThread* mPowerThread;
 	IMU* mIMU;

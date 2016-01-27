@@ -1,7 +1,7 @@
 #include <Debug.h>
-#include "Generic400Hz.h"
+#include "Generic.h"
 
-Generic400Hz::Generic400Hz( Servo* servo, float minspeed, float maxSpeed )
+Generic::Generic( Servo* servo, float minspeed, float maxSpeed )
 	: Motor()
 	, mServo( servo )
 	, mMinSpeed( std::min( std::max( minspeed, 0.0f ), 1.0f ) )
@@ -10,12 +10,12 @@ Generic400Hz::Generic400Hz( Servo* servo, float minspeed, float maxSpeed )
 }
 
 
-Generic400Hz::~Generic400Hz()
+Generic::~Generic()
 {
 }
 
 
-void Generic400Hz::setSpeedRaw( float speed, bool force_hw_update )
+void Generic::setSpeedRaw( float speed, bool force_hw_update )
 {
 	speed = std::max( mMinSpeed, std::min( mMaxSpeed, speed ) );
 	mServo->setValue( speed, force_hw_update );
@@ -26,7 +26,7 @@ void Generic400Hz::setSpeedRaw( float speed, bool force_hw_update )
 }
 
 
-void Generic400Hz::Disarm()
+void Generic::Disarm()
 {
 	mServo->Disarm();
 }

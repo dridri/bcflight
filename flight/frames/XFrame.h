@@ -9,13 +9,16 @@ class IMU;
 class XFrame : public Frame
 {
 public:
-	XFrame( Motor* fl, Motor* fr, Motor* rl, Motor* rr );
+	XFrame( Config* config );
 	virtual ~XFrame();
 
 	void Arm();
 	void Disarm();
 	void WarmUp();
-	void Stabilize( const Vector3f& pid_output, const float& thrust );
+	virtual void Stabilize( const Vector3f& pid_output, const float& thrust );
+
+	static Frame* Instanciate( Config* config );
+	static int flight_register( Main* main );
 
 protected:
 	float mStabSpeeds[4];

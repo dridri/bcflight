@@ -1,24 +1,60 @@
 #include <unistd.h>
 #include <Debug.h>
+#include <Config.h>
 #include <Controller.h>
 #include "XFrame.h"
 #include "IMU.h"
+#include <motors/Generic.h>
 #include <Servo.h>
 
-XFrame::XFrame( Motor* fl, Motor* fr, Motor* rl, Motor* rr )
+int XFrame::flight_register( Main* main )
+{
+	RegisterFrame( "XFrame", XFrame::Instanciate );
+	return 0;
+}
+
+
+Frame* XFrame::Instanciate( Config* config )
+{
+	return new XFrame( config );
+}
+
+
+XFrame::XFrame( Config* config )
 	: Frame()
 	, mStabSpeeds{ 0.0f }
 {
 	mMotors.resize( 4 );
-	mMotors[0] = fl;
-	mMotors[1] = fr;
-	mMotors[2] = rl;
-	mMotors[3] = rr;
 
-// 	mMotors[0]->setSpeed( 0.0f, true );
-// 	mMotors[1]->setSpeed( 0.0f, true );
-// 	mMotors[2]->setSpeed( 0.0f, true );
-// 	mMotors[3]->setSpeed( 0.0f, true );
+	// WARNING : minimum_us and maximum_us do not work for now
+
+	int fl_pin = config->integer( "frame.motors.front_left.pin" );
+	int fl_min = config->integer( "frame.motors.front_left.minimum_us" );
+	int fl_max = config->integer( "frame.motors.front_left.maximum_us" );
+	if ( fl_min == 0 ) { fl_min = 1060; }
+	if ( fl_max == 0 ) { fl_max = 1860; }
+	mMotors[0] = new Generic( new Servo( fl_pin, fl_min, fl_max ) );
+
+	int fr_pin = config->integer( "frame.motors.front_right.pin" );
+	int fr_min = config->integer( "frame.motors.front_right.minimum_us" );
+	int fr_max = config->integer( "frame.motors.front_right.maximum_us" );
+	if ( fr_min == 0 ) { fr_min = 1060; }
+	if ( fr_max == 0 ) { fr_max = 1860; }
+	mMotors[1] = new Generic( new Servo( fr_pin, fr_min, fr_max ) );
+
+	int rl_pin = config->integer( "frame.motors.rear_left.pin" );
+	int rl_min = config->integer( "frame.motors.rear_left.minimum_us" );
+	int rl_max = config->integer( "frame.motors.rear_left.maximum_us" );
+	if ( rl_min == 0 ) { rl_min = 1060; }
+	if ( rl_max == 0 ) { rl_max = 1860; }
+	mMotors[2] = new Generic( new Servo( rl_pin, rl_min, rl_max ) );
+
+	int rr_pin = config->integer( "frame.motors.rear_right.pin" );
+	int rr_min = config->integer( "frame.motors.rear_right.minimum_us" );
+	int rr_max = config->integer( "frame.motors.rear_right.maximum_us" );
+	if ( rr_min == 0 ) { rr_min = 1060; }
+	if ( rr_max == 0 ) { rr_max = 1860; }
+	mMotors[3] = new Generic( new Servo( rr_pin, rr_min, rr_max ) );
 }
 
 
@@ -63,21 +99,10 @@ void XFrame::WarmUp()
 
 void XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 {
-	mStabSpeeds[0] = Vector3f( +1.0f, -2.0f/3.0f, +0.0f ) * pid_output + thrust; // Front L
-	mStabSpeeds[1] = Vector3f( -1.0f, -2.0f/3.0f, -0.0f ) * pid_output + thrust; // Front R
-	mStabSpeeds[2] = Vector3f( +1.0f/5.0f, +4.0f/3.0f, +1.0f ) * pid_output + thrust; // Rear L
-	mStabSpeeds[3] = Vector3f( -1.0f/5.0f, +4.0f/3.0f, -1.0f ) * pid_output + thrust; // Rear R
-/*
-	float min = std::min( std::min( std::min( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );
-	float motor_min = 0.18f;
-	if ( min < motor_min and thrust > min ) {
-		float diff = motor_min - min;
-		mStabSpeeds[0] += diff;
-		mStabSpeeds[1] += diff;
-		mStabSpeeds[2] += diff;
-		mStabSpeeds[3] += diff;
-	}
-*/
+	mStabSpeeds[0] = Vector3f( +1.0f, -1.0f, -1.0f ) * pid_output + thrust; // Front L
+	mStabSpeeds[1] = Vector3f( -1.0f, -1.0f, +1.0f ) * pid_output + thrust; // Front R
+	mStabSpeeds[2] = Vector3f( +1.0f, +1.0f, -1.0f ) * pid_output + thrust; // Rear L
+	mStabSpeeds[3] = Vector3f( -1.0f, +1.0f, +1.0f ) * pid_output + thrust; // Rear R
 
 	float motor_max = 1.0f;
 	float max = std::max( std::max( std::max( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );

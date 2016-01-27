@@ -11,11 +11,9 @@
 #include <CurrentSensor.h>
 #include <fake_sensors/FakeAccelerometer.h>
 #include <fake_sensors/FakeGyroscope.h>
-#include <Generic400Hz.h>
 #include <Servo.h>
 #include <Stabilizer.h>
 #include <Frame.h>
-#include FRAME_INCLUDE // defined in CMakeLists.txt
 #include CAMERA_INCLUDE // defined in CMakeLists.txt
 #include <Socket.h> // TODO : Generate this / use on-the-fly configuration
 #include <RawWifi.h> // TODO : Generate this / use on-the-fly configuration
@@ -37,16 +35,22 @@ Main::Main()
 	float dt = 0.0f;
 
 #ifdef BOARD_generic
-	//	TODO : generate this line
 #pragma message "Adding noisy fake accalerometer and gyroscope"
 	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
 
 	mBoard = new Board( this );
-	flight_register( this );
+	flight_register();
 	DetectDevices();
 	Board::InformLoading();
+
+	mConfig = new Config( "config.lua" );
+	std::string frameName = mConfig->string( "frame.name" );
+	if ( Frame::knownFrames().find( frameName ) == Frame::knownFrames().end() ) {
+		gDebug() << "FATAL ERROR : unknown frame \"" << frameName << "\" !\n";
+		return;
+	}
 
 	mPowerThread = new PowerThread( this );
 	mPowerThread->Start();
@@ -56,12 +60,14 @@ Main::Main()
 	mIMU = new IMU();
 	Board::InformLoading();
 
-	//	TODO : generate these lines
+	mFrame = Frame::Instanciate( frameName, mConfig );
+/*
 #if ( FRAME == XFrame )
 	float min_sp = 0.0f;
 	float max_sp = 0.99f;
 	mFrame = new XFrame( new Generic400Hz( new Servo( 18 ), min_sp, max_sp ), new Generic400Hz( new Servo( 23 ), min_sp, max_sp ), new Generic400Hz( new Servo( 24 ), min_sp, max_sp ), new Generic400Hz( new Servo( 25 ), min_sp, max_sp ) );
 #endif
+*/
 	Board::InformLoading();
 
 	mStabilizer = new Stabilizer( mFrame );
@@ -79,9 +85,7 @@ Main::Main()
 	}
 */
 	//	TODO : generate this line
-	gDebug() << "mController 1\n";
 	mController = new Controller( this, new Socket( 2020 ) );
-	gDebug() << "mController 2\n";
 	mController->setPriority( 97 );
 	Board::InformLoading();
 
@@ -155,16 +159,18 @@ Stabilizer* Main::stabilizer() const
 
 void Main::DetectDevices()
 {
-	std::list< int > I2Cdevs = I2C::ScanAll();
 	int countGyro = 0;
 	int countAccel = 0;
 	int countMagn = 0;
 	int countVolt = 0;
 	int countCurrent = 0;
 
+	std::list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
 		Sensor::RegisterDevice( dev );
 	}
+
+	// TODO : register SPI/1-wire/.. devices
 
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Gyroscope* >( s ) != nullptr ) {
