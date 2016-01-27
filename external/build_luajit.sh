@@ -1,10 +1,8 @@
 #!/bin/bash
 
-WDIR=${cwd}
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ ! -f ${DIR}/LuaJIT-2.0.4 ]; then
-	cd ${DIR}/LuaJIT-2.0.4.tar.gz
 	wget "http://luajit.org/download/LuaJIT-2.0.4.tar.gz" -O ${DIR}/LuaJIT-2.0.4.tar.gz
 	tar xf ${DIR}/LuaJIT-2.0.4.tar.gz -C ${DIR}
 	rm ${DIR}/LuaJIT-2.0.4.tar.gz
