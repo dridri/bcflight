@@ -5,43 +5,23 @@
 #include "Voltmeter.h"
 #include "CurrentSensor.h"
 
-class ADS1015Volt : public Voltmeter
+class ADS1015 : public Voltmeter
 {
 public:
-	ADS1015Volt();
-	~ADS1015Volt();
+	ADS1015();
+	~ADS1015();
 
+	static int flight_register( Main* main );
 	static Sensor* Instanciate();
+
 	void Calibrate( float dt, bool last_pass = false );
-	float Read();
+	float Read( int channel );
 
 private:
 	I2C* mI2C;
 	float mRingBuffer[16];
 	float mRingSum;
 	int mRingIndex;
-};
-
-
-class ADS1015Current : public CurrentSensor
-{
-public:
-	ADS1015Current();
-	~ADS1015Current();
-
-	static Sensor* Instanciate();
-	void Calibrate( float dt, bool last_pass = false );
-	float Read();
-
-private:
-	I2C* mI2C;
-};
-
-
-class ADS1015 : public Sensor
-{
-public:
-	static int flight_register( Main* main );
 };
 
 

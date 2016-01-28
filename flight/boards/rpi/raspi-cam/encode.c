@@ -747,14 +747,13 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	sensorMode.nU32 = 7;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCustomSensorConfig, &sensorMode ) );
 
-/*
 	OMX_PARAM_CAMERAIMAGEPOOLTYPE pool;
 	OMX_INIT_STRUCTURE( pool );
 	pool.nNumHiResVideoFrames = 1;
 	pool.nHiResVideoWidth = WIDTH;
 	pool.nHiResVideoHeight = HEIGHT;
 	pool.eHiResVideoType = OMX_COLOR_FormatYUV420PackedPlanar;
-	pool.nNumHiResStillsFrames = 1;
+	pool.nNumHiResStillsFrames = 2;
 	pool.nHiResStillsWidth = WIDTH;
 	pool.nHiResStillsHeight = HEIGHT;
 	pool.eHiResStillsType = OMX_COLOR_FormatYUV420PackedPlanar;
@@ -774,7 +773,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	pool.nInputStillsHeight = HEIGHT;
 	pool.eInputStillsType = OMX_COLOR_FormatYUV420PackedPlanar;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraImagePool, &pool ) );
-*/
+
 
 	/*
 	 * OMX_CameraDisableAlgorithmFacetracking,
@@ -824,6 +823,17 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraDisableAlgorithm, &disableAlgorithm ) );
 	disableAlgorithm.eAlgorithm = OMX_CameraDisableAlgorithmHighDynamicRange;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraDisableAlgorithm, &disableAlgorithm ) );
+
+	OMX_PARAM_TIMESTAMPMODETYPE timestamp;
+	OMX_INIT_STRUCTURE( timestamp );
+	timestamp.eTimestampMode = OMX_TimestampModeResetStc;
+	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCommonUseStcTimestamps, &timestamp ) );
+
+	OMX_PARAM_CAMERACAPTUREMODETYPE captureMode;
+	OMX_INIT_STRUCTURE( captureMode );
+	captureMode.nPortIndex = OMX_ALL;
+	captureMode.eMode = OMX_CameraCaptureModeResumeViewfinderImmediately;
+	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCaptureMode, &captureMode ) );
 
 	OMX_CONFIG_ZEROSHUTTERLAGTYPE zero_shutter;
 	OMX_INIT_STRUCTURE( zero_shutter );

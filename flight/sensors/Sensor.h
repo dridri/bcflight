@@ -35,6 +35,8 @@ public:
 	static std::list< Magnetometer* > Magnetometers();
 	static std::list< Voltmeter* > Voltmeters();
 	static std::list< CurrentSensor* > CurrentSensors();
+	static Voltmeter* voltmeter( const std::string& name );
+	static CurrentSensor* currentSensor( const std::string& name );
 
 protected:
 	typedef enum {
@@ -58,13 +60,13 @@ protected:
 	void ApplySwap( Vector4f& v );
 	Vector4f SmoothData( const Vector4f& v, bool double_smooth = false );
 
-	static std::list< Device > mKnownDevices;
-	static std::list< Sensor* > mDevices;
-	static std::list< Gyroscope* > mGyroscopes;
-	static std::list< Accelerometer* > mAccelerometers;
-	static std::list< Magnetometer* > mMagnetometers;
-	static std::list< Voltmeter* > mVoltmeters;
-	static std::list< CurrentSensor* > mCurrentSensors;
+	static std::list< Device > mKnownDevices; // Contains all the known devices by this software
+	static std::list< Sensor* > mDevices; // Contains all the detected devices
+	static std::list< Gyroscope* > mGyroscopes; // Contains all the detected gyroscopes
+	static std::list< Accelerometer* > mAccelerometers; // ^
+	static std::list< Magnetometer* > mMagnetometers; // ^
+	static std::list< Voltmeter* > mVoltmeters; // ^
+	static std::list< CurrentSensor* > mCurrentSensors; // ^
 
 	static void UpdateDevices();
 };

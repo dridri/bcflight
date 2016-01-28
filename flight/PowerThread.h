@@ -4,6 +4,7 @@
 #include <Thread.h>
 
 class Main;
+class Sensor;
 
 class PowerThread : public Thread
 {
@@ -21,6 +22,19 @@ protected:
 	virtual bool run();
 
 private:
+	typedef enum {
+		NONE = 0,
+		VOLTAGE,
+		CURRENT
+	} SensorType;
+	typedef struct {
+		SensorType type;
+		Sensor* sensor;
+		int channel;
+		float shift;
+		float multiplier;
+	} BatterySensor;
+
 	uint64_t mTicks;
 	Main* mMain;
 	float mLastVBat;
@@ -28,6 +42,9 @@ private:
 	float mCurrentTotal;
 	float mCurrentDraw;
 	float mBatteryCapacity;
+
+	BatterySensor mVoltageSensor;
+	BatterySensor mCurrentSensor;
 };
 
 

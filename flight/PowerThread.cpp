@@ -13,10 +13,45 @@ PowerThread::PowerThread( Main* main )
 	, mCurrentTotal( 0.0f )
 	, mCurrentDraw( 0.0f )
 	, mBatteryCapacity( 2500.0f )
+	, mVoltageSensor{ NONE, nullptr, 0, 0, 0 }
+	, mCurrentSensor{ NONE, nullptr, 0, 0, 0 }
 {
+	mBatteryCapacity = main->config()->integer( "board.battery.capacity" );
+
+	{
+		std::string sensorType = main->config()->string( "board.battery.voltage.sensor_type" );
+		if ( sensorType == "Voltmeter" ) {
+			mVoltageSensor.type = VOLTAGE;
+			mVoltageSensor.sensor = Sensor::voltmeter( main->config()->string( "board.battery.voltage.device" ) );
+		} else {
+			gDebug() << "FATAL ERROR : Unsupported sensor type ( " << sensorType << " ) for battery voltage !\n";
+		}
+		mVoltageSensor.channel = main->config()->integer( "board.battery.voltage.channel" );
+		mVoltageSensor.shift = main->config()->number( "board.battery.voltage.shift" );
+		mVoltageSensor.multiplier = main->config()->number( "board.battery.voltage.multiplier" );
+	}
+	{
+		std::string sensorType = main->config()->string( "board.battery.current.sensor_type" );
+		if ( sensorType == "Voltmeter" ) {
+			mCurrentSensor.type = VOLTAGE;
+			mCurrentSensor.sensor = Sensor::voltmeter( main->config()->string( "board.battery.current.device" ) );
+		} else if ( sensorType == "CurrentSensor" ) {
+			mCurrentSensor.type = CURRENT;
+			mCurrentSensor.sensor = Sensor::currentSensor( main->config()->string( "board.battery.current.device" ) );
+		} else {
+			gDebug() << "WARNING : Unsupported sensor type ( " << sensorType << " ) for battery current !\n";
+		}
+		mCurrentSensor.channel = main->config()->integer( "board.battery.current.channel" );
+		mCurrentSensor.shift = main->config()->number( "board.battery.current.shift" );
+		mCurrentSensor.multiplier = main->config()->number( "board.battery.current.multiplier" );
+	}
+
 	mLastVBat = std::atof( Board::LoadRegister( "VBat" ).c_str() );
 	mCurrentTotal = std::atof( Board::LoadRegister( "CurrentTotal" ).c_str() );
-	mBatteryCapacity = std::atof( Board::LoadRegister( "BatteryCapacity" ).c_str() );
+	float capa = std::atof( Board::LoadRegister( "BatteryCapacity" ).c_str() );
+	if ( capa != 0.0f ) {
+		mBatteryCapacity = capa;
+	}
 }
 
 
@@ -61,13 +96,19 @@ bool PowerThread::run()
 	float volt = 0.0f;
 	float current = 0.0f;
 
-	if ( Sensor::Voltmeters().size() > 0 ) {
-		// TODO : dissociate VBat from others voltmeters
-		volt = Sensor::Voltmeters().front()->Read() * 3.0f;
+	if ( mVoltageSensor.sensor ) {
+		if ( mVoltageSensor.type == VOLTAGE ) {
+			volt = dynamic_cast< Voltmeter* >( mVoltageSensor.sensor )->Read( mVoltageSensor.channel );
+		}
+		volt = ( volt + mVoltageSensor.shift ) * mVoltageSensor.multiplier;
 	}
-	if ( Sensor::CurrentSensors().size() > 0 ) {
-		// TODO : dissociate VCurrent from others current sensors
-		current = Sensor::CurrentSensors().front()->Read();
+	if ( mCurrentSensor.sensor ) {
+		if ( mCurrentSensor.type == VOLTAGE ) {
+			current = dynamic_cast< Voltmeter* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+		} else if ( mCurrentSensor.type == CURRENT ) {
+			current = dynamic_cast< CurrentSensor* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+		}
+		current = ( current + mCurrentSensor.shift ) * mCurrentSensor.multiplier;
 	}
 
 	mVBat = volt;

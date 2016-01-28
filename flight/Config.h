@@ -23,6 +23,8 @@ public:
 	int integer( const std::string& name );
 	float number( const std::string& name );
 
+	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
+
 protected:
 	std::string mFilename;
 	lua_State* L;

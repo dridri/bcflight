@@ -21,6 +21,7 @@ public:
 	Main();
 	~Main();
 
+	Config* config() const;
 	Board* board() const;
 	PowerThread* powerThread() const;
 	IMU* imu() const;

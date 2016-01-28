@@ -152,6 +152,34 @@ std::list< CurrentSensor* > Sensor::CurrentSensors()
 }
 
 
+Voltmeter* Sensor::voltmeter( const std::string& name )
+{
+	for ( auto it = mVoltmeters.begin(); it != mVoltmeters.end(); it++ ) {
+		Voltmeter* v = (*it);
+		for ( auto it2 = v->names().begin(); it2 != v->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return v;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+CurrentSensor* Sensor::currentSensor( const std::string& name )
+{
+	for ( auto it = mCurrentSensors.begin(); it != mCurrentSensors.end(); it++ ) {
+		CurrentSensor* c = (*it);
+		for ( auto it2 = c->names().begin(); it2 != c->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return c;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
 void Sensor::UpdateDevices()
 {
 	mGyroscopes.clear();

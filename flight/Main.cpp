@@ -17,8 +17,12 @@
 #ifdef CAMERA_INCLUDE
 	#include CAMERA_INCLUDE // defined in CMakeLists.txt
 #endif
-#include <Socket.h> // TODO : Generate this / use on-the-fly configuration
-#include <RawWifi.h> // TODO : Generate this / use on-the-fly configuration
+#ifdef BUILD_SOCKET
+	#include <Socket.h>
+#endif
+#ifdef BUILD_RAWWIFI
+	#include <RawWifi.h>
+#endif
 
 int Main::flight_entry( int ac, char** av )
 {
@@ -37,7 +41,7 @@ Main::Main()
 	float dt = 0.0f;
 
 #ifdef BOARD_generic
-#pragma message "Adding noisy fake accalerometer and gyroscope"
+#pragma message "Adding noisy fake accelerometer and gyroscope"
 	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
@@ -48,6 +52,11 @@ Main::Main()
 	Board::InformLoading();
 
 	mConfig = new Config( "config.lua" );
+	mConfig->DumpVariable( "board" );
+	mConfig->DumpVariable( "frame" );
+	mConfig->DumpVariable( "controller" );
+	mConfig->DumpVariable( "camera" );
+
 	std::string frameName = mConfig->string( "frame.type" );
 	if ( Frame::knownFrames().find( frameName ) == Frame::knownFrames().end() ) {
 		gDebug() << "FATAL ERROR : unknown frame \"" << frameName << "\" !\n";
@@ -63,33 +72,19 @@ Main::Main()
 	Board::InformLoading();
 
 	mFrame = Frame::Instanciate( frameName, mConfig );
-/*
-#if ( FRAME == XFrame )
-	float min_sp = 0.0f;
-	float max_sp = 0.99f;
-	mFrame = new XFrame( new Generic400Hz( new Servo( 18 ), min_sp, max_sp ), new Generic400Hz( new Servo( 23 ), min_sp, max_sp ), new Generic400Hz( new Servo( 24 ), min_sp, max_sp ), new Generic400Hz( new Servo( 25 ), min_sp, max_sp ) );
-#endif
-*/
 	Board::InformLoading();
 
 	mStabilizer = new Stabilizer( mFrame );
 	Board::InformLoading();
 
 #ifdef CAMERA
-	//	TODO : generate these lines
-	mCamera = new CAMERA( new Socket( 2021, Socket::UDPLite, false ) );
-// 	RawWifi* camlink = new RawWifi( "wlan0", 0 );
-// 	camlink->SetTxPower( 20 );
-// 	mCamera = new CAMERA( camlink );
+	Link* cameraLink = Link::Create( mConfig, "camera.link" );
+	mCamera = new CAMERA( cameraLink );
 	Board::InformLoading();
 #endif
-/*
-	while ( 1 ) {
-		usleep( 1000 * 1000 );
-	}
-*/
-	//	TODO : generate this line
-	mController = new Controller( this, new Socket( 2020 ) );
+
+	Link* controllerLink = Link::Create( mConfig, "controller.link" );
+	mController = new Controller( this, controllerLink );
 	mController->setPriority( 97 );
 	Board::InformLoading();
 
@@ -128,6 +123,12 @@ Main::Main()
 
 Main::~Main()
 {
+}
+
+
+Config* Main::config() const
+{
+	return mConfig;
 }
 
 

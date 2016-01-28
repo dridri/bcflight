@@ -13,7 +13,7 @@ public:
 	CurrentSensor();
 	~CurrentSensor();
 
-	virtual float Read() = 0;
+	virtual float Read( int channel = 0 ) = 0;
 
 protected:
 };

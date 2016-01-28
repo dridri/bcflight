@@ -5,9 +5,12 @@
 #include <stdarg.h>
 #include <string>
 
+class Config;
+
 class Link
 {
 public:
+	static Link* Create( Config* config, const std::string& lua_object );
 	Link();
 	virtual ~Link();
 
