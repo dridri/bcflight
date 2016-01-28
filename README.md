@@ -4,7 +4,7 @@ This project aims to create open-source flight controller and ground controller 
 At this time, you won't be able to fly a drone using this project, as the controller is not finished yet.
 
 ## flight
-Current status : working - beta
+Current status : ~~working - beta~~ => configuration loader in progress
 
 The 'flight' subfolder contains the flight controller itself, currently supporting only Raspberry Pi board, but can be easily extended to any kind of board (including non-Linux ones, but it is not the purpose of this project).
 
