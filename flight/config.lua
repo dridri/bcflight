@@ -4,14 +4,6 @@
 -- Socket{ type = "TCP/UDP/UDPLite", port = port_number[, broadcast = true/false] } <= broadcast is false by default
 
 
-board = {} -- declare board structure
-frame = {} -- declare frame structure
-controller = {} -- declare controller structure
-camera = {} -- declare camera structure
-
-
---- Choose your board type, this should be the same as used at compile-time and is checked at run-time
-board.type = "rpi"
 --- Setup battery sensors : voltage sensor is mandatory, current sensor is strongly advised
 board.battery = {
 	voltage = Voltmeter{ device = "ADS1015", channel = 0, multiplier = 3.0 }, -- Battery voltage
