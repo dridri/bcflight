@@ -62,10 +62,5 @@ float ADS1015::Read( int channel )
 	ret = ( ( ret << 8 ) & 0xFF00 ) | ( ( ret >> 8 ) & 0xFF );
 	float fret = (float)( ret * 6.144f / 32768.0f );
 
-	mRingSum -= mRingBuffer[ mRingIndex ];
-	mRingBuffer[ mRingIndex ] = fret;
-	mRingSum += fret;
-	mRingIndex = ( mRingIndex + 1 ) % 16;
-
-	return mRingSum / 16.0f;
+	return fret;
 }

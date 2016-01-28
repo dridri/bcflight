@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 #include "Link.h"
 
+class Main;
+
 class Socket : public Link
 {
 public:
@@ -29,7 +31,11 @@ public:
 	int WriteString( const std::string& s );
 	int WriteString( const char* fmt, ... );
 
+	static int flight_register( Main* main );
+
 protected:
+	static Link* Instanciate( Config* config, const std::string& lua_object );
+
 	uint16_t mPort;
 	PortType mPortType;
 	bool mBroadcast;

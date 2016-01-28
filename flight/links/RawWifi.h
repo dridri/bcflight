@@ -6,6 +6,8 @@
 #include "Link.h"
 #include <wifibroadcast.h>
 
+class Main;
+
 class RawWifi : public Link
 {
 public:
@@ -25,7 +27,11 @@ public:
 	int WriteString( const std::string& s );
 	int WriteString( const char* fmt, ... );
 
+	static int flight_register( Main* main );
+
 protected:
+	static Link* Instanciate( Config* config, const std::string& lua_object );
+
 	rwifi_tx_t* mTx;
 	rwifi_rx_t* mRx;
 	std::string mDevice;

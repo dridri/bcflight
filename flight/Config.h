@@ -22,6 +22,7 @@ public:
 	std::string string( const std::string& name );
 	int integer( const std::string& name );
 	float number( const std::string& name );
+	bool boolean( const std::string& name );
 
 	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
 

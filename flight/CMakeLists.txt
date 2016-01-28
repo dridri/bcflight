@@ -67,7 +67,7 @@ if ( NOT ${camera} MATCHES OFF AND ${camera_found} LESS 0 )
 endif()
 
 include( boards/${board}/board.cmake )
-add_definitions( -DBOARD=${board} -DBOARD_${board} )
+add_definitions( -DBOARD="${board}" -DBOARD_${board} )
 if ( NOT ${camera} MATCHES OFF )
 	add_definitions( -DCAMERA=${camera} -DCAMERA_INCLUDE="${camera}.h" )
 endif()

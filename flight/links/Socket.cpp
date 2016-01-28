@@ -20,8 +20,39 @@ typedef struct sockaddr_in SOCKADDR_IN;
 typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
 
-#include <Debug.h>
+#include "../Debug.h"
 #include "Socket.h"
+#include "../Config.h"
+
+
+int Socket::flight_register( Main* main )
+{
+	RegisterLink( "Socket", &Socket::Instanciate );
+	return 0;
+}
+
+
+Link* Socket::Instanciate( Config* config, const std::string& lua_object )
+{
+	PortType type = UDPLite; // Default to UDPLite
+
+	std::string stype = config->string( lua_object + ".type" );
+	if ( stype == "TCP" ) {
+		type = TCP;
+	} else if ( stype == "UDP" ) {
+		type = UDP;
+	} else if ( stype == "UDPLite" ) {
+		type = UDPLite;
+	} else {
+		gDebug() << "FATAL ERROR : Unsupported Socket type \"" << stype << "\" !\n";
+	}
+
+	int port = config->integer( lua_object + ".port" );
+	bool broadcast = config->boolean( lua_object + ".broadcast" );
+
+	return new Socket( port, type, broadcast );
+}
+
 
 Socket::Socket( uint16_t port, PortType type, bool broadcast )
 	: mPort( port )

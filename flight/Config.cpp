@@ -64,6 +64,21 @@ float Config::number( const std::string& name )
 }
 
 
+bool Config::boolean( const std::string& name )
+{
+	Debug() << "Config::number( " << name << " )";
+
+	if ( LocateValue( name ) < 0 ) {
+		Debug() << " => not found !\n";
+		return 0;
+	}
+
+	bool ret = lua_toboolean( L, -1 );
+	Debug() << " => " << ret << "\n";
+	return ret;
+}
+
+
 int Config::LocateValue( const std::string& _name )
 {
 	const char* name = _name.c_str();

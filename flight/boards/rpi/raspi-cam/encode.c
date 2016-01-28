@@ -749,30 +749,37 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 
 	OMX_PARAM_CAMERAIMAGEPOOLTYPE pool;
 	OMX_INIT_STRUCTURE( pool );
-	pool.nNumHiResVideoFrames = 1;
-	pool.nHiResVideoWidth = WIDTH;
-	pool.nHiResVideoHeight = HEIGHT;
-	pool.eHiResVideoType = OMX_COLOR_FormatYUV420PackedPlanar;
-	pool.nNumHiResStillsFrames = 2;
-	pool.nHiResStillsWidth = WIDTH;
-	pool.nHiResStillsHeight = HEIGHT;
-	pool.eHiResStillsType = OMX_COLOR_FormatYUV420PackedPlanar;
-	pool.nNumLoResFrames = 1;
-	pool.nLoResWidth = WIDTH;
-	pool.nLoResHeight = HEIGHT;
-	pool.eLoResType = OMX_COLOR_FormatYUV420PackedPlanar;
-	pool.nNumSnapshotFrames = 1;
-	pool.eSnapshotType = OMX_COLOR_FormatYUV420PackedPlanar;
+	OERR( OMX_GetParameter( ctx->cam, OMX_IndexParamCameraImagePool, &pool ) );
+// 	pool.nNumHiResVideoFrames = 1;
+// 	pool.nHiResVideoWidth = WIDTH;
+// 	pool.nHiResVideoHeight = HEIGHT;
+// 	pool.eHiResVideoType = OMX_COLOR_FormatYUV420PackedPlanar;
+// 	pool.nNumHiResStillsFrames = 1; <<==2
+// 	pool.nHiResStillsWidth = WIDTH;
+// 	pool.nHiResStillsHeight = HEIGHT;
+// 	pool.eHiResStillsType = OMX_COLOR_FormatYUV420PackedPlanar;
+// 	pool.nNumLoResFrames = 1;
+// 	pool.nLoResWidth = WIDTH;
+// 	pool.nLoResHeight = HEIGHT;
+// 	pool.eLoResType = OMX_COLOR_FormatYUV420PackedPlanar;
+// 	pool.nNumSnapshotFrames = 1;
+// 	pool.eSnapshotType = OMX_COLOR_FormatYUV420PackedPlanar;
 	pool.eInputPoolMode = OMX_CAMERAIMAGEPOOLINPUTMODE_TWOPOOLS;
-	pool.nNumInputVideoFrames = 1;
-	pool.nInputVideoWidth = WIDTH;
-	pool.nInputVideoHeight = HEIGHT;
-	pool.eInputVideoType = OMX_COLOR_FormatYUV420PackedPlanar;
-	pool.nNumInputStillsFrames = 0;
-	pool.nInputStillsWidth = WIDTH;
-	pool.nInputStillsHeight = HEIGHT;
-	pool.eInputStillsType = OMX_COLOR_FormatYUV420PackedPlanar;
+// 	pool.nNumInputVideoFrames = 1;
+// 	pool.nInputVideoWidth = WIDTH;
+// 	pool.nInputVideoHeight = HEIGHT;
+// 	pool.eInputVideoType = OMX_COLOR_FormatYUV420PackedPlanar;
+// 	pool.nNumInputStillsFrames = 1; //// <== 0
+// 	pool.nInputStillsWidth = WIDTH;
+// 	pool.nInputStillsHeight = HEIGHT;
+// 	pool.eInputStillsType = OMX_COLOR_FormatYUV420PackedPlanar;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraImagePool, &pool ) );
+
+	OMX_PARAM_CAMERACAPTUREMODETYPE captureMode;
+	OMX_INIT_STRUCTURE( captureMode );
+	captureMode.nPortIndex = OMX_ALL;
+	captureMode.eMode = OMX_CameraCaptureModeResumeViewfinderImmediately;
+	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCaptureMode, &captureMode ) );
 
 
 	/*
@@ -824,23 +831,17 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	disableAlgorithm.eAlgorithm = OMX_CameraDisableAlgorithmHighDynamicRange;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraDisableAlgorithm, &disableAlgorithm ) );
 
-	OMX_PARAM_TIMESTAMPMODETYPE timestamp;
-	OMX_INIT_STRUCTURE( timestamp );
-	timestamp.eTimestampMode = OMX_TimestampModeResetStc;
-	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCommonUseStcTimestamps, &timestamp ) );
-
-	OMX_PARAM_CAMERACAPTUREMODETYPE captureMode;
-	OMX_INIT_STRUCTURE( captureMode );
-	captureMode.nPortIndex = OMX_ALL;
-	captureMode.eMode = OMX_CameraCaptureModeResumeViewfinderImmediately;
-	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCaptureMode, &captureMode ) );
-
 	OMX_CONFIG_ZEROSHUTTERLAGTYPE zero_shutter;
 	OMX_INIT_STRUCTURE( zero_shutter );
 // 	zero_shutter.bZeroShutterMode = OMX_TRUE;
 	zero_shutter.bZeroShutterMode = OMX_FALSE; // TBD ??
 	zero_shutter.bConcurrentCapture = OMX_TRUE;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraZeroShutterLag, &zero_shutter ) );
+
+	OMX_PARAM_TIMESTAMPMODETYPE timestamp;
+	OMX_INIT_STRUCTURE( timestamp );
+	timestamp.eTimestampMode = OMX_TimestampModeResetStc;
+	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCommonUseStcTimestamps, &timestamp ) );
 
 	OMX_CONFIG_EXPOSUREVALUETYPE exposure_value;
 	OMX_INIT_STRUCTURE(exposure_value);

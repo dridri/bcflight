@@ -57,6 +57,11 @@ Main::Main()
 	mConfig->DumpVariable( "controller" );
 	mConfig->DumpVariable( "camera" );
 
+	if ( mConfig->string( "board.type" ) != std::string( BOARD ) ) {
+		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->string( "board.type" ) << "\" ) differs from board being used ( \"" << BOARD << "\" ) !\n";
+		return;
+	}
+
 	std::string frameName = mConfig->string( "frame.type" );
 	if ( Frame::knownFrames().find( frameName ) == Frame::knownFrames().end() ) {
 		gDebug() << "FATAL ERROR : unknown frame \"" << frameName << "\" !\n";

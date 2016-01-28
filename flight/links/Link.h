@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <string>
+#include <map>
+#include <functional>
 
 class Config;
 
@@ -29,6 +31,9 @@ public:
 
 protected:
 	bool mConnected;
+
+	static void RegisterLink( const std::string& name, std::function< Link* ( Config*, const std::string& ) > instanciate );
+	static std::map< std::string, std::function< Link* ( Config*, const std::string& ) > > mKnownLinks;
 };
 
 #endif // LINK_H

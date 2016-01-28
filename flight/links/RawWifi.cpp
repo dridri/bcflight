@@ -4,6 +4,26 @@
 #include <string.h>
 #include <Debug.h>
 #include "RawWifi.h"
+#include "../Config.h"
+
+
+int RawWifi::flight_register( Main* main )
+{
+	RegisterLink( "RawWifi", &RawWifi::Instanciate );
+	return 0;
+}
+
+
+Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
+{
+	std::string device = config->string( lua_object + ".device" );
+	int output_port = config->integer( lua_object + ".output_port" );
+	int input_port = config->integer( lua_object + ".input_port" );
+
+	return new RawWifi( device, output_port, input_port );
+}
+
+
 
 RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	: Link()
