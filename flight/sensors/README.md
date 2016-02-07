@@ -15,6 +15,3 @@ Gyroscopes, accelerometers, magnetometers are used as attitude sensors. Each att
 As many as requested sensors can be used ( within the limits of how many sensors the I2C/SPI/other busses support ). Attitude sensors and GPSs are mixed together (by IMU::UpdateSensors()) if several of them are used.
 
 Every axes of each sensors can be swapped ( or the whole vector can be multiplied by a matrix ) to allow easier alignement between the sensor and drone's frame. ( see Sensor::setAxisSwap() and Sensor::setAxisMatrix() )
-
-
-ADS1015 driver is incorrect for now, as one of its input is used as current sensor for testing purpose, there should be a configurable wrapper around that.
