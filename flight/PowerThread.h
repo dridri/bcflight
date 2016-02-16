@@ -17,6 +17,7 @@ public:
 	float VBat() const;
 	float CurrentTotal() const;
 	float CurrentDraw() const;
+	float BatteryLevel() const;
 
 protected:
 	virtual bool run();
@@ -41,6 +42,7 @@ private:
 	float mVBat;
 	float mCurrentTotal;
 	float mCurrentDraw;
+	float mBatteryLevel;
 	float mBatteryCapacity;
 
 	BatterySensor mVoltageSensor;

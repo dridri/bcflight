@@ -31,11 +31,11 @@
 	#define PREV_HEIGHT    ((PREV_WIDTH)*9/16)
 #else
 	#define FPS       40
-	#define WIDTH     640
-	#define HEIGHT    480
-	#define PREV_BITRATE   512
-	#define PREV_WIDTH     640
-	#define PREV_HEIGHT    480
+	#define WIDTH     800
+	#define HEIGHT    600
+	#define PREV_BITRATE   2048
+	#define PREV_WIDTH     800
+	#define PREV_HEIGHT    600
 #endif
 
 #define PITCH     ((WIDTH+31)&~31)
@@ -50,8 +50,8 @@
 #define CAM_SHARPNESS                   100                       // -100 .. 100
 #define CAM_CONTRAST                    0                        // -100 .. 100
 #define CAM_BRIGHTNESS                  50                       // 0 .. 100
-#define CAM_SATURATION                  10                        // -100 .. 100
-#define CAM_EXPOSURE_VALUE_COMPENSATION 0
+#define CAM_SATURATION                  0                        // -100 .. 100
+#define CAM_EXPOSURE_VALUE_COMPENSATION 00
 #define CAM_EXPOSURE_ISO_SENSITIVITY    800
 #define CAM_EXPOSURE_AUTO_SENSITIVITY   OMX_TRUE
 #define CAM_FRAME_STABILISATION         OMX_FALSE //OMX_TRUE

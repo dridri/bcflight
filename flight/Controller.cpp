@@ -106,6 +106,13 @@ bool Controller::run()
 
 	switch ( cmd )
 	{
+		case PING : {
+			uint32_t ticks = 0;
+			if ( mLink->ReadU32( &ticks ) == sizeof(uint32_t) ) {
+				mLink->WriteU32( ticks );
+			}
+			break;
+		}
 		case CALIBRATE : {
 			uint32_t full_recalibration = 0;
 			float curr_altitude = 0.0f;
@@ -165,13 +172,15 @@ bool Controller::run()
 			break;
 		}
 		case TOTAL_CURRENT : {
-			std::stringstream ss;
 			mLink->WriteFloat( mMain->powerThread()->CurrentTotal() );
 			break;
 		}
 		case CURRENT_DRAW : {
-			std::stringstream ss;
 			mLink->WriteFloat( mMain->powerThread()->CurrentDraw() );
+			break;
+		}
+		case BATTERY_LEVEL : {
+			mLink->WriteFloat( mMain->powerThread()->BatteryLevel() );
 			break;
 		}
 		case ROLL_PITCH_YAW : {

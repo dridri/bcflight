@@ -231,6 +231,7 @@ void video_start( context* ctx )
 	omx_print_state( "enc1", ctx->enc1 );
 #endif
 	OERR( OMX_SendCommand( ctx->enc2, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
+	omx_block_until_state_changed( ctx->enc2, OMX_StateExecuting );
 	omx_print_state( "enc2", ctx->enc2 );
 	OERR( OMX_SendCommand( ctx->nll, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
 	omx_print_state( "nll", ctx->nll );
@@ -240,6 +241,8 @@ void video_start( context* ctx )
 	capture.nPortIndex = 71;
 	capture.bEnabled = OMX_TRUE;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexConfigPortCapturing, &capture ) );
+
+	printf( "Video running !\n" );
 
 	usleep( 1000 * 100 );
 	ctx->running = 1;
@@ -560,17 +563,7 @@ context* video_configure()
 	bitrate->eControlRate = OMX_Video_ControlRateVariableSkipFrames;
 	bitrate->nTargetBitrate = ( PREV_BITRATE * 1024 );
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoBitrate, bitrate ) );
-/*
-	OMX_VIDEO_CONFIG_AVCINTRAPERIOD intraPeriod;
-	OMX_INIT_STRUCTURE( intraPeriod );
-	intraPeriod.nPortIndex = 201;
-	OERR( OMX_GetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &intraPeriod ) );
-	printf( "nIDRPeriod : %d\n", intraPeriod.nIDRPeriod );
-	printf( "nPFrames : %d\n", intraPeriod.nPFrames );
-	intraPeriod.nIDRPeriod = 30;
-	intraPeriod.nPFrames = 30;
-	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &intraPeriod ) );
-*/
+
 	OMX_CONFIG_PORTBOOLEANTYPE inlinePPSSPS;
 	OMX_INIT_STRUCTURE( inlinePPSSPS );
 	inlinePPSSPS.nPortIndex = 201;
@@ -608,7 +601,7 @@ context* video_configure()
 	avc.bEnableASO = OMX_TRUE;
 	avc.bEnableRS = OMX_FALSE;
 	avc.eProfile = OMX_VIDEO_AVCProfileBaseline;
-	avc.eLevel = OMX_VIDEO_AVCLevel3;
+	avc.eLevel = OMX_VIDEO_AVCLevel4;
 	avc.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP | OMX_VIDEO_PictureTypeEI | OMX_VIDEO_PictureTypeEP;
 	avc.bFrameMBsOnly = OMX_TRUE;
 	avc.bMBAFF = OMX_FALSE;
@@ -724,7 +717,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	OMX_PARAM_BRCMFRAMERATERANGETYPE fps_range;
 	OMX_INIT_STRUCTURE( fps_range );
 	fps_range.xFramerateLow = FPS << 16;
-	fps_range.xFramerateHigh = 55 << 16;
+	fps_range.xFramerateHigh = 60 << 16;
 	fps_range.nPortIndex = 71;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamBrcmFpsRange, &fps_range ) );
 	fps_range.nPortIndex = 71;
@@ -741,10 +734,11 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	 * 6 = 30-60 fps VGA
 	 * 7 = 60-90 fps VGA
 	*/
+
 	OMX_PARAM_U32TYPE sensorMode;
 	OMX_INIT_STRUCTURE( sensorMode );
 	sensorMode.nPortIndex = OMX_ALL;
-	sensorMode.nU32 = 7;
+	sensorMode.nU32 = 5;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCustomSensorConfig, &sensorMode ) );
 
 	OMX_PARAM_CAMERAIMAGEPOOLTYPE pool;
@@ -850,7 +844,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	exposure_value.nApertureFNumber = ( 28 << 16 ) / 10;
 	exposure_value.bAutoSensitivity = OMX_TRUE;
 	exposure_value.nSensitivity = CAM_EXPOSURE_ISO_SENSITIVITY;
-	exposure_value.bAutoShutterSpeed = OMX_FALSE;
+	exposure_value.bAutoShutterSpeed = OMX_TRUE;
 	exposure_value.nShutterSpeedMsec = 1000 * ( 1000 / 60 - 1 ); // Actually in µs
 	OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonExposureValue, &exposure_value ) );
 
@@ -858,7 +852,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	OMX_CONFIG_EXPOSURECONTROLTYPE exposure_type;
 	OMX_INIT_STRUCTURE(exposure_type);
 	exposure_type.nPortIndex = OMX_ALL;
-	exposure_type.eExposureControl = OMX_ExposureControlAuto;
+	exposure_type.eExposureControl = OMX_ExposureControlSports ;//OMX_ExposureControlAuto;
 	OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonExposure, &exposure_type ) );
 /*
 	// Enable HDR

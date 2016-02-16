@@ -12,6 +12,7 @@ PowerThread::PowerThread( Main* main )
 	, mVBat( 0.0f )
 	, mCurrentTotal( 0.0f )
 	, mCurrentDraw( 0.0f )
+	, mBatteryLevel( 0.0f )
 	, mBatteryCapacity( 2500.0f )
 	, mVoltageSensor{ NONE, nullptr, 0, 0, 0 }
 	, mCurrentSensor{ NONE, nullptr, 0, 0, 0 }
@@ -78,6 +79,12 @@ float PowerThread::CurrentDraw() const
 }
 
 
+float PowerThread::BatteryLevel() const
+{
+	return mBatteryLevel;
+}
+
+
 void PowerThread::ResetFullBattery( uint32_t capacity_mah )
 {
 	mCurrentTotal = 0.0f;
@@ -114,6 +121,8 @@ bool PowerThread::run()
 	mVBat = volt;
 	mCurrentTotal += current * dt / 3600.0f;
 	mCurrentDraw = current / 3600.0f;
+
+	mBatteryLevel = 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity;
 
 	if ( mTicks % ( 10 * 1000 * 1000 ) == 0 ) {
 		Board::SaveRegister( "VBat", std::to_string( mVBat ) );

@@ -2,9 +2,9 @@ execute_process( COMMAND uname -p OUTPUT_VARIABLE BUILD_ARCH )
 
 if ( ${BUILD_ARCH} MATCHES "x86*" )
 	message( "Cross compilation detected, setting compiler prefix to arm-linux-gnueabihf-" )
-	set( CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc" )
-	set( CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++" )
-	set( CMAKE_AR "arm-linux-gnueabihf-ar" )
+# 	set( CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc" )
+# 	set( CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++" )
+# 	set( CMAKE_AR "arm-linux-gnueabihf-ar" )
 endif()
 
 set( TARGET_CPU_BITS 32 )

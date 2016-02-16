@@ -115,10 +115,12 @@ bool Raspicam::LiveThreadRun()
 			video_recover( mVideoContext );
 		} else if ( ret < 0 ) {
 			gDebug() << "video: Disconnected ?!\n";
+			/*
 			video_stop( mVideoContext );
 // 			audio_stop( mAudioContext );
 			mVideoContext->enc1_data_avail = 0;
 			mVideoContext->enc2_data_avail = 0;
+			*/
 		}
 	}
 
@@ -204,23 +206,17 @@ bool Raspicam::RecordThreadRun()
 
 int Raspicam::LiveSend( char* data, int datalen )
 {
-	int err;
-	union {
-		int32_t s;
-		uint32_t u;
-	} ret;
-
 	if ( datalen <= 0 ) {
 		return datalen;
 	}
 
-	err = mLink->Write( data, datalen );
-	if ( err <= 0 ) {
+	int err = mLink->Write( data, datalen );
+	if ( err < 0 ) {
 		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
 		return -1;
 	}
 
-	return ret.s;
+	return 0;
 }
 
 

@@ -51,7 +51,7 @@ Main::Main()
 	DetectDevices();
 	Board::InformLoading();
 
-	mConfig = new Config( "config.lua" );
+	mConfig = new Config( "/data/prog/config.lua" );
 	mConfig->DumpVariable( "board" );
 	mConfig->DumpVariable( "frame" );
 	mConfig->DumpVariable( "controller" );
@@ -90,7 +90,7 @@ Main::Main()
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
-	mController->setPriority( 97 );
+	mController->setPriority( 99 );
 	Board::InformLoading();
 
 	Thread::setMainPriority( 99 );

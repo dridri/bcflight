@@ -25,6 +25,7 @@ public:
 protected:
 	typedef enum {
 		// Configure
+		PING = 0x70,
 		CALIBRATE = 0x71,
 		SET_TIMESTAMP = 0x72,
 		ARM = 0x73,
@@ -50,6 +51,7 @@ protected:
 		VBAT = 0x30,
 		TOTAL_CURRENT = 0x31,
 		CURRENT_DRAW = 0x32,
+		BATTERY_LEVEL = 0x34,
 		// Setters
 		SET_ROLL = 0x40,
 		SET_PITCH = 0x41,

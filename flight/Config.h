@@ -4,10 +4,10 @@
 #include <string>
 
 extern "C" {
-#include <luajit/luajit.h>
-#include <luajit/lua.h>
-#include <luajit/lualib.h>
-#include <luajit/lauxlib.h>
+#include <luajit.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 };
 
 class Config
