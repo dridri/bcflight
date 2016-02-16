@@ -1,7 +1,7 @@
 cmake_minimum_required( VERSION 2.6 )
 project( rawwifi )
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -std=c11 -D_BSD_SOURCE -D_GNU_SOURCE" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3" )
 
 add_library(rawwifi
 			rx.c
@@ -11,4 +11,4 @@ add_library(rawwifi
 			fec.c
 			)
 
-target_link_libraries( rawwifi -lrt -lpcap )
+target_link_libraries( rawwifi -lrt )
