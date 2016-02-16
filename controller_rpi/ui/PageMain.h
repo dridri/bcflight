@@ -2,7 +2,6 @@
 #define PAGEMAIN_H
 
 #include <libbcui/Page.h>
-#include "Globals.h"
 
 using namespace BC;
 

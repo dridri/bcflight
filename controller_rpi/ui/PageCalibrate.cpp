@@ -13,7 +13,7 @@ PageCalibrate::PageCalibrate()
 	mAxies[2].name = "Pitch";
 	mAxies[3].name = "Roll";
 	mAxies[0].max = mAxies[1].max = mAxies[2].max = mAxies[3].max = 0;
-	mAxies[0].center = mAxies[1].center = mAxies[2].center = mAxies[3].center = 2768;
+	mAxies[0].center = mAxies[1].center = mAxies[2].center = mAxies[3].center = 2000;
 	mAxies[0].min = mAxies[1].min = mAxies[2].min = mAxies[3].min = 65535;
 }
 
@@ -55,15 +55,11 @@ void PageCalibrate::click( float _x, float _y, float force )
 	int icon_width = icon_width_base * 1.1;
 	int icon_height = getGlobals()->icon( "selector" )->height();
 
-	if ( x >= 8 and x <= 8 + getGlobals()->icon( "selector" )->width() ) {
-		if ( y >= 8 + icon_height * 0 and y <= 8 + icon_height * 1.5 ) {
-			getGlobals()->setCurrentPage( "PageMain" );
-		} else if ( y >= 8 + icon_height * 1.5 * 1 and y <= 8 + icon_height * 1.5 * 2 ) {
-			getGlobals()->setCurrentPage( "PageCalibrate" );
-		} else if ( y >= 8 + icon_height * 1.5 * 2 and y <= 8 + icon_height * 1.5 * 3 ) {
-			getGlobals()->setCurrentPage( "PageSettings" );
-		}
-	} else if (x >= icon_width * 1.75 and y >= 8 and x <= icon_width * 1.75 + icon_width_base and y <= 8 + icon_height ) {
+	if ( getGlobals()->PageSwitcher( x, y ) ) {
+		return;
+	}
+
+	if (x >= icon_width * 1.75 and y >= 8 and x <= icon_width * 1.75 + icon_width_base and y <= 8 + icon_height ) {
 		if ( mCurrentAxis > 0 ) {
 			mApplyTimer.Stop();
 			mCurrentAxis--;
@@ -87,6 +83,17 @@ void PageCalibrate::click( float _x, float _y, float force )
 		mApplyTimer.Stop();
 		mApplyTimer.Start();
 	}
+
+	int reset_w = 0;
+	int reset_h = 0;
+	font->measureString( "Reset", &reset_w, &reset_h );
+	int reset_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
+	int reset_y = window->height() - reset_h * 2.5;
+	if ( x >= reset_x and y >= reset_y and x <= reset_x + reset_w ) {
+		mAxies[mCurrentAxis].max = 0;
+		mAxies[mCurrentAxis].center = 2000;
+		mAxies[mCurrentAxis].min = 65535;
+	}
 }
 
 
@@ -105,9 +112,9 @@ bool PageCalibrate::update( float t, float dt )
 	int th = 0;
 
 	uint16_t value = controller->joystick( mCurrentAxis )->ReadRaw();
-	mAxies[ mCurrentAxis ].max = std::max( mAxies[ mCurrentAxis ].max, value );
-	mAxies[ mCurrentAxis ].center = value;
-	mAxies[ mCurrentAxis ].min = std::min( mAxies[ mCurrentAxis ].min, value );
+	mAxies[ mCurrentAxis ].max = std::min( (uint16_t)2500, std::max( mAxies[ mCurrentAxis ].max, value ) );
+	mAxies[ mCurrentAxis ].min = std::max( (uint16_t)1500, std::min( mAxies[ mCurrentAxis ].min, value ) );
+	mAxies[ mCurrentAxis ].center = std::min( mAxies[ mCurrentAxis ].max, std::max( mAxies[ mCurrentAxis ].min, value ) );
 
 	font->measureString( "max : ", &tw, &th );
 	th = font->size() * 1.25;
@@ -145,15 +152,11 @@ void PageCalibrate::render()
 
 	window->Clear( 0xFF403030 );
 
-	int icon_width = getGlobals()->icon( "selector" )->width() * 1.1;
-	int icon_height = getGlobals()->icon( "selector" )->height() * 1.5;
-	renderer->DrawLine( 16 + icon_width, 0, 0xFFFFFFFF, 16 + icon_width, window->height(), 0xFFFFFFFF );
-	renderer->Draw( 8, 8 + icon_height * 0, getGlobals()->icon( "home" ) );
-	renderer->Draw( 8, 8 + icon_height * 1, getGlobals()->icon( "calibrate" ) );
-	renderer->Draw( 8, 8 + icon_height * 1, getGlobals()->icon( "selector" ) );
-	renderer->Draw( 8, 8 + icon_height * 2, getGlobals()->icon( "settings" ) );
-	renderer->Draw( getGlobals()->icon( "selector" )->width() * 1.75, 8, getGlobals()->icon( "left" ) );
-	renderer->Draw( getGlobals()->icon( "selector" )->width() * 1.75 * 2, 8, getGlobals()->icon( "right" ) );
+	int icon_width = getGlobals()->icon( "PageMain" )->width() * 1.1;
+	int icon_height = getGlobals()->icon( "PageMain" )->height() * 1.5;
+	getGlobals()->RenderDrawer();
+	renderer->Draw( getGlobals()->icon( "PageMain" )->width() * 1.75, 8, getGlobals()->icon( "left" ) );
+	renderer->Draw( getGlobals()->icon( "PageMain" )->width() * 1.75 * 2, 8, getGlobals()->icon( "right" ) );
 
 	font->measureString( mAxies[ mCurrentAxis ].name, &tw, &th );
 // 	renderer->DrawText( window->width() - tw * 1.1, 0, font, 0xFFFFFFFF, mAxies[ mCurrentAxis ].name );
@@ -167,7 +170,14 @@ void PageCalibrate::render()
 	int apply_w = 0;
 	int apply_h = 0;
 	font->measureString( "Apply", &apply_w, &apply_h );
-	int apply_x = getGlobals()->icon( "selector" )->width() * 2.5;
+	int apply_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
 	int apply_y = window->height() - apply_h * 1.25;
 	renderer->DrawText( apply_x, apply_y, font, 0xFFFFFFFF, "Apply" );
+
+	int reset_w = 0;
+	int reset_h = 0;
+	font->measureString( "Reset", &reset_w, &reset_h );
+	int reset_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
+	int reset_y = window->height() - reset_h * 2.5;
+	renderer->DrawText( reset_x, reset_y, font, 0xFFFFFFFF, "Reset" );
 }

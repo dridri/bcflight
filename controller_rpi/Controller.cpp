@@ -8,19 +8,31 @@
 
 Controller::Controller( const std::string& addr, uint16_t port )
 	: Thread()
-	, mSocket( new Socket( addr, port, Socket::UDPLite ) )
+	, mPing( 0 )
+	, mTotalCurrent( 0 )
+	, mCurrentDraw( 0 )
+	, mBatteryVoltage( 0 )
+	, mBatteryLevel( 0 )
+	, mSocket( new Socket( addr, port, Socket::TCP ) )
+	, mPingTimer( Timer() )
 	, mTicks( 0 )
 {
+	mADC = nullptr;
+	mArmed = false;
+
 	mJoysticks[0] = Joystick( 0, "/sys/bus/iio/devices/iio:device0/in_voltage0_raw", true );
 	mJoysticks[1] = Joystick( 1, "/sys/bus/iio/devices/iio:device0/in_voltage1_raw" );
 	mJoysticks[2] = Joystick( 2, "/sys/bus/iio/devices/iio:device0/in_voltage2_raw" );
 	mJoysticks[3] = Joystick( 3, "/sys/bus/iio/devices/iio:device0/in_voltage3_raw" );
+	mPingTimer.Start();
+	Start();
 }
 
 
 Controller::~Controller()
 {
 }
+
 
 Controller::Joystick::Joystick( int id, const std::string& devfile, bool thrust_mode )
 	: mId( id )
@@ -69,9 +81,13 @@ uint16_t Controller::Joystick::ReadRaw()
 	uint16_t ret = 0;
 
 	mFd = open( mDevFile.c_str(), O_RDONLY );
-	int rret = read( mFd, buf, sizeof(buf) );
-	close( mFd );
-	ret = (uint16_t)atoi( buf );
+	if ( mFd > 0 ) {
+		int rret = read( mFd, buf, sizeof(buf) );
+		close( mFd );
+		if ( rret > 0 ) {
+			ret = (uint16_t)atoi( buf );
+		}
+	}
 
 	return ret;
 }
@@ -80,9 +96,20 @@ uint16_t Controller::Joystick::ReadRaw()
 float Controller::Joystick::Read()
 {
 	uint16_t raw = ReadRaw();
+	if ( raw <= mMin ) {
+		return 0.0f;
+	}
+	if ( raw >= mMax ) {
+		return 0.0f;
+	}
+	if ( raw == 0 ) {
+		return -10.0f;
+	}
 
 	if ( mThrustMode ) {
-		return (float)( raw - mMin ) / (float)( mMax - mMin );
+		float ret = (float)( raw - mMin ) / (float)( mMax - mMin );
+// 		printf( "%d ( %.2f )\n", raw, ret );
+		return ret;
 	}
 
 	if ( raw < 0 ) {
@@ -94,23 +121,57 @@ float Controller::Joystick::Read()
 
 bool Controller::run()
 {
-	float r_thrust = mJoysticks[0].Read();
-	float r_yaw = mJoysticks[1].Read();
-	float r_pitch = mJoysticks[2].Read();
-	float r_roll = mJoysticks[3].Read();
-	if ( r_thrust != mThrust ) {
-		setThrust( r_thrust );
-	}
-	if ( r_roll != mRPY.x ) {
-		setRoll( r_roll );
-	}
-	if ( r_pitch != mRPY.y ) {
-		setPitch( r_pitch );
-	}
-	if ( r_yaw != mRPY.z ) {
-		setYaw( r_yaw );
+	if ( mPingTimer.ellapsed() >= 1000 ) {
+		uint64_t ticks = Time::GetTick();
+		Send( PING, (uint32_t)( ticks & 0xFFFFFFFFL ) );
+		uint32_t ret = ReceiveU32();
+		uint32_t curr = (uint32_t)( Time::GetTick() & 0xFFFFFFFFL );
+		mPing = curr - ret;
+
+		Send( VBAT );
+		mBatteryVoltage = ReceiveFloat();
+		Send( TOTAL_CURRENT );
+		mTotalCurrent = (uint32_t)( ReceiveFloat() * 1000.0f );
+		Send( BATTERY_LEVEL );
+		mBatteryLevel = ReceiveFloat();
+
+		mPingTimer.Stop();
+		mPingTimer.Start();
 	}
 
+	if ( mADC == nullptr ) {
+		mADC = new MCP320x();
+	}
+
+// 	float r_thrust = mJoysticks[0].Read();
+	uint16_t raw = mADC->Read( 0 );
+	float r_thrust = (float)( raw - 1500 ) / (float)( 2500 - 1500 );
+	r_thrust = std::max( 0.0f, std::min( 1.0f, r_thrust ) );
+	if ( raw != 0 and r_thrust != mThrust and r_thrust >= 0.0f and r_thrust <= 1.0f ) {
+		printf( "r_thrust : %.2f\n", r_thrust );
+		if ( r_thrust >= 0.0f and not mArmed ) {
+			Arm();
+		} //else if ( r_thrust <= 0.1f and mArmed ) {
+// 			Disarm();
+// 		}
+		setThrust( r_thrust );
+	}
+
+// 	float r_yaw = mJoysticks[1].Read();
+// 	float r_pitch = mJoysticks[2].Read();
+// 	float r_roll = mJoysticks[3].Read();
+
+/*
+	if ( r_roll != mRPY.x and r_roll != -10.0f ) {
+		setRoll( r_roll );
+	}
+	if ( r_pitch != mRPY.y and r_pitch != -10.0f ) {
+		setPitch( r_pitch );
+	}
+	if ( r_yaw != mRPY.z and r_yaw != -10.0f ) {
+		setYaw( r_yaw );
+	}
+*/
 	mTicks = Time::WaitTick( 1000 / 100, mTicks );
 	return true;
 }

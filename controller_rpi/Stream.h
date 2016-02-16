@@ -17,11 +17,13 @@
 
 #include "decode.h"
 #include "DecodedImage.h"
+#include "RendererHUD.h"
 
 #include <wifibroadcast.h>
 
 using namespace GE;
 
+class Controller;
 
 template<typename T> class HookThread : public Thread
 {
@@ -38,7 +40,7 @@ private:
 class Stream : Thread
 {
 public:
-	Stream( Font* font, const std::string& addr, uint16_t port = 2021 );
+	Stream( Controller* controller, Font* font, const std::string& addr, uint16_t port = 2021 );
 	~Stream();
 
 	static EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
@@ -46,17 +48,35 @@ public:
 protected:
 	virtual bool run();
 	bool DecodeThreadRun();
+	bool SignalThreadRun();
 
 private:
 	Instance* mInstance;
 	Window* mWindow;
 	Renderer2D* mRenderer;
+	Controller* mController;
 	Font* mFont;
 	Image* mVideoImage;
+	Image* mBlankImage;
+	uintptr_t mHUDColorId;
+	uint64_t mHUDTicks;
+	bool mBlinkingViews;
+	Timer mHUDTimer;
+	RendererHUD* mRendererHUD;
 
 	rwifi_rx_t* mRx;
 	Socket* mSocket;
 	HookThread<Stream>* mDecodeThread;
+	void* mDecodeInput;
+
+	int mIwSocket;
+	struct {
+		int qual;
+		int level;
+		int noise;
+		int channel;
+	} mIwStats;
+	HookThread<Stream>* mSignalThread;
 
 	Timer mScreenTimer;
 	Timer mFPSTimer;

@@ -20,25 +20,24 @@
 
 typedef struct video_context {
 	int running;
-	int egl_running;
+	int video_running;
 	int decoder_valid;
 	int first_frame;
 	pthread_mutex_t lock;
 	// Handles
 	OMX_HANDLETYPE dec;
-	OMX_HANDLETYPE egl;
+	OMX_HANDLETYPE spl;
+	OMX_HANDLETYPE rdr1;
+	OMX_HANDLETYPE rdr2;
 	// Buffers
 	OMX_BUFFERHEADERTYPE* decbufs;
 	OMX_BUFFERHEADERTYPE* decinput;
-	OMX_BUFFERHEADERTYPE* eglbufs;
-	void* eglImage;
-	int eglFill;
 
 	int width;
 	int height;
 } video_context;
 
-video_context* video_configure( void* eglImage );
+video_context* video_configure();
 void video_start( video_context* ctx );
 void video_decode_frame( video_context* ctx );
 void video_stop( video_context* ctx );

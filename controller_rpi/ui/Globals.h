@@ -13,6 +13,9 @@ public:
 	~Globals();
 	void Run();
 
+	void RenderDrawer();
+	bool PageSwitcher( int x, int y );
+
 	ProxyWindow< FramebufferWindow >* window() const { return mWindow; }
 	Font* font() const { return mFont; }
 	Image* icon( const std::string& name ) { return mIcons[ name ]; }

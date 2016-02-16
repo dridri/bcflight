@@ -4,9 +4,12 @@
 #include <mutex>
 #include <gammaengine/Thread.h>
 #include <gammaengine/Input.h>
+#include <gammaengine/Timer.h>
 #include <gammaengine/Socket.h>
 #include <gammaengine/Renderer2D.h>
 #include <gammaengine/Font.h>
+
+#include "ADCs/MCP320x.h" // TEST
 
 using namespace GE;
 // class Settings;
@@ -62,10 +65,12 @@ public:
 	void setYaw( const float& v );
 	void setThrustRelative( const float& v );
 
+	DECL_RO_VAR( uint32_t, Ping, ping );
 	DECL_RO_VAR( bool, Armed, armed );
 	DECL_RO_VAR( uint32_t, TotalCurrent, totalCurrent );
 	DECL_RO_VAR( float, CurrentDraw, currentDraw );
 	DECL_RO_VAR( float, BatteryVoltage, batteryVoltage );
+	DECL_RO_VAR( float, BatteryLevel, batteryLevel );
 	DECL_RW_VAR( Vector3f, PID, pid );
 	DECL_RW_VAR( Vector3f, OuterPID, outerPid );
 	DECL_RW_VAR( float, Thrust, thrust );
@@ -79,6 +84,7 @@ public:
 protected:
 	typedef enum {
 		// Configure
+		PING = 0x70,
 		CALIBRATE = 0x71,
 		SET_TIMESTAMP = 0x72,
 		ARM = 0x73,
@@ -104,6 +110,7 @@ protected:
 		VBAT = 0x30,
 		TOTAL_CURRENT = 0x31,
 		CURRENT_DRAW = 0x32,
+		BATTERY_LEVEL = 0x34,
 		// Setters
 		SET_ROLL = 0x40,
 		SET_PITCH = 0x41,
@@ -132,9 +139,12 @@ protected:
 	std::mutex mXferMutex;
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
+	Timer mPingTimer;
 
 	uint32_t mTicks;
 	Joystick mJoysticks[8];
+
+	MCP320x* mADC;
 
 	std::list< Vector3f > mRPYHistory;
 	std::list< Vector3f > mOuterPIDHistory;

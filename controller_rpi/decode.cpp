@@ -69,33 +69,55 @@ void video_decode_frame( video_context* ctx )
 {
 // 	fDebug( ctx );
 
-	if ( ctx->egl_running == 0 and ctx->decoder_valid == 1 ) {
-		if ( ctx->eglImage ) {
-			ctx->egl_running = 1;
-			OERR( OMX_SetupTunnel( ctx->dec, 131, ctx->egl, 220 ) );
-			OERR( OMX_SendCommand( ctx->egl, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
-			OERR( OMX_SendCommand( ctx->dec, OMX_CommandPortEnable, 131, NULL ) );
-			OERR( OMX_SendCommand( ctx->egl, OMX_CommandPortEnable, 220, NULL ) );
-			OERR( OMX_SendCommand( ctx->egl, OMX_CommandPortEnable, 221, NULL ) );
-			omx_block_until_port_changed( ctx->dec, 131, OMX_TRUE );
-			omx_block_until_port_changed( ctx->egl, 220, OMX_TRUE );
-			omx_block_until_port_changed( ctx->egl, 221, OMX_TRUE );
-			omx_print_port( ctx->dec, 130 );
-			omx_print_port( ctx->dec, 131 );
-			omx_print_port( ctx->egl, 220 );
-			omx_print_port( ctx->egl, 221 );
-			OERR( OMX_UseEGLImage( ctx->egl, &ctx->eglbufs, 221, nullptr, ctx->eglImage ) );
-			OERR( OMX_SendCommand( ctx->egl, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
-			omx_block_until_state_changed( ctx->egl, OMX_StateExecuting );
-			ctx->eglFill = 1;
-		} else {
-			OMX_PARAM_PORTDEFINITIONTYPE def;
-			OMX_INIT_STRUCTURE( def );
-			def.nPortIndex = 131;
-			OERR( OMX_GetParameter( ctx->dec, OMX_IndexParamPortDefinition, &def ) );
-			ctx->width = def.format.video.nFrameWidth;
-			ctx->height = def.format.video.nFrameHeight;
-		}
+	if ( ctx->video_running == 0 and ctx->decoder_valid == 1 ) {
+		ctx->video_running = 1;
+		OMX_CONFIG_DISPLAYREGIONTYPE region;
+		OMX_INIT_STRUCTURE( region );
+		region.nPortIndex = 90;
+		region.set = (OMX_DISPLAYSETTYPE)( OMX_DISPLAY_SET_FULLSCREEN | OMX_DISPLAY_SET_DEST_RECT | OMX_DISPLAY_SET_NOASPECT | OMX_DISPLAY_SET_LAYER );
+		region.fullscreen = OMX_FALSE;
+		region.dest_rect.x_offset = 0;
+		region.dest_rect.y_offset = 32;
+		region.dest_rect.width = 1920 / 2;
+		region.dest_rect.height = 1080 - 64;
+		region.noaspect = OMX_TRUE;
+		region.layer = 0;
+		OERR( OMX_SetConfig( ctx->rdr1, OMX_IndexConfigDisplayRegion, &region ) );
+		region.dest_rect.x_offset = 1920 / 2;
+		region.dest_rect.width = 1920 / 2;
+		OERR( OMX_SetConfig( ctx->rdr2, OMX_IndexConfigDisplayRegion, &region ) );
+
+		OERR( OMX_SetupTunnel( ctx->dec, 131, ctx->spl, 250 ) );
+		OERR( OMX_SetupTunnel( ctx->spl, 251, ctx->rdr1, 90 ) );
+		OERR( OMX_SetupTunnel( ctx->spl, 252, ctx->rdr2, 90 ) );
+
+		OERR( OMX_SendCommand( ctx->dec, OMX_CommandPortEnable, 131, NULL ) );
+		OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortEnable, 250, NULL ) );
+		OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortEnable, 251, NULL ) );
+		OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortEnable, 252, NULL ) );
+		OERR( OMX_SendCommand( ctx->rdr1, OMX_CommandPortEnable, 90, NULL ) );
+		OERR( OMX_SendCommand( ctx->rdr2, OMX_CommandPortEnable, 90, NULL ) );
+
+		omx_block_until_port_changed( ctx->dec, 131, OMX_TRUE );
+		omx_block_until_port_changed( ctx->spl, 250, OMX_TRUE );
+		omx_block_until_port_changed( ctx->spl, 251, OMX_TRUE );
+		omx_block_until_port_changed( ctx->spl, 252, OMX_TRUE );
+		omx_block_until_port_changed( ctx->rdr1, 90, OMX_TRUE );
+		omx_block_until_port_changed( ctx->rdr2, 90, OMX_TRUE );
+		omx_print_port( ctx->dec, 130 );
+		omx_print_port( ctx->dec, 131 );
+		omx_print_port( ctx->spl, 250 );
+		omx_print_port( ctx->spl, 251 );
+		omx_print_port( ctx->spl, 252 );
+		omx_print_port( ctx->rdr1, 90 );
+		omx_print_port( ctx->rdr2, 90 );
+		OERR( OMX_SendCommand( ctx->spl, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
+		omx_block_until_state_changed( ctx->spl, OMX_StateExecuting );
+		OERR( OMX_SendCommand( ctx->rdr1, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
+		OERR( OMX_SendCommand( ctx->rdr2, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
+		omx_block_until_state_changed( ctx->rdr1, OMX_StateExecuting );
+		omx_block_until_state_changed( ctx->rdr2, OMX_StateExecuting );
+		printf( "Video running !\n" );
 	}
 
 	ctx->decinput->nOffset = 0;
@@ -108,98 +130,47 @@ void video_decode_frame( video_context* ctx )
 
 	if ( OMX_EmptyThisBuffer( ctx->dec, ctx->decinput ) != OMX_ErrorNone ) {
 		printf( "OMX_FillThisBuffer failed in video_decode_frame\n" );
-		exit(1);
+// 		exit(1);
 	}
-
-/*
-	if ( OMX_SendCommand( ctx->dec, OMX_CommandFlush, 131, NULL ) != OMX_ErrorNone ) {
-		printf( "OMX_CommandFlush failed for decoder\n" );
-		exit(1);
-	}
-*/
-/*
-	if ( OMX_SendCommand( ctx->egl, OMX_CommandFlush, 220, NULL ) != OMX_ErrorNone ) {
-		printf( "OMX_CommandFlush failed for egl_render\n" );
-		exit(1);
-	}
-*/
-/*
-	if ( OMX_SendCommand( ctx->egl, OMX_CommandFlush, 221, NULL ) != OMX_ErrorNone ) {
-		printf( "OMX_CommandFlush failed for egl_render\n" );
-		exit(1);
-	}
-*/
-	pthread_mutex_lock( &ctx->lock );
-	if ( ctx->eglFill ) {
-		ctx->eglFill = 0;
-		if ( OMX_FillThisBuffer( ctx->egl, ctx->eglbufs ) != OMX_ErrorNone ) {
-			gDebug() << "OMX_FillThisBuffer( ctx->egl, ctx->eglbufs ) error !\n";
-		}
-	}
-	pthread_mutex_unlock( &ctx->lock );
-/*
-	if ( !ctx->egl_running ) {
-		ctx->egl_running = 1;
-	}
-*/
 }
 
 
 void video_start( video_context* ctx )
 {
 	omx_print_state( "dec", ctx->dec );
-	omx_print_state( "egl", ctx->egl );
+	omx_print_state( "spl", ctx->spl );
+	omx_print_state( "rdr1", ctx->rdr1 );
+	omx_print_state( "rdr2", ctx->rdr2 );
 
 	ctx->decbufs = omx_allocbufs( ctx->dec, 130, 1 );
 	omx_block_until_port_changed( ctx->dec, 130, OMX_TRUE );
-
 	ctx->decinput = ctx->decbufs;
-/*
-	do {
-		ctx->decinput = ctx->decbufs;
-		while ( ctx->decinput != nullptr and ctx->decinput->nInputPortIndex != 130 ) {
-			gDebug() << "ctx->decinput->nInputPortIndex : " << ctx->decinput->nInputPortIndex << "\n";
-			gDebug() << "ctx->decinput->nOutputPortIndex : " << ctx->decinput->nOutputPortIndex << "\n";
-			ctx->decinput = reinterpret_cast< OMX_BUFFERHEADERTYPE* >( ctx->decinput->pAppPrivate );
-		}
-		usleep( 1000 * 1000 );
-	} while ( ctx->decinput == nullptr );
-	gDebug() << "ctx->decinput : " << ctx->decinput << "\n";
-*/
-// 	OERR( OMX_SendCommand( ctx->dec, OMX_CommandPortEnable, 131, NULL ) );
-// 	OERR( OMX_SendCommand( ctx->egl, OMX_CommandPortEnable, 220, NULL ) );
-// 	OERR( OMX_SendCommand( ctx->egl, OMX_CommandPortEnable, 221, NULL ) );
-
-// 	OERR( OMX_UseEGLImage( ctx->egl, &ctx->eglbufs, 221, nullptr, ctx->eglImage ) );
 
 	omx_block_until_port_changed( ctx->dec, 130, OMX_TRUE );
-// 	omx_block_until_port_changed( ctx->dec, 131, OMX_TRUE );
-// 	omx_block_until_port_changed( ctx->egl, 220, OMX_TRUE );
-// 	omx_block_until_port_changed( ctx->egl, 221, OMX_TRUE );
 
 	omx_print_port( ctx->dec, 130 );
 	omx_print_port( ctx->dec, 131 );
-	omx_print_port( ctx->egl, 220 );
-	omx_print_port( ctx->egl, 221 );
+	omx_print_port( ctx->spl, 250 );
+	omx_print_port( ctx->spl, 251 );
+	omx_print_port( ctx->spl, 252 );
+	omx_print_port( ctx->rdr1, 90 );
+	omx_print_port( ctx->rdr2, 90 );
 
 	OERR( OMX_SendCommand( ctx->dec, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
 	omx_block_until_state_changed( ctx->dec, OMX_StateExecuting );
 	omx_print_state( "dec", ctx->dec );
-// 	OERR( OMX_SendCommand( ctx->egl, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
-// 	omx_block_until_state_changed( ctx->egl, OMX_StateExecuting );
-// 	omx_print_state( "egl", ctx->egl );
 
-// 	OERR( OMX_FillThisBuffer( ctx->egl, ctx->eglbufs ) );
 	ctx->running = 1;
 }
 
 
 void video_stop( video_context* ctx )
 {
+	// TODO (or not :P)
 }
 
 
-video_context* video_configure( void* eglImage )
+video_context* video_configure()
 {
 	video_context* ctx;
 	OMX_PARAM_PORTDEFINITIONTYPE* portdef;
@@ -210,7 +181,6 @@ video_context* video_configure( void* eglImage )
 	memset( ctx, 0, sizeof( video_context ) );
 	_ctx = ctx;
 	memset( allocated_bufs, 0, sizeof( allocated_bufs ) );
-	ctx->eglImage = eglImage;
 	ctx->first_frame = 1;
 
 	atexit( video_free_buffers );
@@ -220,25 +190,30 @@ video_context* video_configure( void* eglImage )
 
 	OMX_Init();
 	OERR( OMX_GetHandle( &ctx->dec, (char*)"OMX.broadcom.video_decode", ctx, &genevents ) );
-	OERR( OMX_GetHandle( &ctx->egl, (char*)"OMX.broadcom.egl_render", ctx, &genevents ) );
+	OERR( OMX_GetHandle( &ctx->spl, (char*)"OMX.broadcom.video_splitter", ctx, &genevents ) );
+	OERR( OMX_GetHandle( &ctx->rdr1, (char*)"OMX.broadcom.video_render", ctx, &genevents ) );
+	OERR( OMX_GetHandle( &ctx->rdr2, (char*)"OMX.broadcom.video_render", ctx, &genevents ) );
 
 	OERR( OMX_SendCommand( ctx->dec, OMX_CommandPortDisable, 130, NULL ) );
 	OERR( OMX_SendCommand( ctx->dec, OMX_CommandPortDisable, 131, NULL ) );
-	OERR( OMX_SendCommand( ctx->egl, OMX_CommandPortDisable, 220, NULL ) );
-	OERR( OMX_SendCommand( ctx->egl, OMX_CommandPortDisable, 221, NULL ) );
-
-// 	portdef->format.video.eCompressionFormat = OMX_VIDEO_CodingAVC;
-// 	portdef->nPortIndex = 130;
-// 	OERR( OMX_SetParameter( ctx->dec, OMX_IndexParamPortDefinition, portdef ) );
+	OERR( OMX_SendCommand( ctx->rdr1, OMX_CommandPortDisable, 90, NULL ) );
+	OERR( OMX_SendCommand( ctx->rdr2, OMX_CommandPortDisable, 90, NULL ) );
+	OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortDisable, 250, NULL ) );
+	OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortDisable, 251, NULL ) );
+	OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortDisable, 252, NULL ) );
+	OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortDisable, 253, NULL ) );
+	OERR( OMX_SendCommand( ctx->spl, OMX_CommandPortDisable, 254, NULL ) );
 
 	omx_print_port( ctx->dec, 130 );
 	omx_print_port( ctx->dec, 131 );
 
-	omx_print_port( ctx->egl, 220 );
-	omx_print_port( ctx->egl, 221 );
+	omx_print_port( ctx->rdr1, 90 );
+	omx_print_port( ctx->rdr2, 90 );
 
 	OERR( OMX_SendCommand( ctx->dec, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
-// 	OERR( OMX_SendCommand( ctx->egl, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
+	OERR( OMX_SendCommand( ctx->rdr1, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
+	OERR( OMX_SendCommand( ctx->rdr2, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
+	OERR( OMX_SendCommand( ctx->spl, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
 
 	pfmt->nPortIndex = 130;
 	pfmt->eCompressionFormat = OMX_VIDEO_CodingAVC;
@@ -297,8 +272,11 @@ static void video_free_buffers()
 	if ( _ctx->dec ) {
 		printf( "FreeHandle( dec ) : %08X\n", OMX_FreeHandle( _ctx->dec ) );
 	}
-	if ( _ctx->egl ) {
-		printf( "FreeHandle( egl ) : %08X\n", OMX_FreeHandle( _ctx->egl ) );
+	if ( _ctx->rdr1 ) {
+		printf( "FreeHandle( rdr1 ) : %08X\n", OMX_FreeHandle( _ctx->rdr1 ) );
+	}
+	if ( _ctx->rdr2 ) {
+		printf( "FreeHandle( rdr2 ) : %08X\n", OMX_FreeHandle( _ctx->rdr2 ) );
 	}
 }
 
@@ -310,6 +288,7 @@ static OMX_ERRORTYPE genericeventhandler( OMX_HANDLETYPE component, video_contex
 	}
 	if ( event == OMX_EventError ) {
 		printf( "ERROR : %08X %08X, %p\n", data1, data2, eventdata );
+		exit(1);
 	}
 	pthread_mutex_lock( &ctx->lock );
 	if ( event == OMX_EventPortSettingsChanged and component == _ctx->dec and ctx->decoder_valid == 0 ) {
@@ -322,18 +301,12 @@ static OMX_ERRORTYPE genericeventhandler( OMX_HANDLETYPE component, video_contex
 
 static OMX_ERRORTYPE emptied( OMX_HANDLETYPE component, video_context* ctx, OMX_BUFFERHEADERTYPE* buf )
 {
-// 	printf( "emptied( 0x%08X )\n", (uint32_t)component );
 	return OMX_ErrorNone;
 }
 
 
 static OMX_ERRORTYPE filled( OMX_HANDLETYPE component, video_context* ctx, OMX_BUFFERHEADERTYPE* buf )
 {
-// 	printf( "filled( 0x%08X )\n", (uint32_t)component );
-	pthread_mutex_lock( &ctx->lock );
-// 	OERR( OMX_FillThisBuffer( ctx->egl, ctx->eglbufs ) );
-	ctx->eglFill = 1;
-	pthread_mutex_unlock( &ctx->lock );
 	return OMX_ErrorNone;
 }
 
