@@ -29,3 +29,13 @@ Generation scripts for easier building
 Current status : in progress
 
 Contains buildroot configuration for both flight and ground targets.
+
+
+# Current test machine
+(videos to come shortly)
+
+Beyond Chaos Racer 280 :
+![Image of drone](https://dl.dropboxusercontent.com/u/81758777/drich-drone-vtail-small.jpg)
+
+First home made WiFi controller :
+![Image of controller](https://dl.dropboxusercontent.com/u/81758777/drone_rc_controller_small.jpg)
