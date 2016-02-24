@@ -538,8 +538,7 @@ void PiBlasterSetPWM( int channel, float width )
 
 void PiBlasterSetPWMus( int channel, int width )
 {
-	float fwidth = (float)width / 2000.0f;
-	fwidth *= 2000.0f / (float)CYCLE_TIME_US;
+	float fwidth = (float)width / (float)CYCLE_TIME_US;
 	set_pin(channel, fwidth);
 }
 

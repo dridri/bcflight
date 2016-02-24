@@ -165,8 +165,10 @@ void Config::Reload()
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
 	luaL_dostring( L, ( "board = { type = \"" + std::string( BOARD ) + "\" }" ).c_str() );
 	luaL_dostring( L, "frame = { motors = { front_left = {}, front_right = {}, rear_left = {}, rear_right = {} } }" );
+	luaL_dostring( L, "battery = {}" );
 	luaL_dostring( L, "camera = {}" );
 	luaL_dostring( L, "controller = {}" );
+	luaL_dostring( L, "stabilizer = { loop_time = 2500 }" );
 	luaL_loadfile( L, mFilename.c_str() );
 	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
 

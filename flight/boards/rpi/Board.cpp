@@ -134,6 +134,7 @@ int Board::SaveRegister( const std::string& name, const std::string& value )
 		}
 		file.flush();
 		file.close();
+		sync();
 		return 0;
 	}
 

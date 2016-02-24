@@ -95,6 +95,8 @@ Main::Main()
 
 	Thread::setMainPriority( 99 );
 
+	uint32_t loop_time = mConfig->integer( "stabilizer.loop_time" );
+
 	while ( 1 ) {
 		dt = ((float)( mBoard->GetTicks() - ticks ) ) / 1000000.0f;
 		ticks = mBoard->GetTicks();
@@ -113,7 +115,7 @@ Main::Main()
 		} else {
 // 			mController->UpdateSmoothControl( dt );
 			mStabilizer->Update( mIMU, mController, dt );
-			wait_ticks = mBoard->WaitTick( 2500, wait_ticks, -200 );
+			wait_ticks = mBoard->WaitTick( loop_time, wait_ticks, -200 );
 		}
 
 		fps++;

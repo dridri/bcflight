@@ -92,7 +92,7 @@ public:
 		}
 	}
 
-	T length() {
+	T length() const {
 		T add = 0;
 		VEC_ADD( add, this-> , * , this-> );
 		return std::sqrt( add );

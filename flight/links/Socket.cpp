@@ -93,6 +93,8 @@ int Socket::Connect()
 		mSin.sin_port = htons( mPort );
 
 		mSocket = socket( AF_INET, type, proto );
+		int option = 1;
+		setsockopt( mSocket, SOL_SOCKET, ( 15/*SO_REUSEPORT*/ | SO_REUSEADDR ), (char*)&option, sizeof( option ) );
 		if ( mPortType == TCP ) {
 			int flag = 1; 
 			setsockopt( mSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) );
@@ -154,25 +156,28 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 
 	int ret = 0;
 	memset( buf, 0, len );
-/*
+
+// 	timeout = 500;
 	if ( timeout > 0 ) {
 		struct timeval tv;
 		tv.tv_sec = timeout / 1000;
 		tv.tv_usec = 1000 * ( timeout % 1000 );
 		setsockopt( mSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval) );
 	}
-*/
+
 	if ( mPortType == UDP or mPortType == UDPLite ) {
 		uint32_t fromsize = sizeof( mClientSin );
 		ret = recvfrom( mSocket, buf, len, 0, (SOCKADDR *)&mClientSin, &fromsize );
-		if ( ret < 0 and errno != EAGAIN and errno != -EAGAIN ) {
+		if ( ret <= 0 and errno != EAGAIN ) {
+			gDebug() << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
 			mConnected = false;
 			return -1;
 		}
 // 		return -1;
 	} else {
 		ret = recv( mClientSocket, buf, len, MSG_NOSIGNAL );
-		if ( ret <= 0 and errno != EAGAIN and errno != -EAGAIN ) {
+		if ( ret <= 0 ) {
+			gDebug() << "TCP disconnected\n";
 			mConnected = false;
 			return -1;
 		}
@@ -225,11 +230,12 @@ int Socket::Write( void* buf, uint32_t len, int timeout )
 		ret = send( mClientSocket, buf, len, 0 );
 	}
 
-	if ( ret < 0 and ( errno == EAGAIN or errno == -EAGAIN ) ) {
+	if ( ret <= 0 and ( errno == EAGAIN or errno == -EAGAIN ) ) {
 		return 0;
 	}
 
-	if ( ret < 0 ) {
+	if ( ret < 0 and mPortType != UDP and mPortType != UDPLite ) {
+		gDebug() << "TCP disconnected\n";
 		mConnected = false;
 		return -1;
 	}

@@ -140,10 +140,11 @@ bool Controller::run()
 		}
 		case ARM : {
 			mArmed = true;
-// 			mMain->imu()->ResetYaw();
+			mMain->imu()->ResetYaw();
 			mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
 			mMain->frame()->Arm();
-			mRPY.z = mMain->imu()->RPY().z;
+// 			mRPY.z = mMain->imu()->RPY().z;
+			mRPY.z = 0.0f;
 			gDebug() << "RPY.z : " << mRPY.z << "\n";
 			mLink->WriteU32( mArmed );
 			break;
@@ -189,6 +190,10 @@ bool Controller::run()
 			mLink->WriteFloat( mMain->imu()->RPY().z );
 			break;
 		}
+		case CURRENT_ACCELERATION : {
+			mLink->WriteFloat( mMain->imu()->acceleration().length() );
+			break;
+		}
 		case SET_ROLL : {
 			float value;
 			if ( mLink->ReadFloat( &value ) < 0 ) {
@@ -203,6 +208,8 @@ bool Controller::run()
 			if ( mLink->ReadFloat( &value ) < 0 ) {
 				break;
 			}
+			value = -value; // TEST
+// 			gDebug() << "pitch : " << value << "\n";
 			mRPY.y = value;
 			mLink->WriteFloat( mRPY.y );
 			break;
@@ -213,8 +220,13 @@ bool Controller::run()
 			if ( mLink->ReadFloat( &value ) < 0 ) {
 				break;
 			}
-			mRPY.z += value;
-			mLink->WriteFloat( mRPY.z );
+			if ( mMain->stabilizer()->mode() == Stabilizer::Stabilize ) {
+				mRPY.z += value;
+			} else {
+				mRPY.z = value;
+			}
+// 			mLink->WriteFloat( mRPY.z );
+			mLink->WriteFloat( value );
 			break;
 		}
 
@@ -227,6 +239,32 @@ bool Controller::run()
 			mLink->WriteFloat( mThrust );
 			break;
 		}
+
+		case SET_TRPY : {
+			float t, r, p, y;
+			if ( mLink->ReadFloat( &t ) < 0 ) {
+				break;
+			}
+			if ( mLink->ReadFloat( &r ) < 0 ) {
+				break;
+			}
+			if ( mLink->ReadFloat( &p ) < 0 ) {
+				break;
+			}
+			if ( mLink->ReadFloat( &y ) < 0 ) {
+				break;
+			}
+			mThrust = t;
+			mRPY.x = r;
+			mRPY.y = p;
+			mRPY.z += y;
+			mLink->WriteFloat( mThrust );
+			mLink->WriteFloat( mRPY.x );
+			mLink->WriteFloat( mRPY.y );
+			mLink->WriteFloat( y );
+			break;
+		}
+
 		case RESET_MOTORS : {
 			mThrust = 0.0f;
 			mMain->stabilizer()->Reset( 0.0f );
@@ -240,6 +278,10 @@ bool Controller::run()
 			uint32_t mode = 0;
 			if( mLink->ReadU32( &mode ) == sizeof(uint32_t) ) {
 				mMain->stabilizer()->setMode( mode );
+				if ( mode == (uint32_t)Stabilizer::Stabilize ) {
+					mRPY.z = mMain->imu()->RPY().z;
+				}
+				mLink->WriteU32( mMain->stabilizer()->mode() );
 			}
 			break;
 		}

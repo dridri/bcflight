@@ -116,6 +116,12 @@ MPU9150Mag::~MPU9150Mag()
 
 void MPU9150Accel::Calibrate( float dt, bool last_pass )
 {
+	if ( mCalibrated ) {
+		mCalibrated = false;
+		mCalibrationAccum = Vector4f();
+		mOffset = Vector3f();
+	}
+
 	Vector3f accel;
 	Read( &accel, true );
 	mCalibrationAccum += Vector4f( accel, 1.0f );
@@ -135,6 +141,12 @@ void MPU9150Accel::Calibrate( float dt, bool last_pass )
 
 void MPU9150Gyro::Calibrate( float dt, bool last_pass )
 {
+	if ( mCalibrated ) {
+		mCalibrated = false;
+		mCalibrationAccum = Vector4f();
+		mOffset = Vector3f();
+	}
+
 	Vector3f gyro;
 	Read( &gyro, true );
 	mCalibrationAccum += Vector4f( gyro, 1.0f );
@@ -164,8 +176,10 @@ void MPU9150Accel::Read( Vector3f* v, bool raw )
 	v->y = (float)( (int16_t)( saccel[0] << 8 | saccel[1] ) ) * 8.0f * 6.103515625e-04f;
 	v->z = (float)( (int16_t)( saccel[4] << 8 | saccel[5] ) ) * 8.0f * 6.103515625e-04f;
 
-	v->x -= mOffset.x;
-	v->y -= mOffset.y;
+	if ( not raw ) {
+		v->x -= mOffset.x;
+		v->y -= mOffset.y;
+	}
 	ApplySwap( *v );
 
 	mLastValues = *v;
@@ -182,9 +196,11 @@ void MPU9150Gyro::Read( Vector3f* v, bool raw )
 	v->y = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
 	v->z = (float)( (int16_t)( sgyro[4] << 8 | sgyro[5] ) ) * 0.061037018952f;
 
-	v->x -= mOffset.x;
-	v->y -= mOffset.y;
-	v->z -= mOffset.z;
+	if ( not raw ) {
+		v->x -= mOffset.x;
+		v->y -= mOffset.y;
+		v->z -= mOffset.z;
+	}
 	ApplySwap( *v );
 
 	mLastValues = *v;

@@ -8,6 +8,7 @@
 PowerThread::PowerThread( Main* main )
 	: Thread( "power" )
 	, mTicks( Board::GetTicks() )
+	, mSaveTicks( Board::GetTicks() )
 	, mMain( main )
 	, mVBat( 0.0f )
 	, mCurrentTotal( 0.0f )
@@ -17,34 +18,34 @@ PowerThread::PowerThread( Main* main )
 	, mVoltageSensor{ NONE, nullptr, 0, 0, 0 }
 	, mCurrentSensor{ NONE, nullptr, 0, 0, 0 }
 {
-	mBatteryCapacity = main->config()->integer( "board.battery.capacity" );
+	mBatteryCapacity = main->config()->integer( "battery.capacity" );
 
 	{
-		std::string sensorType = main->config()->string( "board.battery.voltage.sensor_type" );
+		std::string sensorType = main->config()->string( "battery.voltage.sensor_type" );
 		if ( sensorType == "Voltmeter" ) {
 			mVoltageSensor.type = VOLTAGE;
-			mVoltageSensor.sensor = Sensor::voltmeter( main->config()->string( "board.battery.voltage.device" ) );
+			mVoltageSensor.sensor = Sensor::voltmeter( main->config()->string( "battery.voltage.device" ) );
 		} else {
 			gDebug() << "FATAL ERROR : Unsupported sensor type ( " << sensorType << " ) for battery voltage !\n";
 		}
-		mVoltageSensor.channel = main->config()->integer( "board.battery.voltage.channel" );
-		mVoltageSensor.shift = main->config()->number( "board.battery.voltage.shift" );
-		mVoltageSensor.multiplier = main->config()->number( "board.battery.voltage.multiplier" );
+		mVoltageSensor.channel = main->config()->integer( "battery.voltage.channel" );
+		mVoltageSensor.shift = main->config()->number( "battery.voltage.shift" );
+		mVoltageSensor.multiplier = main->config()->number( "battery.voltage.multiplier" );
 	}
 	{
-		std::string sensorType = main->config()->string( "board.battery.current.sensor_type" );
+		std::string sensorType = main->config()->string( "battery.current.sensor_type" );
 		if ( sensorType == "Voltmeter" ) {
 			mCurrentSensor.type = VOLTAGE;
-			mCurrentSensor.sensor = Sensor::voltmeter( main->config()->string( "board.battery.current.device" ) );
+			mCurrentSensor.sensor = Sensor::voltmeter( main->config()->string( "battery.current.device" ) );
 		} else if ( sensorType == "CurrentSensor" ) {
 			mCurrentSensor.type = CURRENT;
-			mCurrentSensor.sensor = Sensor::currentSensor( main->config()->string( "board.battery.current.device" ) );
+			mCurrentSensor.sensor = Sensor::currentSensor( main->config()->string( "battery.current.device" ) );
 		} else {
 			gDebug() << "WARNING : Unsupported sensor type ( " << sensorType << " ) for battery current !\n";
 		}
-		mCurrentSensor.channel = main->config()->integer( "board.battery.current.channel" );
-		mCurrentSensor.shift = main->config()->number( "board.battery.current.shift" );
-		mCurrentSensor.multiplier = main->config()->number( "board.battery.current.multiplier" );
+		mCurrentSensor.channel = main->config()->integer( "battery.current.channel" );
+		mCurrentSensor.shift = main->config()->number( "battery.current.shift" );
+		mCurrentSensor.multiplier = main->config()->number( "battery.current.multiplier" );
 	}
 
 	mLastVBat = std::atof( Board::LoadRegister( "VBat" ).c_str() );
@@ -124,10 +125,11 @@ bool PowerThread::run()
 
 	mBatteryLevel = 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity;
 
-	if ( mTicks % ( 10 * 1000 * 1000 ) == 0 ) {
+	if ( Board::GetTicks() - mSaveTicks >= 5 * 1000 * 1000 ) {
 		Board::SaveRegister( "VBat", std::to_string( mVBat ) );
 		Board::SaveRegister( "CurrentTotal", std::to_string( mCurrentTotal ) );
 		Board::SaveRegister( "BatteryCapacity", std::to_string( mBatteryCapacity ) );
+		mSaveTicks = Board::GetTicks();
 	}
 
 	usleep( 1000 * 50 );

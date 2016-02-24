@@ -102,6 +102,12 @@ void Stabilizer::setMode( uint32_t mode )
 }
 
 
+uint32_t Stabilizer::mode() const
+{
+	return (uint32_t)mMode;
+}
+
+
 void Stabilizer::Reset( const float& yaw )
 {
 	mIntegral = Vector3f();
@@ -125,7 +131,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 
 	switch ( mMode ) {
 		case Rate : {
-			output = ProcessRate( imu, ctrl->RPY(), dt );
+			output = ProcessRate( imu, ctrl->RPY() * 200.0f, dt );
 			break;
 		}
 		case ReturnToHome :
@@ -133,8 +139,8 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		case Stabilize :
 		default : {
 			Vector3f control_angles = ctrl->RPY();
-			control_angles.x = 10.0f * std::min( std::max( control_angles.x, -1.0f ), 1.0f );
-			control_angles.y = 10.0f * std::min( std::max( control_angles.y, -1.0f ), 1.0f );
+			control_angles.x = 30.0f * std::min( std::max( control_angles.x, -1.0f ), 1.0f );
+			control_angles.y = 30.0f * std::min( std::max( control_angles.y, -1.0f ), 1.0f );
 			Vector3f ctrl_rate = ProcessStabilize( imu, control_angles, dt );
 			output = ProcessRate( imu, ctrl_rate, dt );
 			break;
@@ -159,21 +165,28 @@ Vector3f Stabilizer::ProcessRate( IMU* imu, const Vector3f& ctrl_rate, float dt 
 
 // 	Vector3f error = ctrl_rate - imu->rate();
 	Vector3f error = smooth_rate - imu->rate();
-	if ( mMode == Rate ) {
-		error *= 100.0f; // TBD
-	}
 
-	error.x = 0.0f;
-	error.z = 0.0f;
+// 	error.x = 0.0f;
+// 	error.y = 0.0f;
+// 	error.z = 0.0f;
 
 	mIntegral += error * dt;
 	Vector3f derivative = ( error - mLastError ) / dt;
 	Vector3f output;
 
+/*
+	PID:P=0.007000
+	PID:I=0.010000
+	PID:D=0.000700
+	PID:Outerloop:P=2.509998
+	PID:Outerloop:I=0.000000
+	PID:Outerloop:D=0.000000
+*/
+
 	output.x = error.x * mkPID.x + mIntegral.x * mkPID.y + derivative.x * mkPID.z;
 	output.y = error.y * mkPID.x + mIntegral.y * mkPID.y + derivative.y * mkPID.z;
 	output.z = error.z * mkPID.x + mIntegral.z * mkPID.y + derivative.z * mkPID.z;
-// 	output.z = error.z * mkPID.x * 1.5 + mIntegral.z * mkPID.y * 0.333f;
+// 	output.z = error.z * mkPID.x + mIntegral.z * mkPID.y;
 
 // 	output.x = std::max( -50.0f, std::min( 50.0f, output.x ) );
 // 	output.y = std::max( -50.0f, std::min( 50.0f, output.y ) );
@@ -187,7 +200,7 @@ Vector3f Stabilizer::ProcessRate( IMU* imu, const Vector3f& ctrl_rate, float dt 
 Vector3f Stabilizer::ProcessStabilize( IMU* imu, const Vector3f& ctrl_rpy, float dt )
 {
 	Vector3f error = ctrl_rpy - imu->RPY();
-	CorrectDeadBand( error, Vector3f( 0.1f, 0.1f, 0.2f ) );
+	CorrectDeadBand( error, Vector3f( 0.1f, 0.1f, 0.5f ) );
 	error.x = std::max( -45.0f, std::min( 45.0f, error.x ) );
 	error.y = std::max( -45.0f, std::min( 45.0f, error.y ) );
 	error.z = std::max( -45.0f, std::min( 45.0f, error.z ) );

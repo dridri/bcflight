@@ -6,6 +6,7 @@
 #include "IMU.h"
 #include <motors/Generic.h>
 #include <Servo.h>
+#include <Board.h>
 
 int XFrame::flight_register( Main* main )
 {
@@ -135,6 +136,7 @@ void XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 	mStabSpeeds[3] = mPIDMultipliers[3] * pid_output + thrust; // Rear R
 
 	float motor_max = 1.0f;
+	motor_max = 0.25f;
 	float max = std::max( std::max( std::max( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );
 	if ( max > motor_max ) {
 		float diff = max - motor_max;
@@ -144,6 +146,16 @@ void XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 		mStabSpeeds[3] -= diff;
 	}
 
+	if ( thrust > 0.0f ) {
+		mStabSpeeds[0] = std::max( mStabSpeeds[0], 0.1f );
+		mStabSpeeds[1] = std::max( mStabSpeeds[1], 0.1f );
+		mStabSpeeds[2] = std::max( mStabSpeeds[2], 0.1f );
+		mStabSpeeds[3] = std::max( mStabSpeeds[3], 0.1f );
+	}
+
+// 	if ( Board::GetTicks() % 1000*10 <= 1000 ) {
+// 		gDebug() << "speeds : " << mStabSpeeds[0] << ", " << mStabSpeeds[1] << ", " << mStabSpeeds[2] << ", " << mStabSpeeds[3] << "\n";
+// 	}
 	mMotors[0]->setSpeed( mStabSpeeds[0] );
 	mMotors[1]->setSpeed( mStabSpeeds[1] );
 	mMotors[2]->setSpeed( mStabSpeeds[2] );

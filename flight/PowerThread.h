@@ -36,6 +36,7 @@ private:
 		float multiplier;
 	} BatterySensor;
 
+	uint64_t mSaveTicks;
 	uint64_t mTicks;
 	Main* mMain;
 	float mLastVBat;

@@ -17,8 +17,9 @@ IMU::IMU()
 	, mRPYOffset( Vector3f() )
 	, mCalibrationAccum( 0 )
 	, mRPYAccum( Vector4f() )
-	, mSmoothAcceleration( EKFSmoother( 3, Vector4f( 0.1f, 0.1f, 0.1f ), Vector4f( 30.0f, 30.0f, 300.0f ) ) )
-	, mSmoothGyroscope( EKFSmoother( 3, Vector4f( 1.0f, 1.0f, 1.0f ), Vector4f( 0.1f, 0.1f, 1.0f ) ) )
+	, mSmoothAcceleration( EKFSmoother( 3, Vector4f( 0.1f, 0.1f, 0.1f ), Vector4f( 250.0f, 250.0f, 300.0f ) ) )
+// 	, mSmoothGyroscope( EKFSmoother( 3, Vector4f( 1.0f, 1.0f, 1.0f ), Vector4f( 0.1f, 0.1f, 1.0f ) ) )
+	, mSmoothGyroscope( EKFSmoother( 3, Vector4f( 1.0f, 1.0f, 1.0f ), Vector4f( 100.0f, 100.0f, 200.0f ) ) )
 	, mSmoothMagnetometer( EKFSmoother( 3, Vector4f( 0.1f, 0.1f, 0.1f ), Vector4f( 25.0f, 25.0f, 25.0f ) ) )
 	, mAttitude( EKF() )
 	, mLastAccelAttitude( Vector4f() )
@@ -124,6 +125,12 @@ void IMU::Calibrate( float dt, bool all )
 		}
 	} else {
 		mState = CalibrationDone;
+		mAcceleration = Vector3f();
+		mGyroscope = Vector3f();
+		mMagnetometer = Vector3f();
+		mRPY = Vector3f();
+		mdRPY = Vector3f();
+		mRate = Vector3f();
 		gDebug() << "Calibration done !\n";
 /*
 		UpdateSensors( dt );
@@ -183,10 +190,13 @@ void IMU::RecalibrateAll()
 
 void IMU::ResetYaw()
 {
+	mRPY.z = 0.0f;
+/*
 	mVirtualNorth = Vector3f();
 	while ( mVirtualNorth.x == 0.0f and mVirtualNorth.y == 0.0f and mVirtualNorth.z == 0.0f ) {
 		usleep( 1000 );
 	}
+*/
 }
 
 
@@ -270,8 +280,9 @@ void IMU::UpdateRPY( float dt )
 // 	float magn_f = 0.01f;
 // 	float inv_magn_f = 1.0f - magn_f;
 
-	mRate = Vector3f( -mGyroscope.y, mGyroscope.x, mGyroscope.z ) * dt;
-	Vector3f integration = mRPY + mRate;
+// 	mRate = Vector3f( -mGyroscope.y, mGyroscope.x, mGyroscope.z ) * dt;
+	mRate = Vector3f( -mGyroscope.y, mGyroscope.x, mGyroscope.z );
+	Vector3f integration = mRPY + mRate * dt;
 /*
 	if ( ( accel.x < 0.0f and integration.x >= 140.0f ) or ( accel.x > 0.0f and integration.x <= -140.0f ) ) {
 		integration.x = accel.x;

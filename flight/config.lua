@@ -4,11 +4,14 @@
 -- Socket{ type = "TCP/UDP/UDPLite", port = port_number[, broadcast = true/false] } <= broadcast is false by default
 
 
+stabilizer.loop_time = 2500
+
+
 --- Setup battery sensors : voltage sensor is mandatory, current sensor is strongly advised
-board.battery = {
+battery = {
 	voltage = Voltmeter{ device = "ADS1015", channel = 0, multiplier = 3.0 }, -- Battery voltage
 	current = Voltmeter{ device = "ADS1015", channel = 1, shift = -2.5, multiplier = 1.0 / 0.028 }, -- Battery current draw, in amperes.
-	-- ^ For current sensor, in this particular example a Pololu ACS709 is connected to ADS1015 channel 1, which is centered around VCC/2 (=> 2.5V) and outputs 0.0028V per Ampere
+	-- ^ For current sensor, in this particular example a Pololu ACS709 is connected to ADS1015 channel 1, which is centered around VCC/2 (=> 2.5V) and outputs 0.028V per Amp
 }
 
 
@@ -39,7 +42,7 @@ elseif frame.type == "XFrame" or frame.type == "XFrameVTail" then
 			},
 		}
 	end
-	-- Set PID multipliers for each motor ( input vector is : { Roll, Pitch, Yaw }
+	-- Set PID multipliers for each motor ( input vector is : { Roll, Pitch, Yaw } )
 	if frame.type == "XFrame" then
 		frame.motors.front_left.pid_vector  = Vector(  1.0, -1.0, -1.0 )
 		frame.motors.front_right.pid_vector = Vector( -1.0, -1.0,  1.0 )

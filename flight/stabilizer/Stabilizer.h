@@ -30,6 +30,7 @@ public:
 	Vector3f lastOuterPIDOutput() const;
 
 	void setMode( uint32_t mode );
+	uint32_t mode() const;
 
 	void Reset( const float& yaw );
 	void Update( IMU* imu, Controller* ctrl, float dt );

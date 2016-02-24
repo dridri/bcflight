@@ -140,6 +140,9 @@ int64_t video_buffer_timestamp( OMX_BUFFERHEADERTYPE* bufs )
 
 void video_start( context* ctx )
 {
+	if ( ctx->running ) {
+		return;
+	}
 	omx_print_state( "cam", ctx->cam );
 	omx_print_state( "spl", ctx->spl );
 	omx_print_state( "rsz", ctx->rsz );
