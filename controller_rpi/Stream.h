@@ -43,7 +43,7 @@ public:
 	Stream( Controller* controller, Font* font, const std::string& addr, uint16_t port = 2021 );
 	~Stream();
 
-	static EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
+	EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
 
 protected:
 	virtual bool run();
@@ -53,32 +53,22 @@ protected:
 private:
 	Instance* mInstance;
 	Window* mWindow;
-	Renderer2D* mRenderer;
 	Controller* mController;
 	Font* mFont;
-	Image* mVideoImage;
-	Image* mBlankImage;
-	uintptr_t mHUDColorId;
-	uint64_t mHUDTicks;
-	bool mBlinkingViews;
-	Timer mHUDTimer;
+	Timer mSecondTimer;
 	RendererHUD* mRendererHUD;
 
 	rwifi_rx_t* mRx;
 	Socket* mSocket;
+	std::string mSockerAddr;
+	uint16_t mSocketPort;
 	HookThread<Stream>* mDecodeThread;
 	void* mDecodeInput;
 
 	int mIwSocket;
-	struct {
-		int qual;
-		int level;
-		int noise;
-		int channel;
-	} mIwStats;
+	IwStats mIwStats;
 	HookThread<Stream>* mSignalThread;
 
-	Timer mScreenTimer;
 	Timer mFPSTimer;
 	int mFPS;
 	int mFrameCounter;
@@ -88,6 +78,14 @@ private:
 	EGLImageKHR mEGLVideoImage;
 	GLuint mVideoTexture;
 	video_context* mDecodeContext;
+
+	DISPMANX_DISPLAY_HANDLE_T mDisplay;
+	struct {
+		DISPMANX_RESOURCE_HANDLE_T resource;
+		VC_RECT_T rect;
+		void *image;
+		uint32_t vc_image_ptr;
+	} mScreenshot;
 };
 
 #endif // STREAM_H

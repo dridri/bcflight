@@ -13,7 +13,7 @@ MCP320x::MCP320x()
 	mFD = open( "/dev/spidev32766.0", O_RDWR );
 
 	uint8_t mode, lsb, bits;
-	uint32_t speed = 50000;
+	uint32_t speed = 500000;
 
 	mode = SPI_MODE_0;
 	if ( ioctl( mFD, SPI_IOC_WR_MODE, &mode ) < 0 )
@@ -56,8 +56,8 @@ MCP320x::MCP320x()
 	for ( int i = 0; i < sizeof( mXFer ) /  sizeof( struct spi_ioc_transfer ); i++) {
 		mXFer[i].len = 0;
 		mXFer[i].cs_change = 0; // Keep CS activated
-		mXFer[i].delay_usecs = 1000;
-		mXFer[i].speed_hz = 50000;
+		mXFer[i].delay_usecs = 0;
+		mXFer[i].speed_hz = 500000;
 		mXFer[i].bits_per_word = 8;
 	}
 }
@@ -80,13 +80,28 @@ uint16_t MCP320x::Read( uint8_t channel )
 	buf[0] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
 	buf[1] = ( ( channel & 0b11 ) << 6 );
 	buf[2] = 0x00;
-
+	buf[3] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
+	buf[4] = ( ( channel & 0b11 ) << 6 );
+	buf[5] = 0x00;
+	buf[6] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
+	buf[7] = ( ( channel & 0b11 ) << 6 );
+	buf[8] = 0x00;
+	buf[9] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
+	buf[10] = ( ( channel & 0b11 ) << 6 );
+	buf[11] = 0x00;
+/*
+	mXFer[0].tx_buf = (uintptr_t)buf;
+	mXFer[0].len = 12;
+	mXFer[0].rx_buf = (uintptr_t)bx;
+	status = ioctl( mFD, SPI_IOC_MESSAGE(1), mXFer );
+*/
 	for ( int i = 0; i < nbx; i++ ) {
 		mXFer[0].tx_buf = (uintptr_t)buf;
 		mXFer[0].len = 3;
 		mXFer[0].rx_buf = (uintptr_t)bx[i];
 		status = ioctl( mFD, SPI_IOC_MESSAGE(1), mXFer );
 	}
+
 	for ( int j = 0; j < nbx; j++ ) {
 		for ( int i = 0; i < nbx; i++ ) {
 			if ( i != j and bx[i][1] != bx[j][1] ) {
@@ -105,11 +120,13 @@ uint16_t MCP320x::Read( uint8_t channel )
 
 	b[2] = b[2] & 0xF0;
 
-	if ( b[1] < 0x05 ) {
-		return 1500;
-	}
-	if ( b[1] > 0x09 ) {
-		return 2500;
+	if ( channel != 7 ) {
+		if ( b[1] < 0x05 ) {
+			return 1500;
+		}
+		if ( b[1] > 0x09 ) {
+			return 2500;
+		}
 	}
 // 	else {
 // 		printf( "b : { %02X %02X %02X %04X %d }\n", b[0], b[1], b[2], ( ( b[1] & 0b1111 ) << 8 ) | b[2], ( ( b[1] & 0b1111 ) << 8 ) | b[2] );

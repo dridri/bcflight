@@ -2,25 +2,45 @@
 #define RENDERERHUD_H
 
 #include <gammaengine/Instance.h>
+#include <gammaengine/Window.h>
+#include <gammaengine/Timer.h>
 #include <gammaengine/Font.h>
 #include <gammaengine/Image.h>
 #include <gammaengine/Matrix.h>
 #include <string>
+#include "Controller.h"
 
 using namespace GE;
+
+
+typedef struct VideoStats {
+	int fps;
+} VideoStats;
+
+
+typedef struct IwStats {
+	int qual;
+	int level;
+	int noise;
+	int channel;
+} IwStats;
+
 
 class RendererHUD
 {
 public:
 	RendererHUD( Instance* instance, Font* font );
-	~RendererHUD();
+	virtual ~RendererHUD();
 
-	void Compute();
-	void RenderThrust( float thrust );
-	void RenderLink( float quality );
-	void RenderBattery( float level );
-	void RenderText( int x, int y, const std::string& text, uint32_t color, bool hcenter = false );
-	void RenderText( int x, int y, const std::string& text, const Vector4f& color, bool hcenter = false );
+	virtual void Compute() = 0;
+	virtual void Render( GE::Window* window, Controller* controller, VideoStats* videostats, IwStats* iwstats ) = 0;
+
+	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, bool hcenter = false );
+	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, bool hcenter = false );
+	Vector2f VR_Distort( const Vector2f& coords );
+
+	void PreRender( VideoStats* videostats );
+	void setNightMode( bool m ) { mNightMode = m; }
 
 protected:
 	typedef struct {
@@ -43,6 +63,7 @@ protected:
 		uint32_t mVertexPositionID;
 		uint32_t mMatrixProjectionID;
 		uint32_t mOffsetID;
+		uint32_t mScaleID;
 		uint32_t mColorID;
 	} Shader;
 
@@ -53,21 +74,15 @@ protected:
 
 	Instance* mInstance;
 	Font* mFont;
-	bool mReady;
+	bool mNightMode;
+	float m3DStrength;
+	bool mBlinkingViews;
+	Timer mHUDTimer;
 
 	Matrix* mMatrixProjection;
 
-	Shader mShader;
-	Shader mColorShader;
 	Shader mTextShader;
-
-	uint32_t mThrustVBO;
-	uint32_t mLinkVBO;
-	uint32_t mBatteryVBO;
 	uint32_t mTextVBO;
-	uint32_t mTextIBO;
-
-	uint32_t mTextIndices[256];
 	int mTextAdv[256];
 };
 

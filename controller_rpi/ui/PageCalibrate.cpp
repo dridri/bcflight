@@ -12,9 +12,9 @@ PageCalibrate::PageCalibrate()
 	mAxies[1].name = "Yaw";
 	mAxies[2].name = "Pitch";
 	mAxies[3].name = "Roll";
-	mAxies[0].max = mAxies[1].max = mAxies[2].max = mAxies[3].max = 0;
-	mAxies[0].center = mAxies[1].center = mAxies[2].center = mAxies[3].center = 2000;
-	mAxies[0].min = mAxies[1].min = mAxies[2].min = mAxies[3].min = 65535;
+// 	mAxies[0].max = mAxies[1].max = mAxies[2].max = mAxies[3].max = 0;
+// 	mAxies[0].center = mAxies[1].center = mAxies[2].center = mAxies[3].center = 2000;
+// 	mAxies[0].min = mAxies[1].min = mAxies[2].min = mAxies[3].min = 65535;
 }
 
 
@@ -26,6 +26,14 @@ PageCalibrate::~PageCalibrate()
 void PageCalibrate::gotFocus()
 {
 // 	fDebug0();
+	getGlobals()->controller()->Lock();
+
+	for ( int i = 0; i < sizeof(mAxies) / sizeof(PageCalibrate::Axis); i++ ) {
+		mAxies[i].min = getGlobals()->controller()->joystick(i)->min();
+		mAxies[i].center = getGlobals()->controller()->joystick(i)->center();
+		mAxies[i].max = getGlobals()->controller()->joystick(i)->max();
+	}
+
 	mCurrentAxis = 0;
 	mApplyTimer = Timer();
 	render();
@@ -41,6 +49,7 @@ void PageCalibrate::lostFocus()
 	getGlobals()->controller()->joystick(2)->SetCalibratedValues( mAxies[2].min, mAxies[2].center, mAxies[2].max );
 	getGlobals()->controller()->joystick(3)->SetCalibratedValues( mAxies[3].min, mAxies[3].center, mAxies[3].max );
 	*/
+	getGlobals()->controller()->Unlock();
 }
 
 
@@ -76,9 +85,10 @@ void PageCalibrate::click( float _x, float _y, float force )
 	int apply_w = 0;
 	int apply_h = 0;
 	font->measureString( "Apply", &apply_w, &apply_h );
-	int apply_x = getGlobals()->icon( "selector" )->width() * 2.5;
+	int apply_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
 	int apply_y = window->height() - apply_h * 1.25;
 	if ( x >= apply_x and y >= apply_y and x <= apply_x + apply_w ) {
+		gDebug() << "Apply\n";
 		getGlobals()->controller()->joystick(mCurrentAxis)->SetCalibratedValues( mAxies[mCurrentAxis].min, mAxies[mCurrentAxis].center, mAxies[mCurrentAxis].max );
 		mApplyTimer.Stop();
 		mApplyTimer.Start();
@@ -88,8 +98,9 @@ void PageCalibrate::click( float _x, float _y, float force )
 	int reset_h = 0;
 	font->measureString( "Reset", &reset_w, &reset_h );
 	int reset_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
-	int reset_y = window->height() - reset_h * 2.5;
-	if ( x >= reset_x and y >= reset_y and x <= reset_x + reset_w ) {
+	int reset_y = window->height() - reset_h * 3.0;
+	if ( x >= reset_x and y >= reset_y and x <= reset_x + reset_w and y <= reset_y + reset_h ) {
+		gDebug() << "Reset\n";
 		mAxies[mCurrentAxis].max = 0;
 		mAxies[mCurrentAxis].center = 2000;
 		mAxies[mCurrentAxis].min = 65535;
@@ -127,7 +138,7 @@ bool PageCalibrate::update( float t, float dt )
 		int apply_w = 0;
 		int apply_h = 0;
 		font->measureString( "Apply", &apply_w, &apply_h );
-		int apply_x = getGlobals()->icon( "selector" )->width() * 2.5;
+		int apply_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
 		int apply_y = window->height() - apply_h * 1.25;
 		if ( mApplyTimer.ellapsed() < 1000 ) {
 			window->ClearRegion( apply_x, apply_y, apply_w, apply_h );
@@ -178,6 +189,6 @@ void PageCalibrate::render()
 	int reset_h = 0;
 	font->measureString( "Reset", &reset_w, &reset_h );
 	int reset_x = getGlobals()->icon( "PageMain" )->width() * 2.5;
-	int reset_y = window->height() - reset_h * 2.5;
+	int reset_y = window->height() - reset_h * 3;
 	renderer->DrawText( reset_x, reset_y, font, 0xFFFFFFFF, "Reset" );
 }

@@ -1,53 +1,32 @@
 #include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 #include <iwlib.h>
 #include <gammaengine/Debug.h>
 #include <gammaengine/Time.h>
 #include <gammaengine/Image.h>
 #include "Stream.h"
 #include "Controller.h"
+#include "RendererHUDClassic.h"
+#include "RendererHUDNeo.h"
 
-static const char hud_vertices_shader[] =
-R"(	out vec2 ge_TextureCoord;
+/*
+std::string interface_address( const std::string& itf )
+{
+	int fd;
+	struct ifreq ifr;
 
-	vec2 VR_Distort( vec2 coords )
-	{
-		vec2 ret = coords;
-		vec2 ofs = vec2(1280.0/4.0, 720.0/2.0);
-		if ( coords.x >= 1280.0/2.0 ) {
-			ofs.x = 3.0 * 1280.0/4.0;
-		}
-		vec2 offset = coords - ofs;
-		float r2 = offset.x * offset.x + offset.y * offset.y;
-// 		float r2 = dot( offset.xy, offset.xy );
-		float r = sqrt(r2);
-		float k1 = 1.95304;
-		k1 = k1 / ((1280.0 / 4.0)*(1280.0 / 4.0) * 16.0);
+	fd = socket( AF_INET, SOCK_DGRAM, 0 );
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy( ifr.ifr_name, itf.c_str(), IFNAMSIZ - 1 );
+	ioctl( fd, SIOCGIFADDR, &ifr );
+	close( fd );
 
-		ret = ofs + ( 1.0 - k1 * r * r ) * offset;
-
-		return ret;
-	}
-
-
-	void main()
-	{
-		ge_TextureCoord = ge_VertexTexcoord.xy;
-		vec2 pos = ge_VertexPosition.xy;
-// 		pos.xy = VR_Distort( pos.xy );
-		ge_Position = ge_ProjectionMatrix * vec4(pos, 0.0, 1.0);
-	})"
-;
-
-static const char hud_fragment_shader[] =
-R"(	uniform vec4 color;
-	in vec2 ge_TextureCoord;
-
-	void main()
-	{
-		ge_FragColor = color;// * texture( ge_Texture0, ge_TextureCoord.xy );
-	})"
-;
-
+	return std::string( inet_ntoa( ( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr ) );
+}
+*/
 
 Stream::Stream( Controller* controller, Font* font, const std::string& addr, uint16_t port )
 	: Thread()
@@ -55,19 +34,22 @@ Stream::Stream( Controller* controller, Font* font, const std::string& addr, uin
 	, mWindow( nullptr )
 	, mController( controller )
 	, mFont( font )
-	, mVideoImage( nullptr )
 	, mEGLVideoImage( 0 )
 	, mVideoTexture( 0 )
 	, mRx( nullptr )
 	, mSocket( nullptr )
+	, mSockerAddr( addr )
+	, mSocketPort( port )
 	, mDecodeInput( nullptr )
 {
 // 	mRx = rwifi_rx_init( "wlan0", 0, 1 );
-	mSocket = new Socket( addr, port, Socket::UDPLite );
-	mBlinkingViews = false;
 	mFPS = 0;
 	mFrameCounter = 0;
 
+	gDebug() << "Waiting for IP address\n";
+	system( "killall -9 dhclient && dhclient wlan0 && while ! ifconfig | grep -F \"192.168.32.\" > /dev/null; do sleep 1; done" );
+
+	mSocket = new Socket( mSockerAddr, mSocketPort, Socket::UDPLite );
 	uint32_t uid = htonl( 0x12345678 );
 	mSocket->Send( &uid, sizeof(uid) );
 
@@ -75,9 +57,8 @@ Stream::Stream( Controller* controller, Font* font, const std::string& addr, uin
 	memset( &mIwStats, 0, sizeof( mIwStats ) );
 
 	mFPSTimer = Timer();
-	mScreenTimer = Timer();
-	mHUDTimer = Timer();
-	mHUDTimer.Start();
+	mSecondTimer = Timer();
+	mSecondTimer.Start();
 	Start();
 
 	mSignalThread = new HookThread< Stream >( this, &Stream::SignalThreadRun );
@@ -87,6 +68,8 @@ Stream::Stream( Controller* controller, Font* font, const std::string& addr, uin
 
 Stream::~Stream()
 {
+	vc_dispmanx_resource_delete( mScreenshot.resource );
+	vc_dispmanx_display_close( mDisplay );
 }
 
 
@@ -98,12 +81,8 @@ bool Stream::run()
 
 		mLayerDisplay = CreateNativeWindow( 2 );
 		mWindow->SetNativeWindow( reinterpret_cast< EGLNativeWindowType >( &mLayerDisplay ) );
-		mRenderer = mInstance->CreateRenderer2D( mWindow->width(), mWindow->height() );
-// 		mRenderer->LoadVertexShader( hud_vertices_shader, sizeof(hud_vertices_shader) + 1 );
-// 		mRenderer->LoadFragmentShader( hud_fragment_shader, sizeof(hud_fragment_shader) + 1 );
-		mRenderer->setBlendingEnabled( false );
 
-		mRendererHUD = new RendererHUD( mInstance, mFont );
+		mRendererHUD = new RendererHUDNeo( mInstance, mFont );
 
 		mDecodeContext = video_configure();
 		video_start( mDecodeContext );
@@ -112,65 +91,37 @@ bool Stream::run()
 		mDecodeThread->Start();
 
 		mFPSTimer.Start();
-		mScreenTimer.Start();
 
 		glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 	}
 
 	glClear( GL_COLOR_BUFFER_BIT );
 
-	// Link status
-	{
-		mRendererHUD->RenderLink( (float)mIwStats.qual / 100.0f );
-		float link_red = 1.0f - ((float)mIwStats.qual) / 100.0f;
-		std::string link_quality_str = "Ch" + std::to_string( mIwStats.channel ) + " " + std::to_string( mIwStats.level ) + "dBm " + std::to_string( mIwStats.qual ) + "%";
-		mRendererHUD->RenderText( (float)mWindow->width() * 0.03f, 140, link_quality_str, Vector4f( 0.5f + 0.5f * link_red, 1.0f - link_red * 0.25f, 0.5f - link_red * 0.5f, 1.0f ) );
-	}
+	VideoStats video_stats = {
+		.fps = mFPS,
+	};
+	mRendererHUD->Render( mWindow, mController, &video_stats, &mIwStats );
 
-	// FPS + latency
-	{
-		int w = 0, h = 0;
-		float fps_red = std::max( 0.0f, std::min( 1.0f, ((float)( 50 - mFPS ) ) / 50.0f ) );
-		std::string fps_str = std::to_string( mFPS );
-		mFont->measureString( fps_str, &w, &h );
-		mRendererHUD->RenderText( (float)mWindow->width() * ( 1.0f / 2.0f - 0.075f ) - w, 120, fps_str, Vector4f( 0.5f + 0.5f * fps_red, 1.0f - fps_red * 0.25f, 0.5f - fps_red * 0.5f, 1.0f ) );
-		float latency_red = std::min( 1.0f, ((float)mController->ping()) / 50.0f );
-		std::string latency_str = std::to_string( mController->ping() ) + "ms";
-		mFont->measureString( latency_str, &w, &h );
-		mRendererHUD->RenderText( (float)mWindow->width() * ( 1.0f / 2.0f - 0.075f ) - w, 140, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ) );
-	}
-
-	// Battery
-	{
-		float level = mController->batteryLevel();
-		mRendererHUD->RenderBattery( level );
-		if ( level <= 0.25f and mBlinkingViews ) {
-			mRendererHUD->RenderText( (float)mWindow->width() * 1.0f / 4.0f, mWindow->height() - 125, "Low Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), true );
+	if ( mSecondTimer.ellapsed() >= 1000 ) {
+		vc_dispmanx_snapshot( mDisplay, mScreenshot.resource, DISPMANX_NO_ROTATE );
+		vc_dispmanx_resource_read_data( mScreenshot.resource, &mScreenshot.rect, mScreenshot.image, 1920 / 2 * 3 );
+		uint32_t r = 0;
+		uint32_t g = 0;
+		uint32_t b = 0;
+		for ( uint32_t y = 0; y < 1080; y += 36 ) {
+			for ( uint32_t x = 0; x < 1920 / 2; x += 32 ) {
+				r += ((uint8_t*)mScreenshot.image)[ ( y * 1920 / 2 + x ) * 3 + 0 ];
+				g += ((uint8_t*)mScreenshot.image)[ ( y * 1920 / 2 + x ) * 3 + 1 ];
+				b += ((uint8_t*)mScreenshot.image)[ ( y * 1920 / 2 + x ) * 3 + 2 ];
+			}
 		}
-		int w = 0, h = 0;
-		std::string current_drawn = std::to_string( mController->totalCurrent() );
-		mFont->measureString( current_drawn, &w, &h );
-		mRendererHUD->RenderText( (float)mWindow->width() * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w - 8, mWindow->height() - 140, current_drawn, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ) );
-		std::string voltage = std::to_string( mController->batteryVoltage() );
-		voltage = voltage.substr( 0, voltage.find( "." ) + 3 );
-		mFont->measureString( voltage, &w, &h );
-		mRendererHUD->RenderText( (float)mWindow->width() * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w - 8, mWindow->height() - 105, voltage, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ) );
-	}
-
-	// Controls
-	{
-		mRendererHUD->RenderThrust( mController->thrust() );
-		mRendererHUD->RenderText( (float)mWindow->width() * ( 1.0f / 4.0f + 0.05f ), 112, "ACRO", Vector4f( 0.35f, 0.35f, 0.35f, 1.0f ) );
-		mRendererHUD->RenderText( (float)mWindow->width() * ( 1.0f / 4.0f + 0.05f ), 112 + mFont->size(), "HRZN", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ) );
-	}
-
-	if ( mHUDTimer.ellapsed() >= 1000 ) {
-		mBlinkingViews = !mBlinkingViews;
-		mHUDTimer.Stop();
-		mHUDTimer.Start();
+		mRendererHUD->setNightMode( r / 900 < 32 and g / 900 < 32 and b / 900 < 32 );
+		mSecondTimer.Stop();
+		mSecondTimer.Start();
 	}
 
 	mWindow->SwapBuffers();
+// 	printf( "%.2f\n", mWindow->fps() );
 	return true;
 }
 
@@ -203,7 +154,15 @@ bool Stream::DecodeThreadRun()
 // 	uint8_t frame[32768] = { 0 };
 // 	uint8_t* frame = nullptr;
 	uint32_t frameSize = 0;
-
+/*
+	if ( not mRx and not mSocket ) {
+		gDebug() << "Waiting for IP address\n";
+		system( "dhclient wlan0 && while ! ifconfig | grep -F \"192.168.32.\" > /dev/null; do sleep 1; done" );
+		mSocket = new Socket( mSockerAddr, mSocketPort, Socket::UDPLite );
+		uint32_t uid = htonl( 0x12345678 );
+		mSocket->Send( &uid, sizeof(uid) );
+	}
+*/
 	if ( mDecodeInput == nullptr ) {
 		mDecodeInput = mDecodeContext->decinput->pBuffer;
 	} else {
@@ -269,7 +228,6 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 {
 	EGL_DISPMANX_WINDOW_T nativewindow;
 	DISPMANX_ELEMENT_HANDLE_T dispman_element;
-	DISPMANX_DISPLAY_HANDLE_T dispman_display;
 	DISPMANX_UPDATE_HANDLE_T dispman_update;
 	VC_RECT_T dst_rect;
 	VC_RECT_T src_rect;
@@ -294,7 +252,7 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 	src_rect.width = display_width << 16;
 	src_rect.height = display_height << 16;
 
-	dispman_display = vc_dispmanx_display_open( 5 );
+	mDisplay = vc_dispmanx_display_open( 5 );
 	dispman_update = vc_dispmanx_update_start( 0 );
 
 	VC_DISPMANX_ALPHA_T alpha;
@@ -302,11 +260,15 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 // 	alpha.flags = (DISPMANX_FLAGS_ALPHA_T)( DISPMANX_FLAGS_ALPHA_FIXED_ALL_PIXELS | DISPMANX_FLAGS_ALPHA_PREMULT );
 	alpha.opacity = 0;
 
-	dispman_element = vc_dispmanx_element_add( dispman_update, dispman_display, layer, &dst_rect, 0, &src_rect, DISPMANX_PROTECTION_NONE, &alpha, 0, DISPMANX_NO_ROTATE );
+	dispman_element = vc_dispmanx_element_add( dispman_update, mDisplay, layer, &dst_rect, 0, &src_rect, DISPMANX_PROTECTION_NONE, &alpha, 0, DISPMANX_NO_ROTATE );
 	nativewindow.element = dispman_element;
 	nativewindow.width = display_width;
 	nativewindow.height = display_height;
-	vc_dispmanx_update_submit_sync( dispman_update );   
+	vc_dispmanx_update_submit_sync( dispman_update );
+
+	mScreenshot.image = new uint8_t[ 1920 / 2 * 1080 * 3 ];
+	mScreenshot.resource = vc_dispmanx_resource_create( VC_IMAGE_RGB888, 1920 / 2, 1080, &mScreenshot.vc_image_ptr );
+	vc_dispmanx_rect_set( &mScreenshot.rect, 0, 0, 1920 / 2, 1080 );
 
 	return nativewindow;
 }

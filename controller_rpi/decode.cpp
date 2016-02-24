@@ -77,9 +77,9 @@ void video_decode_frame( video_context* ctx )
 		region.set = (OMX_DISPLAYSETTYPE)( OMX_DISPLAY_SET_FULLSCREEN | OMX_DISPLAY_SET_DEST_RECT | OMX_DISPLAY_SET_NOASPECT | OMX_DISPLAY_SET_LAYER );
 		region.fullscreen = OMX_FALSE;
 		region.dest_rect.x_offset = 0;
-		region.dest_rect.y_offset = 32;
+		region.dest_rect.y_offset = 24;
 		region.dest_rect.width = 1920 / 2;
-		region.dest_rect.height = 1080 - 64;
+		region.dest_rect.height = 1080 - 112;
 		region.noaspect = OMX_TRUE;
 		region.layer = 0;
 		OERR( OMX_SetConfig( ctx->rdr1, OMX_IndexConfigDisplayRegion, &region ) );

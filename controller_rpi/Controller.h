@@ -35,16 +35,19 @@ public:
 
 	class Joystick {
 	public:
-		Joystick() : mFd( -1 ), mCalibrated( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ) {}
-		Joystick( int id, const std::string& devfile, bool thrust_mode = false );
+		Joystick() : mADC( nullptr ), mADCChannel( 0 ), mCalibrated( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ) {}
+		Joystick( MCP320x* adc, int id, int channel, bool thrust_mode = false );
 		~Joystick();
 		uint16_t ReadRaw();
 		float Read();
 		void SetCalibratedValues( uint16_t min, uint16_t center, uint16_t max );
+		uint16_t max() const { return mMax; }
+		uint16_t center() const { return mCenter; }
+		uint16_t min() const { return mMin; }
 	private:
+		MCP320x* mADC;
 		int mId;
-		std::string mDevFile;
-		int mFd;
+		int mADCChannel;
 		bool mCalibrated;
 		bool mThrustMode;
 		uint16_t mMin;
@@ -55,8 +58,12 @@ public:
 	Controller( const std::string& addr, uint16_t port );
 	~Controller();
 
+	void Lock() { mLockState = 1; while ( mLockState != 2 ) usleep(1); }
+	void Unlock() { mLockState = 0; }
 	Joystick* joystick( int x ) { return &mJoysticks[x]; }
 
+	void Calibrate();
+	void CalibrateAll();
 	void Arm();
 	void Disarm();
 	void ResetBattery();
@@ -78,8 +85,11 @@ public:
 	DECL_RW_VAR( Vector3f, ControlRPY, controlRPY );
 	DECL_RW_VAR( Mode, Mode, mode );
 
+	float acceleration() const;
 	const std::list< Vector3f >& rpyHistory() const;
 	const std::list< Vector3f >& outerPidHistory() const;
+
+	float localBatteryVoltage() const;
 
 protected:
 	typedef enum {
@@ -102,6 +112,7 @@ protected:
 		GYRO = 0x18,
 		MAGN = 0x19,
 		MOTORS_SPEED = 0x1A,
+		CURRENT_ACCELERATION = 0x1B,
 		SENSORS_DATA = 0x20,
 		PID_OUTPUT = 0x21,
 		OUTER_PID_OUTPUT = 0x22,
@@ -116,6 +127,7 @@ protected:
 		SET_PITCH = 0x41,
 		SET_YAW = 0x42,
 		SET_THRUST = 0x43,
+		SET_TRPY = 0x44,
 		RESET_MOTORS = 0x47,
 		SET_MODE = 0x48,
 		SET_PID_P = 0x50,
@@ -135,19 +147,29 @@ protected:
 	float ReceiveFloat();
 
 // 	Settings* mSettings;
+	std::string mServer;
+	uint16_t mPort;
 	Socket* mSocket;
+	bool mConnected;
+	uint32_t mLockState;
 	std::mutex mXferMutex;
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
 	Timer mPingTimer;
+	uint64_t mMsCounter;
+	uint64_t mMsCounter50;
 
 	uint32_t mTicks;
 	Joystick mJoysticks[8];
+	bool mSwitches[5];
 
 	MCP320x* mADC;
 
+	float mAcceleration;
 	std::list< Vector3f > mRPYHistory;
 	std::list< Vector3f > mOuterPIDHistory;
+
+	float mLocalBatteryVoltage;
 };
 
 #endif // CONTROLLER_H

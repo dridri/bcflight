@@ -2,6 +2,7 @@
 #define PAGEMAIN_H
 
 #include <libbcui/Page.h>
+#include <libbcui/Button.h>
 
 using namespace BC;
 
@@ -18,6 +19,15 @@ public:
 	bool update( float t, float dt );
 	void render();
 	void back();
+
+private:
+	void actionResetBattery();
+	void actionCalibrate();
+	void actionCalibrateAll();
+
+	Button* mButtonResetBattery;
+	Button* mButtonCalibrate;
+	Button* mButtonCalibrateAll;
 };
 
 #endif // PAGEMAIN_H

@@ -23,6 +23,9 @@ using namespace BC;
 		sInstance = this;
 	}
 
+	// Wait until the system finishes starting
+	usleep( 1000 * 1000 * 15 );
+
 	mInputFD = open( "/dev/input/mouse0", O_RDONLY | O_NONBLOCK );
 
 	mInstance = instance;

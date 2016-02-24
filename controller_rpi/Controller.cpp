@@ -1,10 +1,23 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <wiringPi.h>
 #include <gammaengine/Time.h>
 #include <gammaengine/Debug.h>
 #include "Controller.h"
 #include "ui/Globals.h"
+
+
+static uint32_t htonf( float f )
+{
+	union {
+		float f;
+		uint32_t u;
+	} u;
+	u.f = f;
+	return u.u;
+}
 
 Controller::Controller( const std::string& addr, uint16_t port )
 	: Thread()
@@ -13,17 +26,35 @@ Controller::Controller( const std::string& addr, uint16_t port )
 	, mCurrentDraw( 0 )
 	, mBatteryVoltage( 0 )
 	, mBatteryLevel( 0 )
-	, mSocket( new Socket( addr, port, Socket::TCP ) )
+	, mThrust( 0.0f )
+	, mControlRPY( Vector3f( 0.0f, 0.0f, 0.0f ) )
+	, mServer( addr )
+	, mPort( port )
+	, mSocket( nullptr )
+	, mConnected( false )
+	, mLockState( 0 )
 	, mPingTimer( Timer() )
+	, mMsCounter( 0 )
+	, mMsCounter50( 0 )
 	, mTicks( 0 )
+	, mAcceleration( 0.0f )
 {
-	mADC = nullptr;
+	mADC = new MCP320x();
 	mArmed = false;
+	mMode = Stabilize;
+	memset( mSwitches, 0, sizeof( mSwitches ) );
 
-	mJoysticks[0] = Joystick( 0, "/sys/bus/iio/devices/iio:device0/in_voltage0_raw", true );
-	mJoysticks[1] = Joystick( 1, "/sys/bus/iio/devices/iio:device0/in_voltage1_raw" );
-	mJoysticks[2] = Joystick( 2, "/sys/bus/iio/devices/iio:device0/in_voltage2_raw" );
-	mJoysticks[3] = Joystick( 3, "/sys/bus/iio/devices/iio:device0/in_voltage3_raw" );
+	wiringPiSetup();
+	pinMode( 21, INPUT );
+	pinMode( 22, INPUT );
+	pinMode( 23, INPUT );
+	pinMode( 24, INPUT );
+	pinMode( 25, INPUT );
+
+	mJoysticks[0] = Joystick( mADC, 0, 0, true );
+	mJoysticks[1] = Joystick( mADC, 1, 1 );
+	mJoysticks[2] = Joystick( mADC, 2, 2 );
+	mJoysticks[3] = Joystick( mADC, 3, 3 );
 	mPingTimer.Start();
 	Start();
 }
@@ -34,17 +65,16 @@ Controller::~Controller()
 }
 
 
-Controller::Joystick::Joystick( int id, const std::string& devfile, bool thrust_mode )
-	: mId( id )
-	, mDevFile( devfile )
+Controller::Joystick::Joystick( MCP320x* adc, int id, int adc_channel, bool thrust_mode )
+	: mADC( adc )
+	, mId( id )
+	, mADCChannel( adc_channel )
 	, mCalibrated( false )
 	, mThrustMode( thrust_mode )
 	, mMin( 0 )
 	, mCenter( 32767 )
 	, mMax( 65535 )
 {
-// 	mFd = open( devfile.c_str(), O_RDONLY );
-
 	mMin = getGlobals()->setting( "Joystick:" + std::to_string( mId ) + ":min", 0 );
 	mCenter = getGlobals()->setting( "Joystick:" + std::to_string( mId ) + ":cen", 0 );
 	mMax = getGlobals()->setting( "Joystick:" + std::to_string( mId ) + ":max", 0 );
@@ -56,9 +86,6 @@ Controller::Joystick::Joystick( int id, const std::string& devfile, bool thrust_
 
 Controller::Joystick::~Joystick()
 {
-	if ( mFd >= 0 ) {
-		close( mFd );
-	}
 }
 
 
@@ -77,51 +104,74 @@ void Controller::Joystick::SetCalibratedValues( uint16_t min, uint16_t center, u
 
 uint16_t Controller::Joystick::ReadRaw()
 {
-	char buf[32] = "";
-	uint16_t ret = 0;
-
-	mFd = open( mDevFile.c_str(), O_RDONLY );
-	if ( mFd > 0 ) {
-		int rret = read( mFd, buf, sizeof(buf) );
-		close( mFd );
-		if ( rret > 0 ) {
-			ret = (uint16_t)atoi( buf );
-		}
-	}
-
-	return ret;
+	return mADC->Read( mADCChannel );
 }
 
 
 float Controller::Joystick::Read()
 {
 	uint16_t raw = ReadRaw();
-	if ( raw <= mMin ) {
-		return 0.0f;
-	}
-	if ( raw >= mMax ) {
-		return 0.0f;
-	}
-	if ( raw == 0 ) {
+	if ( raw <= 0 ) {
 		return -10.0f;
 	}
 
 	if ( mThrustMode ) {
 		float ret = (float)( raw - mMin ) / (float)( mMax - mMin );
-// 		printf( "%d ( %.2f )\n", raw, ret );
+		ret = std::max( 0.0f, std::min( 1.0f, ret ) );
 		return ret;
 	}
 
-	if ( raw < 0 ) {
-		return (float)( ReadRaw() - mCenter ) / (float)( mCenter - mMin );
-	}
-	return (float)( ReadRaw() - mCenter ) / (float)( mMax - mCenter );
+// 	if ( mADCChannel == 1 ) {
+// 		printf( "raw : %d\n", raw );
+// 	}
+
+	float ret = (float)( raw - mCenter ) / (float)( mMax - mCenter );
+	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
+	return ret;
 }
 
 
 bool Controller::run()
 {
-	if ( mPingTimer.ellapsed() >= 1000 ) {
+	uint64_t ticks0 = Time::GetTick();
+
+	if ( !mConnected or !mSocket ) {
+		gDebug() << "Waiting for IP address\n";
+		system( "killall -9 dhclient && dhclient wlan0 && while ! ifconfig | grep -F \"192.168.32.\" > /dev/null; do sleep 1; done" );
+		gDebug() << "Connecting...";
+		if ( mSocket ) {
+			delete mSocket;
+		}
+		mSocket = new Socket();
+		mConnected = ( mSocket->Connect( mServer, mPort, Socket::TCP ) == 0 );
+		if ( mConnected ) {
+			Debug() << "Ok !\n";
+			int flag = 1; 
+			setsockopt( mSocket->rawSocket(), IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) );
+		} else {
+			Debug() << "Nope !\n";
+		}
+		return true;
+	}
+
+	if ( mLockState == 1 ) {
+		mLockState = 2;
+	}
+	if ( mLockState == 2 ) {
+		usleep( 1000 );
+		return true;
+	}
+
+	if ( mMsCounter - mMsCounter50 >= 50 ) {
+		Send( ROLL_PITCH_YAW );
+		mRPY.x = ReceiveFloat();
+		mRPY.y = ReceiveFloat();
+		mRPY.z = ReceiveFloat();
+		Send( CURRENT_ACCELERATION );
+		mAcceleration = ReceiveFloat();
+		mMsCounter50 = mMsCounter;
+	}
+	if ( mPingTimer.ellapsed() >= 250 ) {
 		uint64_t ticks = Time::GetTick();
 		Send( PING, (uint32_t)( ticks & 0xFFFFFFFFL ) );
 		uint32_t ret = ReceiveU32();
@@ -135,45 +185,127 @@ bool Controller::run()
 		Send( BATTERY_LEVEL );
 		mBatteryLevel = ReceiveFloat();
 
+		uint16_t battery_voltage = mADC->Read( 7 );
+		if ( battery_voltage != 0 ) {
+			mLocalBatteryVoltage = (float)battery_voltage * 5.0f * 2.0f / 4096.0f;
+		}
+
 		mPingTimer.Stop();
 		mPingTimer.Start();
 	}
 
-	if ( mADC == nullptr ) {
-		mADC = new MCP320x();
+	bool switch_0 = !digitalRead( 21 );
+	bool switch_1 = !digitalRead( 22 );
+	bool switch_2 = !digitalRead( 23 );
+	bool switch_3 = !digitalRead( 24 );
+	bool switch_4 = !digitalRead( 25 );
+	if ( switch_0 and not mSwitches[0] ) {
+	} else if ( not switch_0 and mSwitches[0] ) {
 	}
+	if ( switch_1 and not mSwitches[1] ) {
+	} else if ( not switch_1 and mSwitches[1] ) {
+	}
+	if ( switch_2 and not mSwitches[2] ) {
+		Arm();
+	} else if ( not switch_2 and mSwitches[2] ) {
+		Disarm();
+	}
+	if ( switch_3 and not mSwitches[3] ) {
+	} else if ( not switch_3 and mSwitches[3] ) {
+	}
+	if ( switch_4 and not mSwitches[4] ) {
+		setMode( Rate );
+	} else if ( not switch_4 and mSwitches[4] ) {
+		setMode( Stabilize );
+	}
+	mSwitches[0] = switch_0;
+	mSwitches[1] = switch_1;
+	mSwitches[2] = switch_2;
+	mSwitches[3] = switch_3;
+	mSwitches[4] = switch_4;
 
-// 	float r_thrust = mJoysticks[0].Read();
-	uint16_t raw = mADC->Read( 0 );
-	float r_thrust = (float)( raw - 1500 ) / (float)( 2500 - 1500 );
-	r_thrust = std::max( 0.0f, std::min( 1.0f, r_thrust ) );
-	if ( raw != 0 and r_thrust != mThrust and r_thrust >= 0.0f and r_thrust <= 1.0f ) {
-		printf( "r_thrust : %.2f\n", r_thrust );
-		if ( r_thrust >= 0.0f and not mArmed ) {
-			Arm();
-		} //else if ( r_thrust <= 0.1f and mArmed ) {
-// 			Disarm();
-// 		}
+	float r_thrust = mJoysticks[0].Read();
+	float r_yaw = mJoysticks[1].Read();
+	float r_pitch = mJoysticks[2].Read();
+	float r_roll = mJoysticks[3].Read();
+	if ( r_thrust != mThrust and r_thrust >= 0.0f and r_thrust <= 1.0f ) {
 		setThrust( r_thrust );
 	}
-
-// 	float r_yaw = mJoysticks[1].Read();
-// 	float r_pitch = mJoysticks[2].Read();
-// 	float r_roll = mJoysticks[3].Read();
-
-/*
-	if ( r_roll != mRPY.x and r_roll != -10.0f ) {
-		setRoll( r_roll );
-	}
-	if ( r_pitch != mRPY.y and r_pitch != -10.0f ) {
-		setPitch( r_pitch );
-	}
-	if ( r_yaw != mRPY.z and r_yaw != -10.0f ) {
+	if ( r_yaw != mControlRPY.z and r_yaw >= -1.0f and r_yaw <= 1.0f ) {
 		setYaw( r_yaw );
 	}
-*/
+	if ( r_pitch != mControlRPY.y and r_pitch >= -1.0f and r_pitch <= 1.0f ) {
+		setPitch( r_pitch );
+	}
+	if ( r_roll != mControlRPY.x and r_roll >= -1.0f and r_roll <= 1.0f ) {
+		setRoll( r_roll );
+	}
+	/*
+	struct {
+		uint32_t cmd;
+		uint32_t thrust;
+		uint32_t roll;
+		uint32_t pitch;
+		uint32_t yaw;
+	} __attribute__((packed)) cmd_trpy = { htonl( SET_TRPY ), 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
+	if ( r_thrust >= 0.0f and r_thrust <= 1.0f ) {
+		cmd_trpy.thrust = htonf( r_thrust );
+	}
+	if ( r_yaw >= -1.0f and r_yaw <= 1.0f ) {
+		cmd_trpy.yaw = htonf( r_yaw );
+	}
+	if ( r_pitch >= -1.0f and r_pitch <= 1.0f ) {
+		cmd_trpy.pitch = htonf( r_pitch );
+	}
+	if ( r_roll >= -1.0f and r_roll <= 1.0f ) {
+		cmd_trpy.roll = htonf( r_roll );
+	}
+	mSocket->Send( &cmd_trpy, sizeof( cmd_trpy ) );
+	mThrust = ReceiveFloat();
+	mControlRPY.x = ReceiveFloat();
+	mControlRPY.y = ReceiveFloat();
+	mControlRPY.z = ReceiveFloat();
+	*/
+
 	mTicks = Time::WaitTick( 1000 / 100, mTicks );
+	mMsCounter += ( mTicks - ticks0 );
 	return true;
+}
+
+
+void Controller::Calibrate()
+{
+	if ( !mSocket ) {
+		return;
+	}
+
+	struct {
+		uint32_t cmd = htonl( CALIBRATE );
+		uint32_t full_recalibration = 0;
+		float current_altitude = 0.0f;
+	} calibrate_cmd;
+	mSocket->Send( &calibrate_cmd, sizeof( calibrate_cmd ) );
+	if ( ReceiveU32() == 0 ) {
+		gDebug() << "Calibration success\n";
+	}
+}
+
+
+void Controller::CalibrateAll()
+{
+	if ( !mSocket ) {
+		return;
+	}
+
+	struct {
+		uint32_t cmd = htonl( CALIBRATE );
+		uint32_t full_recalibration = 1;
+		float current_altitude = 0.0f;
+	} calibrate_cmd;
+	mSocket->Send( &calibrate_cmd, sizeof( calibrate_cmd ) );
+	if ( ReceiveU32() == 0 ) {
+		gDebug() << "Calibration success\n";
+	}
 }
 
 
@@ -280,6 +412,21 @@ void Controller::setYaw( const float& v )
 }
 
 
+void Controller::setMode( const Controller::Mode& mode )
+{
+	mXferMutex.lock();
+	Send( SET_MODE, (uint32_t)mode );
+	mMode = (Mode)ReceiveU32();
+	mXferMutex.unlock();
+}
+
+
+float Controller::acceleration() const
+{
+	return mAcceleration;
+}
+
+
 const std::list< Vector3f >& Controller::rpyHistory() const
 {
 	return mRPYHistory;
@@ -292,8 +439,18 @@ const std::list< Vector3f >& Controller::outerPidHistory() const
 }
 
 
+float Controller::localBatteryVoltage() const
+{
+	return mLocalBatteryVoltage;
+}
+
+
 void Controller::Send( const Controller::Cmd& cmd )
 {
+	if ( !mSocket or !mConnected ) {
+		return;
+	}
+
 	uint32_t c = htonl( cmd );
 	mSocket->Send( &c, sizeof( c ) );
 }
@@ -301,6 +458,10 @@ void Controller::Send( const Controller::Cmd& cmd )
 
 void Controller::Send( const Controller::Cmd& cmd, uint32_t v )
 {
+	if ( !mSocket or !mConnected ) {
+		return;
+	}
+
 	uint32_t data[2] = { htonl( cmd ), htonl( v ) };
 	mSocket->Send( data, sizeof( data ) );
 }
@@ -319,8 +480,29 @@ void Controller::Send( const Controller::Cmd& cmd, float v )
 
 uint32_t Controller::ReceiveU32()
 {
+	if ( !mSocket ) {
+		return 0;
+	}
+
+	uint64_t ticks = Time::GetTick();
 	uint32_t ret = 0;
-	mSocket->Receive( &ret, sizeof( ret ), true );
+	int err = 0;
+	errno = 0;
+// 	do {
+// 		if ( errno == EAGAIN ) {
+// 			gDebug() << "Timeout : " << ( Time::GetTick() - ticks ) << "ms\n";
+// 		}
+// 		errno = 0;
+// 		ticks = Time::GetTick();
+		err = mSocket->Receive( &ret, sizeof( ret ), true, 500 );
+// 	} while ( err <= 0 and errno == EAGAIN );
+	if ( err <= 0/* and errno != EAGAIN*/ ) {
+		gDebug() << "error : " << err << " ( " << errno << " ) (timeout : " << ( Time::GetTick() - ticks ) << "\n";
+		if ( errno != EAGAIN ) {
+			mConnected = false;
+		}
+		return 0;
+	}
 	return ntohl( ret );
 }
 

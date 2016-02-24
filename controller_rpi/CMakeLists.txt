@@ -15,6 +15,8 @@ add_executable( controller_rpi
 				Controller.cpp
 				Stream.cpp
 				RendererHUD.cpp
+				RendererHUDNeo.cpp
+				RendererHUDClassic.cpp
 				ADCs/MCP320x.cpp
 				ui/PageMain.cpp
 				ui/PageCalibrate.cpp
@@ -27,6 +29,6 @@ add_executable( controller_rpi
 
 add_dependencies( controller_rpi rawwifi )
 
-target_link_libraries( controller_rpi -lbcui -lgammaengine -lpng -ljpeg -lfreetype -lmad -lrt -ldl -lopenmaxil -lGLESv2 -lEGL -lbcm_host -lvcos -lvchiq_arm -liw ${CMAKE_BINARY_DIR}/librawwifi/librawwifi.a -lpcap -lz )
+target_link_libraries( controller_rpi -lbcui -lgammaengine -lpng -ljpeg -lfreetype -lmad -lrt -lwiringPi -ldl -lopenmaxil -lGLESv2 -lEGL -lbcm_host -lvcos -lvchiq_arm -liw ${CMAKE_BINARY_DIR}/librawwifi/librawwifi.a -lpcap -lz )
 
 install( TARGETS controller_rpi RUNTIME DESTINATION bin )
