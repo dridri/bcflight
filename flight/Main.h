@@ -27,10 +27,20 @@ public:
 	IMU* imu() const;
 	Stabilizer* stabilizer() const;
 	Frame* frame() const;
+	Controller* controller() const;
+	Camera* camera() const;
 
 private:
 	int flight_register();
 	void DetectDevices();
+	bool StabilizerThreadRun();
+
+	HookThread< Main >* mStabilizerThread;
+	uint32_t mLoopTime;
+	uint64_t mTicks;
+	uint64_t mWaitTicks;
+	uint64_t mLPSTicks;
+	uint32_t mLPS;
 
 	Config* mConfig;
 	Board* mBoard;

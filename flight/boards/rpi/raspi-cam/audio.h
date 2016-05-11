@@ -74,6 +74,7 @@ typedef struct audio_context {
 audio_context* audio_configure();
 void audio_start( audio_context* ctx );
 void audio_stop( audio_context* ctx );
+int audio_capture_raw( audio_context* ctx );
 int audio_fill_buffer( audio_context* ctx , AVCodec* enc );
 
 #ifdef __cplusplus

@@ -10,6 +10,7 @@ public:
 	EKFSmoother( int n, float q, float r );
 	~EKFSmoother();
 
+	Vector4f state();
 	void setState( const Vector4f& v );
 	void Predict( float dt );
 	Vector4f Update( float dt, const Vector4f& vdata );

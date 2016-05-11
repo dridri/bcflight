@@ -36,6 +36,7 @@ Board::Board( Main* main )
 	wiringPiSetupGpio();
 	PiBlasterInit( 100 );
 
+	system( "chrt -p -r 99 `ps aux | grep hostapd | tr -s ' ' | cut -d' ' -f2`") ;
 	system( "mount -o remount,rw /data" );
 
 	atexit( &Board::AtExit );

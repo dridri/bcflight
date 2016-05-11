@@ -32,6 +32,16 @@ EKFSmoother::~EKFSmoother()
 }
 
 
+Vector4f EKFSmoother::state()
+{
+	Vector4f ret;
+	for ( int i = 0; i < mDataCount; i++ ) {
+		ret[i] = mState.m[i];
+	}
+	return ret;
+}
+
+
 void EKFSmoother::setState( const Vector4f& v )
 {
 	for ( int i = 0; i < mDataCount; i++ ) {

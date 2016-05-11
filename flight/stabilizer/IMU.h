@@ -20,7 +20,7 @@ public:
 		Running
 	} State;
 
-	IMU();
+	IMU( Main* main );
 	virtual ~IMU();
 
 	const Vector3f acceleration() const;
@@ -34,15 +34,17 @@ public:
 
 	void Recalibrate();
 	void RecalibrateAll();
+	void ResetRPY();
 	void ResetYaw();
-	void Loop( float dt, bool update_rpy = true );
+	void Loop( float dt );
 
 protected:
 	bool SensorsThreadRun();
 	void Calibrate( float dt, bool all = false );
-	void UpdateSensors( float dt );
+	void UpdateSensors( float dt, bool gyro_only = false );
 	void UpdateRPY( float dt );
 
+	Main* mMain;
 	HookThread<IMU>* mSensorsThread;
 	uint64_t mSensorsThreadTick;
 	uint64_t mSensorsThreadTickRate;
@@ -63,14 +65,13 @@ protected:
 	Vector4f mRPYAccum;
 	Vector4f mdRPYAccum;
 
-	EKFSmoother mSmoothAcceleration;
-	EKFSmoother mSmoothGyroscope;
-	EKFSmoother mSmoothMagnetometer;
+	EKF mRates;
 	EKF mAttitude;
 	Vector4f mLastAccelAttitude;
 	Vector3f mVirtualNorth;
 
 	Vector3f mLastAcceleration;
+	uint32_t mAcroRPYCounter;
 };
 
 #endif // IMU_H

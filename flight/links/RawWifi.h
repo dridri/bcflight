@@ -1,10 +1,11 @@
 #ifndef RAWWIFI_H
 #define RAWWIFI_H
 
+#include "Link.h"
+
 #if ( BUILD_RAWWIFI == 1 )
 
-#include "Link.h"
-#include <wifibroadcast.h>
+#include <rawwifi.h>
 
 class Main;
 
@@ -18,27 +19,30 @@ public:
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
 	int Connect();
-	int Read( void* buf, uint32_t len, int timeout = 0 );
-	int ReadFloat( float* f );
-	int ReadU32( uint32_t* v );
-	int Write( void* buf, uint32_t len, int timeout = 0 );
-	int WriteU32( uint32_t v );
-	int WriteFloat( float v );
-	int WriteString( const std::string& s );
-	int WriteString( const char* fmt, ... );
 
 	static int flight_register( Main* main );
 
 protected:
 	static Link* Instanciate( Config* config, const std::string& lua_object );
+	int Read( void* buf, uint32_t len, int32_t timeout );
+	int Write( const void* buf, uint32_t len, int32_t timeout );
 
-	rwifi_tx_t* mTx;
-	rwifi_rx_t* mRx;
+	rawwifi_t mRaWifi;
 	std::string mDevice;
 	int mChannel;
 	int mTxPower;
 	int16_t mOutputPort;
 	int16_t mInputPort;
+};
+
+#else
+
+class RawWifi : public Link
+{
+public:
+	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1 ) {}
+	~RawWifi() {}
+	static int flight_register( Main* main ){ return 0; }
 };
 
 #endif // ( BUILD_RAWWIFI == 1 )

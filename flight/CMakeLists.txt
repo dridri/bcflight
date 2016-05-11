@@ -117,7 +117,12 @@ file( GLOB_RECURSE MOTORS_SOURCES motors/*.cpp )
 file( GLOB_RECURSE SENSORS_SOURCES sensors/*.cpp )
 file( GLOB_RECURSE VIDEO_SOURCES video/*.cpp )
 file( GLOB_RECURSE STABILIZER_SOURCES stabilizer/*.cpp )
-set( SOURCES Main.cpp Config.cpp Controller.cpp PowerThread.cpp Matrix.cpp ${CMAKE_BINARY_DIR}/flight_register.cpp )
+set( SOURCES
+	Main.cpp
+	Config.cpp
+	Controller.cpp
+	PowerThread.cpp
+	Matrix.cpp ${CMAKE_BINARY_DIR}/flight_register.cpp )
 list( APPEND SOURCES ${BOARD_SOURCES} )
 list( APPEND SOURCES ${STABILIZER_SOURCES} )
 list( APPEND SOURCES ${CONSOLE_SOURCES} )

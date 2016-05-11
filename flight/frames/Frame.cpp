@@ -1,3 +1,6 @@
+#include <unistd.h>
+#include <Debug.h>
+#include <Servo.h>
 #include "Frame.h"
 #include <Config.h>
 
@@ -11,6 +14,29 @@ Frame::Frame()
 
 Frame::~Frame()
 {
+}
+
+
+void Frame::CalibrateESCs()
+{
+	fDebug0();
+
+	for ( Motor* m : mMotors ) {
+		m->setSpeed( 1.0f, true );
+	}
+	Servo::HardwareSync();
+
+	usleep( 1000 * 1000 );
+	for ( Motor* m : mMotors ) {
+		m->setSpeed( 0.0f, true );
+	}
+	Servo::HardwareSync();
+
+	usleep( 1000 * 1000 );
+	for ( Motor* m : mMotors ) {
+		m->Disarm();
+	}
+	Servo::HardwareSync();
 }
 
 

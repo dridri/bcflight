@@ -1,6 +1,10 @@
+#include <list>
 #include <string.h>
 #include "Debug.h"
 #include "Config.h"
+#include <Accelerometer.h>
+#include <Gyroscope.h>
+#include <Magnetometer.h>
 
 Config::Config( const std::string& filename )
 	: mFilename( filename )
@@ -169,11 +173,72 @@ void Config::Reload()
 	luaL_dostring( L, "camera = {}" );
 	luaL_dostring( L, "controller = {}" );
 	luaL_dostring( L, "stabilizer = { loop_time = 2500 }" );
+	luaL_dostring( L, "accelerometers = {}" );
+	luaL_dostring( L, "gyroscopes = {}" );
+	luaL_dostring( L, "magnetometers = {}" );
 	luaL_loadfile( L, mFilename.c_str() );
 	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
 
 	if ( ret != 0 ) {
 		gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : \"" << lua_tostring( L, -1 ) << "\"\n";
+		return;
+	}
+
+	std::list< std::string > accelerometers;
+	std::list< std::string > gyroscopes;
+	std::list< std::string > magnetometers;
+
+	lua_getglobal( L, "accelerometers" );
+	lua_pushnil( L );
+	while ( lua_next( L, -2 ) ) {
+		accelerometers.emplace_back( lua_tolstring( L, -2, nullptr ) );
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	lua_getglobal( L, "gyroscopes" );
+	lua_pushnil( L );
+	while ( lua_next( L, -2 ) ) {
+		gyroscopes.emplace_back( lua_tolstring( L, -2, nullptr ) );
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	lua_getglobal( L, "magnetometers" );
+	lua_pushnil( L );
+	while ( lua_next( L, -2 ) ) {
+		magnetometers.emplace_back( lua_tolstring( L, -2, nullptr ) );
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+
+	for ( auto it : gyroscopes ) {
+		Gyroscope* gyro = Sensor::gyroscope( it );
+		if ( gyro ) {
+			int swap[4] = { 0, 0, 0, 0 };
+			swap[0] = integer( "gyroscopes." + it + ".axis_swap.x" );
+			swap[1] = integer( "gyroscopes." + it + ".axis_swap.y" );
+			swap[2] = integer( "gyroscopes." + it + ".axis_swap.z" );
+			gyro->setAxisSwap( swap );
+		}
+	}
+	for ( auto it : accelerometers ) {
+		Accelerometer* accel = Sensor::accelerometer( it );
+		if ( accel ) {
+			int swap[4] = { 0, 0, 0, 0 };
+			swap[0] = integer( "accelerometers." + it + ".axis_swap.x" );
+			swap[1] = integer( "accelerometers." + it + ".axis_swap.y" );
+			swap[2] = integer( "accelerometers." + it + ".axis_swap.z" );
+			accel->setAxisSwap( swap );
+		}
+	}
+	for ( auto it : magnetometers ) {
+		Magnetometer* magn = Sensor::magnetometer( it );
+		if ( magn ) {
+			int swap[4] = { 0, 0, 0, 0 };
+			swap[0] = integer( "magnetometers." + it + ".axis_swap.x" );
+			swap[1] = integer( "magnetometers." + it + ".axis_swap.y" );
+			swap[2] = integer( "magnetometers." + it + ".axis_swap.z" );
+			magn->setAxisSwap( swap );
+		}
 	}
 }
 

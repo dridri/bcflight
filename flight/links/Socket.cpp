@@ -24,6 +24,9 @@ typedef struct in_addr IN_ADDR;
 #include "Socket.h"
 #include "../Config.h"
 
+#define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
+#define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
+
 
 int Socket::flight_register( Main* main )
 {
@@ -103,8 +106,14 @@ int Socket::Connect()
 			int broadcastEnable = 1;
 			setsockopt( mSocket, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable) );
 		}
+		if ( mPortType == UDPLite ) {
+			uint16_t checksum_coverage = 8;
+			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
+			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
+		}
 		if ( bind( mSocket, (SOCKADDR*)&mSin, sizeof(mSin) ) < 0 ) {
 			gDebug() << "Socket ( " << mPort << " ) error : " << strerror(errno) << "\n";
+			mConnected = false;
 			return -1;
 		}
 	}
@@ -114,7 +123,12 @@ int Socket::Connect()
 		int size = 0;
 		if ( !ret ) {
 			mClientSocket = accept( mSocket, (SOCKADDR*)&mClientSin, (socklen_t*)&size );
+			if ( mClientSocket < 0 ) {
+				mConnected = false;
+				return -1;
+			}
 		} else {
+			mConnected = false;
 			return -1;
 		}
 	} else if ( mPortType == UDP or mPortType == UDPLite ) {
@@ -126,10 +140,12 @@ int Socket::Connect()
 				flag = ntohl( flag );
 				gDebug() << "flag : " << ntohl( flag ) << "\n";
 				if ( flag != 0x12345678 ) {
+					mConnected = false;
 					return -1;
 				}
 			} else {
 				gDebug() << strerror( errno ) << "\n";
+				mConnected = false;
 				return -1;
 			}
 		}
@@ -176,8 +192,9 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 // 		return -1;
 	} else {
 		ret = recv( mClientSocket, buf, len, MSG_NOSIGNAL );
+// 		if ( ( ret <= 0 and errno != EAGAIN ) or ( errno == EAGAIN and timeout > 0 ) ) {
 		if ( ret <= 0 ) {
-			gDebug() << "TCP disconnected\n";
+			gDebug() << "TCP disconnected ( " << strerror( errno ) << " )\n";
 			mConnected = false;
 			return -1;
 		}
@@ -187,30 +204,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 }
 
 
-int Socket::ReadFloat( float* f )
-{
-	union {
-		float f;
-		uint32_t u;
-	} d;
-	int ret = Read( &d.u, sizeof( uint32_t ) );
-	d.u = ntohl( d.u );
-	*f = d.f;
-	return ret;
-}
-
-
-int Socket::ReadU32( uint32_t* v )
-{
-	int ret = Read( v, sizeof( uint32_t ) );
-	if ( ret == sizeof( uint32_t ) ) {
-		*v = ntohl( *v );
-	}
-	return ret;
-}
-
-
-int Socket::Write( void* buf, uint32_t len, int timeout )
+int Socket::Write( const void* buf, uint32_t len, int timeout )
 {
 	if ( !mConnected ) {
 		return -1;
@@ -240,41 +234,6 @@ int Socket::Write( void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 	return ret;
-}
-
-
-int Socket::WriteU32( uint32_t v )
-{
-	v = htonl( v );
-	return Write( &v, sizeof(v) );
-}
-
-
-int Socket::WriteFloat( float v )
-{
-	union {
-		float f;
-		uint32_t u;
-	} u;
-	u.f = v;
-	u.u = htonl( u.u );
-	return Write( &u, sizeof( u ) );
-}
-
-
-int Socket::WriteString( const std::string& s )
-{
-	return Write( (void*)s.c_str(), s.length() );
-}
-
-
-int Socket::WriteString( const char* fmt, ... )
-{
-	va_list opt;
-	char buff[1024] = "";
-	va_start( opt, fmt );
-	vsnprintf( buff, (size_t) sizeof(buff), fmt, opt );
-	return Write( buff, strlen(buff) + 1 );
 }
 
 #endif // ( BUILD_SOCKET == 1 )

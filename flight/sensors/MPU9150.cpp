@@ -25,8 +25,8 @@ Sensor* MPU9150::Instanciate()
 	i2c->Write8( MPU_9150_FIFO_EN, 0b00000000 );
 	// 1 kHz sampling rate: 0b00000000
 	i2c->Write8( MPU_9150_SMPRT_DIV, 0b00000000 );
-	// No ext sync, DLPF at 94Hz for the accel and 98Hz for the gyro: 0b00000010 (~200Hz: 0b00000001)
-	i2c->Write8( MPU_9150_DEFINE, 0b00000001 );
+	// No ext sync, DLPF at 94Hz for the accel and 98Hz -0b00000010) for the gyro: 0b00000010 (~200Hz: 0b00000001)
+	i2c->Write8( MPU_9150_DEFINE, 0b00000000 );
 	// Gyro range at +/-2000 °/s
 	i2c->Write8( MPU_9150_GYRO_CONFIG, 0b00011000 );
 	// Accel range at +/-16g
@@ -39,7 +39,7 @@ Sensor* MPU9150::Instanciate()
 	delete i2c;
 
 
-	// Add sensors to mDevices manually since there use the same address
+	// Manually add sensors to mDevices since they use the same address
 	Sensor* mag = new MPU9150Mag( i2c_addr );
 	Sensor* gyro = new MPU9150Gyro( i2c_addr );
 	Sensor* accel = new MPU9150Accel( i2c_addr );
@@ -172,15 +172,15 @@ void MPU9150Accel::Read( Vector3f* v, bool raw )
 
 	mI2C->Read( MPU_9150_ACCEL_XOUT_H | 0x80, saccel, sizeof(saccel) );
 
-	v->x = -1.0f * (float)( (int16_t)( saccel[2] << 8 | saccel[3] ) ) * 8.0f * 6.103515625e-04f;
-	v->y = (float)( (int16_t)( saccel[0] << 8 | saccel[1] ) ) * 8.0f * 6.103515625e-04f;
+	v->x = (float)( (int16_t)( saccel[0] << 8 | saccel[1] ) ) * 8.0f * 6.103515625e-04f;
+	v->y = (float)( (int16_t)( saccel[2] << 8 | saccel[3] ) ) * 8.0f * 6.103515625e-04f;
 	v->z = (float)( (int16_t)( saccel[4] << 8 | saccel[5] ) ) * 8.0f * 6.103515625e-04f;
 
+	ApplySwap( *v );
 	if ( not raw ) {
 		v->x -= mOffset.x;
 		v->y -= mOffset.y;
 	}
-	ApplySwap( *v );
 
 	mLastValues = *v;
 }
@@ -192,16 +192,16 @@ void MPU9150Gyro::Read( Vector3f* v, bool raw )
 	uint8_t sgyro[6] = { 0 };
 
 	mI2C->Read( MPU_9150_GYRO_XOUT_H | 0x80, sgyro, sizeof(sgyro) );
-	v->x = -1.0f * (float)( (int16_t)( sgyro[2] << 8 | sgyro[3] ) ) * 0.061037018952f;
-	v->y = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
+	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
+	v->y = (float)( (int16_t)( sgyro[2] << 8 | sgyro[3] ) ) * 0.061037018952f;
 	v->z = (float)( (int16_t)( sgyro[4] << 8 | sgyro[5] ) ) * 0.061037018952f;
 
+	ApplySwap( *v );
 	if ( not raw ) {
 		v->x -= mOffset.x;
 		v->y -= mOffset.y;
 		v->z -= mOffset.z;
 	}
-	ApplySwap( *v );
 
 	mLastValues = *v;
 }

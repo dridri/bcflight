@@ -1,6 +1,7 @@
 #ifndef POWERTHREAD_H
 #define POWERTHREAD_H
 
+#include <mutex>
 #include <Thread.h>
 
 class Main;
@@ -46,6 +47,7 @@ private:
 	float mBatteryLevel;
 	float mBatteryCapacity;
 
+	std::mutex mCapacityMutex;
 	BatterySensor mVoltageSensor;
 	BatterySensor mCurrentSensor;
 };

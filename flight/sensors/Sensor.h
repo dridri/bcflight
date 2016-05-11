@@ -35,6 +35,9 @@ public:
 	static std::list< Magnetometer* > Magnetometers();
 	static std::list< Voltmeter* > Voltmeters();
 	static std::list< CurrentSensor* > CurrentSensors();
+	static Gyroscope* gyroscope( const std::string& name );
+	static Accelerometer* accelerometer( const std::string& name );
+	static Magnetometer* magnetometer( const std::string& name );
 	static Voltmeter* voltmeter( const std::string& name );
 	static CurrentSensor* currentSensor( const std::string& name );
 

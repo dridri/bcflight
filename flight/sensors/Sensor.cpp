@@ -70,11 +70,20 @@ void Sensor::setAxisMatrix( const Matrix& matrix )
 
 void Sensor::ApplySwap( Vector3f& v )
 {
-	Vector3f tmp = v;
+	Vector3f tmp = Vector3f( v.x, v.y, v.z );
 	if ( mSwapMode == SwapModeAxis ) {
-		v[0] = tmp[ std::abs( mAxisSwap[0] ) ] * (float)( mAxisSwap[0] / std::abs( mAxisSwap[0] ) );
-		v[1] = tmp[ std::abs( mAxisSwap[1] ) ] * (float)( mAxisSwap[1] / std::abs( mAxisSwap[1] ) );
-		v[2] = tmp[ std::abs( mAxisSwap[2] ) ] * (float)( mAxisSwap[2] / std::abs( mAxisSwap[2] ) );
+		v[0] = tmp[ std::abs( mAxisSwap[0] ) - 1 ];
+		v[1] = tmp[ std::abs( mAxisSwap[1] ) - 1 ];
+		v[2] = tmp[ std::abs( mAxisSwap[2] ) - 1 ];
+		if ( mAxisSwap[0] < 0 ) {
+			v[0] = -v[0];
+		}
+		if ( mAxisSwap[1] < 0 ) {
+			v[1] = -v[1];
+		}
+		if ( mAxisSwap[2] < 0 ) {
+			v[2] = -v[2];
+		}
 	} else if ( mSwapMode == SwapModeMatrix ) {
 		v = mAxisMatrix * tmp;
 	}
@@ -83,12 +92,24 @@ void Sensor::ApplySwap( Vector3f& v )
 
 void Sensor::ApplySwap( Vector4f& v )
 {
-	Vector4f tmp = v;
+	Vector4f tmp = Vector4f( v.x, v.y, v.z, v.w );
 	if ( mSwapMode == SwapModeAxis ) {
-		v[0] = tmp[ std::abs( mAxisSwap[0] ) ] * (float)( mAxisSwap[0] / std::abs( mAxisSwap[0] ) );
-		v[1] = tmp[ std::abs( mAxisSwap[1] ) ] * (float)( mAxisSwap[1] / std::abs( mAxisSwap[1] ) );
-		v[2] = tmp[ std::abs( mAxisSwap[2] ) ] * (float)( mAxisSwap[2] / std::abs( mAxisSwap[2] ) );
-		v[3] = tmp[ std::abs( mAxisSwap[3] ) ] * (float)( mAxisSwap[3] / std::abs( mAxisSwap[3] ) );
+		v[0] = tmp[ std::abs( mAxisSwap[0] ) - 1 ];
+		v[1] = tmp[ std::abs( mAxisSwap[1] ) - 1 ];
+		v[2] = tmp[ std::abs( mAxisSwap[2] ) - 1 ];
+		v[3] = tmp[ std::abs( mAxisSwap[3] ) - 1 ];
+		if ( mAxisSwap[0] < 0 ) {
+			v[0] = -v[0];
+		}
+		if ( mAxisSwap[1] < 0 ) {
+			v[1] = -v[1];
+		}
+		if ( mAxisSwap[2] < 0 ) {
+			v[2] = -v[2];
+		}
+		if ( mAxisSwap[3] < 0 ) {
+			v[3] = -v[3];
+		}
 	} else if ( mSwapMode == SwapModeMatrix ) {
 		v = mAxisMatrix * tmp;
 	}
@@ -149,6 +170,48 @@ std::list< Voltmeter* > Sensor::Voltmeters()
 std::list< CurrentSensor* > Sensor::CurrentSensors()
 {
 	return mCurrentSensors;
+}
+
+
+Gyroscope* Sensor::gyroscope( const std::string& name )
+{
+	for ( auto it = mGyroscopes.begin(); it != mGyroscopes.end(); it++ ) {
+		Gyroscope* g = (*it);
+		for ( auto it2 = g->names().begin(); it2 != g->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return g;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+Accelerometer* Sensor::accelerometer( const std::string& name )
+{
+	for ( auto it = mAccelerometers.begin(); it != mAccelerometers.end(); it++ ) {
+		Accelerometer* a = (*it);
+		for ( auto it2 = a->names().begin(); it2 != a->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return a;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+Magnetometer* Sensor::magnetometer( const std::string& name )
+{
+	for ( auto it = mMagnetometers.begin(); it != mMagnetometers.end(); it++ ) {
+		Magnetometer* m = (*it);
+		for ( auto it2 = m->names().begin(); it2 != m->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return m;
+			}
+		}
+	}
+	return nullptr;
 }
 
 

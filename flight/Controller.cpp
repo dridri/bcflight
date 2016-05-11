@@ -11,6 +11,7 @@
 #include <Stabilizer.h>
 #include <Frame.h>
 #include <Servo.h>
+#include "video/Camera.h"
 
 #include <netinet/in.h>
 
@@ -23,8 +24,43 @@ Controller::Controller( Main* main, Link* link )
 	, mRPY( Vector3f() )
 	, mThrust( 0.0f )
 	, mTicks( 0 )
+	, mTelemetryThread( new HookThread< Controller >( "telemetry", this, &Controller::TelemetryRun ) )
+	, mTelemetryTick( 0 )
+	, mTelemetryCounter( 0 )
+	, mEmergencyTick( 0 )
 {
+	mExpo = Vector4f();
+	mExpo.x = main->config()->number( "controller.expo.roll" );
+	mExpo.y = main->config()->number( "controller.expo.pitch" );
+	mExpo.z = main->config()->number( "controller.expo.yaw" );
+	mExpo.w = main->config()->number( "controller.expo.thrust" );
+	if ( mExpo.x < 0.01f ) {
+		mExpo.x = 0.01f;
+	}
+	if ( mExpo.y < 0.01f ) {
+		mExpo.y = 0.01f;
+	}
+	if ( mExpo.z < 0.01f ) {
+		mExpo.z = 0.01f;
+	}
+	if ( mExpo.w < 1.01f ) {
+		mExpo.w = 1.01f;
+	}
+	if ( mExpo.x <= 0.0f ) {
+		mExpo.x = 3.0f;
+	}
+	if ( mExpo.y <= 0.0f ) {
+		mExpo.y = 3.0f;
+	}
+	if ( mExpo.z <= 0.0f ) {
+		mExpo.z = 3.0f;
+	}
+	if ( mExpo.w <= 0.0f ) {
+		mExpo.w = 2.0f;
+	}
+
 	Start();
+	mTelemetryThread->Start();
 	while ( !mLink->isConnected() ) {
 		usleep( 1000 * 10 );
 	}
@@ -78,8 +114,15 @@ void Controller::UpdateSmoothControl( const float& dt )
 
 bool Controller::run()
 {
-	uint32_t raw_cmd;
-	Cmd cmd;
+	if ( mEmergencyTick != 0 and ( Board::GetTicks() - mEmergencyTick ) > 1 * 1000 * 1000 ) {
+		mThrust = 0.0f;
+		mMain->stabilizer()->Reset( 0.0f );
+		mMain->frame()->Disarm();
+		mRPY = Vector3f();
+		mSmoothRPY = Vector3f();
+		mArmed = false;
+		gDebug() << "STONE MODE !\n";
+	}
 
 	mConnected = mLink->isConnected();
 	if ( !mConnected ) {
@@ -92,288 +135,428 @@ bool Controller::run()
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
 			gDebug() << "Controller connected !\n";
+			mEmergencyTick = 0;
 		}
 		return true;
 	}
 
-	if ( mLink->ReadU32( &raw_cmd ) <= 0 ) {
+	Packet command;
+	if ( mLink->Read( &command, 500 ) <= 0 ) {
 		gDebug() << "Controller connection lost !\n";
+		mMain->stabilizer()->setMode( Stabilizer::Stabilize );
+		mMain->imu()->ResetRPY();
+		mRPY.x = 0.0f;
+		mRPY.y = 0.0f;
+		mRPY.z = mMain->imu()->RPY().z;
+		if ( mThrust > 0.3f ) {
+			mThrust = 0.3f;
+		}
+		mEmergencyTick = Board::GetTicks();
+		gDebug() << "EMERGENCY MODE !\n";
 		return true;
 	}
-	cmd = (Cmd)raw_cmd;
 
-// 	gDebug() << "Received cmd : " << (int)buf[0] << "\n";
+	Cmd cmd = (Cmd)0;
+	while ( command.Read( (uint32_t*)&cmd ) > 0 ) {
+		printf( "Received cmd %08X\n", cmd );
+		bool do_response = false;
+		Packet response( cmd );
 
-	switch ( cmd )
-	{
-		case PING : {
-			uint32_t ticks = 0;
-			if ( mLink->ReadU32( &ticks ) == sizeof(uint32_t) ) {
-				mLink->WriteU32( ticks );
+		switch ( cmd )
+		{
+			case PING : {
+				uint32_t ticks = 0;
+				if ( command.ReadU32( &ticks ) == sizeof(uint32_t) ) {
+					response.WriteU32( ticks );
+					do_response = true;
+				}
+				break;
 			}
-			break;
-		}
-		case CALIBRATE : {
-			uint32_t full_recalibration = 0;
-			float curr_altitude = 0.0f;
-			if ( mLink->ReadU32( &full_recalibration ) == sizeof(uint32_t) and mLink->ReadFloat( &curr_altitude ) == sizeof(float) ) {
-				if ( mArmed ) {
-					mLink->WriteU32( 0xFFFFFFFF );
-				} else {
-					if ( full_recalibration ) {
-						mMain->imu()->RecalibrateAll();
+			case CALIBRATE : {
+				uint32_t full_recalibration = 0;
+				float curr_altitude = 0.0f;
+				if ( command.ReadU32( &full_recalibration ) == sizeof(uint32_t) and command.ReadFloat( &curr_altitude ) == sizeof(float) ) {
+					if ( mArmed ) {
+						response.WriteU32( 0xFFFFFFFF );
 					} else {
-						mMain->imu()->Recalibrate();
+						if ( full_recalibration ) {
+							mMain->imu()->RecalibrateAll();
+						} else {
+							mMain->imu()->Recalibrate();
+						}
+						response.WriteU32( 0 );
 					}
-					mLink->WriteU32( 0 );
+					do_response = true;
 				}
-			}
-			break;
-		}
-		case SET_TIMESTAMP : {
-			uint32_t timestamp = 0;
-			if ( mLink->ReadU32( &timestamp ) == sizeof(timestamp) ) {
-				mMain->board()->setLocalTimestamp( timestamp );
-				mLink->WriteU32( 0 );
-			}
-			break;
-		}
-		case ARM : {
-			mArmed = true;
-			mMain->imu()->ResetYaw();
-			mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
-			mMain->frame()->Arm();
-// 			mRPY.z = mMain->imu()->RPY().z;
-			mRPY.z = 0.0f;
-			gDebug() << "RPY.z : " << mRPY.z << "\n";
-			mLink->WriteU32( mArmed );
-			break;
-		}
-		case DISARM : {
-			mThrust = 0.0f;
-			mMain->stabilizer()->Reset( 0.0f );
-			mMain->frame()->Disarm();
-			mRPY = Vector3f();
-// 			mSmoothControl.setState( Vector3f() );
-			mSmoothRPY = Vector3f();
-			mArmed = false;
-			mLink->WriteU32( mArmed );
-			break;
-		}
-		case RESET_BATTERY : {
-			uint32_t value = 0;
-			if ( mLink->ReadU32( &value ) == sizeof(value) ) {
-				mMain->powerThread()->ResetFullBattery( value );
-				mLink->WriteU32( value );
-			}
-			break;
-		}
-		case VBAT : {
-			mLink->WriteFloat( mMain->powerThread()->VBat() );
-			break;
-		}
-		case TOTAL_CURRENT : {
-			mLink->WriteFloat( mMain->powerThread()->CurrentTotal() );
-			break;
-		}
-		case CURRENT_DRAW : {
-			mLink->WriteFloat( mMain->powerThread()->CurrentDraw() );
-			break;
-		}
-		case BATTERY_LEVEL : {
-			mLink->WriteFloat( mMain->powerThread()->BatteryLevel() );
-			break;
-		}
-		case ROLL_PITCH_YAW : {
-			mLink->WriteFloat( mMain->imu()->RPY().x );
-			mLink->WriteFloat( mMain->imu()->RPY().y );
-			mLink->WriteFloat( mMain->imu()->RPY().z );
-			break;
-		}
-		case CURRENT_ACCELERATION : {
-			mLink->WriteFloat( mMain->imu()->acceleration().length() );
-			break;
-		}
-		case SET_ROLL : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
 				break;
 			}
-			mRPY.x = value;
-			mLink->WriteFloat( mRPY.x );
-			break;
-		}
-		case SET_PITCH : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			value = -value; // TEST
-// 			gDebug() << "pitch : " << value << "\n";
-			mRPY.y = value;
-			mLink->WriteFloat( mRPY.y );
-			break;
-		}
-
-		case SET_YAW : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			if ( mMain->stabilizer()->mode() == Stabilizer::Stabilize ) {
-				mRPY.z += value;
-			} else {
-				mRPY.z = value;
-			}
-// 			mLink->WriteFloat( mRPY.z );
-			mLink->WriteFloat( value );
-			break;
-		}
-
-		case SET_THRUST : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mThrust = value;
-			mLink->WriteFloat( mThrust );
-			break;
-		}
-
-		case SET_TRPY : {
-			float t, r, p, y;
-			if ( mLink->ReadFloat( &t ) < 0 ) {
-				break;
-			}
-			if ( mLink->ReadFloat( &r ) < 0 ) {
-				break;
-			}
-			if ( mLink->ReadFloat( &p ) < 0 ) {
-				break;
-			}
-			if ( mLink->ReadFloat( &y ) < 0 ) {
-				break;
-			}
-			mThrust = t;
-			mRPY.x = r;
-			mRPY.y = p;
-			mRPY.z += y;
-			mLink->WriteFloat( mThrust );
-			mLink->WriteFloat( mRPY.x );
-			mLink->WriteFloat( mRPY.y );
-			mLink->WriteFloat( y );
-			break;
-		}
-
-		case RESET_MOTORS : {
-			mThrust = 0.0f;
-			mMain->stabilizer()->Reset( 0.0f );
-			mMain->frame()->Disarm();
-			mRPY = Vector3f();
-			mLink->WriteU32( 0 );
-			break;
-		}
-
-		case SET_MODE : {
-			uint32_t mode = 0;
-			if( mLink->ReadU32( &mode ) == sizeof(uint32_t) ) {
-				mMain->stabilizer()->setMode( mode );
-				if ( mode == (uint32_t)Stabilizer::Stabilize ) {
-					mRPY.z = mMain->imu()->RPY().z;
+			case CALIBRATE_ESCS : {
+				if ( not mArmed ) {
+					mMain->stabilizer()->CalibrateESCs();
 				}
-				mLink->WriteU32( mMain->stabilizer()->mode() );
+				break;
 			}
-			break;
+			case SET_TIMESTAMP : {
+				uint32_t timestamp = 0;
+				if ( command.ReadU32( &timestamp ) == sizeof(timestamp) ) {
+					mMain->board()->setLocalTimestamp( timestamp );
+					response.WriteU32( 0 );
+					do_response = true;
+				}
+				break;
+			}
+			case ARM : {
+				if ( mMain->imu()->state() != IMU::Running ) {
+					response.WriteU32( 0 );
+					do_response = true;
+					break;
+				}
+				mMain->imu()->ResetYaw();
+				mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
+				mMain->frame()->Arm();
+				mRPY.x = 0.0f;
+				mRPY.y = 0.0f;
+				mRPY.z = 0.0f;
+				mArmed = true;
+				response.WriteU32( mArmed );
+				do_response = true;
+				break;
+			}
+			case DISARM : {
+				mMain->frame()->Disarm();
+				mThrust = 0.0f;
+				mMain->stabilizer()->Reset( 0.0f );
+				mRPY = Vector3f();
+				mSmoothRPY = Vector3f();
+				mArmed = false;
+				response.WriteU32( mArmed );
+				do_response = true;
+				break;
+			}
+			case RESET_BATTERY : {
+				uint32_t value = 0;
+				if ( command.ReadU32( &value ) == sizeof(value) ) {
+					mMain->powerThread()->ResetFullBattery( value );
+				}
+				break;
+			}
+			case SET_ROLL : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				if ( std::abs( value ) < 0.05f ) {
+					value = 0.0f;
+				}
+				if ( value >= 0.0f ) {
+					value = ( std::exp( value * mExpo.x ) - 1.0f ) / ( std::exp( mExpo.x ) - 1.0f );
+				} else {
+					value = -( std::exp( -value * mExpo.x ) - 1.0f ) / ( std::exp( mExpo.x ) - 1.0f );
+				}
+				mRPY.x = value;
+				break;
+			}
+			case SET_PITCH : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				if ( std::abs( value ) < 0.05f ) {
+					value = 0.0f;
+				}
+				value = -value; // TEST
+				if ( value >= 0.0f ) {
+					value = ( std::exp( value * mExpo.y ) - 1.0f ) / ( std::exp( mExpo.y ) - 1.0f );
+				} else {
+					value = -( std::exp( -value * mExpo.y ) - 1.0f ) / ( std::exp( mExpo.y ) - 1.0f );
+				}
+				mRPY.y = value;
+				break;
+			}
+
+			case SET_YAW : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				if ( std::abs( value ) < 0.05f ) {
+					value = 0.0f;
+				}
+				if ( value >= 0.0f ) {
+					value = ( std::exp( value * mExpo.z ) - 1.0f ) / ( std::exp( mExpo.z ) - 1.0f );
+				} else {
+					value = -( std::exp( -value * mExpo.z ) - 1.0f ) / ( std::exp( mExpo.z ) - 1.0f );
+				}
+				if ( mMain->stabilizer()->mode() == Stabilizer::Stabilize ) {
+					mRPY.z += value;
+				} else {
+					mRPY.z = value;
+				}
+				break;
+			}
+
+			case SET_THRUST : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				if ( std::abs( value ) < 0.05f ) {
+					value = 0.0f;
+				}
+				float value2 = std::log( value * ( mExpo.z - 1.0f ) + 1.0f ) / std::log( mExpo.z );
+				mThrust = value2;
+				break;
+			}
+
+			case SET_TRPY : {
+	/*
+				float t, r, p, y;
+				if ( command.ReadFloat( &t ) < 0 ) {
+					break;
+				}
+				if ( command.ReadFloat( &r ) < 0 ) {
+					break;
+				}
+				if ( command.ReadFloat( &p ) < 0 ) {
+					break;
+				}
+				if ( command.ReadFloat( &y ) < 0 ) {
+					break;
+				}
+				mThrust = t;
+				mRPY.x = r;
+				mRPY.y = p;
+				mRPY.z += y;
+				response.WriteFloat( mThrust );
+				response.WriteFloat( mRPY.x );
+				response.WriteFloat( mRPY.y );
+				response.WriteFloat( y );
+	*/
+				break;
+			}
+
+			case RESET_MOTORS : {
+				mThrust = 0.0f;
+				mMain->stabilizer()->Reset( 0.0f );
+				mMain->frame()->Disarm();
+				mRPY = Vector3f();
+				break;
+			}
+
+			case SET_MODE : {
+				uint32_t mode = 0;
+				if( command.ReadU32( &mode ) == sizeof(uint32_t) ) {
+					mMain->stabilizer()->setMode( mode );
+					mRPY.x = 0.0f;
+					mRPY.y = 0.0f;
+					if ( mode == (uint32_t)Stabilizer::Rate ) {
+						mRPY.z = 0.0f;
+					} else if ( mode == (uint32_t)Stabilizer::Stabilize ) {
+						mMain->imu()->ResetRPY();
+						mRPY.z = mMain->imu()->RPY().z;
+					}
+					response.WriteU32( mMain->stabilizer()->mode() );
+					do_response = true;
+				}
+				break;
+			}
+
+			case SET_PID_P : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setP( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_PID_I : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setI( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_PID_D : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setD( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case PID_FACTORS : {
+				Vector3f pid = mMain->stabilizer()->getPID();
+				response.WriteFloat( pid.x );
+				response.WriteFloat( pid.y );
+				response.WriteFloat( pid.z );
+				do_response = true;
+				break;
+			}
+			case PID_OUTPUT : {
+				Vector3f pid = mMain->stabilizer()->lastPIDOutput();
+				response.WriteFloat( pid.x );
+				response.WriteFloat( pid.y );
+				response.WriteFloat( pid.z );
+				do_response = true;
+				break;
+			}
+
+			case SET_OUTER_PID_P : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setOuterP( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_OUTER_PID_I : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setOuterI( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_OUTER_PID_D : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setOuterD( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case OUTER_PID_FACTORS : {
+				Vector3f pid = mMain->stabilizer()->getOuterPID();
+				response.WriteFloat( pid.x );
+				response.WriteFloat( pid.y );
+				response.WriteFloat( pid.z );
+				do_response = true;
+				break;
+			}
+			case OUTER_PID_OUTPUT : {
+				Vector3f pid = mMain->stabilizer()->lastOuterPIDOutput();
+				response.WriteFloat( pid.x );
+				response.WriteFloat( pid.y );
+				response.WriteFloat( pid.z );
+				do_response = true;
+				break;
+			}
+
+			case VIDEO_START_RECORD : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					cam->StartRecording();
+				}
+				break;
+			}
+			case VIDEO_STOP_RECORD : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					cam->StopRecording();
+				}
+				break;
+			}
+			case VIDEO_GET_BRIGHTNESS : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					response.WriteU32( cam->brightness() );
+					do_response = true;
+				}
+				break;
+			}
+			case VIDEO_SET_BRIGHTNESS : {
+				uint32_t value;
+				if ( command.ReadU32( &value ) < 0 ) {
+					break;
+				}
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					cam->setBrightness( value );
+				}
+				break;
+			}
+
+			default: {
+				printf( "Controller::run() WARNING : Unknown command 0x%08X\n", cmd );
+				break;
+			}
 		}
 
-		case SET_PID_P : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mMain->stabilizer()->setP( value );
-			mLink->WriteFloat( value );
-			break;
-		}
-		case SET_PID_I : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mMain->stabilizer()->setI( value );
-			mLink->WriteFloat( value );
-			break;
-		}
-		case SET_PID_D : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mMain->stabilizer()->setD( value );
-			mLink->WriteFloat( value );
-			break;
-		}
-		case PID_FACTORS : {
-			Vector3f pid = mMain->stabilizer()->getPID();
-			mLink->WriteFloat( pid.x );
-			mLink->WriteFloat( pid.y );
-			mLink->WriteFloat( pid.z );
-			break;
-		}
-		case PID_OUTPUT : {
-			Vector3f pid = mMain->stabilizer()->lastPIDOutput();
-			mLink->WriteFloat( pid.x );
-			mLink->WriteFloat( pid.y );
-			mLink->WriteFloat( pid.z );
-			break;
-		}
-
-		case SET_OUTER_PID_P : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mMain->stabilizer()->setOuterP( value );
-			mLink->WriteFloat( value );
-			break;
-		}
-		case SET_OUTER_PID_I : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mMain->stabilizer()->setOuterI( value );
-			mLink->WriteFloat( value );
-			break;
-		}
-		case SET_OUTER_PID_D : {
-			float value;
-			if ( mLink->ReadFloat( &value ) < 0 ) {
-				break;
-			}
-			mMain->stabilizer()->setOuterD( value );
-			mLink->WriteFloat( value );
-			break;
-		}
-		case OUTER_PID_FACTORS : {
-			Vector3f pid = mMain->stabilizer()->getOuterPID();
-			mLink->WriteFloat( pid.x );
-			mLink->WriteFloat( pid.y );
-			mLink->WriteFloat( pid.z );
-			break;
-		}
-		case OUTER_PID_OUTPUT : {
-			Vector3f pid = mMain->stabilizer()->lastOuterPIDOutput();
-			mLink->WriteFloat( pid.x );
-			mLink->WriteFloat( pid.y );
-			mLink->WriteFloat( pid.z );
-			break;
-		}
-
-		default: {
-			break;
+		if ( do_response ) {
+			mSendMutex.lock();
+			mLink->Write( &response );
+			mSendMutex.unlock();
 		}
 	}
 
+	return true;
+}
+
+
+bool Controller::TelemetryRun()
+{
+	if ( !mLink->isConnected() ) {
+		usleep( 1000 * 10 );
+		return true;
+	}
+
+	Packet telemetry;
+
+	if ( mTelemetryCounter % 3 == 0 ) {
+		telemetry.WriteU32( VBAT );
+		telemetry.WriteFloat( mMain->powerThread()->VBat() );
+
+		telemetry.WriteU32( TOTAL_CURRENT );
+		telemetry.WriteFloat( mMain->powerThread()->CurrentTotal() );
+
+		telemetry.WriteU32( CURRENT_DRAW );
+		telemetry.WriteFloat( mMain->powerThread()->CurrentDraw() );
+
+		telemetry.WriteU32( BATTERY_LEVEL );
+		telemetry.WriteFloat( mMain->powerThread()->BatteryLevel() );
+	}
+
+	telemetry.WriteU32( ROLL_PITCH_YAW );
+	telemetry.WriteFloat( mMain->imu()->RPY().x );
+	telemetry.WriteFloat( mMain->imu()->RPY().y );
+	telemetry.WriteFloat( mMain->imu()->RPY().z );
+/*
+	telemetry.WriteU32( GYRO );
+	telemetry.WriteFloat( mMain->imu()->gyroscope().x );
+	telemetry.WriteFloat( mMain->imu()->gyroscope().y );
+	telemetry.WriteFloat( mMain->imu()->gyroscope().z );
+*/
+/*
+	telemetry.WriteU32( ACCEL );
+	telemetry.WriteFloat( mMain->imu()->acceleration().x );
+	telemetry.WriteFloat( mMain->imu()->acceleration().y );
+	telemetry.WriteFloat( mMain->imu()->acceleration().z );
+
+	telemetry.WriteU32( MAGN );
+	telemetry.WriteFloat( mMain->imu()->magnetometer().x );
+	telemetry.WriteFloat( mMain->imu()->magnetometer().y );
+	telemetry.WriteFloat( mMain->imu()->magnetometer().z );
+*/
+	telemetry.WriteU32( CURRENT_ACCELERATION );
+	telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
+
+	mSendMutex.lock();
+	mLink->Write( &telemetry );
+	mSendMutex.unlock();
+	mTelemetryTick = Board::WaitTick( 1000000 / 10, mTelemetryTick );
+	mTelemetryCounter++;
 	return true;
 }

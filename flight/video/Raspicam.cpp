@@ -24,12 +24,14 @@ Raspicam::Raspicam( Link* link )
 	, mLiveFrameCounter( 0 )
 	, mLedTick( 0 )
 	, mLedState( true )
+	, mRecording( false )
 	, mRecordContext( nullptr )
 	, mRecordStream( nullptr )
 {
 	mLiveTicks = 0;
 	mRecordTicks = 0;
 	mRecordFrameData = nullptr;
+// 	mRecordFrameData = (char*)malloc(1024 * 1024);
 	mRecordFrameDataSize = 0;
 	mRecordFrameSize = 0;
 
@@ -50,6 +52,38 @@ Raspicam::Raspicam( Link* link )
 
 Raspicam::~Raspicam()
 {
+}
+
+
+const uint32_t Raspicam::brightness() const
+{
+	return mVideoContext->brightness;
+}
+
+
+void Raspicam::setBrightness( uint32_t value )
+{
+	video_set_brightness( mVideoContext, value );
+}
+
+
+void Raspicam::StartRecording()
+{
+	if ( not mRecording ) {
+		mRecording = true;
+	}
+}
+
+
+void Raspicam::StopRecording()
+{
+	if ( mRecording ) {
+		mRecording = false;
+		if ( mRecordStream ) {
+			delete mRecordStream;
+			mRecordStream = nullptr;
+		}
+	}
 }
 
 
@@ -75,15 +109,15 @@ bool Raspicam::LiveThreadRun()
 			mNeedNextAudioToBeFilled = true;
 		}
 		return true;
-	} else if ( Board::GetTicks() - mLedTick >= 1000 * 500 ) {
+	} else if ( mRecording and Board::GetTicks() - mLedTick >= 1000 * 500 ) {
 		GPIO::Write( 32, ( mLedState = !mLedState ) );
 		mLedTick = Board::GetTicks();
 	}
 
 	uint32_t uid = 0;
-	if ( mLink->Read( &uid, sizeof(uid) ) > 0 ) {
-// 		gDebug() << "Received 2 uid " << ntohl( uid ) << "\n";
-	}
+// 	if ( mLink->Read( &uid, sizeof(uid) ) > 0 ) { // TODO
+// 		gDebug() << "Received uid " << ntohl( uid ) << "\n";
+// 	}
 
 	if ( not mNeedNextEnc2ToBeFilled and not mVideoContext->enc2_data_avail ) {
 		pthread_mutex_lock( &mVideoContext->mutex_enc2 );
@@ -92,10 +126,10 @@ bool Raspicam::LiveThreadRun()
 	}
 
 	if ( mVideoContext->enc2_data_avail ) {
+		uint64_t timestamp = video_buffer_timestamp( mVideoContext->enc2bufs );
 		int datalen = video_buffer_len( mVideoContext->enc2bufs );
 		char* data = new char[ datalen ];
 		memcpy( data, video_buffer_ptr( mVideoContext->enc2bufs ), datalen );
-// 		char* data = video_buffer_ptr( mVideoContext->enc2bufs );
 
 		{
 			mNeedNextEnc2ToBeFilled = false;
@@ -108,6 +142,13 @@ bool Raspicam::LiveThreadRun()
 		}
 
 		ret = LiveSend( data, datalen );
+		if ( mRecording ) {
+			RecordWrite( data, datalen );
+// 			gDebug() << "filling record (" << datalen << ")\n";
+// 			mRecordTimestamp = timestamp;
+// 			memcpy( mRecordFrameData, data, datalen );
+// 			mRecordFrameDataSize = datalen;
+		}
 		delete data;
 
 		if ( ret == -42 ) {
@@ -135,7 +176,7 @@ bool Raspicam::LiveThreadRun()
 	}
 
 // 	if ( not mVideoContext->enc2_data_avail ) {
-// 		mLiveTicks = Board::WaitTick( 1000 * 1000 / 60, mLiveTicks, -500 );
+// 		mLiveTicks = Board::WaitTick( 1000 * 1000 / 100, mLiveTicks, -500 );
 // 	}
 	return true;
 }
@@ -143,64 +184,72 @@ bool Raspicam::LiveThreadRun()
 
 bool Raspicam::RecordThreadRun()
 {
+	return false;
+/*
 	int ret = 0;
+	double audio_pts, video_pts;
 
 	if ( mVideoContext->exiting ) {
 		return false;
 	}
 
-	if ( !mLink->isConnected() ) {
-		if ( mRecordStream ) {
-			mRecordStream->close();
-			delete mRecordStream;
-			mRecordStream = nullptr;
-		}
-		usleep( 1000 * 10 );
+	if ( !mRecording ) {
+		usleep( 1000 * 100 );
 		return true;
 	}
 
-	if ( not mNeedNextEnc1ToBeFilled and not mVideoContext->enc1_data_avail ) {
-		pthread_mutex_lock( &mVideoContext->mutex_enc1 );
-		pthread_cond_wait( &mVideoContext->cond_enc1, &mVideoContext->mutex_enc1 );
-		pthread_mutex_unlock( &mVideoContext->mutex_enc1 );
+	audio_pts = (double)mAudioStream->pts.val * mAudioStream->time_base.num / mAudioStream->time_base.den;
+	video_pts = (double)mVideoStream->pts.val * mVideoStream->time_base.num / mVideoStream->time_base.den;
+
+// 	gDebug() << "pts : " << audio_pts << ", " << video_pts << "\n";
+
+	if ( audio_pts < video_pts ) {
+		gDebug() << "audio 1\n";
+		AVPacket pkt;
+		static uint8_t data[1024*1024];
+		av_init_packet( &pkt );
+		gDebug() << "audio 2\n";
+
+		audio_capture_raw( mAudioContext );
+		gDebug() << "audio 3\n";
+		pkt.size = avcodec_encode_audio( mAudioEncoderContext, data, sizeof(data), (const short*)mAudioContext->pcm.ptr );
+		gDebug() << "audio 4\n";
+// 		pkt.pts = av_rescale_q( Board::GetTicks() - mRecordPTSBase, mAudioStream->codec->time_base, mAudioStream->time_base );
+		gDebug() << "audio 5\n";
+		pkt.flags |= AV_PKT_FLAG_KEY;
+		pkt.stream_index = mAudioStream->index;
+		gDebug() << "audio 6\n";
+
+		ret = av_interleaved_write_frame( mRecordContext, &pkt );
+		gDebug() << "audio 7\n";
+		avio_flush( mRecordContext->pb );
+		gDebug() << "av_interleaved_write_frame (audio) returned " << ret << "\n";
+	} else if ( mRecordFrameData != nullptr and mRecordFrameDataSize > 0 ) {
+		gDebug() << "video 1\n";
+		AVPacket pkt;
+		av_init_packet( &pkt );
+		gDebug() << "video 1\n";
+
+		pkt.data = (uint8_t*)mRecordFrameData;
+		pkt.size = mRecordFrameDataSize;
+		gDebug() << "video 2\n";
+// 		pkt.pts = av_rescale_q( mRecordTimestamp, mVideoStream->codec->time_base, mVideoStream->time_base );
+		gDebug() << "video 3\n";
+		pkt.flags |= AV_PKT_FLAG_KEY;
+		pkt.stream_index = mVideoStream->index;
+		gDebug() << "video 4\n";
+
+		ret = av_interleaved_write_frame( mRecordContext, &pkt );
+		gDebug() << "video 5\n";
+		avio_flush( mRecordContext->pb );
+		gDebug() << "av_interleaved_write_frame (video) returned " << ret << "\n";
+
+		ret = pkt.size;
 	}
 
-	if ( mVideoContext->enc1_data_avail ) {
-		ret = RecordWrite( video_buffer_ptr( mVideoContext->enc1bufs ), video_buffer_len( mVideoContext->enc1bufs ), video_buffer_timestamp( mVideoContext->enc1bufs ) );
-		mNeedNextEnc1ToBeFilled = true;
-	}
-
-	if ( mNeedNextEnc1ToBeFilled ) {
-		mNeedNextEnc1ToBeFilled = false;
-		pthread_mutex_lock( &mVideoContext->lock );
-		mVideoContext->enc1_data_avail = 0;
-		pthread_mutex_unlock( &mVideoContext->lock );
-		if ( ( ret = video_fill_buffer( mVideoContext->enc1, mVideoContext->enc1bufs ) ) != 0 ) {
-			gDebug() << "Failed to request filling of the output buffer on encoder 1 output : " << ret << "\n";
-		}
-	}
-/*
-	if ( mAudioContext->encode_data_avail ) {
-		gDebug() << "Audio data length : " << mAudioContext->mp3.size << "\n";
-		ret = RecordWrite( mAudioContext->mp3.ptr, mAudioContext->mp3.size, mAudioContext->mp3.pts, true );
-		mNeedNextAudioToBeFilled = true;
-	}
-
-	if ( mNeedNextAudioToBeFilled ) {
-		mNeedNextAudioToBeFilled = false;
-		pthread_mutex_lock( &mAudioContext->lock );
-		mAudioContext->encode_data_avail = 0;
-		pthread_mutex_unlock( &mAudioContext->lock );
-		if ( ( ret = audio_fill_buffer( mAudioContext, mAudioContext->encode ) ) != 0 ) {
-			gDebug() << "Failed to request filling of the output buffer on audio encoder output : " << ret << "\n";
-		}
-	}
-*/
-
-// 	if ( not mVideoContext->enc1_data_avail ) {
-// 		mRecordTicks = Board::WaitTick( 1000 * 1000 / 30, mRecordTicks, -100 );
-// 	}
+	usleep( 1000 );
 	return true;
+*/
 }
 
 
@@ -210,11 +259,11 @@ int Raspicam::LiveSend( char* data, int datalen )
 		return datalen;
 	}
 
-	int err = mLink->Write( data, datalen );
-	if ( err < 0 ) {
-		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
-		return -1;
-	}
+// 	int err = mLink->Write( data, datalen ); // TODO
+// 	if ( err < 0 ) {
+// 		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
+// 		return -1;
+// 	}
 
 	return 0;
 }
@@ -269,19 +318,20 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 void Raspicam::SetupRecord()
 {
 /*
+	avcodec_register_all();
+
 	gDebug() << "1\n";
 	AVOutputFormat* fmt;
 	char filename[256];
 	Board::Date date = Board::localDate();
 	gDebug() << "2\n";
 
-	sprintf( filename, "/data/VIDEO/video_%04d_%02d_%02d_%02d_%02d_%02d.avi", date.year, date.month, date.day, date.hour, date.minute, date.second );
+	sprintf( filename, "/data/VIDEO/video_%04d_%02d_%02d_%02d_%02d_%02d.mp4", date.year, date.month, date.day, date.hour, date.minute, date.second );
 	av_register_all();
-	fmt = av_guess_format( "AVI", filename, NULL );
+	fmt = av_guess_format( "MP4", filename, NULL );
 	gDebug() << "3\n";
 	fmt->audio_codec = CODEC_ID_MP2;
 	fmt->video_codec = CODEC_ID_H264;
-// 	fmt->video_codec = CODEC_ID_NONE;
 	mRecordContext = avformat_alloc_context();
 	mRecordContext->oformat = fmt;
 	gDebug() << "4\n";
@@ -295,14 +345,11 @@ void Raspicam::SetupRecord()
 	vc->codec_type = AVMEDIA_TYPE_VIDEO;
 	vc->flags |= CODEC_FLAG_GLOBAL_HEADER;
 	vc->codec_id = fmt->video_codec;
-	vc->bit_rate = 10 * 1000 * 1000;
-// 	vc->width = 1280;
-// 	vc->height = 720;
-	vc->width = 480;
-	vc->height = 360;
+	vc->bit_rate = 2 * 1000 * 1000;
+	vc->width = 800;
+	vc->height = 600;
 	vc->time_base.num = 1;
-// 	vc->time_base.den = 1000;
-	vc->time_base.den = 45;
+	vc->time_base.den = 1000;
 	vc->pix_fmt = PIX_FMT_YUV420P;
 	gDebug() << "8\n";
 
@@ -318,6 +365,26 @@ void Raspicam::SetupRecord()
 	ac->channel_layout = AV_CH_LAYOUT_MONO;
 	ac->time_base.num = 1;
 	ac->time_base.den = 44100;
+
+
+	printf( "1\n" );
+	mAudioEncoder = avcodec_find_encoder( CODEC_ID_MP2 );
+	printf( "2 %p\n", mAudioEncoder );
+	mAudioEncoderContext = avcodec_alloc_context3( mAudioEncoder );
+	printf( "3\n" );
+	mAudioEncoderContext->bit_rate = 128000;
+	mAudioEncoderContext->sample_fmt = AV_SAMPLE_FMT_S16;
+	mAudioEncoderContext->sample_rate = 44100;
+	mAudioEncoderContext->channel_layout = AV_CH_LAYOUT_MONO;
+	mAudioEncoderContext->channels = 1;
+	printf( "4\n" );
+
+	if ( avcodec_open2( mAudioEncoderContext, mAudioEncoder, NULL ) < 0 ) {
+		fprintf( stdout, "Could not open audio codec\n" );
+		exit(1);
+	}
+
+
 
 	snprintf( mRecordContext->filename, sizeof( mRecordContext->filename ), "%s", filename );
 	avio_open( &mRecordContext->pb, filename, URL_WRONLY );

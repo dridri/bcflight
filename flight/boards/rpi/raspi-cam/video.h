@@ -18,6 +18,7 @@ typedef struct video_context {
 	pthread_cond_t cond_enc1;
 	pthread_cond_t cond_enc2;
 	// Handles
+// 	OMX_HANDLETYPE clk;
 	OMX_HANDLETYPE cam;
 	OMX_HANDLETYPE spl;
 	OMX_HANDLETYPE rsz;
@@ -28,6 +29,7 @@ typedef struct video_context {
 	// Camera
 	int camera_ready;
 	OMX_BUFFERHEADERTYPE* cambufs;
+	uint32_t brightness;
 	// Encoders
 	OMX_BUFFERHEADERTYPE* enc1bufs;
 	OMX_BUFFERHEADERTYPE* enc2bufs;
@@ -39,6 +41,7 @@ video_context* video_configure();
 void video_start( video_context* ctx );
 void video_stop( video_context* ctx );
 void video_start_recording( video_context* ctx, const char* filename );
+void video_set_brightness( video_context* ctx, uint32_t value );
 void video_recover( video_context* ctx );
 int video_fill_buffer( OMX_HANDLETYPE enc, OMX_BUFFERHEADERTYPE* bufs );
 char* video_buffer_ptr( OMX_BUFFERHEADERTYPE* bufs );

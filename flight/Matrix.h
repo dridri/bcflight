@@ -7,6 +7,7 @@ class Matrix
 {
 public:
 	Matrix( int w = 4, int h = 4 );
+	Matrix( const Matrix& other );
 	virtual ~Matrix();
 
 	float* data();
@@ -14,6 +15,7 @@ public:
 	const int width() const;
 	const int height() const;
 
+	void Clear();
 	void Identity();
 	void RotateX( float a );
 	void RotateY( float a );
@@ -26,7 +28,7 @@ public:
 
 // protected:
 public:
-	float m[16];
+	float* m;
 
 protected:
 	int mWidth;

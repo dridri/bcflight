@@ -15,7 +15,7 @@ public:
 	void Arm();
 	void Disarm();
 	void WarmUp();
-	virtual void Stabilize( const Vector3f& pid_output, const float& thrust );
+	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust );
 
 	static Frame* Instanciate( Config* config );
 	static int flight_register( Main* main );
@@ -23,6 +23,8 @@ public:
 protected:
 	float mStabSpeeds[4];
 	Vector3f mPIDMultipliers[4];
+	float mMaxSpeed;
+	bool mAirMode;
 };
 
 #endif // XFRAME_H

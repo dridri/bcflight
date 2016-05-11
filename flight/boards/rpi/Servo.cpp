@@ -8,6 +8,7 @@
 
 Servo::Servo( int pin, int us_min, int us_max )
 	: mID( pin )
+	, mIdle( (int)( us_min * 0.8f ) )
 	, mMin( us_min )
 	, mMax( us_max )
 	, mRange( us_max - us_min )
@@ -58,6 +59,6 @@ void Servo::HardwareSync()
 
 void Servo::Disarm()
 {
-	PiBlasterSetPWMus( mID, 0 );
+	PiBlasterSetPWMus( mID, mIdle );
 	PiBlasterUpdatePWM();
 }

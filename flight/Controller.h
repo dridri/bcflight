@@ -1,6 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
+#include <mutex>
 #include <Thread.h>
 #include "Vector.h"
 #include "EKFSmoother.h"
@@ -31,6 +32,7 @@ protected:
 		ARM = 0x73,
 		DISARM = 0x74,
 		RESET_BATTERY = 0x75,
+		CALIBRATE_ESCS = 0x76,
 		// Getters
 		PRESSURE = 0x10,
 		TEMPERATURE = 0x11,
@@ -67,19 +69,31 @@ protected:
 		SET_OUTER_PID_P = 0x53,
 		SET_OUTER_PID_I = 0x54,
 		SET_OUTER_PID_D = 0x55,
+		// Video
+		VIDEO_START_RECORD = 0xA0,
+		VIDEO_STOP_RECORD = 0xA1,
+		VIDEO_GET_BRIGHTNESS = 0xA2,
+		VIDEO_SET_BRIGHTNESS = 0xAA,
 	} Cmd;
 
 	virtual bool run();
+	bool TelemetryRun();
 
 	Main* mMain;
 	Link* mLink;
+	std::mutex mSendMutex;
 	bool mConnected;
 	bool mArmed;
+	Vector4f mExpo;
 	Vector3f mRPY;
 	float mThrust;
 	float mThrustAccum;
 	Vector3f mSmoothRPY;
 	uint64_t mTicks;
+	HookThread< Controller >* mTelemetryThread;
+	uint64_t mTelemetryTick;
+	uint64_t mTelemetryCounter;
+	uint64_t mEmergencyTick;
 };
 
 #endif // CONTROLLER_H

@@ -22,19 +22,13 @@ public:
 
 	int Connect();
 	int setBlocking( bool blocking );
-	int Read( void* buf, uint32_t len, int timeout = 0 );
-	int ReadFloat( float* f );
-	int ReadU32( uint32_t* v );
-	int Write( void* buf, uint32_t len, int timeout = 0 );
-	int WriteU32( uint32_t v );
-	int WriteFloat( float v );
-	int WriteString( const std::string& s );
-	int WriteString( const char* fmt, ... );
 
 	static int flight_register( Main* main );
 
 protected:
 	static Link* Instanciate( Config* config, const std::string& lua_object );
+	int Read( void* buf, uint32_t len, int32_t timeout );
+	int Write( const void* buf, uint32_t len, int32_t timeout );
 
 	uint16_t mPort;
 	PortType mPortType;

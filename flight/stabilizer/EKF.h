@@ -6,17 +6,28 @@
 class EKF
 {
 public:
-	EKF();
+	EKF( uint32_t n_inputs, uint32_t n_outputs );
 	~EKF();
 
-	void Predict( float dt, const Vector4f& data );
-	Vector4f Update( float dt, const Vector4f& data1, const Vector4f& data2 );
+	void setInputFilter( uint32_t row, float filter );
+	void setOutputFilter( uint32_t row, float filter );
+	void setSelector( uint32_t input_row, uint32_t output_row, float selector );
+
+	Vector4f state( uint32_t offset ) const;
+
+	void UpdateInput( uint32_t row, float input );
+	void Process( float dt );
+
+	void DumpInput();
 
 protected:
+	uint32_t mInputsCount;
+	uint32_t mOutputsCount;
 	Matrix mQ;
 	Matrix mR;
 	Matrix mC;
 	Matrix mSigma;
+	Matrix mInput;
 	Matrix mState;
 };
 

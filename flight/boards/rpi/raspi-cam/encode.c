@@ -47,6 +47,7 @@ static int allocated_bufs_idx = 0;
 		exit(1); \
 	} }
 
+#define CLKNAME "OMX.broadcom.clock"
 #define CAMNAME "OMX.broadcom.camera"
 #define ENCNAME "OMX.broadcom.video_encode"
 #define RSZNAME "OMX.broadcom.resize"
@@ -59,7 +60,6 @@ void omx_block_until_state_changed( OMX_HANDLETYPE component, OMX_STATETYPE stat
 void omx_print_port( OMX_HANDLETYPE component, OMX_U32 port );
 
 static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def );
-static void config_resize( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def );
 static void video_free_buffers();
 
 static OMX_ERRORTYPE genericeventhandler( OMX_HANDLETYPE component, context* ctx, OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2, OMX_PTR eventdata );
@@ -138,11 +138,24 @@ int64_t video_buffer_timestamp( OMX_BUFFERHEADERTYPE* bufs )
 }
 
 
+void video_set_brightness( video_context* ctx, uint32_t value )
+{
+	if ( ctx && ctx->cam && value >= 0 && value <= 100 ) {
+		OMX_CONFIG_BRIGHTNESSTYPE brightness;
+		OMX_INIT_STRUCTURE(brightness);
+		brightness.nPortIndex = OMX_ALL;
+		brightness.nBrightness = value;
+		OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonBrightness, &brightness ) );
+	}
+}
+
+
 void video_start( context* ctx )
 {
 	if ( ctx->running ) {
 		return;
 	}
+// 	omx_print_state( "clk", ctx->clk );
 	omx_print_state( "cam", ctx->cam );
 	omx_print_state( "spl", ctx->spl );
 	omx_print_state( "rsz", ctx->rsz );
@@ -150,11 +163,15 @@ void video_start( context* ctx )
 	omx_print_state( "enc2", ctx->enc2 );
 	omx_print_state( "nll", ctx->nll );
 
+// 	omx_allocbufs( ctx->clk, 80, 1 );
+
 	ctx->cambufs = omx_allocbufs( ctx->cam, 73, 1 );
 #ifdef DUAL_ENCODERS
 	ctx->enc1bufs = omx_allocbufs( ctx->enc1, 201, 1 );
 #endif
 	ctx->enc2bufs = omx_allocbufs( ctx->enc2, 201, 1 );
+
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortEnable, 80, NULL ) );
 
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandPortEnable, 73, NULL ) );
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandPortEnable, 70, NULL ) );
@@ -172,6 +189,8 @@ void video_start( context* ctx )
 #endif
 	OERR( OMX_SendCommand( ctx->enc2, OMX_CommandPortEnable, 200, NULL ) );
 
+
+// 	omx_block_until_port_changed( ctx->clk, 80, OMX_TRUE );
 
 	omx_block_until_port_changed( ctx->cam, 70, OMX_TRUE );
 	omx_block_until_port_changed( ctx->cam, 71, OMX_TRUE );
@@ -191,6 +210,8 @@ void video_start( context* ctx )
 	omx_block_until_port_changed( ctx->enc1, 200, OMX_TRUE );
 #endif
 	omx_block_until_port_changed( ctx->enc2, 200, OMX_TRUE );
+
+// 	omx_print_port( ctx->clk, 80 );
 
 	omx_print_port( ctx->cam, 70 );
 	omx_print_port( ctx->cam, 71 );
@@ -217,6 +238,9 @@ void video_start( context* ctx )
 	omx_print_port( ctx->enc2, 200 );
 	omx_print_port( ctx->enc2, 201 );
 
+
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
+// 	omx_print_state( "clk", ctx->clk );
 
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandStateSet, OMX_StateExecuting, NULL ) );
 	omx_block_until_state_changed( ctx->cam, OMX_StateExecuting );
@@ -386,6 +410,7 @@ void video_stop( context* ctx )
 }
 
 
+#ifdef PREV_RSZ
 static void config_resize( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 {
 	OMX_PARAM_PORTDEFINITIONTYPE imgportdef;
@@ -428,15 +453,19 @@ static void config_resize( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 // 	def->format.video.xFramerate = FPS << 16;
 	def->format.video.xFramerate = 0;
 }
+#endif
+
 
 context* video_configure()
 {
 	context* ctx;
-	OMX_CONFIG_FRAMERATETYPE* framerate;
+// 	OMX_CONFIG_FRAMERATETYPE* framerate;
 	OMX_VIDEO_PARAM_BITRATETYPE* bitrate;
 	OMX_PARAM_PORTDEFINITIONTYPE* portdef;
 	OMX_PARAM_PORTDEFINITIONTYPE* portdef2;
+#ifdef DUAL_ENCODERS
 	OMX_VIDEO_PORTDEFINITIONTYPE* viddef;
+#endif
 	OMX_VIDEO_PORTDEFINITIONTYPE* viddef2;
 	OMX_VIDEO_PARAM_PORTFORMATTYPE* pfmt;
 	int i;
@@ -462,9 +491,12 @@ context* video_configure()
 	MAKEME( bitrate, OMX_VIDEO_PARAM_BITRATETYPE );
 	MAKEME( pfmt, OMX_VIDEO_PARAM_PORTFORMATTYPE );
 
+#ifdef DUAL_ENCODERS
 	viddef = &portdef->format.video;
+#endif
 	viddef2 = &portdef2->format.video;
 
+// 	OERR( OMX_GetHandle( &ctx->clk, CLKNAME, ctx, &genevents ) );
 	OERR( OMX_GetHandle( &ctx->cam, CAMNAME, ctx, &genevents ) );
 	OERR( OMX_GetHandle( &ctx->spl, SPLNAME, ctx, &genevents ) );
 	OERR( OMX_GetHandle( &ctx->rsz, RSZNAME, ctx, &genevents ) );
@@ -478,6 +510,13 @@ context* video_configure()
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamPriorityMgmt, &oPriority ) );
 	OERR( OMX_SetParameter( ctx->nll, OMX_IndexParamPriorityMgmt, &oPriority ) );
 */
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortDisable, 80, NULL ) );
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortDisable, 81, NULL ) );
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortDisable, 82, NULL ) );
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortDisable, 83, NULL ) );
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortDisable, 84, NULL ) );
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortDisable, 85, NULL ) );
+
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandPortDisable, 70, NULL ) );
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandPortDisable, 71, NULL ) );
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandPortDisable, 72, NULL ) );
@@ -628,6 +667,8 @@ context* video_configure()
 	lowLatency.bEnabled = OMX_TRUE;
 	OERR( OMX_SetConfig( ctx->enc2, OMX_IndexConfigBrcmVideoH264LowLatency, &lowLatency ) );
 
+// 	OERR( OMX_SetupTunnel( ctx->clk, 80, ctx->cam, 73 ) );
+
 #ifdef PREV_RSZ
 	OERR( OMX_SetupTunnel( ctx->cam, 70, ctx->nll, 240 ) );
 	OERR( OMX_SetupTunnel( ctx->cam, 71, ctx->spl, 250 ) );
@@ -643,6 +684,8 @@ context* video_configure()
 	OERR( OMX_SetupTunnel( ctx->cam, 70, ctx->nll, 240 ) );
 	OERR( OMX_SetupTunnel( ctx->cam, 71, ctx->enc2, 200 ) );
 #endif
+
+// 	omx_print_port( ctx->clk, 80 );
 
 	omx_print_port( ctx->cam, 73 );
 	omx_print_port( ctx->cam, 70 );
@@ -665,6 +708,7 @@ context* video_configure()
 	omx_print_port( ctx->nll, 240 );
 
 
+// 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
 	OERR( OMX_SendCommand( ctx->cam, OMX_CommandStateSet, OMX_StateIdle, NULL ) );
 	omx_block_until_state_changed( ctx->cam, OMX_StateIdle );
 
@@ -870,6 +914,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	brightness.nPortIndex = OMX_ALL;
 	brightness.nBrightness = CAM_BRIGHTNESS;
 	OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonBrightness, &brightness ) );
+	ctx->brightness = CAM_BRIGHTNESS;
 
 	// Configure sharpness
 	OMX_CONFIG_SHARPNESSTYPE sharpness;

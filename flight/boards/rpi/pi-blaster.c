@@ -21,6 +21,9 @@
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE   700
 
+#include <execinfo.h>
+#include <signal.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -242,6 +245,7 @@ static volatile uint32_t *dma_reg; /* pointer to the DMA Channel registers we ar
 static volatile uint32_t *gpio_reg;
 
 static int delay_hw = DELAY_VIA_PWM;
+// static int delay_hw = DELAY_VIA_PCM;
 static int invert_mode = 0;
 static int last_channel = 0;
 
@@ -308,6 +312,12 @@ terminate(int dummy)
 {
 	int i;
 	printf( "pi-blaster::terminate( %d )\n", dummy );
+
+	void* array[16];
+	size_t size;
+	size = backtrace( array, 16 );
+	fprintf( stderr, "Error: signal %d :\n", dummy );
+	backtrace_symbols( array, size );
 
 	dprintf("Resetting DMA...\n");
 	if (dma_reg && mbox.virt_addr) {
@@ -538,7 +548,7 @@ void PiBlasterSetPWM( int channel, float width )
 
 void PiBlasterSetPWMus( int channel, int width )
 {
-	float fwidth = (float)width / (float)CYCLE_TIME_US;
+	float fwidth = ( (float)width / (float) CYCLE_TIME_US );// * 1250.0f / 1000.0f;
 	set_pin(channel, fwidth);
 }
 
@@ -721,7 +731,7 @@ init_hardware(void)
 		udelay(100);
 		clk_reg[PWMCLK_CNTL] = 0x5A000016;		// Source=PLLD and enable
 		udelay(100);
-		pwm_reg[PWM_RNG1] = SAMPLE_US;
+		pwm_reg[PWM_RNG1] = SAMPLE_US;// * 1250 / 1000;
 		udelay(10);
 		pwm_reg[PWM_DMAC] = PWMDMAC_ENAB | PWMDMAC_THRSHLD;
 		udelay(10);
@@ -865,11 +875,11 @@ int PiBlasterInit( int freq )
 
 	printf("Using hardware:                 %5s\n", delay_hw == DELAY_VIA_PWM ? "PWM" : "PCM");
 	printf("Number of channels:             %5d\n", (int)NUM_CHANNELS);
-	printf("PWM frequency:               %5d Hz\n", 1000000/CYCLE_TIME_US);
+	printf("PWM frequency:               %5d Hz\n", 1000000 / CYCLE_TIME_US );
 	printf("PWM steps:                      %5d\n", NUM_SAMPLES);
-	printf("PWM step :                    %5dus\n", SAMPLE_US);
-	printf("Maximum period (100  %%):      %5dus\n", CYCLE_TIME_US);
-	printf("Minimum period (%1.3f%%):      %5dus\n", 100.0*SAMPLE_US / CYCLE_TIME_US, SAMPLE_US);
+	printf("PWM step :                    %5dus\n", SAMPLE_US );
+	printf("Maximum period (100  %%):      %5dus\n", CYCLE_TIME_US );
+	printf("Minimum period (%1.3f%%):      %5dus\n", 100.0 * SAMPLE_US / CYCLE_TIME_US, SAMPLE_US );
 	printf("DMA Base:                  %#010x\n", DMA_BASE);
 
 

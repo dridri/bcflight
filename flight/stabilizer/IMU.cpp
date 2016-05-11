@@ -2,12 +2,15 @@
 #include <cmath>
 #include <Debug.h>
 #include "IMU.h"
+#include "Stabilizer.h"
 #include "Accelerometer.h"
 #include "Gyroscope.h"
 #include "Magnetometer.h"
+#include <Controller.h>
 
-IMU::IMU()
-	: mState( Off )
+IMU::IMU( Main* main )
+	: mMain( main )
+	, mState( Off )
 	, mAcceleration( Vector3f() )
 	, mGyroscope( Vector3f() )
 	, mMagnetometer( Vector3f() )
@@ -17,14 +20,62 @@ IMU::IMU()
 	, mRPYOffset( Vector3f() )
 	, mCalibrationAccum( 0 )
 	, mRPYAccum( Vector4f() )
-	, mSmoothAcceleration( EKFSmoother( 3, Vector4f( 0.1f, 0.1f, 0.1f ), Vector4f( 250.0f, 250.0f, 300.0f ) ) )
-// 	, mSmoothGyroscope( EKFSmoother( 3, Vector4f( 1.0f, 1.0f, 1.0f ), Vector4f( 0.1f, 0.1f, 1.0f ) ) )
-	, mSmoothGyroscope( EKFSmoother( 3, Vector4f( 1.0f, 1.0f, 1.0f ), Vector4f( 100.0f, 100.0f, 200.0f ) ) )
-	, mSmoothMagnetometer( EKFSmoother( 3, Vector4f( 0.1f, 0.1f, 0.1f ), Vector4f( 25.0f, 25.0f, 25.0f ) ) )
-	, mAttitude( EKF() )
+	, mRates( 3, 3 )
+// 	, mAttitude( 3, 3 )
+	, mAttitude( 6, 3 )
 	, mLastAccelAttitude( Vector4f() )
 	, mLastAcceleration( Vector3f() )
 {
+	/** mRates matrix :
+	 *   - Inputs :
+	 *     - gyroscope 0 1 2
+	 *   - Outputs :
+	 *     - rates 0 1 2
+	 **/
+	// Set Extended-Kalman-Filter mixing matrix
+	mRates.setSelector( 0, 0, 1.0f );
+	mRates.setSelector( 1, 1, 1.0f );
+	mRates.setSelector( 2, 2, 1.0f );
+
+	// Set gyroscope filtering factors
+	mRates.setInputFilter( 0, 80.0f );
+	mRates.setInputFilter( 1, 80.0f );
+	mRates.setInputFilter( 2, 80.0f );
+
+	// Set output rates filtering factors
+	mRates.setOutputFilter( 0, 0.5f );
+	mRates.setOutputFilter( 1, 0.5f );
+	mRates.setOutputFilter( 2, 0.5f );
+
+	/** mAttitude matrix :
+	 *   - Inputs :
+	 *     - accelerometer 0 1 2
+	 *     - rates 3 4 5
+	 *   - Outputs :
+	 *     - roll-pitch-yaw 0 1 2
+	 **/
+	// Set Extended-Kalman-Filter mixing matrix (input, output, factor)
+	mAttitude.setSelector( 0, 0, 1.0f );
+	mAttitude.setSelector( 3, 0, 1.0f );
+	mAttitude.setSelector( 1, 1, 1.0f );
+	mAttitude.setSelector( 4, 1, 1.0f );
+	mAttitude.setSelector( 2, 2, 1.0f );
+	mAttitude.setSelector( 5, 2, 1.0f );
+
+	// Set accelerometer filtering factors
+	mAttitude.setInputFilter( 0, 200.0f );
+	mAttitude.setInputFilter( 1, 200.0f );
+	mAttitude.setInputFilter( 2, 500.0f );
+
+	mAttitude.setInputFilter( 3, 0.25f );
+	mAttitude.setInputFilter( 4, 0.25f );
+	mAttitude.setInputFilter( 5, 0.25f );
+
+	// Set output roll-pitch-yaw filtering factors
+	mAttitude.setOutputFilter( 0, 0.5f );
+	mAttitude.setOutputFilter( 1, 0.5f );
+	mAttitude.setOutputFilter( 2, 0.5f );
+
 	mSensorsThreadTick = 0;
 	mSensorsThreadTickRate = 0;
 	mSensorsThread = new HookThread<IMU>( "imu_sensors", this, &IMU::SensorsThreadRun );
@@ -46,10 +97,7 @@ const IMU::State& IMU::state() const
 
 const Vector3f IMU::RPY() const
 {
-// 	aDebug( "mRPY", mRPY.x, mRPY.y, mRPY.z );
-// 	aDebug( "mRPYOffset", mRPYOffset.x, mRPYOffset.y, mRPYOffset.z );
-// 	aDebug( "mdRPY", mdRPY.x, mdRPY.y, mdRPY.z );
-	return mRPY;// - mRPYOffset;
+	return mRPY;
 }
 
 
@@ -83,13 +131,21 @@ const Vector3f IMU::magnetometer() const
 }
 
 
+static int imu_fps = 0;
+static uint64_t imu_ticks = 0;
 bool IMU::SensorsThreadRun()
 {
 	if ( mState == Running ) {
+		bool rate = ( mMain->stabilizer()->mode() == Stabilizer::Rate );
 		float dt = ((float)( Board::GetTicks() - mSensorsThreadTick ) ) / 1000000.0f;
-		UpdateSensors( dt );
-		// Limit update rate to 200Hz since sensors/I2C driver won't keep up at faster rates
-		mSensorsThreadTickRate = Board::WaitTick( 1000000 / 200, mSensorsThreadTickRate, -100 );
+		UpdateSensors( dt, rate );
+		mSensorsThreadTickRate = Board::WaitTick( 1000000 / 500, mSensorsThreadTickRate, -200 );
+		imu_fps++;
+		if ( Board::GetTicks() - imu_ticks >= 1000 * 1000 * 5 ) {
+			gDebug() << "Sampling rate : " << ( imu_fps / 5 ) << " Hz\n";
+			imu_fps = 0;
+			imu_ticks = Board::GetTicks();
+		}
 	} else {
 		usleep( 1000 * 100 );
 	}
@@ -97,7 +153,7 @@ bool IMU::SensorsThreadRun()
 }
 
 
-void IMU::Loop( float dt, bool update_rpy )
+void IMU::Loop( float dt )
 {
 	if ( mState == Off ) {
 		// Nothing to do
@@ -106,10 +162,7 @@ void IMU::Loop( float dt, bool update_rpy )
 	} else if ( mState == CalibrationDone ) {
 		mState = Running;
 	} else if ( mState == Running ) {
-// 		UpdateSensors( dt );
-		if ( update_rpy ) {
-			UpdateRPY( dt );
-		}
+		UpdateRPY( dt );
 	}
 }
 
@@ -132,26 +185,6 @@ void IMU::Calibrate( float dt, bool all )
 		mdRPY = Vector3f();
 		mRate = Vector3f();
 		gDebug() << "Calibration done !\n";
-/*
-		UpdateSensors( dt );
-		UpdateRPY( dt );
-		if ( mdRPY.length() < 0.0025f or ( mRPYAccum.x != 0.0f or mRPYAccum.y != 0.0f or mRPYAccum.z != 0.0f ) ) {
-			Vector4f RPYAccum = mRPYAccum + Vector4f( mRPY, 1.0f );
-			mdRPYAccum = RPYAccum / RPYAccum.w - mRPYAccum / mRPYAccum.w;
-			mRPYAccum = RPYAccum;
-		}
-
-		float epsilon = 0.001f;
-		if ( mRPYAccum.xyz().length() > 0.0f and fabsf( mdRPYAccum.x ) < epsilon and fabsf( mdRPYAccum.y ) < epsilon ) {
-			mRPYOffset = mRPYAccum.xyz() / mRPYAccum.w;
-			mState = CalibrationDone;
-			gDebug() << "Calibration done !\n";
-			aDebug( "Roll-Pitch-Yaw Offset", mRPYOffset.x, mRPYOffset.y, mRPYOffset.z );
-		}
-*/
-// 		aDebug( "mRPY", mRPY.x, mRPY.y, mRPY.z );
-// 		aDebug( "mRPYAccum", mRPYAccum.x / mRPYAccum.w, mRPYAccum.y / mRPYAccum.w, mRPYAccum.z / mRPYAccum.w, mRPYAccum.w );
-// 		aDebug( "mdRPYAccum", mdRPYAccum.x, mdRPYAccum.y, mdRPYAccum.z );
 	}
 
 	mCalibrationAccum++;
@@ -188,6 +221,13 @@ void IMU::RecalibrateAll()
 }
 
 
+void IMU::ResetRPY()
+{
+	mAcceleration = Vector3f();
+	mRPY = Vector3f();
+}
+
+
 void IMU::ResetYaw()
 {
 	mRPY.z = 0.0f;
@@ -200,107 +240,88 @@ void IMU::ResetYaw()
 }
 
 
-void IMU::UpdateSensors( float dt )
+void IMU::UpdateSensors( float dt, bool gyro_only )
 {
 	Vector4f total_accel;
 	Vector4f total_gyro;
 	Vector4f total_magn;
 	Vector3f vtmp;
 
-	for ( Accelerometer* dev : Sensor::Accelerometers() ) {
-		dev->Read( &vtmp );
-		total_accel += Vector4f( vtmp, 1.0f );
-	}
-
 	for ( Gyroscope* dev : Sensor::Gyroscopes() ) {
 		dev->Read( &vtmp );
 		total_gyro += Vector4f( vtmp, 1.0f );
 	}
+	mGyroscope = total_gyro.xyz() / total_gyro.w;
 
-	for ( Magnetometer* dev : Sensor::Magnetometers() ) {
-		dev->Read( &vtmp );
-		total_magn += Vector4f( vtmp, 1.0f );
-	}
-
-	mLastAcceleration = mAcceleration;
-
-	if ( mCalibrationAccum == 2000 ) {
-		mSmoothAcceleration.setState( Vector4f( 0.0f, 0.0f, total_accel.z / total_accel.w, 0.0f ) );
-		mSmoothMagnetometer.setState( total_magn.xyz() / total_magn.w );
-	} else {
-		mSmoothAcceleration.Predict( dt );
-		mAcceleration = mSmoothAcceleration.Update( dt, total_accel.xyz() / total_accel.w );
-
-		mSmoothGyroscope.Predict( dt );
-		mGyroscope = mSmoothGyroscope.Update( dt, total_gyro.xyz() / total_gyro.w );
-
-		mSmoothMagnetometer.Predict( dt );
-		mMagnetometer = mSmoothMagnetometer.Update( dt, total_magn.xyz() / total_magn.w );
+	if ( mState == Running and ( not gyro_only /*or mAcroRPYCounter == 0*/ ) ) {
+		for ( Accelerometer* dev : Sensor::Accelerometers() ) {
+			dev->Read( &vtmp );
+			total_accel += Vector4f( vtmp, 1.0f );
+		}
+		/*
+		for ( Magnetometer* dev : Sensor::Magnetometers() ) {
+			dev->Read( &vtmp );
+			total_magn += Vector4f( vtmp, 1.0f );
+		}
+		*/
+		mLastAcceleration = mAcceleration;
+		mAcceleration = total_accel.xyz() / total_accel.w;
+		mMagnetometer = total_magn.xyz() / total_magn.w;
 	}
 }
+
+static uint32_t dump = 0;
 
 
 void IMU::UpdateRPY( float dt )
 {
-	Vector3f accel = Vector3f();
+	// Process rates Extended-Kalman-Filter
+	mRates.UpdateInput( 0, mGyroscope.x );
+	mRates.UpdateInput( 1, mGyroscope.y );
+	mRates.UpdateInput( 2, mGyroscope.z );
+	mRates.Process( dt );
+	mRate = mRates.state( 0 );
 
-	if ( fabsf( mAcceleration[0] ) >= 0.5f * 9.8f or fabsf( mAcceleration[2] ) >= 0.5f * 9.8f ) {
-		accel.x = atan2f( mAcceleration[0], mAcceleration[2] ) * 180.0f / M_PI;
+	Vector2f accel_rp = Vector2f();
+
+	if ( std::abs( mAcceleration[0] ) >= 0.5f * 9.8f or std::abs( mAcceleration[2] ) >= 0.5f * 9.8f ) {
+		accel_rp.x = std::atan2( mAcceleration[0], mAcceleration[2] ) * 180.0f / M_PI;
 	}
-	if ( fabsf( mAcceleration[1] ) >= 0.5f * 9.8f or fabsf( mAcceleration[2] ) >= 0.5f * 9.8f ) {
-		accel.y = atan2f( mAcceleration[1], mAcceleration[2] ) * 180.0f / M_PI;
+	if ( std::abs( mAcceleration[1] ) >= 0.5f * 9.8f or std::abs( mAcceleration[2] ) >= 0.5f * 9.8f ) {
+		accel_rp.y = std::atan2( mAcceleration[1], mAcceleration[2] ) * 180.0f / M_PI;
 	}
 
-	Vector3f north = mMagnetometer.xyz();
-	north.normalize();
-	north.w = 1.0f;
+	Vector3f gyro = mRate;
+// 	Vector3f gyro = mGyroscope;
 
-	Matrix rot_matrix;
-	rot_matrix.Identity();
-	rot_matrix.RotateY( -mRPY.x * M_PI / 180.0f );
-	rot_matrix.RotateX( -mRPY.y * M_PI / 180.0f );
-	north = ( rot_matrix * north ).xyz();
+	float magn_yaw = mRPY.z + gyro.z * dt; // TODO : calculate using magnetometer, for now, use integrated value from gyro
+
+	// Update accelerometer values
+	mAttitude.UpdateInput( 0, accel_rp.x );
+	mAttitude.UpdateInput( 1, accel_rp.y );
+	mAttitude.UpdateInput( 2, magn_yaw );
+
+	// Integrate and update rates values
+	mAttitude.UpdateInput( 3, mRPY.x + gyro.x * dt );
+	mAttitude.UpdateInput( 4, mRPY.y + gyro.y * dt );
+	mAttitude.UpdateInput( 5, mRPY.z + gyro.z * dt );
+
+	// Process Extended-Kalman-Filter
+	mAttitude.Process( dt );
+
+	// Retrieve results
+	Vector4f rpy = mAttitude.state( 0 );
+	mdRPY = ( rpy - mRPY ) * dt;
+	mRPY = rpy;
 /*
-	accel.z = ( atan2f( north.y, north.x ) ) * 180.0f / M_PI;
-	if ( accel.z < 0.0f and fmodf( mRPY.z, 360.0f ) > 150.0f ) {
-		accel.z = mRPY.z + 180.0f + accel.z;
-	} else if ( accel.z > 0.0f and fmodf( mRPY.z, 360.0f ) < -150.0f ) {
-		accel.z = mRPY.z - 180.0f + accel.z;
+	if ( dump++ >= 10 ) {
+		mAttitude.DumpInput();
+		printf( " => { %.4f, %.4f, %.4f }\n", mRPY.x, mRPY.y, mRPY.z );
+		printf( " magn_yaw : %.4f\n", magn_yaw );
+		printf( " gyro { %.4f, %.4f, %.4f }\n", gyro.x, gyro.y, gyro.z );
+		printf( " rate { %.4f, %.4f, %.4f }\n", mRate.x, mRate.y, mRate.z );
+		printf( "\n" );
+		dump = 0;
 	}
 */
-/*
-	if ( mVirtualNorth.x == 0.0f and mVirtualNorth.y == 0.0f and mVirtualNorth.z == 0.0f ) {
-		mVirtualNorth = north;
-		mRPY.z = accel.z;
-		return;
-	}
-*/
-	float accel_f = 0.003f;
-	float inv_accel_f = 1.0f - accel_f;
-// 	float magn_f = 0.01f;
-// 	float inv_magn_f = 1.0f - magn_f;
-
-// 	mRate = Vector3f( -mGyroscope.y, mGyroscope.x, mGyroscope.z ) * dt;
-	mRate = Vector3f( -mGyroscope.y, mGyroscope.x, mGyroscope.z );
-	Vector3f integration = mRPY + mRate * dt;
-/*
-	if ( ( accel.x < 0.0f and integration.x >= 140.0f ) or ( accel.x > 0.0f and integration.x <= -140.0f ) ) {
-		integration.x = accel.x;
-	}
-	if ( ( accel.y < 0.0f and integration.y >= 140.0f ) or ( accel.y > 0.0f and integration.y <= -140.0f ) ) {
-		integration.y = accel.y;
-	}
-*/
-	Vector3f ret = Vector3f( integration.x, integration.y, integration.z );
-	if ( accel.x != 0.0f ) {
-		ret.x = ret.x * inv_accel_f + accel.x * accel_f;
-	}
-	if ( accel.y != 0.0f ) {
-		ret.y = ret.y * inv_accel_f + accel.y * accel_f;
-	}
-	if ( accel.z != 0.0f ) {
-// 		ret.z = ret.z * inv_magn_f + accel.z * magn_f;
-	}
-
-	mRPY = ret;
 }

@@ -34,12 +34,6 @@ int Main::flight_entry( int ac, char** av )
 
 Main::Main()
 {
-	uint64_t ticks = mBoard->GetTicks();
-	uint64_t wait_ticks = mBoard->GetTicks();
-	uint64_t fps_ticks = mBoard->GetTicks();
-	int fps = 0;
-	float dt = 0.0f;
-
 #ifdef BOARD_generic
 #pragma message "Adding noisy fake accelerometer and gyroscope"
 	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
@@ -51,14 +45,22 @@ Main::Main()
 	DetectDevices();
 	Board::InformLoading();
 
+
+#ifdef BOARD_generic
+	mConfig = new Config( "config.lua" );
+#else
 	mConfig = new Config( "/data/prog/config.lua" );
+#endif
 	mConfig->DumpVariable( "board" );
 	mConfig->DumpVariable( "frame" );
 	mConfig->DumpVariable( "controller" );
 	mConfig->DumpVariable( "camera" );
+	mConfig->DumpVariable( "accelerometers" );
+	mConfig->DumpVariable( "gyroscopes" );
+	mConfig->DumpVariable( "magnetometers" );
 
 	if ( mConfig->string( "board.type" ) != std::string( BOARD ) ) {
-		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->string( "board.type" ) << "\" ) differs from board being used ( \"" << BOARD << "\" ) !\n";
+		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->string( "board.type" ) << "\" ) differs from board currently in use ( \"" << BOARD << "\" ) !\n";
 		return;
 	}
 
@@ -73,19 +75,21 @@ Main::Main()
 	mPowerThread->setPriority( 95 );
 	Board::InformLoading();
 
-	mIMU = new IMU();
+	mIMU = new IMU( this );
 	Board::InformLoading();
 
 	mFrame = Frame::Instanciate( frameName, mConfig );
 	Board::InformLoading();
 
-	mStabilizer = new Stabilizer( mFrame );
+	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
 #ifdef CAMERA
 	Link* cameraLink = Link::Create( mConfig, "camera.link" );
 	mCamera = new CAMERA( cameraLink );
 	Board::InformLoading();
+#else
+	mCamera = nullptr;
 #endif
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
@@ -93,38 +97,50 @@ Main::Main()
 	mController->setPriority( 99 );
 	Board::InformLoading();
 
-	Thread::setMainPriority( 99 );
+	mLoopTime = mConfig->integer( "stabilizer.loop_time" );
+	mTicks = 0;
+	mWaitTicks = 0;
+	mLPSTicks = 0;
+	mLPS = 0;
+	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
+	mStabilizerThread->Start();
+	mStabilizerThread->setPriority( 99 );
 
-	uint32_t loop_time = mConfig->integer( "stabilizer.loop_time" );
-
+	Thread::setMainPriority( 1 );
 	while ( 1 ) {
-		dt = ((float)( mBoard->GetTicks() - ticks ) ) / 1000000.0f;
-		ticks = mBoard->GetTicks();
-
-		if ( std::abs( dt ) >= 1.0 ) {
-			gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
-			continue;
-		}
-
-		mIMU->Loop( dt );
-		if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
-			Board::InformLoading();
-			mFrame->WarmUp();
-		} else if ( mIMU->state() == IMU::CalibrationDone ) {
-			Board::LoadingDone();
-		} else {
-// 			mController->UpdateSmoothControl( dt );
-			mStabilizer->Update( mIMU, mController, dt );
-			wait_ticks = mBoard->WaitTick( loop_time, wait_ticks, -200 );
-		}
-
-		fps++;
-		if ( mBoard->GetTicks() >= fps_ticks + 4 * 1000 * 1000 ) {
-			gDebug() << "Update rate : " << ( fps / 4 ) << "\n";
-			fps = 0;
-			fps_ticks = mBoard->GetTicks();
-		}
+		usleep( 1000 * 1000 * 100 );
 	}
+}
+
+
+bool Main::StabilizerThreadRun()
+{
+	float dt = ((float)( mBoard->GetTicks() - mTicks ) ) / 1000000.0f;
+	mTicks = mBoard->GetTicks();
+
+	if ( std::abs( dt ) >= 1.0 ) {
+		gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
+		return true;
+	}
+
+	mIMU->Loop( dt );
+	if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
+		Board::InformLoading();
+		mFrame->WarmUp();
+	} else if ( mIMU->state() == IMU::CalibrationDone ) {
+		Board::LoadingDone();
+	} else {
+		mStabilizer->Update( mIMU, mController, dt );
+		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -250 );
+	}
+
+	mLPS++;
+	if ( mBoard->GetTicks() >= mLPSTicks + 4 * 1000 * 1000 ) {
+		gDebug() << "Update rate : " << ( mLPS / 4 ) << " Hz\n";
+		mLPS = 0;
+		mLPSTicks = mBoard->GetTicks();
+	}
+	return true;
 }
 
 
@@ -169,6 +185,18 @@ Stabilizer* Main::stabilizer() const
 }
 
 
+Controller* Main::controller() const
+{
+	return mController;
+}
+
+
+Camera* Main::camera() const
+{
+	return mCamera;
+}
+
+
 void Main::DetectDevices()
 {
 	int countGyro = 0;
@@ -181,8 +209,8 @@ void Main::DetectDevices()
 	for ( int dev : I2Cdevs ) {
 		Sensor::RegisterDevice( dev );
 	}
-
 	// TODO : register SPI/1-wire/.. devices
+
 
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Gyroscope* >( s ) != nullptr ) {

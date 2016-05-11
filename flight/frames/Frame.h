@@ -24,7 +24,8 @@ public:
 	virtual void Arm() = 0;
 	virtual void Disarm() = 0;
 	virtual void WarmUp() = 0;
-	virtual void Stabilize( const Vector3f& pid_output, const float& thrust ) = 0;
+	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust ) = 0;
+	void CalibrateESCs();
 
 	static Frame* Instanciate( const std::string& name, Config* config );
 	static void RegisterFrame( const std::string& name, std::function< Frame* ( Config* ) > instanciate );

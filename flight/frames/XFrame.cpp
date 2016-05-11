@@ -25,8 +25,15 @@ XFrame::XFrame( Config* config )
 	: Frame()
 	, mStabSpeeds{ 0.0f }
 	, mPIDMultipliers{ Vector3f() }
+	, mMaxSpeed( 1.0f )
+	, mAirMode( false )
 {
 	mMotors.resize( 4 );
+
+	float maxspeed = config->number( "frame.motors.max_speed" );
+	if ( maxspeed > 0.0f and maxspeed <= 1.0f ) {
+		mMaxSpeed = maxspeed;
+	}
 
 	// WARNING : minimum_us and maximum_us do not work for now
 
@@ -86,6 +93,12 @@ XFrame::XFrame( Config* config )
 	if ( mPIDMultipliers[3].length() == 0.0f ) {
 		gDebug() << "WARNING : PID multipliers for motor 3 seem to be not set !\n";
 	}
+
+	mMotors[0]->Disarm();
+	mMotors[1]->Disarm();
+	mMotors[2]->Disarm();
+	mMotors[3]->Disarm();
+	Servo::HardwareSync();
 }
 
 
@@ -108,6 +121,7 @@ void XFrame::Arm()
 void XFrame::Disarm()
 {
 	fDebug0();
+	mAirMode = false;
 	memset( mStabSpeeds, 0, sizeof( mStabSpeeds ) );
 	mMotors[0]->Disarm();
 	mMotors[1]->Disarm();
@@ -119,46 +133,52 @@ void XFrame::Disarm()
 
 void XFrame::WarmUp()
 {
-/*
-	mMotors[0]->setSpeed( 0.03f );
-	mMotors[1]->setSpeed( 0.03f );
-	mMotors[2]->setSpeed( 0.03f );
-	mMotors[3]->setSpeed( 0.03f );
-*/
 }
 
 
-void XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
+bool XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 {
-	mStabSpeeds[0] = mPIDMultipliers[0] * pid_output + thrust; // Front L
-	mStabSpeeds[1] = mPIDMultipliers[1] * pid_output + thrust; // Front R
-	mStabSpeeds[2] = mPIDMultipliers[2] * pid_output + thrust; // Rear L
-	mStabSpeeds[3] = mPIDMultipliers[3] * pid_output + thrust; // Rear R
-
-	float motor_max = 1.0f;
-	motor_max = 0.25f;
-	float max = std::max( std::max( std::max( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );
-	if ( max > motor_max ) {
-		float diff = max - motor_max;
-		mStabSpeeds[0] -= diff;
-		mStabSpeeds[1] -= diff;
-		mStabSpeeds[2] -= diff;
-		mStabSpeeds[3] -= diff;
+	if ( thrust >= 0.4f ) {
+		mAirMode = true;
 	}
 
-	if ( thrust > 0.0f ) {
-		mStabSpeeds[0] = std::max( mStabSpeeds[0], 0.1f );
-		mStabSpeeds[1] = std::max( mStabSpeeds[1], 0.1f );
-		mStabSpeeds[2] = std::max( mStabSpeeds[2], 0.1f );
-		mStabSpeeds[3] = std::max( mStabSpeeds[3], 0.1f );
+	if ( mAirMode or thrust > 0.05f ) {
+		mStabSpeeds[0] = mPIDMultipliers[0] * pid_output + thrust; // Front L
+		mStabSpeeds[1] = mPIDMultipliers[1] * pid_output + thrust; // Front R
+		mStabSpeeds[2] = mPIDMultipliers[2] * pid_output + thrust; // Rear L
+		mStabSpeeds[3] = mPIDMultipliers[3] * pid_output + thrust; // Rear R
+
+		float motor_max = mMaxSpeed;
+		float max = std::max( std::max( std::max( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );
+		if ( max > motor_max ) {
+			float diff = max - motor_max;
+			mStabSpeeds[0] -= diff;
+			mStabSpeeds[1] -= diff;
+			mStabSpeeds[2] -= diff;
+			mStabSpeeds[3] -= diff;
+		}
+
+
+		if ( mAirMode ) {
+			mStabSpeeds[0] = std::max( mStabSpeeds[0], 0.1f );
+			mStabSpeeds[1] = std::max( mStabSpeeds[1], 0.1f );
+			mStabSpeeds[2] = std::max( mStabSpeeds[2], 0.1f );
+			mStabSpeeds[3] = std::max( mStabSpeeds[3], 0.1f );
+		}
+
+		mMotors[0]->setSpeed( mStabSpeeds[0] );
+		mMotors[1]->setSpeed( mStabSpeeds[1] );
+		mMotors[2]->setSpeed( mStabSpeeds[2] );
+		mMotors[3]->setSpeed( mStabSpeeds[3] );
+		Servo::HardwareSync();
+
+		return true;
 	}
 
-// 	if ( Board::GetTicks() % 1000*10 <= 1000 ) {
-// 		gDebug() << "speeds : " << mStabSpeeds[0] << ", " << mStabSpeeds[1] << ", " << mStabSpeeds[2] << ", " << mStabSpeeds[3] << "\n";
-// 	}
-	mMotors[0]->setSpeed( mStabSpeeds[0] );
-	mMotors[1]->setSpeed( mStabSpeeds[1] );
-	mMotors[2]->setSpeed( mStabSpeeds[2] );
-	mMotors[3]->setSpeed( mStabSpeeds[3] );
+	mMotors[0]->setSpeed( 0.0f );
+	mMotors[1]->setSpeed( 0.0f );
+	mMotors[2]->setSpeed( 0.0f );
+	mMotors[3]->setSpeed( 0.0f );
 	Servo::HardwareSync();
+	return false;
 }

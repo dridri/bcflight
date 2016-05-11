@@ -13,12 +13,28 @@ Matrix::Matrix( int w, int h )
 	: mWidth( w )
 	, mHeight( h )
 {
+	m = (float*)malloc( sizeof(float) * w * h );
 	Identity();
+}
+
+
+Matrix::Matrix( const Matrix& other )
+	: mWidth( other.mWidth )
+	, mHeight( other.mHeight )
+{
+	m = (float*)malloc( sizeof(float) * mWidth * mHeight );
+	memcpy( m, other.m, sizeof(float) * mWidth * mHeight );
 }
 
 
 Matrix::~Matrix()
 {
+	if ( m == nullptr ) {
+		gDebug() << "CRITICAL : corrupt matrix !!!\n";
+		exit(0);
+	}
+	free( m );
+	m = nullptr;
 }
 
 
@@ -46,9 +62,19 @@ const int Matrix::height() const
 }
 
 
+void Matrix::Clear()
+{
+	if ( m == nullptr ) {
+		gDebug() << "CRITICAL : corrupt matrix !!!\n";
+		exit(0);
+	}
+	memset( m, 0, sizeof(float) * mWidth * mHeight );
+}
+
+
 void Matrix::Identity()
 {
-	memset( m, 0, sizeof( m ) );
+	Clear();
 	if ( mWidth == mHeight ) {
 		for ( int i = 0; i < mWidth * mHeight; i++ ) {
 			if ( i % ( mWidth + 1 ) == 0 ) {
@@ -71,8 +97,7 @@ void Matrix::RotateX( float a )
 	t.m[2*4+1] = -s;
 	t.m[2*4+2] = c;
 
-// 	*this *= t;
-	operator*=(t);
+// 	operator*=(t);
 }
 
 
@@ -88,8 +113,7 @@ void Matrix::RotateY( float a )
 	t.m[2*4+0] = s;
 	t.m[2*4+2] = c;
 
-// 	*this *= t;
-	operator*=(t);
+// 	operator*=(t);
 }
 
 
@@ -105,8 +129,7 @@ void Matrix::RotateZ( float a )
 	t.m[1*4+0] = -s;
 	t.m[1*4+1] = c;
 
-// 	*this *= t;
-	operator*=(t);
+// 	operator*=(t);
 }
 
 
@@ -168,9 +191,18 @@ Matrix Matrix::Inverse()
 
 void Matrix::operator=( const Matrix& other )
 {
+	if ( other.mWidth == mWidth and other.mHeight == mHeight ) {
+		memcpy( m, other.m, sizeof(float) * mWidth * mHeight );
+		return;
+	}
+
 	mWidth = other.mWidth;
 	mHeight = other.mHeight;
-	memcpy( m, other.m, sizeof(float) * 16 );
+	if ( m ) {
+		free( m );
+	}
+	m = (float*)malloc( sizeof(float) * mWidth * mHeight );
+	memcpy( m, other.m, sizeof(float) * mWidth * mHeight );
 }
 
 
@@ -209,7 +241,7 @@ Matrix operator-( const Matrix& m1, const Matrix& m2 )
 Matrix operator*( const Matrix& m1, const Matrix& m2 )
 {
 	Matrix ret( m2.width(), m1.height() );
-	memset( ret.m, 0, sizeof( ret.m ) );
+	memset( ret.data(), 0, sizeof(float) * ret.width() * ret.height() );
 
 	for ( int i = 0; i < ret.height(); i++ ) {
 		for ( int j = 0; j < ret.width(); j++ ) {
@@ -222,24 +254,9 @@ Matrix operator*( const Matrix& m1, const Matrix& m2 )
 	return ret;
 }
 
-void Matrix::operator*=( const Matrix& other )
-{
-	float ret[16];
-	int i=0, j=0, k=0;
-
-	for ( i = 0; i < 16; i++ ) {
-		ret[i] = m[j] * other.m[k] + m[j+4] * other.m[k+1] + m[j+8] * other.m[k+2] + m[j+12] * other.m[k+3];
-		k += 4 * ( ( j + 1 ) == 4 );
-		j = ( j + 1 ) % 4;
-	}
-
-	memcpy( m, ret, sizeof(float) * 16 );
-}
-
 
 Vector4f operator*( const Matrix& m, const Vector4f& vec )
 {
-// 	fDebug0();
 	Vector4f ret = Vector4f();
 
 	for ( int j = 0; j < m.height(); j++ ) {

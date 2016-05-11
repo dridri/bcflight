@@ -7,8 +7,8 @@
 
 PowerThread::PowerThread( Main* main )
 	: Thread( "power" )
-	, mTicks( Board::GetTicks() )
 	, mSaveTicks( Board::GetTicks() )
+	, mTicks( Board::GetTicks() )
 	, mMain( main )
 	, mVBat( 0.0f )
 	, mCurrentTotal( 0.0f )
@@ -19,6 +19,9 @@ PowerThread::PowerThread( Main* main )
 	, mCurrentSensor{ NONE, nullptr, 0, 0, 0 }
 {
 	mBatteryCapacity = main->config()->integer( "battery.capacity" );
+	if ( mBatteryCapacity == 0.0f ) {
+		mBatteryCapacity = 1800.0f;
+	}
 
 	{
 		std::string sensorType = main->config()->string( "battery.voltage.sensor_type" );
@@ -50,10 +53,6 @@ PowerThread::PowerThread( Main* main )
 
 	mLastVBat = std::atof( Board::LoadRegister( "VBat" ).c_str() );
 	mCurrentTotal = std::atof( Board::LoadRegister( "CurrentTotal" ).c_str() );
-	float capa = std::atof( Board::LoadRegister( "BatteryCapacity" ).c_str() );
-	if ( capa != 0.0f ) {
-		mBatteryCapacity = capa;
-	}
 }
 
 
@@ -88,11 +87,12 @@ float PowerThread::BatteryLevel() const
 
 void PowerThread::ResetFullBattery( uint32_t capacity_mah )
 {
+	mCapacityMutex.lock();
 	mCurrentTotal = 0.0f;
-	mBatteryCapacity = (float)capacity_mah;
-	Board::SaveRegister( "VBat", std::to_string( mVBat ) );
-	Board::SaveRegister( "CurrentTotal", std::to_string( mCurrentTotal ) );
-	Board::SaveRegister( "BatteryCapacity", std::to_string( mBatteryCapacity ) );
+	if ( capacity_mah != 0 ) {
+// 		mBatteryCapacity = (float)capacity_mah;
+	}
+	mCapacityMutex.unlock();
 }
 
 
@@ -100,6 +100,11 @@ bool PowerThread::run()
 {
 	float dt = (float)( Board::GetTicks() - mTicks ) / 1000000.0f;
 	mTicks = Board::GetTicks();
+
+	if ( std::abs( dt ) >= 1.0 ) {
+		gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
+		return true;
+	}
 
 	float volt = 0.0f;
 	float current = 0.0f;
@@ -120,10 +125,11 @@ bool PowerThread::run()
 	}
 
 	mVBat = volt;
-	mCurrentTotal += current * dt / 3600.0f;
 	mCurrentDraw = current / 3600.0f;
 
-	mBatteryLevel = 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity;
+	mCapacityMutex.lock();
+	mCurrentTotal += current * dt / 3600.0f;
+	mBatteryLevel = std::max( 0.0f, std::min( 1.0f, 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity ) );
 
 	if ( Board::GetTicks() - mSaveTicks >= 5 * 1000 * 1000 ) {
 		Board::SaveRegister( "VBat", std::to_string( mVBat ) );
@@ -131,6 +137,8 @@ bool PowerThread::run()
 		Board::SaveRegister( "BatteryCapacity", std::to_string( mBatteryCapacity ) );
 		mSaveTicks = Board::GetTicks();
 	}
+
+	mCapacityMutex.unlock();
 
 	usleep( 1000 * 50 );
 	return true;

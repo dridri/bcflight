@@ -2,7 +2,9 @@
 #define STABILIZER_H
 
 #include <Frame.h>
-#include <EKFSmoother.h>
+#include "PID.h"
+
+class Main;
 
 class Stabilizer
 {
@@ -14,7 +16,7 @@ public:
 		Follow = 3,
 	} Mode;
 
-	Stabilizer( Frame* frame );
+	Stabilizer( Main* main, Frame* frame );
 	~Stabilizer();
 
 	void setP( float p );
@@ -32,29 +34,19 @@ public:
 	void setMode( uint32_t mode );
 	uint32_t mode() const;
 
+	void CalibrateESCs();
 	void Reset( const float& yaw );
 	void Update( IMU* imu, Controller* ctrl, float dt );
 
 private:
-	void CorrectDeadBand( Vector3f& error, const Vector3f& epsilon );
-	Vector3f ProcessStabilize( IMU* imu, const Vector3f& ctrl_rpy, float dt );
-	Vector3f ProcessRate( IMU* imu, const Vector3f& ctrl_rate, float dt );
-
 	Frame* mFrame;
 	Mode mMode;
-	EKFSmoother mSmoothRate;
+	float mRateFactor;
 
-	Vector3f mIntegral;
-	Vector3f mLastError;
-	Vector3f mkPID;
-	Vector3f mLastPID;
+	PID mRatePID;
+	PID mHorizonPID;
 
-	Vector3f mTargetRPY;
-	Vector3f mOuterIntegral;
-	Vector3f mOuterLastError;
-	Vector3f mOuterLastOutput;
-	Vector3f mOuterkPID;
-	Vector3f mLastOuterPID;
+	int mLockState;
 };
 
 #endif // STABILIZER_H

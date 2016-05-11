@@ -14,6 +14,7 @@ public:
 
 private:
 	int mID;
+	int mIdle;
 	int mMin;
 	int mMax;
 	int mRange;

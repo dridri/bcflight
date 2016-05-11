@@ -27,11 +27,10 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 
 RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	: Link()
-	, mTx( nullptr )
-	, mRx( nullptr )
+	, mRaWifi( nullptr )
 	, mDevice( device )
 	, mChannel( 13 )
-	, mTxPower( 0 )
+	, mTxPower( 33 )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
 {
@@ -84,18 +83,22 @@ int RawWifi::Connect()
 	gDebug() << "executing : " << ss.str().c_str() << "\n";
 	(void)system( ss.str().c_str() );
 
-	if ( mOutputPort >= 0 ) {
-		mTx = rwifi_tx_init( mDevice.c_str(), mOutputPort, 1 );
-		if ( !mTx ) {
-			return -1;
-		}
+	char* mode = "";
+	if ( mOutputPort >= 0 and mInputPort >= 0 ) {
+		mode = "rw";
+	} else if ( mOutputPort >= 0 ) {
+		mode = "w";
+	} else if ( mInputPort >= 0 ) {
+		mode = "r";
+	}
+	if ( mOutputPort >= 0 and mInputPort >= 0 and mOutputPort != mInputPort ) {
+		gDebug() << "output port and input port should be the same !\n";
+		return -1;
 	}
 
-	if ( mInputPort >= 0 ) {
-		mRx = rwifi_rx_init( mDevice.c_str(), mInputPort, 1 );
-		if ( !mRx ) {
-			return -1;
-		}
+	mRaWifi = rawwifi_init( "wlan0", mode, mOutputPort, 1 );
+	if ( !mRaWifi ) {
+		return -1;
 	}
 
 	mConnected = true;
@@ -109,7 +112,7 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-	int ret = rwifi_rx_recv( mRx, (uint8_t*)buf, len );
+	int ret = rawwifi_recv( mRaWifi, (uint8_t*)buf, len );
 
 	if ( ret < 0 ) {
 		mConnected = false;
@@ -118,76 +121,18 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 }
 
 
-int RawWifi::ReadFloat( float* f )
-{
-	union {
-		float f;
-		uint32_t u;
-	} d;
-	int ret = Read( &d.u, sizeof( uint32_t ) );
-	d.u = ntohl( d.u );
-	*f = d.f;
-	return ret;
-}
-
-
-int RawWifi::ReadU32( uint32_t* v )
-{
-	int ret = Read( v, sizeof( uint32_t ) );
-	if ( ret == sizeof( uint32_t ) ) {
-		*v = ntohl( *v );
-	}
-	return ret;
-}
-
-
-int RawWifi::Write( void* buf, uint32_t len, int timeout )
+int RawWifi::Write( const void* buf, uint32_t len, int timeout )
 {
 	if ( !mConnected or mOutputPort < 0 ) {
 		return -1;
 	}
 
-	int ret = rwifi_tx_send( mTx, (uint8_t*)buf, len );
+	int ret = rawwifi_send( mRaWifi, (uint8_t*)buf, len );
 
 	if ( ret < 0 ) {
 		mConnected = false;
 	}
 	return ret;
-}
-
-
-int RawWifi::WriteU32( uint32_t v )
-{
-	v = htonl( v );
-	return Write( &v, sizeof(v) );
-}
-
-
-int RawWifi::WriteFloat( float v )
-{
-	union {
-		float f;
-		uint32_t u;
-	} u;
-	u.f = v;
-	u.u = htonl( u.u );
-	return Write( &u, sizeof( u ) );
-}
-
-
-int RawWifi::WriteString( const std::string& s )
-{
-	return Write( (void*)s.c_str(), s.length() );
-}
-
-
-int RawWifi::WriteString( const char* fmt, ... )
-{
-	va_list opt;
-	char buff[1024] = "";
-	va_start( opt, fmt );
-	vsnprintf( buff, (size_t) sizeof(buff), fmt, opt );
-	return Write( buff, strlen(buff) + 1 );
 }
 
 #endif // ( BUILD_RAWWIFI == 1 )

@@ -31,11 +31,11 @@
 	#define PREV_HEIGHT    ((PREV_WIDTH)*9/16)
 #else
 	#define FPS       40
-	#define WIDTH     800
-	#define HEIGHT    600
-	#define PREV_BITRATE   2048
-	#define PREV_WIDTH     800
-	#define PREV_HEIGHT    600
+	#define WIDTH     1280
+	#define HEIGHT    720
+	#define PREV_BITRATE   3072
+	#define PREV_WIDTH     1280
+	#define PREV_HEIGHT    720
 #endif
 
 #define PITCH     ((WIDTH+31)&~31)
@@ -49,7 +49,7 @@
 #define CAM_DEVICE_NUMBER               0
 #define CAM_SHARPNESS                   100                       // -100 .. 100
 #define CAM_CONTRAST                    0                        // -100 .. 100
-#define CAM_BRIGHTNESS                  50                       // 0 .. 100
+#define CAM_BRIGHTNESS                  64                       // 0 .. 100
 #define CAM_SATURATION                  0                        // -100 .. 100
 #define CAM_EXPOSURE_VALUE_COMPENSATION 00
 #define CAM_EXPOSURE_ISO_SENSITIVITY    800
@@ -58,8 +58,8 @@
 #define CAM_WHITE_BALANCE_CONTROL       OMX_WhiteBalControlAuto // OMX_WHITEBALCONTROLTYPE
 // #define CAM_IMAGE_FILTER                OMX_ImageFilterNoise    // OMX_IMAGEFILTERTYPE
 #define CAM_IMAGE_FILTER                OMX_ImageFilterNone    // OMX_IMAGEFILTERTYPE
-#define CAM_FLIP_HORIZONTAL             OMX_TRUE
-#define CAM_FLIP_VERTICAL               OMX_TRUE
+#define CAM_FLIP_HORIZONTAL             OMX_FALSE
+#define CAM_FLIP_VERTICAL               OMX_FALSE
 
 typedef struct video_context {
 	int running;
@@ -70,6 +70,7 @@ typedef struct video_context {
 	pthread_cond_t cond_enc1;
 	pthread_cond_t cond_enc2;
 	// Handles
+// 	OMX_HANDLETYPE clk;
 	OMX_HANDLETYPE cam;
 	OMX_HANDLETYPE spl;
 	OMX_HANDLETYPE rsz;
@@ -80,6 +81,7 @@ typedef struct video_context {
 	// Camera
 	int camera_ready;
 	OMX_BUFFERHEADERTYPE* cambufs;
+	uint32_t brightness;
 	// Encoders
 	OMX_BUFFERHEADERTYPE* enc1bufs;
 	OMX_BUFFERHEADERTYPE* enc2bufs;
@@ -91,5 +93,6 @@ video_context* video_configure();
 void video_start( video_context* ctx );
 void video_stop( video_context* ctx );
 void video_start_recording( video_context* ctx, const char* filename );
+void video_set_brightness( video_context* ctx, uint32_t value );
 void video_recover( video_context* ctx );
 uint32_t video_get_crc( OMX_HANDLETYPE enc );
