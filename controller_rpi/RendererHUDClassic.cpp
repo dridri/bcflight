@@ -7,6 +7,7 @@
 #include <gammaengine/Debug.h>
 #include <gammaengine/Time.h>
 #include "RendererHUDClassic.h"
+#include "Controller.h"
 
 
 static const char hud_vertices_shader[] =

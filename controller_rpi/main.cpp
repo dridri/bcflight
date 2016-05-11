@@ -11,7 +11,9 @@
 #include <gammaengine/Image.h>
 #include <gammaengine/Font.h>
 
-#include "Controller.h"
+#include <Link.h>
+#include <RawWifi.h>
+#include "ControllerPi.h"
 #include "Stream.h"
 #include "ui/Globals.h"
 
@@ -46,9 +48,13 @@ int main( int ac, char** av )
 
 	Globals* globals = new Globals( instance, font );
 
-	Controller* controller = new Controller( "192.168.32.1", 2020 );
+	Link* controller_link = new RawWifi( "wlan0", 0, 0 );
+// 	Link* stream_link = new RawWifi( "wlan0", 1, 1 );
+
+	Controller* controller = new ControllerPi( controller_link );
 	Stream* stream = new Stream( controller, font_hud, "192.168.32.1", 2021 );
 
+	globals->setStream( stream );
 	globals->setController( controller );
 	globals->setCurrentPage( "PageMain" );
 	globals->Run();

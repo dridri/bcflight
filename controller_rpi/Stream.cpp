@@ -12,6 +12,9 @@
 #include "RendererHUDClassic.h"
 #include "RendererHUDNeo.h"
 
+#define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
+#define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
+
 /*
 std::string interface_address( const std::string& itf )
 {
@@ -36,7 +39,6 @@ Stream::Stream( Controller* controller, Font* font, const std::string& addr, uin
 	, mFont( font )
 	, mEGLVideoImage( 0 )
 	, mVideoTexture( 0 )
-	, mRx( nullptr )
 	, mSocket( nullptr )
 	, mSockerAddr( addr )
 	, mSocketPort( port )
@@ -50,6 +52,10 @@ Stream::Stream( Controller* controller, Font* font, const std::string& addr, uin
 	system( "killall -9 dhclient && dhclient wlan0 && while ! ifconfig | grep -F \"192.168.32.\" > /dev/null; do sleep 1; done" );
 
 	mSocket = new Socket( mSockerAddr, mSocketPort, Socket::UDPLite );
+	uint16_t checksum_coverage = 8;
+	setsockopt( mSocket->rawSocket(), IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
+	setsockopt( mSocket->rawSocket(), IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
+
 	uint32_t uid = htonl( 0x12345678 );
 	mSocket->Send( &uid, sizeof(uid) );
 
@@ -61,7 +67,7 @@ Stream::Stream( Controller* controller, Font* font, const std::string& addr, uin
 	mSecondTimer.Start();
 	Start();
 
-	mSignalThread = new HookThread< Stream >( this, &Stream::SignalThreadRun );
+	mSignalThread = new HookThread< Stream >( "signal-quality", this, &Stream::SignalThreadRun );
 	mSignalThread->Start();
 }
 
@@ -87,7 +93,7 @@ bool Stream::run()
 		mDecodeContext = video_configure();
 		video_start( mDecodeContext );
 
-		mDecodeThread = new HookThread< Stream >( this, &Stream::DecodeThreadRun );
+		mDecodeThread = new HookThread< Stream >( "decoder", this, &Stream::DecodeThreadRun );
 		mDecodeThread->Start();
 
 		mFPSTimer.Start();
@@ -103,6 +109,7 @@ bool Stream::run()
 	mRendererHUD->Render( mWindow, mController, &video_stats, &mIwStats );
 
 	if ( mSecondTimer.ellapsed() >= 1000 ) {
+		/*
 		vc_dispmanx_snapshot( mDisplay, mScreenshot.resource, DISPMANX_NO_ROTATE );
 		vc_dispmanx_resource_read_data( mScreenshot.resource, &mScreenshot.rect, mScreenshot.image, 1920 / 2 * 3 );
 		uint32_t r = 0;
@@ -116,6 +123,7 @@ bool Stream::run()
 			}
 		}
 		mRendererHUD->setNightMode( r / 900 < 32 and g / 900 < 32 and b / 900 < 32 );
+		*/
 		mSecondTimer.Stop();
 		mSecondTimer.Start();
 	}
@@ -172,7 +180,7 @@ bool Stream::DecodeThreadRun()
 	if ( mDecodeContext->decinput->pBuffer != mDecodeInput ) {
 		gDebug() << "GPU messed up decoder input buffer ! ( " << (void*)mDecodeContext->decinput->pBuffer << " != " << (void*)mDecodeInput << "\n";
 	}
-
+/*
 	if ( mRx ) {
 		uint8_t buffer[2][65536] = { 0 };
 		static uint32_t buf_i = 0;
@@ -194,7 +202,7 @@ bool Stream::DecodeThreadRun()
 			}
 		}
 	}
-
+*/
 	if ( mSocket ) {
 		frameSize = mSocket->Receive( mDecodeInput, mDecodeContext->decinput->nAllocLen, false, 10 );
 		if ( frameSize > 0 ) {

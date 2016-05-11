@@ -5,6 +5,7 @@
 #include <gammaengine/Image.h>
 #include <libbcui/Globals.h>
 #include "../Controller.h"
+#include "../Stream.h"
 
 class Globals : public BC::Globals
 {
@@ -19,6 +20,8 @@ public:
 	ProxyWindow< FramebufferWindow >* window() const { return mWindow; }
 	Font* font() const { return mFont; }
 	Image* icon( const std::string& name ) { return mIcons[ name ]; }
+	Stream* stream() const { return mStream; }
+	void setStream( Stream* s) { mStream = s; }
 	Controller* controller() const { return mController; }
 	void setController( Controller* c) { mController = c; }
 	static Globals* instance() { return sInstance; }
@@ -33,6 +36,7 @@ private:
 	uint32_t mCursorCounter;
 	Font* mFont;
 	std::map< std::string, Image* > mIcons;
+	Stream* mStream;
 	Controller* mController;
 };
 

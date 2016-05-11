@@ -8,10 +8,10 @@
 #include <gammaengine/Image.h>
 #include <gammaengine/Matrix.h>
 #include <string>
-#include "Controller.h"
 
 using namespace GE;
 
+class Controller;
 
 typedef struct VideoStats {
 	int fps;

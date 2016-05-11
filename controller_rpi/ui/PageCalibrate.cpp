@@ -42,13 +42,6 @@ void PageCalibrate::gotFocus()
 
 void PageCalibrate::lostFocus()
 {
-// 	fDebug0();
-	/*
-	getGlobals()->controller()->joystick(0)->SetCalibratedValues( mAxies[0].min, mAxies[0].center, mAxies[0].max );
-	getGlobals()->controller()->joystick(1)->SetCalibratedValues( mAxies[1].min, mAxies[1].center, mAxies[1].max );
-	getGlobals()->controller()->joystick(2)->SetCalibratedValues( mAxies[2].min, mAxies[2].center, mAxies[2].max );
-	getGlobals()->controller()->joystick(3)->SetCalibratedValues( mAxies[3].min, mAxies[3].center, mAxies[3].max );
-	*/
 	getGlobals()->controller()->Unlock();
 }
 
@@ -90,6 +83,10 @@ void PageCalibrate::click( float _x, float _y, float force )
 	if ( x >= apply_x and y >= apply_y and x <= apply_x + apply_w ) {
 		gDebug() << "Apply\n";
 		getGlobals()->controller()->joystick(mCurrentAxis)->SetCalibratedValues( mAxies[mCurrentAxis].min, mAxies[mCurrentAxis].center, mAxies[mCurrentAxis].max );
+		getGlobals()->setSetting( "Joystick:" + std::to_string( mCurrentAxis ) + ":min", mAxies[mCurrentAxis].min );
+		getGlobals()->setSetting( "Joystick:" + std::to_string( mCurrentAxis ) + ":cen", mAxies[mCurrentAxis].center );
+		getGlobals()->setSetting( "Joystick:" + std::to_string( mCurrentAxis ) + ":max", mAxies[mCurrentAxis].max );
+		getGlobals()->SaveSettings( "/root/ge/settings.txt" );
 		mApplyTimer.Stop();
 		mApplyTimer.Start();
 	}

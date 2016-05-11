@@ -118,7 +118,7 @@ uint16_t MCP320x::Read( uint8_t channel )
 	b[1] /= nbx;
 	b[2] /= nbx;
 
-	b[2] = b[2] & 0xF0;
+	b[2] = b[2] & 0xF7;
 
 	if ( channel != 7 ) {
 		if ( b[1] < 0x05 ) {

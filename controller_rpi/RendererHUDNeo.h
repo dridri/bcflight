@@ -3,6 +3,7 @@
 
 #include <string>
 #include "RendererHUD.h"
+#include <Controller.h>
 
 class RendererHUDNeo : public RendererHUD
 {
@@ -16,7 +17,7 @@ public:
 	void RenderThrustAcceleration( float thrust, float acceleration );
 	void RenderLink( float quality );
 	void RenderBattery( float level );
-	void RenderAttitude( const Vector3f& rpy );
+	void RenderAttitude( const vec3& rpy );
 
 protected:
 	Vector3f mSmoothRPY;

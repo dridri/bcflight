@@ -24,7 +24,7 @@ using namespace BC;
 	}
 
 	// Wait until the system finishes starting
-	usleep( 1000 * 1000 * 15 );
+	usleep( 1000 * 1000 * 10 );
 
 	mInputFD = open( "/dev/input/mouse0", O_RDONLY | O_NONBLOCK );
 

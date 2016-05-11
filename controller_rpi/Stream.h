@@ -15,33 +15,25 @@
 #include <gammaengine/Renderer2D.h>
 #include <gammaengine/Font.h>
 
+#include <Thread.h>
 #include "decode.h"
 #include "DecodedImage.h"
 #include "RendererHUD.h"
 
-#include <wifibroadcast.h>
+// #include <wifibroadcast.h>
 
 using namespace GE;
 
 class Controller;
 
-template<typename T> class HookThread : public Thread
-{
-public:
-	HookThread( T* r, const std::function< bool( T* ) >& cb ) : Thread(), mT( r ), mCallback( cb ) {}
-protected:
-	virtual bool run() { return mCallback( mT ); }
-private:
-	T* mT;
-	const std::function< bool( T* ) > mCallback;
-};
-
-
-class Stream : Thread
+class Stream : GE::Thread
 {
 public:
 	Stream( Controller* controller, Font* font, const std::string& addr, uint16_t port = 2021 );
 	~Stream();
+
+	int linkLevel() const { return mIwStats.level; }
+	int linkQuality() const { return mIwStats.qual; }
 
 	EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
 
@@ -58,7 +50,7 @@ private:
 	Timer mSecondTimer;
 	RendererHUD* mRendererHUD;
 
-	rwifi_rx_t* mRx;
+// 	rwifi_rx_t* mRx;
 	Socket* mSocket;
 	std::string mSockerAddr;
 	uint16_t mSocketPort;

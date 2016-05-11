@@ -8,6 +8,7 @@
 #include <gammaengine/Debug.h>
 #include <gammaengine/Time.h>
 #include "RendererHUDNeo.h"
+#include "Controller.h"
 
 
 static const char hud_vertices_shader[] =
@@ -116,7 +117,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		if ( not controller->armed() ) {
 			thrust = 0.0f;
 		}
-		float acceleration = controller->acceleration() / 9.8f;
+		float acceleration = controller->acceleration() / 9.7f;
 		RenderAttitude( controller->rpy() );
 		RenderThrustAcceleration( thrust, std::min( 1.0f, acceleration / 10.0f ) );
 
@@ -346,9 +347,9 @@ static Vector2f Rotate( const Vector2f& p0, float s, float c )
 }
 
 
-void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
+void RendererHUDNeo::RenderAttitude( const vec3& rpy )
 {
-	mSmoothRPY = mSmoothRPY + ( rpy - mSmoothRPY ) * 35.0f * ( 1.0f / 60.0f );
+	mSmoothRPY = mSmoothRPY + ( Vector3f( rpy.x, rpy.y, rpy.z ) - mSmoothRPY ) * 35.0f * ( 1.0f / 60.0f );
 	if ( std::abs( mSmoothRPY.x ) <= 0.15f ) {
 		mSmoothRPY.x = 0.0f;
 	}

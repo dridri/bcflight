@@ -24,10 +24,14 @@ private:
 	void actionResetBattery();
 	void actionCalibrate();
 	void actionCalibrateAll();
+	void actionCalibrateESCs();
 
 	Button* mButtonResetBattery;
 	Button* mButtonCalibrate;
 	Button* mButtonCalibrateAll;
+	Button* mButtonCalibrateESCs;
+
+	float mLastT;
 };
 
 #endif // PAGEMAIN_H
