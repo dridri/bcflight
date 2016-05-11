@@ -36,6 +36,15 @@ Contains buildroot configuration for both flight and ground targets.
 
 Beyond Chaos Racer 280 :
 ![Image of drone](https://dl.dropboxusercontent.com/u/81758777/drich-drone-vtail-small.jpg)
+* Lynxmotion/DiaLFonZo mini V-Tail frame
+* Raspberry Pi A+
+* Raspberry Pi official 5MP camera
+* Alfa Network AWUS036NH
+* MPU9150 (gyroscope + accelerometer + magnetometer)
+* ADS1015 (ADC/Voltmeter)
+* ACS709 (current sensor)
+* 4x Afro 12A ESC
+* 4x Lynxmotion 1804-2400KV motor
 
 First home made WiFi controller :
 ![Image of controller](https://dl.dropboxusercontent.com/u/81758777/drone_rc_controller_small.jpg)
