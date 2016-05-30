@@ -34,7 +34,6 @@ ADS1015::~ADS1015()
 void ADS1015::Calibrate( float dt, bool last_pass )
 {
 	(void)dt;
-	(void)last_pass;
 }
 
 
@@ -63,4 +62,10 @@ float ADS1015::Read( int channel )
 	float fret = (float)( ret * 6.144f / 32768.0f );
 
 	return fret;
+}
+
+
+std::string ADS1015::infos()
+{
+	return "I2C address = " + std::to_string( mI2C->address() ) + ", " + "Resolution = \"12 bits\", " + "Channels = 4";
 }

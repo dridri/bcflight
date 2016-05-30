@@ -17,6 +17,8 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
+	std::string infos();
+
 private:
 	I2C* mI2C;
 	Vector4f mCalibrationAccum;
@@ -33,6 +35,8 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
+	std::string infos();
+
 private:
 	I2C* mI2C;
 	Vector4f mCalibrationAccum;
@@ -48,6 +52,8 @@ public:
 
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
+
+	std::string infos();
 
 private:
 	I2C* mI2C9150;

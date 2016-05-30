@@ -41,6 +41,9 @@ public:
 	static Voltmeter* voltmeter( const std::string& name );
 	static CurrentSensor* currentSensor( const std::string& name );
 
+	virtual std::string infos() { return ""; }
+	static std::string infosAll();
+
 protected:
 	typedef enum {
 		SwapModeNone,
@@ -61,7 +64,6 @@ protected:
 
 	void ApplySwap( Vector3f& v );
 	void ApplySwap( Vector4f& v );
-	Vector4f SmoothData( const Vector4f& v, bool double_smooth = false );
 
 	static std::list< Device > mKnownDevices; // Contains all the known devices by this software
 	static std::list< Sensor* > mDevices; // Contains all the detected devices

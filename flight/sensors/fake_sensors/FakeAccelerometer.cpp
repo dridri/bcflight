@@ -32,3 +32,9 @@ void FakeAccelerometer::Read( Vector3f* v, bool raw )
 	mLastValues = *v;
 	mSinCounter += 0.01;
 }
+
+
+std::string FakeAccelerometer::infos()
+{
+	return "Resolution = \"32 bits float\", Scale = \"16g\"";
+}

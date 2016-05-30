@@ -17,6 +17,8 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	float Read( int channel );
 
+	std::string infos();
+
 private:
 	I2C* mI2C;
 	float mRingBuffer[16];

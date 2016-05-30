@@ -269,3 +269,21 @@ void MPU9150Mag::Read( Vector3f* v, bool raw )
 		}
 	}
 }
+
+
+std::string MPU9150Gyro::infos()
+{
+	return "I2C address = " + std::to_string( mI2C->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"2000°/s\"";
+}
+
+
+std::string MPU9150Accel::infos()
+{
+	return "I2C address = " + std::to_string( mI2C->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"16g\"";
+}
+
+
+std::string MPU9150Mag::infos()
+{
+	return "I2C address = " + std::to_string( mI2C->address() ) + ", " + "Resolution = \"13 bits\", " + "Scale = \"1200μT\"";
+}

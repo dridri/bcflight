@@ -46,12 +46,6 @@ Vector4f Sensor::lastValues() const
 }
 
 
-Vector4f Sensor::SmoothData( const Vector4f& v, bool double_smooth )
-{
-	return v;
-}
-
-
 void Sensor::setAxisSwap( const int swap[4] )
 {
 	memcpy( mAxisSwap, swap, sizeof(int)*4 );
@@ -285,4 +279,44 @@ void Sensor::UpdateDevices()
 			mCurrentSensors.push_back( c );
 		}
 	}
+}
+
+
+std::string Sensor::infosAll()
+{
+	std::stringstream ss;
+	ss << "Sensors = {\n";
+
+	ss << "\tGyroscopes = {\n";
+	for ( Gyroscope* gyro : mGyroscopes ) {
+		ss << "\t\t" << gyro->names().front() << " = { " << gyro->infos() << " },\n";
+	}
+	ss << "\t},\n";
+
+	ss << "\tAccelerometers = {\n";
+	for ( Accelerometer* accel : mAccelerometers ) {
+		ss << "\t\t" << accel->names().front() << " = { " << accel->infos() << " },\n";
+	}
+	ss << "\t},\n";
+
+	ss << "\tMagnetometers = {\n";
+	for ( Magnetometer* magn : mMagnetometers ) {
+		ss << "\t\t" << magn->names().front() << " = { " << magn->infos() << " },\n";
+	}
+	ss << "\t},\n";
+
+	ss << "\tVoltmeters = {\n";
+	for ( Voltmeter* v : mVoltmeters ) {
+		ss << "\t\t" << v->names().front() << " = { " << v->infos() << " },\n";
+	}
+	ss << "\t},\n";
+
+	ss << "\tCurrentSensors = {\n";
+	for ( CurrentSensor* c : mCurrentSensors ) {
+		ss << "\t\t" << c->names().front() << " = { " << c->infos() << " },\n";
+	}
+	ss << "\t},\n";
+
+	ss << "}\n";
+	return ss.str();
 }

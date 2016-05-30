@@ -31,3 +31,9 @@ void FakeGyroscope::Read( Vector3f* v, bool raw )
 	mLastValues = *v;
 	mSinCounter += 0.1;
 }
+
+
+std::string FakeGyroscope::infos()
+{
+	return "Resolution = \"32 bits float\", Scale = \"16g\"";
+}
