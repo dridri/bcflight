@@ -3,15 +3,24 @@
 
 int MPU9150::flight_register( Main* main )
 {
-	Device dev1 = { 0x68, MPU9150::Instanciate };
-	Device dev2 = { 0x69, MPU9150::Instanciate };
+	Device dev1;
+	Device dev2;
+
+	dev1.iI2CAddr = 0x68;
+	dev1.name = "MPU9150";
+	dev1.fInstanciate = MPU9150::Instanciate;
+
+	dev1.iI2CAddr = 0x69;
+	dev1.name = "MPU9150";
+	dev1.fInstanciate = MPU9150::Instanciate;
+
 	mKnownDevices.push_back( dev1 );
 	mKnownDevices.push_back( dev2 );
 	return 0;
 }
 
 
-Sensor* MPU9150::Instanciate()
+Sensor* MPU9150::Instanciate( Config* config, const std::string& object )
 {
 	// TODO : check if address is 0x68 or 0x69
 	int i2c_addr = 0x69;

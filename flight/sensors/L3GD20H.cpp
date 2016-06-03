@@ -4,13 +4,16 @@
 
 int L3GD20H::flight_register( Main* main )
 {
-	Device dev = { 0x6b, L3GD20H::Instanciate };
+	Device dev;
+	dev.iI2CAddr = 0x6b;
+	dev.name = "L3GD20H";
+	dev.fInstanciate = L3GD20H::Instanciate;
 	mKnownDevices.push_back( dev );
 	return 0;
 }
 
 
-Gyroscope* L3GD20H::Instanciate()
+Gyroscope* L3GD20H::Instanciate( Config* config, const std::string& object )
 {
 	return new L3GD20H();
 }
@@ -22,7 +25,7 @@ L3GD20H::L3GD20H()
 	, mCalibrationAccum( Vector4f() )
 	, mOffset( Vector3f() )
 {
-	mNames = { "l3gd20", "l3gd20h" };
+	mNames = { "L3GD20", "l3gd20", "l3gd20h" };
 	mAxes[0] = true;
 	mAxes[1] = true;
 	mAxes[2] = true;

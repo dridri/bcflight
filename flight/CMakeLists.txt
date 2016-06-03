@@ -39,8 +39,6 @@ endmacro()
 
 DIRLIST( BOARDS ${CMAKE_SOURCE_DIR}/boards "" )
 
-message( "\nAvailable boards :\n ${BOARDS}" )
-
 if ( ${board} MATCHES OFF )
 	message( FATAL_ERROR "You must specify a target board.\nAvailable boards are :\n${BOARDS}" )
 endif()
@@ -74,10 +72,10 @@ endif()
 add_definitions( -DBUILD_SOCKET=${socket} )
 add_definitions( -DBUILD_RAWWIFI=${rawwifi} )
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=c11 -fgnu89-inline" )
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -Wno-pmf-conversions -Wno-unused-result" )
-set( CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -Wall -std=c11" )
-set( CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -Wall -std=c11" )
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=gnu11 -fgnu89-inline" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++11 -Wno-pmf-conversions -Wno-unused-result" )
+set( CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -Wall -std=gnu11" )
+set( CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -Wall -std=gnu11" )
 
 if ( "${debug}" MATCHES "yes" OR "${debug}" MATCHES "1" )
 	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3" )

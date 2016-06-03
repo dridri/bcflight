@@ -3,13 +3,16 @@
 
 int ADS1015::flight_register( Main* main )
 {
-	Device dev = { 0x48, ADS1015::Instanciate };
+	Device dev;
+	dev.iI2CAddr = 0x48;
+	dev.name = "ADS1015";
+	dev.fInstanciate = ADS1015::Instanciate;
 	mKnownDevices.push_back( dev );
 	return 0;
 }
 
 
-Sensor* ADS1015::Instanciate()
+Sensor* ADS1015::Instanciate( Config* config, const std::string& object )
 {
 	return new ADS1015();
 }

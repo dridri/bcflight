@@ -9,6 +9,7 @@ public:
 // 	void setValue( int width_ms );
 	void setValue( float p, bool force_hw_update = false );
 	void Disarm();
+	void Disable();
 
 	static void HardwareSync();
 

@@ -4,21 +4,30 @@
 
 int LSM303::flight_register( Main* main )
 {
-	Device dev1 = { 0x19, LSM303Accel::Instanciate };
-	Device dev2 = { 0x1E, LSM303Mag::Instanciate };
+	Device dev1;
+	Device dev2;
+
+	dev1.iI2CAddr = 0x19;
+	dev1.name = "LSM303Accel";
+	dev1.fInstanciate = LSM303Accel::Instanciate;
+
+	dev2.iI2CAddr = 0x1E;
+	dev2.name = "LSM303Mag";
+	dev2.fInstanciate = LSM303Mag::Instanciate;
+
 	mKnownDevices.push_back( dev1 );
 	mKnownDevices.push_back( dev2 );
 	return 0;
 }
 
 
-Sensor* LSM303Mag::Instanciate()
+Sensor* LSM303Mag::Instanciate( Config* config, const std::string& object )
 {
 	return new LSM303Mag();
 }
 
 
-Sensor* LSM303Accel::Instanciate()
+Sensor* LSM303Accel::Instanciate( Config* config, const std::string& object )
 {
 	return new LSM303Accel();
 }
@@ -30,7 +39,7 @@ LSM303Accel::LSM303Accel()
 	, mCalibrationAccum( Vector4f() )
 	, mOffset( Vector3f() )
 {
-	mNames = { "lsm303", "lsm303dlhc" };
+	mNames = { "LSM303", "lsm303", "lsm303dlhc" };
 	mAxes[0] = true;
 	mAxes[1] = true;
 	mAxes[2] = true;
@@ -47,7 +56,7 @@ LSM303Mag::LSM303Mag()
 	: Magnetometer()
 	, mI2C( new I2C( 0x1E ) )
 {
-	mNames = { "lsm303", "lsm303dlhc" };
+	mNames = { "LSM303", "lsm303", "lsm303dlhc" };
 	mAxes[0] = true;
 	mAxes[1] = true;
 	mAxes[2] = true;

@@ -20,12 +20,15 @@ public:
 	void Write( const uint8_t* data, uint32_t bytes );
 	void WriteU32( uint32_t v ) { mData.emplace_back( htonl( v ) ); }
 	void WriteFloat( float v ) { union { float f; uint32_t u; } u; u.f = v; WriteU32( u.u ); }
+	void WriteString( const std::string& str );
 
 	int32_t Read( uint32_t* data, uint32_t words );
 	uint32_t ReadU32( uint32_t* u );
 	uint32_t ReadFloat( float* f );
 	uint32_t ReadU32();
 	float ReadFloat();
+	std::string ReadString();
+
 	const std::vector< uint32_t >& data() const { return mData; }
 
 private:
@@ -47,12 +50,12 @@ public:
 	virtual int setBlocking( bool blocking ) = 0;
 	int32_t Read( Packet* p, int32_t timeout = 0 );
 	int32_t Write( const Packet* p, int32_t timeout = 0 );
+	virtual int Read( void* buf, uint32_t len, int32_t timeout ) = 0;
+	virtual int Write( const void* buf, uint32_t len, int32_t timeout ) = 0;
 
 protected:
 	bool mConnected;
 
-	virtual int Read( void* buf, uint32_t len, int32_t timeout ) = 0;
-	virtual int Write( const void* buf, uint32_t len, int32_t timeout ) = 0;
 
 	static void RegisterLink( const std::string& name, std::function< Link* ( Config*, const std::string& ) > instanciate );
 	static std::map< std::string, std::function< Link* ( Config*, const std::string& ) > > mKnownLinks;

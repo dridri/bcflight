@@ -5,6 +5,9 @@
 #include <Debug.h>
 #include "RawWifi.h"
 #include "../Config.h"
+#include <Board.h>
+
+bool RawWifi::mInitialized = false;
 
 
 int RawWifi::flight_register( Main* main )
@@ -19,20 +22,25 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 	std::string device = config->string( lua_object + ".device" );
 	int output_port = config->integer( lua_object + ".output_port" );
 	int input_port = config->integer( lua_object + ".input_port" );
+	bool blocking = config->boolean( lua_object + ".blocking" );
 
-	return new RawWifi( device, output_port, input_port );
+	Link* link = new RawWifi( device, output_port, input_port, blocking );
+	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries" ) );
+	return link;
 }
 
 
 
-RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
+RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, bool blocking )
 	: Link()
-	, mRaWifi( nullptr )
+	, mRawWifi( nullptr )
 	, mDevice( device )
-	, mChannel( 13 )
+	, mChannel( 9 )
 	, mTxPower( 33 )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
+	, mBlocking( blocking )
+	, mRetries( 2 )
 {
 }
 
@@ -67,37 +75,40 @@ void RawWifi::SetTxPower( int mBm )
 }
 
 
+void RawWifi::setRetries( int retries )
+{
+	mRetries = retries;
+}
+
+
+void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
+{
+	if ( not mInitialized ) {
+		mInitialized = true;
+		std::stringstream ss;
+
+		if ( Board::readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
+			ss << "ifconfig " << device << " down";
+			ss << " && iw dev " << device << " set monitor otherbss fcsfail";
+			ss << " && ifconfig " << device << " up && ";
+		}
+		ss << "iwconfig " << device << " channel " << channel;
+		if ( txpower > 0 ) {
+			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 );
+		}
+
+		std::cout << "executing : " << ss.str().c_str() << "\n";
+		(void)system( ss.str().c_str() );
+	}
+}
+
+
 int RawWifi::Connect()
 {
-	std::stringstream ss;
+	Initialize( mDevice, mChannel, mTxPower );
 
-	ss << "ifconfig " << mDevice << " down";
-	ss << " && iw dev " << mDevice << " set monitor otherbss fcsfail";
-	ss << " && ifconfig " << mDevice << " up";
-	ss << " && iwconfig " << mDevice << " channel " << mChannel;
-	ss << " && iw dev " << mDevice << " set bitrates mcs-2.4 3"; // MCS-3 == 26Mbps
-	ss << " && iwconfig " << mDevice << " rate 26M";
-	if ( mTxPower > 0 ) {
-		ss << " && iw dev " << mDevice << " set txpower fixed " << ( mTxPower * 1000 );
-	}
-	gDebug() << "executing : " << ss.str().c_str() << "\n";
-	(void)system( ss.str().c_str() );
-
-	char* mode = "";
-	if ( mOutputPort >= 0 and mInputPort >= 0 ) {
-		mode = "rw";
-	} else if ( mOutputPort >= 0 ) {
-		mode = "w";
-	} else if ( mInputPort >= 0 ) {
-		mode = "r";
-	}
-	if ( mOutputPort >= 0 and mInputPort >= 0 and mOutputPort != mInputPort ) {
-		gDebug() << "output port and input port should be the same !\n";
-		return -1;
-	}
-
-	mRaWifi = rawwifi_init( "wlan0", mode, mOutputPort, 1 );
-	if ( !mRaWifi ) {
+	mRawWifi = rawwifi_init( "wlan0", mOutputPort, mInputPort, mBlocking );
+	if ( !mRawWifi ) {
 		return -1;
 	}
 
@@ -112,10 +123,15 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-	int ret = rawwifi_recv( mRaWifi, (uint8_t*)buf, len );
+	uint32_t valid = 0;
+	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
 
 	if ( ret < 0 ) {
 		mConnected = false;
+	}
+	if ( not valid ) {
+// 		gDebug() << "WARNING : Received corrupt packets\n";
+		// TBD : keep it or return 0 ?
 	}
 	return ret;
 }
@@ -127,7 +143,7 @@ int RawWifi::Write( const void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-	int ret = rawwifi_send( mRaWifi, (uint8_t*)buf, len );
+	int ret = rawwifi_send_retry( mRawWifi, (uint8_t*)buf, len, mRetries );
 
 	if ( ret < 0 ) {
 		mConnected = false;

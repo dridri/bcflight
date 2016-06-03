@@ -10,7 +10,7 @@ public:
 	L3GD20H();
 	~L3GD20H();
 
-	static Gyroscope* Instanciate();
+	static Gyroscope* Instanciate( Config* config, const std::string& object );
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 

@@ -21,3 +21,8 @@ bool GPIO::Read( int pin )
 {
 	return false;
 }
+
+
+void GPIO::RegisterInterrupt( int pin, GPIO::ISRMode mode, void (*cb)(void*) )
+{
+}

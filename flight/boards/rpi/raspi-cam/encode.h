@@ -21,6 +21,7 @@
 // #define HD
 // #define PREV_RSZ
 // #define DUAL_ENCODERS
+// #define CAM_RSZ
 
 #ifdef HD
 	#define FPS       30
@@ -31,9 +32,11 @@
 	#define PREV_HEIGHT    ((PREV_WIDTH)*9/16)
 #else
 	#define FPS       40
+// 	#define FPS       30
 	#define WIDTH     1280
 	#define HEIGHT    720
-	#define PREV_BITRATE   3072
+	#define PREV_BITRATE   1024
+// 	#define PREV_WIDTH     640
 	#define PREV_WIDTH     1280
 	#define PREV_HEIGHT    720
 #endif

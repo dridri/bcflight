@@ -93,3 +93,5 @@ gyroscopes["MPU9150"] = {
 magnetometers["MPU9150"] = {
 	axis_swap = Vector( 1, 2, 3 )
 }
+
+RegisterSensor( "SR04", { gpio = 12 } )

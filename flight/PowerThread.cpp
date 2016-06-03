@@ -101,7 +101,7 @@ bool PowerThread::run()
 	float dt = (float)( Board::GetTicks() - mTicks ) / 1000000.0f;
 	mTicks = Board::GetTicks();
 
-	if ( std::abs( dt ) >= 1.0 ) {
+	if ( std::abs( dt ) > 2.0 ) {
 		gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
 		return true;
 	}
@@ -117,9 +117,9 @@ bool PowerThread::run()
 	}
 	if ( mCurrentSensor.sensor ) {
 		if ( mCurrentSensor.type == VOLTAGE ) {
-			current = dynamic_cast< Voltmeter* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+			current = static_cast< Voltmeter* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
 		} else if ( mCurrentSensor.type == CURRENT ) {
-			current = dynamic_cast< CurrentSensor* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+			current = static_cast< CurrentSensor* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
 		}
 		current = ( current + mCurrentSensor.shift ) * mCurrentSensor.multiplier;
 	}

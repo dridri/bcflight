@@ -7,6 +7,8 @@
 #include <Gyroscope.h>
 #include <Accelerometer.h>
 #include <Magnetometer.h>
+#include <Altimeter.h>
+#include <GPS.h>
 #include <Voltmeter.h>
 #include <CurrentSensor.h>
 #include <fake_sensors/FakeAccelerometer.h>
@@ -42,7 +44,6 @@ Main::Main()
 
 	mBoard = new Board( this );
 	flight_register();
-	DetectDevices();
 	Board::InformLoading();
 
 
@@ -51,6 +52,7 @@ Main::Main()
 #else
 	mConfig = new Config( "/data/prog/config.lua" );
 #endif
+	Board::InformLoading();
 	mConfig->DumpVariable( "board" );
 	mConfig->DumpVariable( "frame" );
 	mConfig->DumpVariable( "controller" );
@@ -58,11 +60,16 @@ Main::Main()
 	mConfig->DumpVariable( "accelerometers" );
 	mConfig->DumpVariable( "gyroscopes" );
 	mConfig->DumpVariable( "magnetometers" );
+	mConfig->DumpVariable( "user_sensors" );
 
 	if ( mConfig->string( "board.type" ) != std::string( BOARD ) ) {
 		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->string( "board.type" ) << "\" ) differs from board currently in use ( \"" << BOARD << "\" ) !\n";
 		return;
 	}
+
+	Board::InformLoading();
+	DetectDevices();
+	Board::InformLoading();
 
 	std::string frameName = mConfig->string( "frame.type" );
 	if ( Frame::knownFrames().find( frameName ) == Frame::knownFrames().end() ) {
@@ -70,9 +77,13 @@ Main::Main()
 		return;
 	}
 
+	Board::InformLoading();
+	mConfig->Apply();
+	Board::InformLoading();
+
 	mPowerThread = new PowerThread( this );
 	mPowerThread->Start();
-	mPowerThread->setPriority( 95 );
+	mPowerThread->setPriority( 96 );
 	Board::InformLoading();
 
 	mIMU = new IMU( this );
@@ -84,13 +95,13 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
-#ifdef CAMERA
-	Link* cameraLink = Link::Create( mConfig, "camera.link" );
-	mCamera = new CAMERA( cameraLink );
-	Board::InformLoading();
-#else
+// #ifdef CAMERA
+// 	Link* cameraLink = Link::Create( mConfig, "camera.link" );
+// 	mCamera = new CAMERA( cameraLink );
+// 	Board::InformLoading();
+// #else
 	mCamera = nullptr;
-#endif
+// #endif
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
@@ -131,7 +142,7 @@ bool Main::StabilizerThreadRun()
 		Board::LoadingDone();
 	} else {
 		mStabilizer->Update( mIMU, mController, dt );
-		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -250 );
+		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
 	}
 
 	mLPS++;
@@ -202,6 +213,8 @@ void Main::DetectDevices()
 	int countGyro = 0;
 	int countAccel = 0;
 	int countMagn = 0;
+	int countAlti = 0;
+	int countGps = 0;
 	int countVolt = 0;
 	int countCurrent = 0;
 
@@ -221,6 +234,12 @@ void Main::DetectDevices()
 		}
 		if ( dynamic_cast< Magnetometer* >( s ) != nullptr ) {
 			countMagn++;
+		}
+		if ( dynamic_cast< Altimeter* >( s ) != nullptr ) {
+			countAlti++;
+		}
+		if ( dynamic_cast< GPS* >( s ) != nullptr ) {
+			countGps++;
 		}
 		if ( dynamic_cast< Voltmeter* >( s ) != nullptr ) {
 			countVolt++;
@@ -247,6 +266,20 @@ void Main::DetectDevices()
 	gDebug() << countMagn << " magnetometer(s) found\n";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Magnetometer* >( s ) != nullptr ) {
+			gDebug() << "    " << s->names().front() << "\n";
+		}
+	}
+
+	gDebug() << countAlti << " altimeter(s) found\n";
+	for ( Sensor* s : Sensor::Devices() ) {
+		if ( dynamic_cast< Altimeter* >( s ) != nullptr ) {
+			gDebug() << "    " << s->names().front() << "\n";
+		}
+	}
+
+	gDebug() << countGps << " GPS(es) found\n";
+	for ( Sensor* s : Sensor::Devices() ) {
+		if ( dynamic_cast< GPS* >( s ) != nullptr ) {
 			gDebug() << "    " << s->names().front() << "\n";
 		}
 	}

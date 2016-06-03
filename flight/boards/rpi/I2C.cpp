@@ -29,6 +29,12 @@ I2C::~I2C()
 }
 
 
+const int I2C::address() const
+{
+	return mAddr;
+}
+
+
 int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
 {
 // 	uint64_t tick = Board::GetTicks();
@@ -96,9 +102,25 @@ int I2C::Read8( uint8_t reg, uint8_t* value )
 }
 
 
-int I2C::Read16( uint8_t reg, uint16_t* value )
+int I2C::Read16( uint8_t reg, uint16_t* value, bool big_endian )
 {
-	return Read( reg, value, 2 );
+	int ret = Read( reg, value, 2 );
+	if ( big_endian ) {
+		*value = __bswap_16( *value );
+	}
+	return ret;
+}
+
+
+int I2C::Read16( uint8_t reg, int16_t* value, bool big_endian )
+{
+	union {
+		uint16_t u;
+		int16_t s;
+	} v;
+	int ret = Read16( reg, &v.u, big_endian );
+	*value = v.s;
+	return ret;
 }
 
 

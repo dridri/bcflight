@@ -10,11 +10,13 @@ class I2C
 public:
 	I2C( int addr );
 	~I2C();
+	const int address() const;
 
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, void* buf, uint32_t len );
 	int Read8( uint8_t reg, uint8_t* value );
-	int Read16( uint8_t reg, uint16_t* value );
+	int Read16( uint8_t reg, uint16_t* value, bool big_endian = false );
+	int Read16( uint8_t reg, int16_t* value, bool big_endian = false );
 	int Read32( uint8_t reg, uint32_t* value );
 	int Write8( uint8_t reg, uint8_t value );
 	int Write16( uint8_t reg, uint16_t value );

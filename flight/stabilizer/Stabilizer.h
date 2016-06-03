@@ -31,8 +31,13 @@ public:
 	Vector3f getOuterPID() const;
 	Vector3f lastOuterPIDOutput() const;
 
+	void setHorizonOffset( const Vector3f& v );
+	Vector3f horizonOffset() const;
+
 	void setMode( uint32_t mode );
 	uint32_t mode() const;
+	void setAltitudeHold( bool enabled );
+	bool altitudeHold() const;
 
 	void CalibrateESCs();
 	void Reset( const float& yaw );
@@ -42,11 +47,16 @@ private:
 	Frame* mFrame;
 	Mode mMode;
 	float mRateFactor;
+	bool mAltitudeHold;
 
 	PID mRatePID;
 	PID mHorizonPID;
+	PID mAltitudePID;
+	float mAltitudeControl;
 
 	int mLockState;
+	Vector3f mHorizonMultiplier;
+	Vector3f mHorizonOffset;
 };
 
 #endif // STABILIZER_H

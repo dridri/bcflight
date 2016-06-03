@@ -68,7 +68,7 @@ class MPU9150 : public Sensor
 public:
 	static int flight_register( Main* main );
 
-	static Sensor* Instanciate();
+	static Sensor* Instanciate( Config* config, const std::string& object );
 
 /*
 	uint8_t dmpInitialize();

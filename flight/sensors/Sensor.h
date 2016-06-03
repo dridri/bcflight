@@ -7,9 +7,12 @@
 #include <Main.h>
 #include <Matrix.h>
 
+class Config;
 class Gyroscope;
 class Accelerometer;
 class Magnetometer;
+class Altimeter;
+class GPS;
 class Voltmeter;
 class CurrentSensor;
 
@@ -29,15 +32,20 @@ public:
 
 	static void AddDevice( Sensor* sensor );
 	static void RegisterDevice( int I2Caddr );
+	static void RegisterDevice( const std::string& name, Config* config, const std::string& object );
 	static std::list< Sensor* > Devices();
 	static std::list< Gyroscope* > Gyroscopes();
 	static std::list< Accelerometer* > Accelerometers();
 	static std::list< Magnetometer* > Magnetometers();
+	static std::list< Altimeter* > Altimeters();
+	static std::list< GPS* > GPSes();
 	static std::list< Voltmeter* > Voltmeters();
 	static std::list< CurrentSensor* > CurrentSensors();
 	static Gyroscope* gyroscope( const std::string& name );
 	static Accelerometer* accelerometer( const std::string& name );
 	static Magnetometer* magnetometer( const std::string& name );
+	static Altimeter* altimeter( const std::string& name );
+	static GPS* gps( const std::string& name );
 	static Voltmeter* voltmeter( const std::string& name );
 	static CurrentSensor* currentSensor( const std::string& name );
 
@@ -50,10 +58,21 @@ protected:
 		SwapModeAxis,
 		SwapModeMatrix,
 	} SwapMode;
+/*
 	typedef struct {
 		int iI2CAddr;
-		std::function< Sensor* (void) > fInstanciate;
+		const char* name;
+		std::function< Sensor* ( Config*, const std::string& ) > fInstanciate;
+		Device() : iI2CAddr(0), name("") {}
 	} Device;
+*/
+	class Device {
+	public:
+		int iI2CAddr;
+		const char* name;
+		std::function< Sensor* ( Config*, const std::string& ) > fInstanciate;
+		Device() : iI2CAddr(0), name("") {}
+	};
 
 	std::list< std::string > mNames;
 	Vector4f mLastValues;
@@ -70,6 +89,8 @@ protected:
 	static std::list< Gyroscope* > mGyroscopes; // Contains all the detected gyroscopes
 	static std::list< Accelerometer* > mAccelerometers; // ^
 	static std::list< Magnetometer* > mMagnetometers; // ^
+	static std::list< Altimeter* > mAltimeters; // ^
+	static std::list< GPS* > mGPSes; // ^
 	static std::list< Voltmeter* > mVoltmeters; // ^
 	static std::list< CurrentSensor* > mCurrentSensors; // ^
 

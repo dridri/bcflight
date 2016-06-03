@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <math.h>
 #include <Debug.h>
 #include <Main.h>
@@ -9,9 +10,14 @@
 Stabilizer::Stabilizer( Main* main, Frame* frame )
 	: mFrame( frame )
 	, mMode( Stabilize )
+	, mAltitudeHold( false )
 	, mRatePID( PID() )
 	, mHorizonPID( PID() )
+	, mAltitudePID( PID() )
+	, mAltitudeControl( 0.0f )
 	, mLockState( 0 )
+	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
+	, mHorizonOffset( Vector3f() )
 {
 	mRatePID.setP( std::atof( Board::LoadRegister( "PID:P" ).c_str() ) );
 	mRatePID.setI( std::atof( Board::LoadRegister( "PID:I" ).c_str() ) );
@@ -20,6 +26,20 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	mHorizonPID.setP( std::atof( Board::LoadRegister( "PID:Outerloop:P" ).c_str() ) );
 	mHorizonPID.setI( std::atof( Board::LoadRegister( "PID:Outerloop:I" ).c_str() ) );
 	mHorizonPID.setD( std::atof( Board::LoadRegister( "PID:Outerloop:D" ).c_str() ) );
+
+	mAltitudePID.setP( 0.001 );
+	mAltitudePID.setI( 0.010 );
+	mAltitudePID.setDeadBand( Vector3f( 0.05f, 0.0f, 0.0f ) );
+
+	float v;
+	if ( ( v = main->config()->number( "stabilizer.horizon_angles.x" ) ) > 0.0f ) {
+		mHorizonMultiplier.x = v;
+	}
+	if ( ( v = main->config()->number( "stabilizer.horizon_angles.y" ) ) > 0.0f ) {
+		mHorizonMultiplier.y = v;
+	}
+
+// 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 
 	mRateFactor = main->config()->number( "stabilizer.rate_speed" );
 	if ( mRateFactor <= 0.0f ) {
@@ -94,6 +114,18 @@ Vector3f Stabilizer::lastOuterPIDOutput() const
 }
 
 
+void Stabilizer::setHorizonOffset( const Vector3f& v )
+{
+	mHorizonOffset = v;
+}
+
+
+Vector3f Stabilizer::horizonOffset() const
+{
+	return mHorizonOffset;
+}
+
+
 void Stabilizer::setMode( uint32_t mode )
 {
 	mMode = (Mode)mode;
@@ -103,6 +135,18 @@ void Stabilizer::setMode( uint32_t mode )
 uint32_t Stabilizer::mode() const
 {
 	return (uint32_t)mMode;
+}
+
+
+void Stabilizer::setAltitudeHold( bool enabled )
+{
+	mAltitudeHold = enabled;
+}
+
+
+bool Stabilizer::altitudeHold() const
+{
+	return mAltitudeHold;
 }
 
 
@@ -136,17 +180,33 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		case Stabilize :
 		default : {
 			Vector3f control_angles = ctrl->RPY();
-			control_angles.x = 30.0f * std::min( std::max( control_angles.x, -1.0f ), 1.0f );
-			control_angles.y = 30.0f * std::min( std::max( control_angles.y, -1.0f ), 1.0f );
+			control_angles.x = mHorizonMultiplier.x * std::min( std::max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
+			control_angles.y = mHorizonMultiplier.y * std::min( std::max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
 			mHorizonPID.Process( control_angles, imu->RPY(), dt );
 			rate_control = mHorizonPID.state();
+			rate_control.z = control_angles.z * mRateFactor; // Bypass heading for now
 			break;
 		}
 	}
-
 	mRatePID.Process( rate_control, imu->rate(), dt );
 
-	if ( mFrame->Stabilize( mRatePID.state(), ctrl->thrust() ) == false ) {
+	float thrust = ctrl->thrust();
+	if ( mAltitudeHold ) {
+		thrust = thrust * 2.0f - 1.0f;
+		if ( std::abs( thrust ) < 0.1f ) {
+			thrust = 0.0f;
+		} else if ( thrust > 0.0f ) {
+			thrust = ( thrust - 0.1f ) * ( 1.0f / 0.9f );
+		} else if ( thrust < 0.0f ) {
+			thrust = ( thrust + 0.1f ) * ( 1.0f / 0.9f );
+		}
+		thrust *= 0.01f; // Reduce to 1m/s (assuming controller is sending at 100Hz update rate)
+		mAltitudeControl += thrust;
+		mAltitudePID.Process( Vector3f( mAltitudeControl, 0.0f, 0.0f ), Vector3f( imu->altitude(), 0.0f, 0.0f ), dt );
+		thrust = mAltitudePID.state().x;
+	}
+
+	if ( mFrame->Stabilize( mRatePID.state(), thrust ) == false ) {
 		Reset( mHorizonPID.state().z );
 	}
 }

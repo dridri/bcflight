@@ -42,6 +42,13 @@ void Servo::HardwareSync()
 
 void Servo::Disarm()
 {
+	// After calling this function, PWM should output a value below the minimum arming pulse width
+	// This ensure that the motors will not start spinning at any time, letting user to touch them without risks
+}
+
+
+void Servo::Disable()
+{
 	// After calling this function, PWM should not output anything and setting its pin to a 0V output
-	// This ensure that the motors will not receive any data, letting user to touch them without risks
+	// This is used to calibrate and configure ESCs
 }

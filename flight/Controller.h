@@ -4,7 +4,6 @@
 #include <mutex>
 #include <Thread.h>
 #include "Vector.h"
-#include "EKFSmoother.h"
 
 class Main;
 class Link;
@@ -33,6 +32,9 @@ protected:
 		DISARM = 0x74,
 		RESET_BATTERY = 0x75,
 		CALIBRATE_ESCS = 0x76,
+		SET_FULL_TELEMETRY = 0x77,
+		GET_BOARD_INFOS = 0x80,
+		GET_SENSORS_INFOS = 0x81,
 		// Getters
 		PRESSURE = 0x10,
 		TEMPERATURE = 0x11,
@@ -51,24 +53,28 @@ protected:
 		OUTER_PID_OUTPUT = 0x22,
 		PID_FACTORS = 0x23,
 		OUTER_PID_FACTORS = 0x24,
+		HORIZON_OFFSET = 0x25,
 		VBAT = 0x30,
 		TOTAL_CURRENT = 0x31,
 		CURRENT_DRAW = 0x32,
 		BATTERY_LEVEL = 0x34,
+		CPU_LOAD = 0x35,
+		CPU_TEMP = 0x36,
 		// Setters
 		SET_ROLL = 0x40,
 		SET_PITCH = 0x41,
 		SET_YAW = 0x42,
 		SET_THRUST = 0x43,
-		SET_TRPY = 0x44,
 		RESET_MOTORS = 0x47,
 		SET_MODE = 0x48,
+		SET_ALTITUDE_HOLD = 0x49,
 		SET_PID_P = 0x50,
 		SET_PID_I = 0x51,
 		SET_PID_D = 0x52,
 		SET_OUTER_PID_P = 0x53,
 		SET_OUTER_PID_I = 0x54,
 		SET_OUTER_PID_D = 0x55,
+		SET_HORIZON_OFFSET = 0x56,
 		// Video
 		VIDEO_START_RECORD = 0xA0,
 		VIDEO_STOP_RECORD = 0xA1,
@@ -94,6 +100,7 @@ protected:
 	uint64_t mTelemetryTick;
 	uint64_t mTelemetryCounter;
 	uint64_t mEmergencyTick;
+	bool mTelemetryFull;
 };
 
 #endif // CONTROLLER_H

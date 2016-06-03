@@ -11,6 +11,7 @@ public:
 	~Generic();
 
 	void Disarm();
+	void Disable();
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update = false );

@@ -6,23 +6,31 @@
 #include "Accelerometer.h"
 #include "Gyroscope.h"
 #include "Magnetometer.h"
+#include "Altimeter.h"
 #include <Controller.h>
 
 IMU::IMU( Main* main )
 	: mMain( main )
+	, mSensorsUpdateSlow( 0 )
 	, mState( Off )
 	, mAcceleration( Vector3f() )
 	, mGyroscope( Vector3f() )
 	, mMagnetometer( Vector3f() )
+	, mAltitude( 0.0f )
+	, mAltitudeOffset( 0.0f )
+	, mProximity( 0.0f )
 	, mRPY( Vector3f() )
 	, mdRPY( Vector3f() )
 	, mRate( Vector3f() )
 	, mRPYOffset( Vector3f() )
 	, mCalibrationAccum( 0 )
 	, mRPYAccum( Vector4f() )
+	, mGravity( Vector3f() )
 	, mRates( 3, 3 )
+	, mAccelerationSmoother( 3, 3 )
 // 	, mAttitude( 3, 3 )
 	, mAttitude( 6, 3 )
+	, mPosition( 1, 1 )
 	, mLastAccelAttitude( Vector4f() )
 	, mLastAcceleration( Vector3f() )
 {
@@ -47,9 +55,30 @@ IMU::IMU( Main* main )
 	mRates.setOutputFilter( 1, 0.5f );
 	mRates.setOutputFilter( 2, 0.5f );
 
+	/** mAccelerationSmoother matrix :
+	 *   - Inputs :
+	 *     - acceleration 0 1 2
+	 *   - Outputs :
+	 *     - smoothed linear acceleration 0 1 2
+	 **/
+	// Set Extended-Kalman-Filter mixing matrix
+	mAccelerationSmoother.setSelector( 0, 0, 1.0f );
+	mAccelerationSmoother.setSelector( 1, 1, 1.0f );
+	mAccelerationSmoother.setSelector( 2, 2, 1.0f );
+
+	// Set gyroscope filtering factors
+	mAccelerationSmoother.setInputFilter( 0, 100.0f );
+	mAccelerationSmoother.setInputFilter( 1, 100.0f );
+	mAccelerationSmoother.setInputFilter( 2, 250.0f );
+
+	// Set output rates filtering factors
+	mAccelerationSmoother.setOutputFilter( 0, 0.5f );
+	mAccelerationSmoother.setOutputFilter( 1, 0.5f );
+	mAccelerationSmoother.setOutputFilter( 2, 0.5f );
+
 	/** mAttitude matrix :
 	 *   - Inputs :
-	 *     - accelerometer 0 1 2
+	 *     - smoothed linear acceleration 0 1 2
 	 *     - rates 3 4 5
 	 *   - Outputs :
 	 *     - roll-pitch-yaw 0 1 2
@@ -62,19 +91,30 @@ IMU::IMU( Main* main )
 	mAttitude.setSelector( 2, 2, 1.0f );
 	mAttitude.setSelector( 5, 2, 1.0f );
 
-	// Set accelerometer filtering factors
-	mAttitude.setInputFilter( 0, 200.0f );
-	mAttitude.setInputFilter( 1, 200.0f );
-	mAttitude.setInputFilter( 2, 500.0f );
+	// Set acceleration filtering factors
+	mAttitude.setInputFilter( 0, 0.1f );
+	mAttitude.setInputFilter( 1, 0.1f );
+	mAttitude.setInputFilter( 2, 0.1f );
 
-	mAttitude.setInputFilter( 3, 0.25f );
-	mAttitude.setInputFilter( 4, 0.25f );
-	mAttitude.setInputFilter( 5, 0.25f );
+	// Set rates filtering factors
+	mAttitude.setInputFilter( 3, 0.01f );
+	mAttitude.setInputFilter( 4, 0.01f );
+	mAttitude.setInputFilter( 5, 0.01f );
 
 	// Set output roll-pitch-yaw filtering factors
-	mAttitude.setOutputFilter( 0, 0.5f );
-	mAttitude.setOutputFilter( 1, 0.5f );
-	mAttitude.setOutputFilter( 2, 0.5f );
+	mAttitude.setOutputFilter( 0, 0.25f );
+	mAttitude.setOutputFilter( 1, 0.25f );
+	mAttitude.setOutputFilter( 2, 0.25f );
+
+	/** mPosition matrix :
+	 *   - Inputs :
+	 *     - altitude (either absolute or proximity) 0
+	 *   - Outputs :
+	 *     - smoothed altitude 0
+	 **/
+	mPosition.setSelector( 0, 0, 1.0f );
+	mPosition.setInputFilter( 0, 10.0f );
+	mPosition.setOutputFilter( 0, 0.25f );
 
 	mSensorsThreadTick = 0;
 	mSensorsThreadTickRate = 0;
@@ -113,6 +153,12 @@ const Vector3f IMU::rate() const
 }
 
 
+const float IMU::altitude() const
+{
+	return mPosition.state( 0 ).x;
+}
+
+
 const Vector3f IMU::acceleration() const
 {
 	return mAcceleration;
@@ -136,10 +182,12 @@ static uint64_t imu_ticks = 0;
 bool IMU::SensorsThreadRun()
 {
 	if ( mState == Running ) {
-		bool rate = ( mMain->stabilizer()->mode() == Stabilizer::Rate );
 		float dt = ((float)( Board::GetTicks() - mSensorsThreadTick ) ) / 1000000.0f;
+
+		bool rate = ( mMain->stabilizer()->mode() == Stabilizer::Rate );
 		UpdateSensors( dt, rate );
 		mSensorsThreadTickRate = Board::WaitTick( 1000000 / 500, mSensorsThreadTickRate, -200 );
+
 		imu_fps++;
 		if ( Board::GetTicks() - imu_ticks >= 1000 * 1000 * 5 ) {
 			gDebug() << "Sampling rate : " << ( imu_fps / 5 ) << " Hz\n";
@@ -162,7 +210,13 @@ void IMU::Loop( float dt )
 	} else if ( mState == CalibrationDone ) {
 		mState = Running;
 	} else if ( mState == Running ) {
-		UpdateRPY( dt );
+		UpdateAttitude( dt );
+		if ( mPositionUpdate ) {
+			mPositionUpdateMutex.lock();
+			mPositionUpdate = false;
+			mPositionUpdateMutex.unlock();
+			UpdatePosition( dt );
+		}
 	}
 }
 
@@ -172,10 +226,13 @@ void IMU::Calibrate( float dt, bool all )
 	if ( mCalibrationAccum < 2000 ) {
 		bool last_pass = ( mCalibrationAccum >= 1999 );
 		for ( auto dev : Sensor::Devices() ) {
-			if ( all or dynamic_cast< Accelerometer* >( dev ) == nullptr ) {
+			if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
 				dev->Calibrate( dt, last_pass );
 			}
 		}
+	} else if ( all and mCalibrationAccum < 3000 ) {
+		UpdateSensors( dt );
+		mGravity += mAcceleration / 1000.0f;
 	} else {
 		mState = CalibrationDone;
 		mAcceleration = Vector3f();
@@ -245,7 +302,10 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 	Vector4f total_accel;
 	Vector4f total_gyro;
 	Vector4f total_magn;
+	Vector2f total_alti;
+	Vector2f total_proxi;
 	Vector3f vtmp;
+	float ftmp;
 
 	for ( Gyroscope* dev : Sensor::Gyroscopes() ) {
 		dev->Read( &vtmp );
@@ -253,27 +313,54 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 	}
 	mGyroscope = total_gyro.xyz() / total_gyro.w;
 
-	if ( mState == Running and ( not gyro_only /*or mAcroRPYCounter == 0*/ ) ) {
+	if ( mState == Running and ( not gyro_only /*or mAcroRPYCounter == 0*/ ) )
+	{
 		for ( Accelerometer* dev : Sensor::Accelerometers() ) {
 			dev->Read( &vtmp );
 			total_accel += Vector4f( vtmp, 1.0f );
 		}
-		/*
-		for ( Magnetometer* dev : Sensor::Magnetometers() ) {
-			dev->Read( &vtmp );
-			total_magn += Vector4f( vtmp, 1.0f );
-		}
-		*/
 		mLastAcceleration = mAcceleration;
 		mAcceleration = total_accel.xyz() / total_accel.w;
-		mMagnetometer = total_magn.xyz() / total_magn.w;
+
+		if ( mSensorsUpdateSlow % 16 == 0 ) {
+			for ( Magnetometer* dev : Sensor::Magnetometers() ) {
+				dev->Read( &vtmp );
+				total_magn += Vector4f( vtmp, 1.0f );
+			}
+			mMagnetometer = total_magn.xyz() / total_magn.w;
+		}
+
+		if ( mSensorsUpdateSlow % 32 == 0 ) {
+			for ( Altimeter* dev : Sensor::Altimeters() ) {
+				dev->Read( &ftmp );
+				if ( dev->type() == Altimeter::Proximity and ftmp > 0.0f ) {
+					total_proxi += Vector2f( ftmp, 1.0f );
+				} else if ( dev->type() == Altimeter::Absolute ) {
+					total_alti += Vector2f( ftmp, 1.0f );
+				}
+			}
+			if ( total_alti.y > 0.0f ) {
+				mAltitude = total_alti.x / total_alti.y;
+			} else {
+				mAltitude = 0.0f;
+			}
+			if ( total_proxi.y > 0.0f ) {
+				mProximity = total_proxi.x / total_proxi.y;
+			} else {
+				mProximity = 0.0f;
+			}
+
+			mPositionUpdateMutex.lock();
+			mPositionUpdate = true;
+			mPositionUpdateMutex.unlock();
+		}
+
+		mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 2048;
 	}
 }
 
-static uint32_t dump = 0;
 
-
-void IMU::UpdateRPY( float dt )
+void IMU::UpdateAttitude( float dt )
 {
 	// Process rates Extended-Kalman-Filter
 	mRates.UpdateInput( 0, mGyroscope.x );
@@ -282,29 +369,30 @@ void IMU::UpdateRPY( float dt )
 	mRates.Process( dt );
 	mRate = mRates.state( 0 );
 
+	// Process acceleration Extended-Kalman-Filter
+	mAccelerationSmoother.UpdateInput( 0, mAcceleration.x );
+	mAccelerationSmoother.UpdateInput( 1, mAcceleration.y );
+	mAccelerationSmoother.UpdateInput( 2, mAcceleration.z );
+	mAccelerationSmoother.Process( dt );
+	Vector3f accel = mAccelerationSmoother.state( 0 );
+
 	Vector2f accel_rp = Vector2f();
-
-	if ( std::abs( mAcceleration[0] ) >= 0.5f * 9.8f or std::abs( mAcceleration[2] ) >= 0.5f * 9.8f ) {
-		accel_rp.x = std::atan2( mAcceleration[0], mAcceleration[2] ) * 180.0f / M_PI;
+	if ( std::abs( accel.x ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
+		accel_rp.x = std::atan2( accel.x, accel.z ) * 180.0f / M_PI;
 	}
-	if ( std::abs( mAcceleration[1] ) >= 0.5f * 9.8f or std::abs( mAcceleration[2] ) >= 0.5f * 9.8f ) {
-		accel_rp.y = std::atan2( mAcceleration[1], mAcceleration[2] ) * 180.0f / M_PI;
+	if ( std::abs( accel.y ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
+		accel_rp.y = std::atan2( accel.y, accel.z ) * 180.0f / M_PI;
 	}
-
-	Vector3f gyro = mRate;
-// 	Vector3f gyro = mGyroscope;
-
-	float magn_yaw = mRPY.z + gyro.z * dt; // TODO : calculate using magnetometer, for now, use integrated value from gyro
 
 	// Update accelerometer values
 	mAttitude.UpdateInput( 0, accel_rp.x );
 	mAttitude.UpdateInput( 1, accel_rp.y );
-	mAttitude.UpdateInput( 2, magn_yaw );
+	mAttitude.UpdateInput( 2, mRPY.z + mRate.z * dt ); // TODO : calculate using magnetometer, for now, use integrated value from gyro
 
 	// Integrate and update rates values
-	mAttitude.UpdateInput( 3, mRPY.x + gyro.x * dt );
-	mAttitude.UpdateInput( 4, mRPY.y + gyro.y * dt );
-	mAttitude.UpdateInput( 5, mRPY.z + gyro.z * dt );
+	mAttitude.UpdateInput( 3, mRPY.x + mRate.x * dt );
+	mAttitude.UpdateInput( 4, mRPY.y + mRate.y * dt );
+	mAttitude.UpdateInput( 5, mRPY.z + mRate.z * dt );
 
 	// Process Extended-Kalman-Filter
 	mAttitude.Process( dt );
@@ -313,15 +401,28 @@ void IMU::UpdateRPY( float dt )
 	Vector4f rpy = mAttitude.state( 0 );
 	mdRPY = ( rpy - mRPY ) * dt;
 	mRPY = rpy;
-/*
-	if ( dump++ >= 10 ) {
-		mAttitude.DumpInput();
-		printf( " => { %.4f, %.4f, %.4f }\n", mRPY.x, mRPY.y, mRPY.z );
-		printf( " magn_yaw : %.4f\n", magn_yaw );
-		printf( " gyro { %.4f, %.4f, %.4f }\n", gyro.x, gyro.y, gyro.z );
-		printf( " rate { %.4f, %.4f, %.4f }\n", mRate.x, mRate.y, mRate.z );
-		printf( "\n" );
-		dump = 0;
+}
+
+
+void IMU::UpdatePosition( float dt )
+{
+	float altitude = 0.0f;
+
+	if ( mProximity > 0.0f ) {
+		mAltitudeOffset = mAltitude - mProximity;
+		altitude = mProximity;
+	} else {
+		altitude = mAltitude - mAltitudeOffset;
 	}
+	mPosition.UpdateInput( 0, altitude );
+
+/*
+	// Calculate acceleration on Z-axis
+	float accel_z = std::cos( mRPY.x ) * std::cos( mRPY.y ) * ( mAcceleration.z - mGravity.z );
+	// Integrate position on Z-axis
+	float pos_z = mPosition.state( 0 ) + accel_z * dt * dt;
+	mPosition.UpdateInput( 1, pos_z );
 */
+
+	mPosition.Process( dt );
 }

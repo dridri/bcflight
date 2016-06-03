@@ -13,6 +13,7 @@ public:
 	void setSpeed( float speed, bool force_hw_update = false );
 	void KeepSpeed();
 	virtual void Disarm() = 0;
+	virtual void Disable() = 0;
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update = false ) = 0;

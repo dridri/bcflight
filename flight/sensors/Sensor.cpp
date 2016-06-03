@@ -2,6 +2,8 @@
 #include "Gyroscope.h"
 #include "Accelerometer.h"
 #include "Magnetometer.h"
+#include "GPS.h"
+#include "Altimeter.h"
 #include "Voltmeter.h"
 #include "CurrentSensor.h"
 #include <Matrix.h>
@@ -11,6 +13,8 @@ std::list< Sensor* > Sensor::mDevices;
 std::list< Gyroscope* > Sensor::mGyroscopes;
 std::list< Accelerometer* > Sensor::mAccelerometers;
 std::list< Magnetometer* > Sensor::mMagnetometers;
+std::list< Altimeter* > Sensor::mAltimeters;
+std::list< GPS* > Sensor::mGPSes;
 std::list< Voltmeter* > Sensor::mVoltmeters;
 std::list< CurrentSensor* > Sensor::mCurrentSensors;
 
@@ -121,7 +125,21 @@ void Sensor::RegisterDevice( int I2Caddr )
 {
 	for ( Device d : mKnownDevices ) {
 		if ( d.iI2CAddr == I2Caddr ) {
-			Sensor* dev = d.fInstanciate();
+			Sensor* dev = d.fInstanciate( nullptr, "" );
+			if ( dev ) {
+				mDevices.push_back( dev );
+			}
+			UpdateDevices();
+		}
+	}
+}
+
+
+void Sensor::RegisterDevice( const std::string& name, Config* config, const std::string& object )
+{
+	for ( Device d : mKnownDevices ) {
+		if ( d.iI2CAddr == 0 and !strcmp( d.name, name.c_str() ) ) {
+			Sensor* dev = d.fInstanciate( config, object );
 			if ( dev ) {
 				mDevices.push_back( dev );
 			}
@@ -152,6 +170,18 @@ std::list< Accelerometer* > Sensor::Accelerometers()
 std::list< Magnetometer* > Sensor::Magnetometers()
 {
 	return mMagnetometers;
+}
+
+
+std::list< Altimeter* > Sensor::Altimeters()
+{
+	return mAltimeters;
+}
+
+
+std::list< GPS* > Sensor::GPSes()
+{
+	return mGPSes;
 }
 
 
@@ -209,6 +239,34 @@ Magnetometer* Sensor::magnetometer( const std::string& name )
 }
 
 
+GPS* Sensor::gps( const std::string& name )
+{
+	for ( auto it = mGPSes.begin(); it != mGPSes.end(); it++ ) {
+		GPS* g = (*it);
+		for ( auto it2 = g->names().begin(); it2 != g->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return g;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+Altimeter* Sensor::altimeter( const std::string& name )
+{
+	for ( auto it = mAltimeters.begin(); it != mAltimeters.end(); it++ ) {
+		Altimeter* a = (*it);
+		for ( auto it2 = a->names().begin(); it2 != a->names().end(); it2++ ) {
+			if ( (*it2) == name ) {
+				return a;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
 Voltmeter* Sensor::voltmeter( const std::string& name )
 {
 	for ( auto it = mVoltmeters.begin(); it != mVoltmeters.end(); it++ ) {
@@ -242,6 +300,8 @@ void Sensor::UpdateDevices()
 	mGyroscopes.clear();
 	mAccelerometers.clear();
 	mMagnetometers.clear();
+	mAltimeters.clear();
+	mGPSes.clear();
 	mVoltmeters.clear();
 	mCurrentSensors.clear();
 
@@ -263,6 +323,20 @@ void Sensor::UpdateDevices()
 		Magnetometer* m = dynamic_cast< Magnetometer* >( s );
 		if ( m != nullptr ) {
 			mMagnetometers.push_back( m );
+		}
+	}
+
+	for ( Sensor* s : mDevices ) {
+		GPS* g = dynamic_cast< GPS* >( s );
+		if ( g != nullptr ) {
+			mGPSes.push_back( g );
+		}
+	}
+
+	for ( Sensor* s : mDevices ) {
+		Altimeter* a = dynamic_cast< Altimeter* >( s );
+		if ( a != nullptr ) {
+			mAltimeters.push_back( a );
 		}
 	}
 

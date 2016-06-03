@@ -23,6 +23,8 @@ public:
 	Board( Main* main );
 	~Board();
 
+	static std::string infos();
+
 	static void InformLoading( int force_led = -1 );
 	static void LoadingDone();
 
@@ -34,6 +36,10 @@ public:
 
 	static uint64_t GetTicks();
 	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias = -500 );
+
+	static uint32_t CPULoad();
+	static uint32_t CPUTemp();
+	static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" );
 
 private:
 	static uint64_t mTicksBase;

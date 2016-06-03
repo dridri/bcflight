@@ -12,6 +12,12 @@ I2C::~I2C()
 }
 
 
+const int I2C::address() const
+{
+	return mAddr;
+}
+
+
 int I2C::Read( uint8_t reg, void* buf, uint32_t len )
 {
 	// Depending on your hardware/software implementation, you may be able to do

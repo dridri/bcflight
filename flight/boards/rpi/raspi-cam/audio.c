@@ -100,7 +100,8 @@ static void audio_encode_init( audio_context* ctx )
 {
 	avcodec_register_all();
 	printf( "1\n" );
-	ctx->encode = avcodec_find_encoder( AV_CODEC_ID_MP2 );
+// 	ctx->encode = avcodec_find_encoder( AV_CODEC_ID_MP2 );
+	ctx->encode = avcodec_find_encoder( CODEC_ID_MP2 );
 	printf( "2 %p\n", ctx->encode );
 	ctx->av_context = avcodec_alloc_context3( ctx->encode );
 	printf( "3\n" );

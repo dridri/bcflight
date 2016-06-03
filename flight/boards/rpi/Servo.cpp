@@ -62,3 +62,10 @@ void Servo::Disarm()
 	PiBlasterSetPWMus( mID, mIdle );
 	PiBlasterUpdatePWM();
 }
+
+
+void Servo::Disable()
+{
+	PiBlasterSetPWMus( mID, 0 );
+	PiBlasterUpdatePWM();
+}

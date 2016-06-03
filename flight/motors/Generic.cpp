@@ -31,3 +31,9 @@ void Generic::Disarm()
 	mServo->Disarm();
 }
 
+
+void Generic::Disable()
+{
+	mServo->Disable();
+}
+

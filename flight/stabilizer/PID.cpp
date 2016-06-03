@@ -5,6 +5,7 @@ PID::PID()
 	, mLastError( Vector3f() )
 	, mkPID( Vector3f() )
 	, mState( Vector3f() )
+	, mDeadBand( Vector3f() )
 {
 }
 
@@ -40,6 +41,12 @@ void PID::setD( float d )
 }
 
 
+void PID::setDeadBand( const Vector3f& band )
+{
+	mDeadBand = band;
+}
+
+
 Vector3f PID::getPID() const
 {
 	return mkPID;
@@ -55,6 +62,16 @@ Vector3f PID::state() const
 void PID::Process( const Vector3f& command, const Vector3f& measured, float dt )
 {
 	Vector3f error = command - measured;
+
+	if ( std::abs( error.x ) < mDeadBand.x ) {
+		error.x = 0.0f;
+	}
+	if ( std::abs( error.y ) < mDeadBand.y ) {
+		error.y = 0.0f;
+	}
+	if ( std::abs( error.z ) < mDeadBand.z ) {
+		error.z = 0.0f;
+	}
 
 	mIntegral += error * dt;
 	Vector3f derivative = ( error - mLastError ) / dt;

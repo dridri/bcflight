@@ -115,8 +115,9 @@ bool Raspicam::LiveThreadRun()
 	}
 
 	uint32_t uid = 0;
-// 	if ( mLink->Read( &uid, sizeof(uid) ) > 0 ) { // TODO
-// 		gDebug() << "Received uid " << ntohl( uid ) << "\n";
+	Packet in;
+// 	if ( mLink->Read( &uid, sizeof(uid), 0 ) > 0 ) {
+// 		gDebug() << "Received uid " << uid << "\n";
 // 	}
 
 	if ( not mNeedNextEnc2ToBeFilled and not mVideoContext->enc2_data_avail ) {
@@ -126,7 +127,7 @@ bool Raspicam::LiveThreadRun()
 	}
 
 	if ( mVideoContext->enc2_data_avail ) {
-		uint64_t timestamp = video_buffer_timestamp( mVideoContext->enc2bufs );
+// 		uint64_t timestamp = video_buffer_timestamp( mVideoContext->enc2bufs );
 		int datalen = video_buffer_len( mVideoContext->enc2bufs );
 		char* data = new char[ datalen ];
 		memcpy( data, video_buffer_ptr( mVideoContext->enc2bufs ), datalen );
@@ -255,16 +256,19 @@ bool Raspicam::RecordThreadRun()
 
 int Raspicam::LiveSend( char* data, int datalen )
 {
+	int err = 0;
+
 	if ( datalen <= 0 ) {
 		return datalen;
 	}
 
-// 	int err = mLink->Write( data, datalen ); // TODO
-// 	if ( err < 0 ) {
-// 		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
-// 		return -1;
-// 	}
+	err = mLink->Write( (uint8_t*)data, datalen, 0 );
+	if ( err < 0 ) {
+		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
+		return -1;
+	}
 
+// 	gDebug() << "sent " << err << " bytes\n";
 	return 0;
 }
 

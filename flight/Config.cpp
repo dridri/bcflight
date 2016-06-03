@@ -70,7 +70,7 @@ float Config::number( const std::string& name )
 
 bool Config::boolean( const std::string& name )
 {
-	Debug() << "Config::number( " << name << " )";
+	Debug() << "Config::boolean( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
@@ -87,7 +87,7 @@ int Config::LocateValue( const std::string& _name )
 {
 	const char* name = _name.c_str();
 
-	if ( not strchr( name, '.' ) ) {
+	if ( strchr( name, '.' ) == nullptr ) {
 		lua_getfield( L, LUA_GLOBALSINDEX, name );
 	} else {
 		char tmp[128];
@@ -143,7 +143,10 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 		Debug() << "{\n";
 		lua_pushnil( L );
 		while( lua_next( L, -2 ) != 0 ) {
-			const char* key = lua_tostring( L, index-1 );
+			std::string key = lua_tostring( L, index-1 );
+			if ( lua_isnumber( L, index - 1 ) ) {
+				key = "[" + key + "]";
+			}
 			DumpVariable( key, index, indent + 1 );
 			lua_pop( L, 1 );
 			Debug() << ",\n";
@@ -166,6 +169,7 @@ void Config::Reload()
 {
 	luaL_dostring( L, "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
 	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
+	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; params.device = \"wlan0\" ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
 	luaL_dostring( L, ( "board = { type = \"" + std::string( BOARD ) + "\" }" ).c_str() );
 	luaL_dostring( L, "frame = { motors = { front_left = {}, front_right = {}, rear_left = {}, rear_right = {} } }" );
@@ -176,6 +180,10 @@ void Config::Reload()
 	luaL_dostring( L, "accelerometers = {}" );
 	luaL_dostring( L, "gyroscopes = {}" );
 	luaL_dostring( L, "magnetometers = {}" );
+	luaL_dostring( L, "altimeters = {}" );
+	luaL_dostring( L, "GPSes = {}" );
+	luaL_dostring( L, "user_sensors = {}" );
+	luaL_dostring( L, "function RegisterSensor( name, params ) user_sensors[name] = params ; return params end" );
 	luaL_loadfile( L, mFilename.c_str() );
 	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
 
@@ -184,6 +192,23 @@ void Config::Reload()
 		return;
 	}
 
+	std::list< std::string > user_sensors;
+	LocateValue( "user_sensors" );
+	lua_pushnil( L );
+	while( lua_next( L, -2 ) != 0 ) {
+		std::string key = lua_tostring( L, -2 );
+		user_sensors.emplace_back( key );
+		lua_pop( L, 1 );
+	}
+
+	for ( std::string s : user_sensors ) {
+		Sensor::RegisterDevice( s, this, "user_sensors." + s );
+	}
+}
+
+
+void Config::Apply()
+{
 	std::list< std::string > accelerometers;
 	std::list< std::string > gyroscopes;
 	std::list< std::string > magnetometers;

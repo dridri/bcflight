@@ -17,6 +17,7 @@ public:
 	~Config();
 
 	void Reload();
+	void Apply();
 	void Save();
 
 	std::string string( const std::string& name );

@@ -10,6 +10,7 @@ class I2C
 public:
 	I2C( int addr );
 	~I2C();
+	const int address() const;
 
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, void* buf, uint32_t len );
