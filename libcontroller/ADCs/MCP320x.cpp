@@ -1,12 +1,8 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
+#include <iostream>
+#include <string.h>
 #include "MCP320x.h"
-
-#include <gammaengine/Debug.h>
-
-using namespace GE;
-
 
 MCP320x::MCP320x()
 {
@@ -18,34 +14,34 @@ MCP320x::MCP320x()
 	mode = SPI_MODE_0;
 	if ( ioctl( mFD, SPI_IOC_WR_MODE, &mode ) < 0 )
 	{
-		gDebug() << "SPI rd_mode\n";
+		std::cout << "SPI wr_mode\n";
 		return;
 	}
 	if ( ioctl( mFD, SPI_IOC_RD_MODE, &mode ) < 0 )
 	{
-		gDebug() << "SPI rd_mode\n";
+		std::cout << "SPI rd_mode\n";
 		return;
 	}
 	if ( ioctl( mFD, SPI_IOC_RD_LSB_FIRST, &lsb ) < 0 )
 	{
-		gDebug() << "SPI rd_lsb_fist\n";
+		std::cout << "SPI rd_lsb_fist\n";
 		return;
 	}
 	if ( ioctl( mFD, SPI_IOC_RD_BITS_PER_WORD, &bits ) < 0 ) 
 	{
-		gDebug() << "SPI bits_per_word\n";
+		std::cout << "SPI bits_per_word\n";
 		return;
 	}
 
 	if ( ioctl( mFD, SPI_IOC_WR_MAX_SPEED_HZ, &speed ) < 0 )  
 	{
-		gDebug() << "can't set max speed hz\n";
+		std::cout << "can't set max speed hz\n";
 		return;
 	}
 
 	if ( ioctl( mFD, SPI_IOC_RD_MAX_SPEED_HZ, &speed ) < 0 ) 
 	{
-		gDebug() << "SPI max_speed_hz\n";
+		std::cout << "SPI max_speed_hz\n";
 		return;
 	}
 

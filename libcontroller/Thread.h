@@ -7,7 +7,7 @@
 class Thread
 {
 public:
-	Thread( const std::string& name = "flight" );
+	Thread( const std::string& name );
 	virtual ~Thread();
 	void setPriority( int32_t prio );
 
@@ -28,6 +28,9 @@ private:
 	bool mIsRunning;
 	bool mFinished;
 	pthread_t mThread;
+	int mPriority;
+	int mSetPriority;
+	bool mTerminate;
 };
 
 

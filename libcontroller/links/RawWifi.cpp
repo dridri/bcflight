@@ -1,17 +1,20 @@
-#if ( BUILD_RAWWIFI == 1 )
+#ifndef NO_RAWWIFI
 
 #include <netinet/in.h>
 #include <string.h>
-#include <Debug.h>
+#include <sstream>
+#include <iostream>
 #include "RawWifi.h"
-#include "../Config.h"
 
+static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim );
+
+bool RawWifi::mInitialized = false;
 
 RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	: Link()
-	, mRaWifi( nullptr )
+	, mRawWifi( nullptr )
 	, mDevice( device )
-	, mChannel( 13 )
+	, mChannel( 9 )
 	, mTxPower( 33 )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
@@ -49,37 +52,42 @@ void RawWifi::SetTxPower( int mBm )
 }
 
 
+int32_t RawWifi::RxQuality()
+{
+	return rawwifi_recv_quality( mRawWifi );
+}
+
+
+void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
+{
+	if ( not mInitialized ) {
+		mInitialized = true;
+		std::stringstream ss;
+
+// 		if ( readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
+			ss << "ifconfig " << device << " down";
+			ss << " && iw dev " << device << " set monitor otherbss fcsfail";
+			ss << " && ifconfig " << device << " up && ";
+// 		}
+		ss << "iwconfig " << device << " channel " << channel;
+		if ( txpower > 0 ) {
+			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 );
+		}
+
+		std::cout << "executing : " << ss.str().c_str() << "\n";
+		(void)system( ss.str().c_str() );
+	}
+}
+
+
 int RawWifi::Connect()
 {
 	std::stringstream ss;
 
-	ss << "ifconfig " << mDevice << " down";
-	ss << " && iw dev " << mDevice << " set monitor otherbss fcsfail";
-	ss << " && ifconfig " << mDevice << " up";
-	ss << " && iwconfig " << mDevice << " channel " << mChannel;
-	ss << " && iw dev " << mDevice << " set bitrates mcs-2.4 3"; // MCS-3 == 26Mbps
-	ss << " && iwconfig " << mDevice << " rate 26M";
-	if ( mTxPower > 0 ) {
-		ss << " && iw dev " << mDevice << " set txpower fixed " << ( mTxPower * 1000 );
-	}
-	gDebug() << "executing : " << ss.str().c_str() << "\n";
-	(void)system( ss.str().c_str() );
+	Initialize( mDevice, mChannel, mTxPower );
 
-	char* mode = "";
-	if ( mOutputPort >= 0 and mInputPort >= 0 ) {
-		mode = "rw";
-	} else if ( mOutputPort >= 0 ) {
-		mode = "w";
-	} else if ( mInputPort >= 0 ) {
-		mode = "r";
-	}
-	if ( mOutputPort >= 0 and mInputPort >= 0 and mOutputPort != mInputPort ) {
-		gDebug() << "output port and input port should be the same !\n";
-		return -1;
-	}
-
-	mRaWifi = rawwifi_init( "wlan0", mode, mOutputPort, 1 );
-	if ( !mRaWifi ) {
+	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1 );
+	if ( !mRawWifi ) {
 		return -1;
 	}
 
@@ -94,10 +102,25 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-	int ret = rawwifi_recv( mRaWifi, (uint8_t*)buf, len );
+	uint32_t valid = 0;
+	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
 
 	if ( ret < 0 ) {
 		mConnected = false;
+	}
+	if ( ret > 0 and not valid ) {
+		std::cout << "WARNING : Received corrupt packets\n";
+	}
+
+	if ( ret > 0 ) {
+		mReadSpeedCounter += ret;
+	}
+	if ( GetTicks() - mSpeedTick >= 1000 * 1000 ) {
+		mReadSpeed = mReadSpeedCounter;
+		mWriteSpeed = mWriteSpeedCounter;
+		mReadSpeedCounter = 0;
+		mWriteSpeedCounter = 0;
+		mSpeedTick = GetTicks();
 	}
 	return ret;
 }
@@ -109,12 +132,57 @@ int RawWifi::Write( const void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-	int ret = rawwifi_send( mRaWifi, (uint8_t*)buf, len );
+	int ret = rawwifi_send( mRawWifi, (uint8_t*)buf, len );
 
 	if ( ret < 0 ) {
 		mConnected = false;
 	}
+
+	if ( ret > 0 ) {
+		mWriteSpeedCounter += ret;
+	}
+	if ( GetTicks() - mSpeedTick >= 1000 * 1000 ) {
+		mReadSpeed = mReadSpeedCounter;
+		mWriteSpeed = mWriteSpeedCounter;
+		mReadSpeedCounter = 0;
+		mWriteSpeedCounter = 0;
+		mSpeedTick = GetTicks();
+	}
 	return ret;
 }
 
-#endif // ( BUILD_RAWWIFI == 1 )
+
+static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim )
+{
+	char buf[1024] = "";
+	std::string res = "";
+	FILE* fp = popen( cmd.c_str(), "r" );
+	if ( !fp ) {
+		printf( "popen failed : %s\n", strerror( errno ) );
+		return "";
+	}
+
+	if ( entry.length() == 0 or entry == "" ) {
+		fread( buf, 1, sizeof( buf ), fp );
+		res = buf;
+	} else {
+		while ( fgets( buf, sizeof(buf), fp ) ) {
+			if ( strstr( buf, entry.c_str() ) ) {
+				char* s = strstr( buf, delim.c_str() ) + delim.length();
+				while ( *s == ' ' or *s == '\t' ) {
+					s++;
+				}
+				char* end = s;
+				while ( *end != '\n' and *end++ );
+				*end = 0;
+				res = std::string( s );
+				break;
+			}
+		}
+	}
+
+	pclose( fp );
+	return res;
+}
+
+#endif // NO_RAWWIFI
