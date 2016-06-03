@@ -5,7 +5,8 @@
 #  LIBIW_LIBRARIES - the libiw library
 #  LIBIW_INCLUDE_DIR - the include path of the libiw library
 
-find_library (LIBIW_LIBRARY iw)
+execute_process( COMMAND sh -c "${CMAKE_C_COMPILER} -print-search-dirs | grep libraries | cut -d'=' -f2 | tr : ';'" OUTPUT_VARIABLE ARM_LIBS )
+find_library (LIBIW_LIBRARY iw PATHS ${ARM_LIBS} )
 
 if ( LIBIW_LIBRARY )
     set(LIBIW_LIBRARIES  ${LIBIW_LIBRARY})

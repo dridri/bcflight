@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <stdint.h>
+#include <pthread.h>
 #include <pcap.h>
 
 #ifdef __cplusplus
@@ -26,12 +27,17 @@ typedef struct {
 typedef struct rawwifi_packet_t {
 	uint8_t data[2048];
 	uint32_t size;
+	uint32_t valid;
 } rawwifi_packet_t;
 
 
 typedef struct rawwifi_block_t {
 	uint32_t id;
-	rawwifi_packet_t packets[8];
+	uint64_t ticks;
+	uint16_t valid;
+	rawwifi_packet_t packets[16];
+	struct rawwifi_block_t* prev;
+	struct rawwifi_block_t* next;
 } rawwifi_block_t;
 
 
@@ -62,21 +68,27 @@ typedef struct rawwifi_t {
 	rawwifi_pcap_t* out_ack;
 	uint32_t send_block_id;
 	rawwifi_link_t send_link;
+	pthread_t send_thread;
+	pthread_mutex_t send_mutex;
+	pthread_cond_t send_cond;
+	uint8_t* send_queue;
+	uint32_t send_queue_size;
+	uint32_t send_queue_retries;
 
 	// Receive
 	rawwifi_pcap_t* in;
 	rawwifi_pcap_t* in_ack;
-	rawwifi_block_t recv_block;
-	uint32_t recv_last_block;
+	rawwifi_block_t* recv_block;
 	rawwifi_link_t recv_link;
 } rawwifi_t;
 
 
 rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking );
+int32_t rawwifi_recv_quality( rawwifi_t* rwifi );
 
 int rawwifi_send( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen );
 int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries );
-int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen );
+int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t* valid );
 
 // internals
 int32_t rawwifi_recv_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
