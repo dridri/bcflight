@@ -46,14 +46,14 @@ IMU::IMU( Main* main )
 	mRates.setSelector( 2, 2, 1.0f );
 
 	// Set gyroscope filtering factors
-	mRates.setInputFilter( 0, 80.0f );
-	mRates.setInputFilter( 1, 80.0f );
-	mRates.setInputFilter( 2, 80.0f );
+	mRates.setInputFilter( 0, main->config()->number( "stabilizer.filters.rates.input.x", 80.0f ) );
+	mRates.setInputFilter( 1, main->config()->number( "stabilizer.filters.rates.input.y", 80.0f ) );
+	mRates.setInputFilter( 2, main->config()->number( "stabilizer.filters.rates.input.z", 80.0f ) );
 
 	// Set output rates filtering factors
-	mRates.setOutputFilter( 0, 0.5f );
-	mRates.setOutputFilter( 1, 0.5f );
-	mRates.setOutputFilter( 2, 0.5f );
+	mRates.setOutputFilter( 0, main->config()->number( "stabilizer.filters.rates.output.x", 0.5f ) );
+	mRates.setOutputFilter( 1, main->config()->number( "stabilizer.filters.rates.output.y", 0.5f ) );
+	mRates.setOutputFilter( 2, main->config()->number( "stabilizer.filters.rates.output.z", 0.5f ) );
 
 	/** mAccelerationSmoother matrix :
 	 *   - Inputs :
@@ -67,14 +67,14 @@ IMU::IMU( Main* main )
 	mAccelerationSmoother.setSelector( 2, 2, 1.0f );
 
 	// Set gyroscope filtering factors
-	mAccelerationSmoother.setInputFilter( 0, 100.0f );
-	mAccelerationSmoother.setInputFilter( 1, 100.0f );
-	mAccelerationSmoother.setInputFilter( 2, 250.0f );
+	mAccelerationSmoother.setInputFilter( 0, main->config()->number( "stabilizer.filters.accelerometer.input.x", 100.0f ) );
+	mAccelerationSmoother.setInputFilter( 1, main->config()->number( "stabilizer.filters.accelerometer.input.y", 100.0f ) );
+	mAccelerationSmoother.setInputFilter( 2, main->config()->number( "stabilizer.filters.accelerometer.input.z", 250.0f ) );
 
 	// Set output rates filtering factors
-	mAccelerationSmoother.setOutputFilter( 0, 0.5f );
-	mAccelerationSmoother.setOutputFilter( 1, 0.5f );
-	mAccelerationSmoother.setOutputFilter( 2, 0.5f );
+	mAccelerationSmoother.setOutputFilter( 0, main->config()->number( "stabilizer.filters.accelerometer.output.x", 0.5f ) );
+	mAccelerationSmoother.setOutputFilter( 1, main->config()->number( "stabilizer.filters.accelerometer.output.y", 0.5f ) );
+	mAccelerationSmoother.setOutputFilter( 2, main->config()->number( "stabilizer.filters.accelerometer.output.z", 0.5f ) );
 
 	/** mAttitude matrix :
 	 *   - Inputs :
@@ -92,19 +92,19 @@ IMU::IMU( Main* main )
 	mAttitude.setSelector( 5, 2, 1.0f );
 
 	// Set acceleration filtering factors
-	mAttitude.setInputFilter( 0, 0.1f );
-	mAttitude.setInputFilter( 1, 0.1f );
-	mAttitude.setInputFilter( 2, 0.1f );
+	mAttitude.setInputFilter( 0, main->config()->number( "stabilizer.filters.attitude.input.accelerometer.x", 0.1f ) );
+	mAttitude.setInputFilter( 1, main->config()->number( "stabilizer.filters.attitude.input.accelerometer.y", 0.1f ) );
+	mAttitude.setInputFilter( 2, main->config()->number( "stabilizer.filters.attitude.input.accelerometer.z", 0.1f ) );
 
 	// Set rates filtering factors
-	mAttitude.setInputFilter( 3, 0.01f );
-	mAttitude.setInputFilter( 4, 0.01f );
-	mAttitude.setInputFilter( 5, 0.01f );
+	mAttitude.setInputFilter( 3, main->config()->number( "stabilizer.filters.attitude.input.rates.x", 0.01f ) );
+	mAttitude.setInputFilter( 4, main->config()->number( "stabilizer.filters.attitude.input.rates.y", 0.01f ) );
+	mAttitude.setInputFilter( 5, main->config()->number( "stabilizer.filters.attitude.input.rates.z", 0.01f ) );
 
 	// Set output roll-pitch-yaw filtering factors
-	mAttitude.setOutputFilter( 0, 0.25f );
-	mAttitude.setOutputFilter( 1, 0.25f );
-	mAttitude.setOutputFilter( 2, 0.25f );
+	mAttitude.setOutputFilter( 0, main->config()->number( "stabilizer.filters.attitude.output.z", 0.25f ) );
+	mAttitude.setOutputFilter( 1, main->config()->number( "stabilizer.filters.attitude.output.z", 0.25f ) );
+	mAttitude.setOutputFilter( 2, main->config()->number( "stabilizer.filters.attitude.output.z", 0.25f ) );
 
 	/** mPosition matrix :
 	 *   - Inputs :

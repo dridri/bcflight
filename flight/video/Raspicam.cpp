@@ -114,8 +114,8 @@ bool Raspicam::LiveThreadRun()
 		mLedTick = Board::GetTicks();
 	}
 
-	uint32_t uid = 0;
 	Packet in;
+// 	uint32_t uid = 0;
 // 	if ( mLink->Read( &uid, sizeof(uid), 0 ) > 0 ) {
 // 		gDebug() << "Received uid " << uid << "\n";
 // 	}

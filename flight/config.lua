@@ -16,7 +16,7 @@ battery = {
 
 --- Setup stabilizer
 stabilizer.loop_time = 2000
-stabilizer.rate_speed = 250
+stabilizer.rate_speed = 500
 
 --- Setup controls
 controller.expo = {
@@ -94,4 +94,24 @@ magnetometers["MPU9150"] = {
 	axis_swap = Vector( 1, 2, 3 )
 }
 
-RegisterSensor( "SR04", { gpio = 12 } )
+
+
+-- Setup stabilizer filters here
+-- 'input' represents the amount of smoothing ( higher values mean better stability, but slower reactions, between interval ]0.0;+inf[ )
+-- 'output' represents the quantity of the filtered results that is integrated over time ( between interval ]0.0;1.0[ )
+stabilizer.filters = {
+	rates = {
+		input = Vector( 80, 80, 80 ),
+		output = Vector( 0.5, 0.5, 0.5 ),
+	},
+	accelerometer = {
+		input = Vector( 100, 100, 250 ),
+		output = Vector( 0.5, 0.5, 0.5 ),
+	},
+	attitude = {
+		input = {
+			accelerometer = Vector( 0.1, 0.1, 0.1 ),
+			rates = Vector( 0.01, 0.01, 0.01 ),
+		},
+		output = Vector( 0.25, 0.25, 0.25 ),
+	},

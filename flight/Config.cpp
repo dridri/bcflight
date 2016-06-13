@@ -23,13 +23,13 @@ Config::~Config()
 }
 
 
-std::string Config::string( const std::string& name )
+std::string Config::string( const std::string& name, const std::string& def )
 {
 	Debug() << "Config::string( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
-		return "";
+		return def;
 	}
 
 	std::string ret = lua_tolstring( L, -1, nullptr );
@@ -38,13 +38,13 @@ std::string Config::string( const std::string& name )
 }
 
 
-int Config::integer( const std::string& name )
+int Config::integer( const std::string& name, int def )
 {
 	Debug() << "Config::integer( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
-		return 0;
+		return def;
 	}
 
 	int ret = lua_tointeger( L, -1 );
@@ -53,13 +53,13 @@ int Config::integer( const std::string& name )
 }
 
 
-float Config::number( const std::string& name )
+float Config::number( const std::string& name, float def )
 {
 	Debug() << "Config::number( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
-		return 0;
+		return def;
 	}
 
 	float ret = lua_tonumber( L, -1 );
@@ -68,13 +68,13 @@ float Config::number( const std::string& name )
 }
 
 
-bool Config::boolean( const std::string& name )
+bool Config::boolean( const std::string& name, bool def )
 {
 	Debug() << "Config::boolean( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
-		return 0;
+		return def;
 	}
 
 	bool ret = lua_toboolean( L, -1 );
@@ -100,7 +100,10 @@ int Config::LocateValue( const std::string& _name )
 				} else {
 					lua_getfield( L, -1, tmp );
 				}
-				memset (tmp, 0, sizeof( tmp ) );
+				if ( lua_type( L, -1 ) == LUA_TNIL ) {
+					return -1;
+				}
+				memset( tmp, 0, sizeof( tmp ) );
 				j = 0;
 				k++;
 			} else {
@@ -109,7 +112,10 @@ int Config::LocateValue( const std::string& _name )
 			}
 		}
 		tmp[j] = 0;
-		lua_getfield( L, -1, tmp);
+		lua_getfield( L, -1, tmp );
+		if ( lua_type( L, -1 ) == LUA_TNIL ) {
+			return -1;
+		}
 	}
 
 	return 0;

@@ -20,10 +20,10 @@ public:
 	void Apply();
 	void Save();
 
-	std::string string( const std::string& name );
-	int integer( const std::string& name );
-	float number( const std::string& name );
-	bool boolean( const std::string& name );
+	std::string string( const std::string& name, const std::string& def = "" );
+	int integer( const std::string& name, int def = 0 );
+	float number( const std::string& name, float def = 0.0f );
+	bool boolean( const std::string& name, bool def = false );
 
 	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
 
