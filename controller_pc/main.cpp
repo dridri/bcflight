@@ -15,6 +15,7 @@ int main( int ac, char** av )
 	}
 
 	QApplication app( ac, av );
+/*
 	QPalette palette;
 	palette.setColor( QPalette::Window, QColor( 49, 54, 59 ) );
 	palette.setColor( QPalette::WindowText, Qt::white );
@@ -31,7 +32,7 @@ int main( int ac, char** av )
 	palette.setColor( QPalette::Disabled, QPalette::Text, Qt::darkGray );
 	palette.setColor( QPalette::Disabled, QPalette::ButtonText, Qt::darkGray );
 	app.setPalette( palette );
-
+*/
 	Link* controller_link = new RawWifi( device, 0, 1 );
 // 	Link* controller_link = new Socket( "127.0.0.1", 2020 );
 // 	Link* controller_link = new Socket( "192.168.32.1", 2020 );

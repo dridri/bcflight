@@ -89,7 +89,7 @@ MainWindow::~MainWindow()
 }
 
 
-static bool Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int index = -1, int indent = 0 )
+static void Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int index = -1, int indent = 0 )
 {
 	if ( name == "CurrentSensors" ) {
 		name = "Current Sensors";
@@ -97,7 +97,7 @@ static bool Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int in
 
 	QVariant data;
 	QTreeWidgetItem* item = nullptr;
-	for ( uint32_t i = 0; i < parent->childCount(); i++ ) {
+	for ( int32_t i = 0; i < parent->childCount(); i++ ) {
 		if ( parent->child(i)->data( 0, 0 ) == name ) {
 			item = parent->child(i);
 			break;
@@ -168,7 +168,8 @@ void MainWindow::connected()
 
 void MainWindow::updateData()
 {
-	ui->statusbar->showMessage( QString( "Connected    |    RX Qual : %1 %    |    TX : %2 B/s    |    RX : %3 B/s    |    Camera : %4 KB/s    |    %5 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( ui->video->fps() ) );
+	QString conn = mController->isConnected() ? "Connected" : "Disconnected";
+	ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX : %2 B/s    |    RX : %3 B/s    |    Camera : %4 KB/s    |    %5 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
 	ui->latency->setText( QString::number( mController->ping() ) + " ms" );
 	ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );

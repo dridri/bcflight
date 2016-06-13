@@ -1,8 +1,8 @@
 cmake_minimum_required( VERSION 2.8.11 )
 project( controller_pc )
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -std=c11 -D_GNU_SOURCE -D_BSD_SOURCE" )
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -std=c++11 -DGE_LINUX -DGE_EGL -fpermissive -Wno-pmf-conversions" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_GNU_SOURCE -D_BSD_SOURCE" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -std=c++11 -DGE_LINUX -DGE_EGL -fpermissive -Wno-pmf-conversions" )
 set( CMAKE_AUTOMOC ON )
 
 find_package( Qt5Widgets )
