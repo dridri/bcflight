@@ -1,4 +1,5 @@
 cmake_minimum_required( VERSION 2.8.11 )
+set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
 project( controller_pc )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_GNU_SOURCE -D_BSD_SOURCE" )
@@ -8,6 +9,7 @@ set( CMAKE_AUTOMOC ON )
 find_package( Qt5Widgets )
 find_package( Qt5OpenGL )
 find_package( Qt5PrintSupport )
+find_package( QScintilla2 )
 find_package( OpenGL )
 
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
@@ -17,7 +19,7 @@ include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
 include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 include_directories( ${CMAKE_SOURCE_DIR}/../external/openh264-master/codec/api/svc )
 
-include_directories( ${Qt5PrintSupport_INCLUDE_DIRS} )
+include_directories( ${Qt5PrintSupport_INCLUDE_DIRS} ${QSCINTILLA_INCLUDE_DIR} ${QSCINTILLA_INCLUDE_DIR}/Qsci )
 include_directories( ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ui ${CMAKE_BINARY_DIR} )
 
 add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip "" )
@@ -42,6 +44,6 @@ add_dependencies( controller_pc libopenh264_static )
 add_dependencies( controller_pc libluajit_static )
 add_dependencies( controller_pc controller )
 
-target_link_libraries( controller_pc -L./ controller rawwifi -lluajit_static -ldecoder_static -lopenh264_static Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport ${OPENGL_LIBRARIES} -lpcap -liw -lpthread -ldl )
+target_link_libraries( controller_pc -L./ controller rawwifi -lluajit_static -ldecoder_static -lopenh264_static ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport ${OPENGL_LIBRARIES} -lpcap -liw -lpthread -ldl )
 
 install( TARGETS controller_pc RUNTIME DESTINATION bin )

@@ -22,6 +22,7 @@ static uint8_t u8aIeeeHeader[] = {
 	0x10, 0x86,
 };
 
+// #define DEBUG
 #ifdef DEBUG
 #define dprintf printf
 #else
@@ -33,6 +34,9 @@ static const uint32_t headers_length = sizeof( u8aRadiotapHeader ) + sizeof( u8a
 
 static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t block_id, uint16_t packet_id, uint16_t packets_count, uint32_t retries )
 {
+#ifdef DEBUG
+	uint32_t i = 0;
+#endif
 	uint8_t buffer[MAX_USER_PACKET_LENGTH];
 	uint8_t* pu8 = buffer;
 
@@ -61,12 +65,11 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 
 	if ( retries & RETRY_ACK ) {
 		int ok = 0;
-		int i = 0;
 		while ( ok == 0 ) {
 			int r = pcap_inject( rwifi->out->pcap, buffer, plen );
 			if ( r != plen ) {
 				pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
-				dprintf( "[%d] sent %d / %d\n", i++, r, plen );
+				dprintf( "[%d, %d, %d] sent %d / %d\n", block_id, packet_id, i++, r, plen );
 // 				exit(1);
 				continue;
 			}
@@ -101,10 +104,12 @@ retry:
 				usleep( 100 );
 				goto retry;
 			} else {
-				dprintf( "[%d/%d] sent %d bytes\n", i + 1, retries, r );
+				dprintf( "[%d, %d, %d/%d] sent %d / %d\n", block_id, packet_id, i + 1, retries, r, plen );
 			}
 		}
 	}
+
+	return plen;
 }
 
 

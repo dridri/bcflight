@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -22,8 +40,14 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 	{ Controller::RESET_BATTERY, "0x75" },
 	{ Controller::CALIBRATE_ESCS, "0x76" },
 	{ Controller::SET_FULL_TELEMETRY, "0x77" },
+	{ Controller::DEBUG_OUTPUT, "0x7A" },
 	{ Controller::GET_BOARD_INFOS, "0x80" },
 	{ Controller::GET_SENSORS_INFOS, "0x81" },
+	{ Controller::GET_CONFIG_FILE, "0x90" },
+	{ Controller::SET_CONFIG_FILE, "0x91" },
+	{ Controller::UPDATE_UPLOAD_INIT, "0x9A" },
+	{ Controller::UPDATE_UPLOAD_DATA, "0x9B" },
+	{ Controller::UPDATE_UPLOAD_PROCESS, "0x9C" },
 	// Getters
 	{ Controller::PRESSURE, "0x10" },
 	{ Controller::TEMPERATURE, "0x11" },
@@ -49,6 +73,7 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 	{ Controller::BATTERY_LEVEL, "Battery level" },
 	{ Controller::CPU_LOAD, "0x35" },
 	{ Controller::CPU_TEMP, "0x36" },
+	{ Controller::RX_QUALITY, "0x37" },
 	// Setters
 	{ Controller::SET_ROLL, "0x40" },
 	{ Controller::SET_PITCH, "0x41" },
@@ -72,16 +97,6 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 };
 
 
-static uint32_t htonf( float f )
-{
-	union {
-		float f;
-		uint32_t u;
-	} u;
-	u.f = f;
-	return u.u;
-}
-
 Controller::Controller( Link* link )
 	: Thread( "controller-tx" )
 	, mPing( 0 )
@@ -92,6 +107,7 @@ Controller::Controller( Link* link )
 	, mAltitude( 0.0f )
 	, mThrust( 0.0f )
 	, mControlRPY{ 0.0f, 0.0f, 0.0f }
+	, mPIDsLoaded( false )
 	, mLink( link )
 	, mConnected( false )
 	, mLockState( 0 )
@@ -100,22 +116,21 @@ Controller::Controller( Link* link )
 	, mMsCounter50( 0 )
 	, mBoardInfos( "" )
 	, mSensorsInfos( "" )
+	, mConfigFile( "" )
+	, mUpdateUploadValid( false )
+	, mConfigUploadValid( false )
 	, mTicks( 0 )
+	, mSwitches{ 0 }
 	, mAcceleration( 0.0f )
 {
-// 	mADC = new MCP320x();
 	mArmed = false;
 	mMode = Stabilize;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
 
 	signal( SIGPIPE, SIG_IGN );
-/*
-	mJoysticks[0] = Joystick( mADC, 0, 0, true );
-	mJoysticks[1] = Joystick( mADC, 1, 1 );
-	mJoysticks[2] = Joystick( mADC, 2, 2 );
-	mJoysticks[3] = Joystick( mADC, 3, 3 );
-*/
+
 	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
+	mRxThread->setPriority( 99 );
 
 	Start();
 }
@@ -127,67 +142,23 @@ Controller::~Controller()
 	mRxThread->Stop();
 }
 
-/*
-Controller::Joystick::Joystick( MCP320x* adc, int id, int adc_channel, bool thrust_mode )
-	: mADC( adc )
-	, mId( id )
-	, mADCChannel( adc_channel )
-	, mCalibrated( false )
-	, mThrustMode( thrust_mode )
-	, mMin( 0 )
-	, mCenter( 32767 )
-	, mMax( 65535 )
+
+std::string Controller::debugOutput()
 {
-}
+	std::string ret = "";
 
+	mDebugMutex.lock();
+	ret = mDebug;
+	mDebug = "";
+	mDebugMutex.unlock();
 
-Controller::Joystick::~Joystick()
-{
-}
-
-
-void Controller::Joystick::SetCalibratedValues( uint16_t min, uint16_t center, uint16_t max )
-{
-	mMin = min;
-	mCenter = center;
-	mMax = max;
-	mCalibrated = true;
-}
-
-
-uint16_t Controller::Joystick::ReadRaw()
-{
-	return mADC->Read( mADCChannel );
-}
-
-
-float Controller::Joystick::Read()
-{
-	uint16_t raw = ReadRaw();
-	if ( raw <= 0 ) {
-		return -10.0f;
-	}
-
-	if ( mThrustMode ) {
-		float ret = (float)( raw - mMin ) / (float)( mMax - mMin );
-		ret = std::max( 0.0f, std::min( 1.0f, ret ) );
-		return ret;
-	}
-
-// 	if ( mADCChannel == 3 ) {
-// 		printf( "raw : %04X\n", raw );
-// 	}
-
-	float ret = (float)( raw - mCenter ) / (float)( mMax - mCenter );
-	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
 	return ret;
 }
-*/
+
 
 bool Controller::run()
 {
 	uint64_t ticks0 = Thread::GetTick();
-
 
 	if ( /*not mConnected or*/ not mLink->isConnected() ) {
 		std::cout << "Connecting...";
@@ -197,12 +168,9 @@ bool Controller::run()
 			std::cout << "Ok !\n";
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
-			mXferMutex.lock();
-			mTxFrame.WriteU32( OUTER_PID_FACTORS );
-			mTxFrame.WriteU32( HORIZON_OFFSET );
-			mXferMutex.unlock();
 		} else {
 			std::cout << "Nope !\n";
+			usleep( 1000 * 250 );
 		}
 		return true;
 	}
@@ -211,6 +179,11 @@ bool Controller::run()
 	if ( mLockState >= 1 ) {
 		mLockState = 2;
 		usleep( 1000 * 10 );
+		// Keep reading values for other threads
+		ReadThrust();
+		ReadYaw();
+		ReadPitch();
+		ReadRoll();
 		return true;
 	}
 
@@ -223,36 +196,17 @@ bool Controller::run()
 
 		if ( not mRxThread->running() ) {
 			mRxThread->Start();
+			mXferMutex.lock();
+			mTxFrame.WriteU32( PID_FACTORS );
+			mTxFrame.WriteU32( OUTER_PID_FACTORS );
+			mTxFrame.WriteU32( HORIZON_OFFSET );
+			mXferMutex.unlock();
 		}
-
-// 		uint16_t battery_voltage = mADC->Read( 7 ); // TODO
-// 		if ( battery_voltage != 0 ) {
-// 			mLocalBatteryVoltage = (float)battery_voltage * 5.0f * 2.0f / 4096.0f;
-// 		}
 
 		mPingTimer = Thread::GetTick();
 	}
 
-	bool switch_0 = ReadSwitch( 0 );
-	bool switch_1 = ReadSwitch( 1 );
-	bool switch_2 = ReadSwitch( 2 );
-	bool switch_3 = ReadSwitch( 3 );
-	bool switch_4 = ReadSwitch( 4 );
-	if ( switch_0 and not mSwitches[0] ) {
-		std::cout << "Switch 0 on\n";
-	} else if ( not switch_0 and mSwitches[0] ) {
-		std::cout << "Switch 0 off\n";
-	}
-	if ( switch_1 and not mSwitches[1] ) {
-		std::cout << "Switch 1 on\n";
-	} else if ( not switch_1 and mSwitches[1] ) {
-		std::cout << "Switch 1 off\n";
-	}
-	if ( switch_2 and not mSwitches[2] ) {
-		Arm();
-	} else if ( not switch_2 and mSwitches[2] ) {
-		Disarm();
-	}
+/*
 	if ( switch_3 and not mSwitches[3] ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU32( VIDEO_START_RECORD );
@@ -262,16 +216,29 @@ bool Controller::run()
 		mTxFrame.WriteU32( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
 	}
-	if ( switch_4 and not mSwitches[4] ) {
-		setMode( Rate );
-	} else if ( not switch_4 and mSwitches[4] ) {
-		setMode( Stabilize );
+*/
+	uint32_t oldswitch[8];
+	memcpy( oldswitch, mSwitches, sizeof(oldswitch) );
+	for ( uint32_t i = 0; i < 8; i++ ) {
+		bool on = ReadSwitch( i );
+		if ( on and not mSwitches[i] ) {
+			std::cout << "Switch " << i << " on\n";
+		} else if ( not on and mSwitches[i] ) {
+			std::cout << "Switch " << i << " off\n";
+		}
+		mSwitches[i] = on;
 	}
-	mSwitches[0] = switch_0;
-	mSwitches[1] = switch_1;
-	mSwitches[2] = switch_2;
-	mSwitches[3] = switch_3;
-	mSwitches[4] = switch_4;
+
+	if ( mSwitches[2] and not mArmed ) {
+		Arm();
+	} else if ( not mSwitches[2] and mArmed ) {
+		Disarm();
+	}
+	if ( mSwitches[3] and mMode != Stabilize ) {
+		setMode( Stabilize );
+	} else if ( not mSwitches[3] and mMode != Rate ) {
+		setMode( Rate );
+	}
 
 	float r_thrust = ReadThrust();
 	float r_yaw = ReadYaw();
@@ -338,12 +305,15 @@ bool Controller::RxRun()
 				break;
 			}
 			case PING : {
-				if ( mPing == 0 ) {
-					setPriority( 99 );
-				}
 				uint32_t ret = telemetry.ReadU32();
 				uint32_t curr = (uint32_t)( Thread::GetTick() & 0xFFFFFFFFL );
 				mPing = curr - ret;
+				break;
+			}
+			case DEBUG_OUTPUT : {
+				mDebugMutex.lock();
+				mDebug += telemetry.ReadString();
+				mDebugMutex.unlock();
 				break;
 			}
 			case CALIBRATE : {
@@ -364,6 +334,7 @@ bool Controller::RxRun()
 			}
 			case RESET_BATTERY : {
 				uint32_t unused = telemetry.ReadU32();
+				(void)unused;
 				break;
 			}
 
@@ -373,6 +344,25 @@ bool Controller::RxRun()
 			}
 			case GET_SENSORS_INFOS : {
 				mSensorsInfos = telemetry.ReadString();
+				break;
+			}
+			case GET_CONFIG_FILE : {
+				uint32_t crc = telemetry.ReadU32();
+				std::string content = telemetry.ReadString();
+				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
+					mConfigFile = content;
+				} else {
+					std::cout << "Received broken config flie, retrying...\n";
+					mConfigFile = "";
+				}
+				break;
+			}
+			case SET_CONFIG_FILE : {
+				mConfigUploadValid = ( telemetry.ReadU32() == 0 );
+				break;
+			}
+			case UPDATE_UPLOAD_DATA : {
+				mUpdateUploadValid = ( telemetry.ReadU32() == 1 );
 				break;
 			}
 
@@ -400,16 +390,40 @@ bool Controller::RxRun()
 				mCPUTemp = telemetry.ReadU32();
 				break;
 			}
+			case RX_QUALITY : {
+				mDroneRxQuality = telemetry.ReadU32();
+				break;
+			}
 
+			case PID_FACTORS : {
+				mPID.x = telemetry.ReadFloat();
+				mPID.y = telemetry.ReadFloat();
+				mPID.z = telemetry.ReadFloat();
+				mPIDsLoaded = true;
+				break;
+			}
 			case OUTER_PID_FACTORS : {
 				mOuterPID.x = telemetry.ReadFloat();
 				mOuterPID.y = telemetry.ReadFloat();
 				mOuterPID.z = telemetry.ReadFloat();
+				mPIDsLoaded = true;
 				break;
 			}
 			case HORIZON_OFFSET : {
 				mHorizonOffset.x = telemetry.ReadFloat();
 				mHorizonOffset.y = telemetry.ReadFloat();
+				break;
+			}
+			case SET_PID_P : {
+				mPID.x = telemetry.ReadFloat();
+				break;
+			}
+			case SET_PID_I : {
+				mPID.y = telemetry.ReadFloat();
+				break;
+			}
+			case SET_PID_D : {
+				mPID.z = telemetry.ReadFloat();
 				break;
 			}
 			case SET_OUTER_PID_P : {
@@ -529,7 +543,7 @@ void Controller::setFullTelemetry( bool fullt )
 void Controller::Arm()
 {
 	mXferMutex.lock();
-	for ( uint32_t retries = 0; retries < 8; retries++ ) {
+	for ( uint32_t retries = 0; retries < 1; retries++ ) {
 		mTxFrame.WriteU32( ARM );
 	}
 	mXferMutex.unlock();
@@ -539,7 +553,7 @@ void Controller::Arm()
 void Controller::Disarm()
 {
 	mXferMutex.lock();
-	for ( uint32_t retries = 0; retries < 8; retries++ ) {
+	for ( uint32_t retries = 0; retries < 1; retries++ ) {
 		mTxFrame.WriteU32( DISARM );
 	}
 	mThrust = 0.0f;
@@ -550,7 +564,7 @@ void Controller::Disarm()
 void Controller::ResetBattery()
 {
 	mXferMutex.lock();
-	for ( uint32_t retries = 0; retries < 8; retries++ ) {
+	for ( uint32_t retries = 0; retries < 1; retries++ ) {
 		mTxFrame.WriteU32( RESET_BATTERY );
 		mTxFrame.WriteU32( 0U );
 	}
@@ -590,29 +604,144 @@ std::string Controller::getSensorsInfos()
 }
 
 
+std::string Controller::getConfigFile()
+{
+	mConfigFile = "";
+
+	// Wait for data to be filled by RX Thread (RxRun())
+	while ( mConfigFile.length() == 0 ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( GET_CONFIG_FILE );
+		mXferMutex.unlock();
+		usleep( 1000 * 250 );
+	}
+
+	return mConfigFile;
+}
+
+
+void Controller::setConfigFile( const std::string& content )
+{
+	Packet packet( SET_CONFIG_FILE );
+	packet.WriteU32( crc32( (uint8_t*)content.c_str(), content.length() ) );
+	packet.WriteString( content );
+
+	mConfigUploadValid = false;
+	while ( not mConfigUploadValid ) {
+		mXferMutex.lock();
+// 		mTxFrame.WriteU32( SET_CONFIG_FILE );
+// 		mTxFrame.WriteString( content );
+		mLink->Write( &packet );
+		mXferMutex.unlock();
+		usleep( 1000 * 250 );
+	};
+	mConfigFile = "";
+}
+
+
+void Controller::UploadUpdateInit()
+{
+	Packet init( UPDATE_UPLOAD_INIT );
+	for ( uint32_t retries = 0; retries < 8; retries++ ) {
+		mXferMutex.lock();
+		mLink->Write( &init );
+		mXferMutex.unlock();
+		usleep( 1000 * 50 );
+	}
+}
+
+
+void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t size )
+{
+
+	Packet packet( UPDATE_UPLOAD_DATA );
+	packet.WriteU32( crc32( buf, size ) );
+	packet.WriteU32( offset );
+	packet.WriteU32( offset );
+	packet.WriteU32( size );
+	packet.WriteU32( size );
+	packet.Write( buf, size );
+
+
+	mUpdateUploadValid = false;
+	mXferMutex.lock();
+	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
+		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 1 );
+	}
+	do {
+		mLink->Write( &packet );
+		usleep( 1000 * 10 );
+		if ( not mUpdateUploadValid ) {
+			usleep( 1000 * 90 );
+		}
+	} while ( not mUpdateUploadValid );
+
+	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
+		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 2 );
+	}
+	mXferMutex.unlock();
+
+}
+
+
+void Controller::UploadUpdateProcess( const uint8_t* buf, uint32_t size )
+{
+	Packet process( UPDATE_UPLOAD_PROCESS );
+	process.WriteU32( crc32( buf, size ) );
+	for ( uint32_t retries = 0; retries < 8; retries++ ) {
+		mXferMutex.lock();
+		mLink->Write( &process );
+		mXferMutex.unlock();
+		usleep( 1000 * 50 );
+	}
+}
+
+
+void Controller::ReloadPIDs()
+{
+	for ( uint32_t retries = 0; retries < 4; retries++ ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( PID_FACTORS );
+		mTxFrame.WriteU32( OUTER_PID_FACTORS );
+		mXferMutex.unlock();
+		usleep( 1000 * 10 );
+	}
+}
+
+
 void Controller::setPID( const vec3& v )
 {
-	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_PID_P );
-	mTxFrame.WriteFloat( v.x );
-	mTxFrame.WriteU32( SET_PID_I );
-	mTxFrame.WriteFloat( v.y );
-	mTxFrame.WriteU32( SET_PID_D );
-	mTxFrame.WriteFloat( v.z );
-	mXferMutex.unlock();
+	std::cout << "setPID...\n";
+	while ( mPID.x != v.x or mPID.y != v.y or mPID.z != v.z ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( SET_PID_P );
+		mTxFrame.WriteFloat( v.x );
+		mTxFrame.WriteU32( SET_PID_I );
+		mTxFrame.WriteFloat( v.y );
+		mTxFrame.WriteU32( SET_PID_D );
+		mTxFrame.WriteFloat( v.z );
+		mXferMutex.unlock();
+		usleep( 1000 * 100 );
+	}
+	std::cout << "setPID ok\n";
 }
 
 
 void Controller::setOuterPID( const vec3& v )
 {
-	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_OUTER_PID_P );
-	mTxFrame.WriteFloat( v.x );
-	mTxFrame.WriteU32( SET_OUTER_PID_I );
-	mTxFrame.WriteFloat( v.y );
-	mTxFrame.WriteU32( SET_OUTER_PID_D );
-	mTxFrame.WriteFloat( v.z );
-	mXferMutex.unlock();
+	std::cout << "setOuterPID...\n";
+	while ( mOuterPID.x != v.x or mOuterPID.y != v.y or mOuterPID.z != v.z ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( SET_OUTER_PID_P );
+		mTxFrame.WriteFloat( v.x );
+		mTxFrame.WriteU32( SET_OUTER_PID_I );
+		mTxFrame.WriteFloat( v.y );
+		mTxFrame.WriteU32( SET_OUTER_PID_D );
+		mTxFrame.WriteFloat( v.z );
+		mXferMutex.unlock();
+		usleep( 1000 * 100 );
+	}
+	std::cout << "setOuterPID ok\n";
 }
 
 
@@ -713,4 +842,22 @@ const std::list< float >& Controller::altitudeHistory() const
 float Controller::localBatteryVoltage() const
 {
 	return mLocalBatteryVoltage;
+}
+
+
+uint32_t Controller::crc32( const uint8_t* buf, uint32_t len )
+{
+	uint32_t k = 0;
+	uint32_t crc = 0;
+
+	crc = ~crc;
+
+	while ( len-- ) {
+		crc ^= *buf++;
+		for ( k = 0; k < 8; k++ ) {
+			crc = ( crc & 1 ) ? ( (crc >> 1) ^ 0x82f63b78 ) : ( crc >> 1 );
+		}
+	}
+
+	return ~crc;
 }

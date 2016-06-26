@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <sys/types.h>
 #include <stdint.h>
 #include <pthread.h>
@@ -35,7 +53,8 @@ typedef struct rawwifi_block_t {
 	uint32_t id;
 	uint64_t ticks;
 	uint16_t valid;
-	rawwifi_packet_t packets[16];
+	uint16_t packets_count;
+	rawwifi_packet_t* packets;
 	struct rawwifi_block_t* prev;
 	struct rawwifi_block_t* next;
 } rawwifi_block_t;
@@ -94,6 +113,11 @@ int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t* v
 int32_t rawwifi_recv_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
 int32_t rawwifi_send_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
 uint32_t rawwifi_crc32( const uint8_t* data, uint32_t len );
+
+rawwifi_block_t* blocks_insert_front( rawwifi_block_t** list, uint16_t packets_count );
+void blocks_pop_front( rawwifi_block_t** list );
+void blocks_pop( rawwifi_block_t** list, rawwifi_block_t** block );
+void blocks_pop_back( rawwifi_block_t** list );
 
 #ifdef __cplusplus
 }

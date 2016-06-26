@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 2.6)
 include(ProcessorCount)
 ProcessorCount(NCPU)
 
+set( VERSION_MAJOR 0 )
+set( VERSION_MINOR 1 )
+execute_process( COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE GIT_HASH OUTPUT_STRIP_TRAILING_WHITESPACE )
+
 SET( board "rpi" CACHE BOOL "board" )
 SET( socket 1 CACHE BOOL "socket" )
 SET( rawwifi 1 CACHE BOOL "rawwifi" )
@@ -66,6 +70,7 @@ endif()
 
 include( boards/${board}/board.cmake )
 add_definitions( -DBOARD="${board}" -DBOARD_${board} )
+add_definitions( -DVERSION_STRING="bcflight_${board}_${VERSION_MAJOR}.${VERSION_MINOR}_${GIT_HASH}" )
 if ( NOT ${camera} MATCHES OFF )
 	add_definitions( -DCAMERA=${camera} -DCAMERA_INCLUDE="${camera}.h" )
 endif()
@@ -120,7 +125,9 @@ set( SOURCES
 	Config.cpp
 	Controller.cpp
 	PowerThread.cpp
-	Matrix.cpp ${CMAKE_BINARY_DIR}/flight_register.cpp )
+	Matrix.cpp
+	Debug.cpp
+	${CMAKE_BINARY_DIR}/flight_register.cpp )
 list( APPEND SOURCES ${BOARD_SOURCES} )
 list( APPEND SOURCES ${STABILIZER_SOURCES} )
 list( APPEND SOURCES ${CONSOLE_SOURCES} )

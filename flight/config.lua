@@ -20,10 +20,10 @@ stabilizer.rate_speed = 500
 
 --- Setup controls
 controller.expo = {
-	roll = 3,   -- ( exp( input * roll ) - 1 )  /  ( exp( roll ) - 1 )   => must be greater than 0
-	pitch = 3,  -- ( exp( input * pitch ) - 1 )  /  ( exp( pitch ) - 1 ) => must be greater than 0
-	yaw = 3,    -- ( exp( input * yaw ) - 1 )  /  ( exp( yaw ) - 1 )     => must be greater than 0
-	thrust = 2, -- log( input * ( thrust - 1 ) + 1 )  /  log( thrust )   => must be greater than 1
+	roll = 2.25,   -- ( exp( input * roll ) - 1 )  /  ( exp( roll ) - 1 )   => must be greater than 0
+	pitch = 2.25,  -- ( exp( input * pitch ) - 1 )  /  ( exp( pitch ) - 1 ) => must be greater than 0
+	yaw = 2.25,    -- ( exp( input * yaw ) - 1 )  /  ( exp( yaw ) - 1 )     => must be greater than 0
+	thrust = 1.75, -- log( input * ( thrust - 1 ) + 1 )  /  log( thrust )   => must be greater than 1
 }
 
 
@@ -72,11 +72,13 @@ end
 
 
 --- Setup controller link
-controller.link = Socket{ type = "TCP", port = 2020 }
+-- controller.link = Socket{ type = "TCP", port = 2020 }
+controller.link = RawWifi{ device = "wlan0", input_port = 0, output_port = 1, retries = 2, blocking = true, drop = true }
 
 
 --- Setup camera
-camera.link = Socket{ type = "UDPLite", port = 2021, broadcast = false }
+-- camera.link = Socket{ type = "UDPLite", port = 2021, broadcast = false }
+camera.link = RawWifi{ device = "wlan0", input_port = 10, output_port = 11, retries = 1, blocking = false }
 if board == "rpi" then
 	--- Choose your camera here (Raspicam is the only supported by "rpi" for now)
 	camera.type = "Raspicam"
@@ -85,13 +87,13 @@ end
 
 --- Setup sensors
 accelerometers["MPU9150"] = {
-	axis_swap = Vector( 1, 2, 3 )
+	axis_swap = Vector( -2, 1, 3 )
 }
 gyroscopes["MPU9150"] = {
-	axis_swap = Vector( 1, 2, 3 )
+	axis_swap = Vector( -1, -2, 3 )
 }
 magnetometers["MPU9150"] = {
-	axis_swap = Vector( 1, 2, 3 )
+	axis_swap = Vector( -2, 1, 3 )
 }
 
 
@@ -115,3 +117,4 @@ stabilizer.filters = {
 		},
 		output = Vector( 0.25, 0.25, 0.25 ),
 	},
+}

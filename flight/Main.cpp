@@ -1,3 +1,20 @@
+/* BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <unistd.h>
 #include "Main.h"
 #include "Controller.h"
@@ -26,6 +43,15 @@
 	#include <RawWifi.h>
 #endif
 
+Main* Main::mInstance = nullptr;
+
+
+Main* Main::instance()
+{
+	return mInstance;
+}
+
+
 int Main::flight_entry( int ac, char** av )
 {
 	Main* main = new Main();
@@ -35,7 +61,9 @@ int Main::flight_entry( int ac, char** av )
 
 
 Main::Main()
+	: mController( nullptr )
 {
+	mInstance = this;
 #ifdef BOARD_generic
 #pragma message "Adding noisy fake accelerometer and gyroscope"
 	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
@@ -105,7 +133,7 @@ Main::Main()
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
-	mController->setPriority( 99 );
+	mController->setPriority( 98 );
 	Board::InformLoading();
 
 	mLoopTime = mConfig->integer( "stabilizer.loop_time" );
@@ -131,6 +159,7 @@ bool Main::StabilizerThreadRun()
 
 	if ( std::abs( dt ) >= 1.0 ) {
 		gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
+// 		mFrame->Disarm();
 		return true;
 	}
 

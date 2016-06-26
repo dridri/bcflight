@@ -7,7 +7,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 if [ ! -d ${DIR}/LuaJIT-2.0.4 ]; then
 	wget "http://luajit.org/download/LuaJIT-2.0.4.tar.gz" -O ${DIR}/LuaJIT-2.0.4.tar.gz
 	tar xf ${DIR}/LuaJIT-2.0.4.tar.gz -C ${DIR}
-	rm ${DIR}/LuaJIT-2.0.4.tar.gz
+# 	rm ${DIR}/LuaJIT-2.0.4.tar.gz
 fi
 
 if [ ! -f $1/libluajit_static.a ]; then

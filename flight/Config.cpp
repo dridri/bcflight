@@ -1,4 +1,22 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
 #include <list>
+#include <fstream>
 #include <string.h>
 #include "Debug.h"
 #include "Config.h"
@@ -20,6 +38,38 @@ Config::Config( const std::string& filename )
 Config::~Config()
 {
 	lua_close(L);
+}
+
+
+std::string Config::ReadFile()
+{
+	std::string ret = "";
+	std::ifstream file( mFilename );
+
+	if ( file.is_open() ) {
+		file.seekg( 0, file.end );
+		int length = file.tellg();
+		char* buf = new char[ length + 1 ];
+		file.seekg( 0, file.beg );
+		file.read( buf, length );
+		buf[length] = 0;
+		ret = buf;
+		delete buf;
+		file.close();
+	}
+
+	return ret;
+}
+
+
+void Config::WriteFile( const std::string& content )
+{
+	std::ofstream file( mFilename );
+
+	if ( file.is_open() ) {
+		file.write( content.c_str(), content.length() );
+		file.close();
+	}
 }
 
 

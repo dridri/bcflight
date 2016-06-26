@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <gammaengine/Debug.h>
 #include "decode.h"
 
@@ -62,6 +80,7 @@ static OMX_CALLBACKTYPE genevents = {
 
 OMX_BUFFERHEADERTYPE* video_decoder_buffer( video_context* ctx )
 {
+	return 0;
 }
 
 
@@ -175,7 +194,6 @@ video_context* video_configure()
 	video_context* ctx;
 	OMX_PARAM_PORTDEFINITIONTYPE* portdef;
 	OMX_VIDEO_PARAM_PORTFORMATTYPE* pfmt;
-	int i;
 
 	ctx = ( video_context* )malloc( sizeof( video_context ) );
 	memset( ctx, 0, sizeof( video_context ) );
@@ -226,7 +244,7 @@ video_context* video_configure()
 OMX_BUFFERHEADERTYPE* omx_allocbufs( OMX_HANDLETYPE handle, int port, int enable )
 {
 	printf( "omx_allocbufs( 0x%08X, %d, %d )\n", (uint32_t)handle, port, enable );
-	int i;
+	uint32_t i;
 	OMX_BUFFERHEADERTYPE* list = NULL;
 	OMX_BUFFERHEADERTYPE** end = &list;
 	OMX_PARAM_PORTDEFINITIONTYPE* portdef;

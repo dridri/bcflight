@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <unistd.h>
 #include <Debug.h>
 #include <Config.h>
@@ -26,6 +44,7 @@ XFrame::XFrame( Config* config )
 	, mStabSpeeds{ 0.0f }
 	, mPIDMultipliers{ Vector3f() }
 	, mMaxSpeed( 1.0f )
+	, mArmed( false )
 	, mAirMode( false )
 {
 	mMotors.resize( 4 );
@@ -115,6 +134,7 @@ void XFrame::Arm()
 	mMotors[1]->setSpeed( 0.0f, true );
 	mMotors[2]->setSpeed( 0.0f, true );
 	mMotors[3]->setSpeed( 0.0f, true );
+	mArmed = true;
 }
 
 
@@ -128,6 +148,7 @@ void XFrame::Disarm()
 	mMotors[2]->Disarm();
 	mMotors[3]->Disarm();
 	Servo::HardwareSync();
+	mArmed = false;
 }
 
 
@@ -138,6 +159,9 @@ void XFrame::WarmUp()
 
 bool XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 {
+// 	if ( not mArmed ) {
+// 		return false;
+// 	}
 	if ( thrust >= 0.4f ) {
 		mAirMode = true;
 	}

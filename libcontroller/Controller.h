@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
@@ -7,11 +25,11 @@
 
 #include "links/Link.h"
 #include "Thread.h"
-// #include "ADCs/MCP320x.h" // TEST
 
 #define DECL_RO_VAR( type, n1, n2 ) \
 	public: const type& n2() const { return m##n1; } \
-	protected: type m##n1;
+	protected: type m##n1; \
+	public:
 
 #define DECL_RW_VAR( type, n1, n2 ) \
 	public: const type& n2() const { return m##n1; } \
@@ -22,7 +40,7 @@ typedef struct vec3 {
 	float x, y, z;
 } vec3;
 
-class Controller : protected ::Thread
+class Controller : public ::Thread
 {
 public:
 	typedef enum {
@@ -31,29 +49,7 @@ public:
 		ReturnToHome = 2,
 		Follow = 3,
 	} Mode;
-/*
-	class Joystick {
-	public:
-		Joystick() : mADC( nullptr ), mADCChannel( 0 ), mCalibrated( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ) {}
-		Joystick( MCP320x* adc, int id, int channel, bool thrust_mode = false );
-		~Joystick();
-		uint16_t ReadRaw();
-		float Read();
-		void SetCalibratedValues( uint16_t min, uint16_t center, uint16_t max );
-		uint16_t max() const { return mMax; }
-		uint16_t center() const { return mCenter; }
-		uint16_t min() const { return mMin; }
-	private:
-		MCP320x* mADC;
-		int mId;
-		int mADCChannel;
-		bool mCalibrated;
-		bool mThrustMode;
-		uint16_t mMin;
-		uint16_t mCenter;
-		uint16_t mMax;
-	};
-*/
+
 	Controller( Link* link );
 	virtual ~Controller();
 	bool isConnected() const { return mLink->isConnected(); }
@@ -61,7 +57,6 @@ public:
 
 	void Lock() { mLockState = 1; while ( mLockState != 2 ) usleep(1); }
 	void Unlock() { mLockState = 0; }
-// 	Joystick* joystick( int x ) { return &mJoysticks[x]; }
 
 	void Calibrate();
 	void CalibrateAll();
@@ -72,11 +67,19 @@ public:
 	void setFullTelemetry( bool fullt );
 	std::string getBoardInfos();
 	std::string getSensorsInfos();
+	std::string debugOutput();
+
+	std::string getConfigFile();
+	void setConfigFile( const std::string& content );
+	void UploadUpdateInit();
+	void UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t size );
+	void UploadUpdateProcess( const uint8_t* buf, uint32_t size );
 
 	void setRoll( const float& v );
 	void setPitch( const float& v );
 	void setYaw( const float& v );
 	void setThrustRelative( const float& v );
+	void ReloadPIDs();
 
 	DECL_RO_VAR( uint32_t, Ping, ping );
 	DECL_RO_VAR( bool, Armed, armed );
@@ -94,6 +97,8 @@ public:
 	DECL_RW_VAR( vec3, RPY, rpy );
 	DECL_RW_VAR( vec3, ControlRPY, controlRPY );
 	DECL_RW_VAR( Mode, Mode, mode );
+	DECL_RO_VAR( bool, PIDsLoaded, PIDsLoaded );
+	DECL_RO_VAR( uint32_t, DroneRxQuality, droneRxQuality );
 
 	float acceleration() const;
 	const std::list< vec3 >& rpyHistory() const;
@@ -114,8 +119,14 @@ protected:
 		RESET_BATTERY = 0x75,
 		CALIBRATE_ESCS = 0x76,
 		SET_FULL_TELEMETRY = 0x77,
+		DEBUG_OUTPUT = 0x7A,
 		GET_BOARD_INFOS = 0x80,
 		GET_SENSORS_INFOS = 0x81,
+		GET_CONFIG_FILE = 0x90,
+		SET_CONFIG_FILE = 0x91,
+		UPDATE_UPLOAD_INIT = 0x9A,
+		UPDATE_UPLOAD_DATA = 0x9B,
+		UPDATE_UPLOAD_PROCESS = 0x9C,
 		// Getters
 		PRESSURE = 0x10,
 		TEMPERATURE = 0x11,
@@ -141,6 +152,7 @@ protected:
 		BATTERY_LEVEL = 0x34,
 		CPU_LOAD = 0x35,
 		CPU_TEMP = 0x36,
+		RX_QUALITY = 0x37,
 		// Setters
 		SET_ROLL = 0x40,
 		SET_PITCH = 0x41,
@@ -170,6 +182,7 @@ protected:
 	virtual int8_t ReadSwitch( uint32_t id ) = 0;
 	virtual bool run();
 	bool RxRun();
+	uint32_t crc32( const uint8_t* buf, uint32_t len );
 
 	Link* mLink;
 	Packet mTxFrame;
@@ -185,12 +198,12 @@ protected:
 	HookThread<Controller>* mRxThread;
 	std::string mBoardInfos;
 	std::string mSensorsInfos;
+	std::string mConfigFile;
+	bool mUpdateUploadValid;
+	bool mConfigUploadValid;
 
 	uint32_t mTicks;
-// 	Joystick mJoysticks[8];
-	bool mSwitches[5];
-
-// 	MCP320x* mADC;
+	uint32_t mSwitches[8];
 
 	float mAcceleration;
 	std::list< vec3 > mRPYHistory;
@@ -198,6 +211,8 @@ protected:
 	std::list< float > mAltitudeHistory;
 
 	float mLocalBatteryVoltage;
+	std::string mDebug;
+	std::mutex mDebugMutex;
 
 	static std::map< Cmd, std::string > mCommandsNames;
 };

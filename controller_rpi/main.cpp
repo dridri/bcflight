@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <execinfo.h>
 #include <signal.h>
 
@@ -13,6 +31,7 @@
 
 #include <Link.h>
 #include <RawWifi.h>
+#include <Socket.h>
 #include "ControllerPi.h"
 #include "Stream.h"
 #include "ui/Globals.h"
@@ -28,19 +47,17 @@ void segv_handler( int sig )
 
 	size = backtrace( array, 16 );
 
-	fprintf( stderr, "Error: signal %d :\n", sig );
+	fprintf( stderr, "Error: signal %d :\n", sig ); fflush(stderr);
 	backtrace_symbols_fd( array, size, STDERR_FILENO );
+
+	exit(0);
 }
 
 int main( int ac, char** av )
 {
-// 	chdir( "/root/ge/" );
-// 	system( "echo -n \"pwd : \" && pwd" );
-// 	daemon( 0, 1 );
-// 	system( "ifconfig wlan0 down && iw dev wlan0 set monitor otherbss fcsfail && ifconfig wlan0 up && iwconfig wlan0 channel 13 && iw dev wlan0 set bitrates ht-mcs-2.4 3 && iwconfig wlan0 rate 26M && iw dev wlan0 set txpower fixed 30000" );
 
 	bcm_host_init();
-	signal(SIGSEGV, segv_handler);
+	signal( SIGSEGV, segv_handler );
 
 	Instance* instance = Instance::Create( "flight::control", 1, true, "framebuffer" );
 	Font* font = new Font( "data/FreeMonoBold.ttf", 28 );
@@ -48,12 +65,15 @@ int main( int ac, char** av )
 
 	Globals* globals = new Globals( instance, font );
 
-	Link* controller_link = new RawWifi( "wlan0", 0, 0 );
-// 	Link* stream_link = new RawWifi( "wlan0", 1, 1 );
+// 	Link* controller_link = new ::Socket( "192.168.32.1", 2020 );
+	Link* controller_link = new RawWifi( "wlan0", 0, 1 );
+// 	Link* stream_link = new ::Socket( "192.168.32.1", 2021 );
+	Link* stream_link = new RawWifi( "wlan0", 10, 11 );
 
-	Controller* controller = new ControllerPi( controller_link );
-	Stream* stream = new Stream( controller, font_hud, "192.168.32.1", 2021 );
+	ControllerPi* controller = new ControllerPi( controller_link );
+	Stream* stream = new Stream( controller, font_hud, stream_link );
 
+	globals->setStream( nullptr );
 	globals->setStream( stream );
 	globals->setController( controller );
 	globals->setCurrentPage( "PageMain" );
@@ -61,5 +81,6 @@ int main( int ac, char** av )
 
 	gDebug() << "Exiting\n";
 	globals->instance()->Exit( 0 );
+
 	return 0;
 }

@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #ifndef STREAM_H
 #define STREAM_H
 
@@ -11,10 +29,10 @@
 #include <gammaengine/Window.h>
 #include <gammaengine/Thread.h>
 #include <gammaengine/Timer.h>
-#include <gammaengine/Socket.h>
 #include <gammaengine/Renderer2D.h>
 #include <gammaengine/Font.h>
 
+#include <Link.h>
 #include <Thread.h>
 #include "decode.h"
 #include "DecodedImage.h"
@@ -29,7 +47,7 @@ class Controller;
 class Stream : GE::Thread
 {
 public:
-	Stream( Controller* controller, Font* font, const std::string& addr, uint16_t port = 2021 );
+	Stream( Controller* controller, Font* font, Link* link );
 	~Stream();
 
 	int linkLevel() const { return mIwStats.level; }
@@ -50,10 +68,7 @@ private:
 	Timer mSecondTimer;
 	RendererHUD* mRendererHUD;
 
-// 	rwifi_rx_t* mRx;
-	Socket* mSocket;
-	std::string mSockerAddr;
-	uint16_t mSocketPort;
+	Link* mLink;
 	HookThread<Stream>* mDecodeThread;
 	void* mDecodeInput;
 

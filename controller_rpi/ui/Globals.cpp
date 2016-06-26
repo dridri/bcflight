@@ -1,8 +1,27 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <linux/input.h>
 #include <gammaengine/Debug.h>
 #include "Globals.h"
 #include "libbcui/Page.h"
 #include "PageMain.h"
+#include "PagePID.h"
 #include "PageCalibrate.h"
 #include "PageSettings.h"
 #include "PageNetwork.h"
@@ -18,28 +37,27 @@ using namespace BC;
 	, mCursorCounter( 0 )
 	, mFont( fnt )
 	, mController( nullptr )
+	, mUpdateLastT( 0.0f )
 {
 	if ( !sInstance ) {
 		sInstance = this;
 	}
 
-	// Wait until the system finishes starting
-	usleep( 1000 * 1000 * 10 );
-
 	mInputFD = open( "/dev/input/mouse0", O_RDONLY | O_NONBLOCK );
 
 	mInstance = instance;
 	loadConfig();
-	LoadSettings( "/root/ge/settings.txt" );
+	LoadSettings( "/root/settings.txt" );
 
 	mWindow = (ProxyWindow< FramebufferWindow >*)mInstance->CreateWindow( "", 480, 320, Window::Fullscreen );
 	BC::Globals::mWindow = (Window*)mWindow;
-	mWindow->OpenSystemFramebuffer( "/dev/fb1", true );
+	mWindow->OpenSystemFramebuffer( "/dev/fb0" );
 
 	mMainRenderer = mInstance->CreateRenderer2D();
 	mIcons[ "selector" ] = new Image( "data/icon_selector.png" );
 	mIcons[ "PageMain" ] = new Image( "data/icon_home.png" );
-	mIcons[ "PageCalibrate" ] = new Image( "data/icon_calibrate.png" );
+	mIcons[ "PagePID" ] = new Image( "data/icon_pid.png" );
+	mIcons[ "PageCalibrate" ] = new Image( "data/icon_settings.png" );
 	mIcons[ "PageNetwork" ] = new Image( "data/icon_network.png" );
 	mIcons[ "PageSettings" ] = new Image( "data/icon_settings.png" );
 	mIcons[ "back" ] = new Image( "data/icon_back.png" );
@@ -48,6 +66,7 @@ using namespace BC;
 	mIcons[ "selector" ]->Resize( mWindow->width() * 0.085, mWindow->width() * 0.085 );
 	mIcons[ "PageMain" ]->Resize( mWindow->width() * 0.075, mWindow->width() * 0.075 );
 	mIcons[ "PageCalibrate" ]->Resize( mWindow->width() * 0.075, mWindow->width() * 0.075 );
+	mIcons[ "PagePID" ]->Resize( mWindow->width() * 0.075, mWindow->width() * 0.075 );
 	mIcons[ "PageNetwork" ]->Resize( mWindow->width() * 0.075, mWindow->width() * 0.075 );
 	mIcons[ "PageSettings" ]->Resize( mWindow->width() * 0.075, mWindow->width() * 0.075 );
 	mIcons[ "back" ]->Resize( mWindow->width() * 0.075, mWindow->width() * 0.075 );
@@ -61,9 +80,12 @@ using namespace BC;
 	setup();
 
 	mPages[ "PageMain" ] = new PageMain();
+	mPages[ "PagePID" ] = new PagePID();
 	mPages[ "PageCalibrate" ] = new PageCalibrate();
 	mPages[ "PageNetwork" ] = new PageNetwork();
 	mPages[ "PageSettings" ] = new PageSettings();
+
+	gDebug() << "Globals Ok\n";
 }
 
 
@@ -79,7 +101,7 @@ void ::Globals::RenderDrawer()
 
 	int icon_width = selector->width() * 1.1;
 	int icon_height = selector->height() * 1.5;
-	renderer->DrawLine( 16 + icon_width, 0, 0xFFFFFFFF, 16 + icon_width, window()->height(), 0xFFFFFFFF );
+// 	renderer->DrawLine( 16 + icon_width, 0, 0xFFFFFFFF, 16 + icon_width, window()->height(), 0xFFFFFFFF );
 
 	int selector_y = 0;
 
@@ -88,19 +110,24 @@ void ::Globals::RenderDrawer()
 		selector_y = icon_height * 0;
 	}
 
-	renderer->Draw( 8, 8 + icon_height * 1, icon( "PageCalibrate" ) );
-	if ( mPages[ "PageCalibrate" ] == mCurrentPage ) {
+	renderer->Draw( 8, 8 + icon_height * 1, icon( "PagePID" ) );
+	if ( mPages[ "PagePID" ] == mCurrentPage ) {
 		selector_y = icon_height * 1;
 	}
 
-	renderer->Draw( 8, 8 + icon_height * 2, icon( "PageNetwork" ) );
-	if ( mPages[ "PageNetwork" ] == mCurrentPage ) {
+	renderer->Draw( 8, 8 + icon_height * 2, icon( "PageCalibrate" ) );
+	if ( mPages[ "PageCalibrate" ] == mCurrentPage ) {
 		selector_y = icon_height * 2;
 	}
 
-	renderer->Draw( 8, 8 + icon_height * 3, icon( "PageSettings" ) );
-	if ( mPages[ "PageSettings" ] == mCurrentPage ) {
+	renderer->Draw( 8, 8 + icon_height * 3, icon( "PageNetwork" ) );
+	if ( mPages[ "PageNetwork" ] == mCurrentPage ) {
 		selector_y = icon_height * 3;
+	}
+
+	renderer->Draw( 8, 8 + icon_height * 4, icon( "PageSettings" ) );
+	if ( mPages[ "PageSettings" ] == mCurrentPage ) {
+		selector_y = icon_height * 4;
 	}
 
 	renderer->Draw( 8 + icon( "PageMain" )->width() / 2 - selector->width() / 2, 8 + selector_y + icon( "PageMain" )->height() / 2 - selector->height() / 2, selector );
@@ -112,17 +139,20 @@ bool ::Globals::PageSwitcher( int x, int y )
 	bool ret = false;
 	int icon_height = icon( "selector" )->height() * 1.5;
 
-	if ( x >= 8 and x <= 16 + icon( "selector" )->width() ) {
+	if ( x >= 8 and x <= 16 + (int32_t)icon( "selector" )->width() ) {
 		if ( y >= 8 + icon_height * 0 and y <= 8 + icon_height * 1 ) {
 			ret = true;
 			setCurrentPage( "PageMain" );
 		} else if ( y >= 8 + icon_height * 1 and y <= 8 + icon_height * 2 ) {
 			ret = true;
-			setCurrentPage( "PageCalibrate" );
+			setCurrentPage( "PagePID" );
 		} else if ( y >= 8 + icon_height * 2 and y <= 8 + icon_height * 3 ) {
 			ret = true;
-			setCurrentPage( "PageNetwork" );
+			setCurrentPage( "PageCalibrate" );
 		} else if ( y >= 8 + icon_height * 3 and y <= 8 + icon_height * 4 ) {
+			ret = true;
+			setCurrentPage( "PageNetwork" );
+		} else if ( y >= 8 + icon_height * 4 and y <= 8 + icon_height * 5 ) {
 			ret = true;
 			setCurrentPage( "PageSettings" );
 		}
@@ -159,17 +189,18 @@ bool ::Globals::update_( float t, float dt )
 	// Process all inputs event, keep only the last one
 	if ( read( mInputFD, &ie, sizeof( ie ) ) >= 3 ) {
 		uint8_t* ie_ptr = (uint8_t*)&ie;
-		mCursor += Vector2i( (int32_t)((int8_t)ie_ptr[1]), (int32_t)((int8_t)ie_ptr[2]) );
+		mCursor += Vector2i( (int32_t)((int8_t)ie_ptr[2]), -(int32_t)((int8_t)ie_ptr[1]) );
 		mCursorCounter++;
 	} else {
 		memset( ie_ptr, 0, sizeof( ie ) );
 	}
 
-	int32_t cursor_x = mCursor.x / 2 + 240;
-	int32_t cursor_y = mCursor.y / 2 + 160;
+	int32_t cursor_x = ( -mCursor.x + 320 ) * 480 / 640;
+	int32_t cursor_y = ( mCursor.y + 420 ) * 320 / 840;
 
 	if ( pPage ) {
-		if ( pPage->update( t, dt ) ) {
+		if ( pPage->update( t, dt ) or t - mUpdateLastT > 2.0f ) {
+			mUpdateLastT = t;
 			pPage->render();
 			redraw = true;
 		}

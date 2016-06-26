@@ -3,9 +3,9 @@
 // #include "encode.h"
 #include "audio.h"
 
-static void* audio_input_thread( audio_context* ctx );
+// static void* audio_input_thread( audio_context* ctx );
+// static void audio_encode_init( audio_context* ctx );
 static void alsa_init( audio_context* ctx );
-static void audio_encode_init( audio_context* ctx );
 
 audio_context* audio_configure()
 {
@@ -58,7 +58,7 @@ int audio_fill_buffer( audio_context* ctx, AVCodec* enc )
 	return 0;
 }
 
-
+/*
 static void* audio_input_thread( audio_context* ctx )
 {
 	AVPacket pkt;
@@ -127,7 +127,7 @@ static void audio_encode_init( audio_context* ctx )
 		exit(1);
 	}
 }
-
+*/
 static void alsa_init( audio_context* ctx )
 {
 	int err = 0;

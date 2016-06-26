@@ -12,6 +12,7 @@ add_library(rawwifi
 			tx.c
 			rawwifi.c
 			radiotap.c
+			blocks.c
 			)
 
 target_link_libraries( rawwifi -lrt )

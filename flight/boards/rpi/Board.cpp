@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <time.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -23,6 +41,8 @@ extern "C" void bcm_host_init( void );
 extern "C" void bcm_host_deinit( void );
 
 uint64_t Board::mTicksBase = 0;
+uint64_t Board::mLastWorkJiffies = 0;
+uint64_t Board::mLastTotalJiffies = 0;
 decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 
 VCHI_INSTANCE_T Board::global_initialise_instance = nullptr;
@@ -37,7 +57,6 @@ Board::Board( Main* main )
 	wiringPiSetupGpio();
 	PiBlasterInit( 100 );
 
-	system( "chrt -p -r 99 `ps aux | grep hostapd | tr -s ' ' | cut -d' ' -f2`") ;
 	system( "mount -o remount,rw /data" );
 
 	atexit( &Board::AtExit );
@@ -62,6 +81,102 @@ Board::~Board()
 
 void Board::AtExit()
 {
+}
+
+
+void Board::UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t size )
+{
+	gDebug() << "Saving Flight Controller firmware update (" << size << " bytes at offset " << offset << ")\n";
+
+	if ( offset == 0 ) {
+		system( "rm -f /tmp/flight_update" );
+		system( "touch /tmp/flight_update" );
+	}
+
+	std::fstream firmware( "/tmp/flight_update", std::ios_base::in | std::ios_base::out | std::ios_base::binary );
+	firmware.seekg( offset, firmware.beg );
+	firmware.write( (char*)buf, size );
+	firmware.close();
+
+}
+
+
+static uint32_t crc32( const uint8_t* buf, uint32_t len )
+{
+	uint32_t k = 0;
+	uint32_t crc = 0;
+
+	crc = ~crc;
+
+	while ( len-- ) {
+		crc ^= *buf++;
+		for ( k = 0; k < 8; k++ ) {
+			crc = ( crc & 1 ) ? ( (crc >> 1) ^ 0x82f63b78 ) : ( crc >> 1 );
+		}
+	}
+
+	return ~crc;
+}
+
+
+void Board::UpdateFirmwareProcess( uint32_t crc )
+{
+	gDebug() << "Updating Flight Controller firmware\n";
+
+	std::ifstream firmware( "/tmp/flight_update" );
+	if ( firmware.is_open() ) {
+		firmware.seekg( 0, firmware.end );
+		int length = firmware.tellg();
+		uint8_t* buf = new uint8_t[ length + 1 ];
+		firmware.seekg( 0, firmware.beg );
+		firmware.read( (char*)buf, length );
+		buf[length] = 0;
+		firmware.close();
+		if ( crc32( buf, length ) != crc ) {
+			gDebug() << "ERROR : Wrong CRC32 for firmware upload, please retry\n";
+			return;
+		}
+		
+		system( "rm -f /tmp/update.sh" );
+	
+		std::ofstream file( "/tmp/update.sh" );
+		file << "#!/bin/bash\n\n";
+		file << "service flight stop &\n";
+		file << "sleep 1\n";
+		file << "service flight stop &\n";
+		file << "sleep 1\n";
+		file << "killall -9 flight\n";
+		file << "sleep 1\n";
+		file << "rm /data/prog/flight\n";
+		file << "cp /tmp/flight_update /data/prog/flight\n";
+		file << "rm /tmp/flight_update\n";
+		file << "chmod +x /data/prog/flight\n";
+		file << "sleep 2\n";
+		file << "killall -9 flight\n";
+		file << "service flight start\n";
+		file.close();
+
+		system( "nohup sh /tmp/update.sh" );
+	}
+}
+
+
+void Board::Reset()
+{
+	gDebug() << "Restarting Flight Controller service\n";
+	system( "rm -f /tmp/reset.sh" );
+
+	std::ofstream file( "/tmp/reset.sh" );
+	file << "#!/bin/bash\n\n";
+	file << "service flight stop &\n";
+	file << "sleep 1\n";
+	file << "service flight stop &\n";
+	file << "sleep 1\n";
+	file << "killall -9 flight\n";
+	file << "service flight start\n";
+	file.close();
+
+	system( "sh /tmp/reset.sh" );
 }
 
 
@@ -137,6 +252,7 @@ std::string Board::infos()
 	std::string res = "";
 
 	res += "Type:" BOARD "\n";
+	res += "Firmware version:" VERSION_STRING "\n";
 	res += "Model:" + readproc( "/proc/cpuinfo", "Hardware" ) + std::string( "\n" );
 	res += "CPU:" + readproc( "/proc/cpuinfo", "model name" ) + std::string( "\n" );
 	res += "CPU cores count:" + std::to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + std::string( "\n" );
@@ -296,7 +412,26 @@ void Board::VCOSInit()
 
 uint32_t Board::CPULoad()
 {
-	return 0;
+	uint32_t jiffies[7];
+	std::stringstream ss;
+	ss.str( readcmd( "cat /proc/stat | grep \"cpu \" | cut -d' ' -f2-", "", "" ) ); 
+
+	ss >> jiffies[0];
+	ss >> jiffies[1];
+	ss >> jiffies[2];
+	ss >> jiffies[3];
+	ss >> jiffies[4];
+	ss >> jiffies[5];
+	ss >> jiffies[6];
+
+	uint64_t work_jiffies = jiffies[0] + jiffies[1] + jiffies[2];
+	uint64_t total_jiffies = jiffies[0] + jiffies[1] + jiffies[2] + jiffies[3] + jiffies[4] + jiffies[5] + jiffies[6];
+
+	uint32_t ret = ( work_jiffies - mLastWorkJiffies ) * 100 / ( total_jiffies - mLastTotalJiffies );
+
+	mLastWorkJiffies = work_jiffies;
+	mLastTotalJiffies = total_jiffies;
+	return ret;
 }
 
 

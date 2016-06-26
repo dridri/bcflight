@@ -1,8 +1,26 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <gammaengine/Debug.h>
 #include <gammaengine/Font.h>
 #include "PageCalibrate.h"
 #include "Globals.h"
-#include "../Controller.h"
+#include "../ControllerPi.h"
 
 
 PageCalibrate::PageCalibrate()
@@ -28,7 +46,7 @@ void PageCalibrate::gotFocus()
 // 	fDebug0();
 	getGlobals()->controller()->Lock();
 
-	for ( int i = 0; i < sizeof(mAxies) / sizeof(PageCalibrate::Axis); i++ ) {
+	for ( uint32_t i = 0; i < sizeof(mAxies) / sizeof(PageCalibrate::Axis); i++ ) {
 		mAxies[i].min = getGlobals()->controller()->joystick(i)->min();
 		mAxies[i].center = getGlobals()->controller()->joystick(i)->center();
 		mAxies[i].max = getGlobals()->controller()->joystick(i)->max();
@@ -86,7 +104,9 @@ void PageCalibrate::click( float _x, float _y, float force )
 		getGlobals()->setSetting( "Joystick:" + std::to_string( mCurrentAxis ) + ":min", mAxies[mCurrentAxis].min );
 		getGlobals()->setSetting( "Joystick:" + std::to_string( mCurrentAxis ) + ":cen", mAxies[mCurrentAxis].center );
 		getGlobals()->setSetting( "Joystick:" + std::to_string( mCurrentAxis ) + ":max", mAxies[mCurrentAxis].max );
-		getGlobals()->SaveSettings( "/root/ge/settings.txt" );
+		system( "mount -o remount,rw /" );
+		getGlobals()->SaveSettings( "/root/settings.txt" );
+		system( "mount -o remount,ro /" );
 		mApplyTimer.Stop();
 		mApplyTimer.Start();
 	}
@@ -119,9 +139,9 @@ bool PageCalibrate::update( float t, float dt )
 	int tw = 0;
 	int th = 0;
 
-	uint16_t value = controller->joystick( mCurrentAxis )->ReadRaw();
-	mAxies[ mCurrentAxis ].max = std::min( (uint16_t)2500, std::max( mAxies[ mCurrentAxis ].max, value ) );
-	mAxies[ mCurrentAxis ].min = std::max( (uint16_t)1500, std::min( mAxies[ mCurrentAxis ].min, value ) );
+	uint16_t value = controller->joystick( mCurrentAxis )->LastRaw();
+	mAxies[ mCurrentAxis ].max = std::min( (uint16_t)4096, std::max( mAxies[ mCurrentAxis ].max, value ) );
+	mAxies[ mCurrentAxis ].min = std::max( (uint16_t)0, std::min( mAxies[ mCurrentAxis ].min, value ) );
 	mAxies[ mCurrentAxis ].center = std::min( mAxies[ mCurrentAxis ].max, std::max( mAxies[ mCurrentAxis ].min, value ) );
 
 	font->measureString( "max : ", &tw, &th );
@@ -161,7 +181,6 @@ void PageCalibrate::render()
 	window->Clear( 0xFF403030 );
 
 	int icon_width = getGlobals()->icon( "PageMain" )->width() * 1.1;
-	int icon_height = getGlobals()->icon( "PageMain" )->height() * 1.5;
 	getGlobals()->RenderDrawer();
 	renderer->Draw( getGlobals()->icon( "PageMain" )->width() * 1.75, 8, getGlobals()->icon( "left" ) );
 	renderer->Draw( getGlobals()->icon( "PageMain" )->width() * 1.75 * 2, 8, getGlobals()->icon( "right" ) );

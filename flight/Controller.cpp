@@ -1,4 +1,22 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
 #include <unistd.h>
+#include <stdio.h>
 #include <algorithm>
 #include "Main.h"
 #include "Controller.h"
@@ -63,13 +81,19 @@ Controller::Controller( Main* main, Link* link )
 	Start();
 	mTelemetryThread->Start();
 	while ( !mLink->isConnected() ) {
-		usleep( 1000 * 10 );
+		usleep( 1000 * 100 );
 	}
 }
 
 
 Controller::~Controller()
 {
+}
+
+
+bool Controller::connected() const
+{
+	return mLink->isConnected();
 }
 
 
@@ -94,6 +118,7 @@ const Vector3f& Controller::RPY() const
 
 void Controller::Emergency()
 {
+	gDebug() << "EMERGENCY MODE !\n";
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->frame()->Disarm();
 	Servo::HardwareSync();
@@ -110,6 +135,17 @@ void Controller::UpdateSmoothControl( const float& dt )
 {
 // 	mSmoothControl.Predict( dt );
 // 	mSmoothRPY = mSmoothControl.Update( dt, mRPY );
+}
+
+
+void Controller::SendDebug( const std::string& s )
+{
+	Packet packet( DEBUG_OUTPUT );
+	packet.WriteString( s );
+
+	mSendMutex.lock();
+	mLink->Write( &packet );
+	mSendMutex.unlock();
 }
 
 
@@ -137,13 +173,19 @@ bool Controller::run()
 		if ( mLink->isConnected() ) {
 			gDebug() << "Controller connected !\n";
 			mEmergencyTick = 0;
+		} else {
+			usleep( 1000 * 250 );
 		}
 		return true;
 	}
 
+	// Prevent CPU overhead
+	usleep( 1000 );
+
+	int readret = 0;
 	Packet command;
 // 	if ( mLink->Read( &command, 500 ) <= 0 ) {
-	if ( mLink->Read( &command, 0 ) < 0 ) {
+	if ( ( readret = mLink->Read( &command, 0 ) ) < 0 ) {
 		gDebug() << "Controller connection lost !\n";
 		mMain->stabilizer()->setMode( Stabilizer::Stabilize );
 		mMain->imu()->ResetRPY();
@@ -184,6 +226,78 @@ bool Controller::run()
 				std::string res = Sensor::infosAll();
 				response.WriteString( res );
 				do_response = true;
+				break;
+			}
+			case GET_CONFIG_FILE : {
+				std::string conf = mMain->config()->ReadFile();
+				response.WriteU32( crc32( (uint8_t*)conf.c_str(), conf.length() ) );
+				response.WriteString( conf );
+				do_response = true;
+				break;
+			}
+			case SET_CONFIG_FILE : {
+				uint32_t crc = command.ReadU32();
+				std::string conf = command.ReadString();
+				if ( crc32( (uint8_t*)conf.c_str(), conf.length() ) == crc ) {
+					gDebug() << "Received new configuration : " << conf << "\n";
+					response.WriteU32( 0 );
+					mSendMutex.lock();
+					mLink->Write( &response );
+					mSendMutex.unlock();
+					mMain->config()->WriteFile( conf );
+					mMain->board()->Reset();
+				} else {
+					gDebug() << "Received broken configuration\n";
+					response.WriteU32( 1 );
+					do_response = true;
+				}
+				break;
+			}
+			case UPDATE_UPLOAD_INIT : {
+				if ( mTelemetryThread->running() ) {
+					mTelemetryThread->Pause();
+					gDebug() << "Telemetry thread paused\n";
+				}
+				break;
+			}
+			case UPDATE_UPLOAD_DATA : {
+				uint32_t crc = command.ReadU32();
+				uint32_t offset = command.ReadU32();
+				uint32_t offset2 = command.ReadU32();
+				uint32_t size = command.ReadU32();
+				uint32_t size2 = command.ReadU32();
+				if ( offset == offset2 and offset < 4 * 1024 * 1024 ) {
+					if ( size == size2 and size < 4 * 1024 * 1024 ) {
+						uint8_t* buf = new uint8_t[ size + 32 ];
+						command.Read( (uint32_t*)buf, size / 4 );
+						uint32_t local_crc = crc32( buf, size );
+						if ( local_crc == crc ) {
+							response.WriteU32( 1 );
+							mSendMutex.lock();
+							mLink->Write( &response );
+							mSendMutex.unlock();
+							Board::UpdateFirmwareData( buf, offset, size );
+						} else {
+							gDebug() << "Firmware upload CRC32 is invalid (corrupted WiFi frame ?)\n";
+							response.WriteU32( 2 );
+							do_response = true;
+						}
+					} else {
+						gDebug() << "Firmware upload size is incoherent (corrupted WiFi frame ?)\n";
+						response.WriteU32( 3 );
+						do_response = true;
+					}
+				} else {
+					gDebug() << "Firmware upload offset is incoherent (corrupted WiFi frame ?)\n";
+					response.WriteU32( 4 );
+					do_response = true;
+				}
+				break;
+			}
+			case UPDATE_UPLOAD_PROCESS : {
+				uint32_t crc = command.ReadU32();
+				gDebug() << "Processing firmware update...\n";
+				Board::UpdateFirmwareProcess( crc );
 				break;
 			}
 			case CALIBRATE : {
@@ -227,6 +341,7 @@ bool Controller::run()
 				break;
 			}
 			case ARM : {
+				gDebug() << "Arming\n";
 				if ( mMain->imu()->state() != IMU::Running ) {
 					response.WriteU32( 0 );
 					do_response = true;
@@ -244,6 +359,7 @@ bool Controller::run()
 				break;
 			}
 			case DISARM : {
+				gDebug() << "Disarming\n";
 				mMain->frame()->Disarm();
 				mThrust = 0.0f;
 				mMain->stabilizer()->Reset( 0.0f );
@@ -559,6 +675,9 @@ bool Controller::TelemetryRun()
 
 		telemetry.WriteU32( CPU_TEMP );
 		telemetry.WriteU32( Board::CPUTemp() );
+
+		telemetry.WriteU32( RX_QUALITY );
+		telemetry.WriteU32( mLink->RxQuality() );
 	}
 
 	telemetry.WriteU32( ROLL_PITCH_YAW );
@@ -595,4 +714,22 @@ bool Controller::TelemetryRun()
 	mTelemetryTick = Board::WaitTick( 1000000 / 10, mTelemetryTick );
 	mTelemetryCounter++;
 	return true;
+}
+
+
+uint32_t Controller::crc32( const uint8_t* buf, uint32_t len )
+{
+	uint32_t k = 0;
+	uint32_t crc = 0;
+
+	crc = ~crc;
+
+	while ( len-- ) {
+		crc ^= *buf++;
+		for ( k = 0; k < 8; k++ ) {
+			crc = ( crc & 1 ) ? ( (crc >> 1) ^ 0x82f63b78 ) : ( crc >> 1 );
+		}
+	}
+
+	return ~crc;
 }

@@ -1,3 +1,22 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
+#include <stdio.h>
 #include <functional>
 #include <gammaengine/Debug.h>
 #include "PageMain.h"
@@ -35,14 +54,14 @@ PageMain::~PageMain()
 
 void PageMain::gotFocus()
 {
-// 	fDebug0();
+	fDebug0();
 	render();
 }
 
 
 void PageMain::lostFocus()
 {
-// 	fDebug0();
+	fDebug0();
 }
 
 
@@ -84,6 +103,17 @@ bool PageMain::update( float t, float dt )
 		auto renderer = getGlobals()->mainRenderer();
 		GE::Font* font = getGlobals()->font();
 
+		if ( getGlobals()->controller()->localBatteryVoltage() < 9.5f ) {
+			window->Clear( 0xFF303080 );
+		} else {
+			window->Clear( 0xFF303030 );
+		}
+		getGlobals()->RenderDrawer();
+		mButtonResetBattery->render();
+		mButtonCalibrate->render();
+		mButtonCalibrateAll->render();
+	// 	mButtonCalibrateESCs->render();
+
 		std::string svbat = std::to_string( getGlobals()->controller()->localBatteryVoltage() );
 		svbat = svbat.substr( 0, svbat.find( "." ) + 4 ) + "V";
 		int w = 0;
@@ -92,7 +122,7 @@ bool PageMain::update( float t, float dt )
 		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 0, w, h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 0, font, 0xFFFFFFFF, svbat );
 
-		svbat = std::to_string( getGlobals()->controller()->batteryVoltage() );
+		svbat = std::to_string( 0.01f * std::round( getGlobals()->controller()->batteryVoltage() * 100.0f ) );
 		svbat = svbat.substr( 0, svbat.find( "." ) + 3 ) + "V";
 		font->measureString( "12.60 V", &w, &h );
 		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 1, w, h );
@@ -110,7 +140,19 @@ bool PageMain::update( float t, float dt )
 		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 3, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 3, font, 0xFFFFFFFF, svbat );
-
+	
+		svbat = std::to_string( getGlobals()->controller()->link()->RxQuality() ) + "%";
+		font->measureString( "100 %", &w, &h );
+		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 4, w, h );
+		font->measureString( svbat, &w, &h );
+		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 4, font, 0xFFFFFFFF, svbat );
+	
+		svbat = std::to_string( getGlobals()->controller()->droneRxQuality() ) + "%";
+		font->measureString( "100 %", &w, &h );
+		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 5, w, h );
+		font->measureString( svbat, &w, &h );
+		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 5, font, 0xFFFFFFFF, svbat );
+/*
 		svbat = std::to_string( getGlobals()->stream()->linkQuality() ) + "%";
 		font->measureString( "100 %", &w, &h );
 		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 4, w, h );
@@ -122,7 +164,7 @@ bool PageMain::update( float t, float dt )
 		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 5 + font->size() * 5, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 5, font, 0xFFFFFFFF, svbat );
-
+*/
 		mLastT = t;
 	}
 	return false;
@@ -131,6 +173,7 @@ bool PageMain::update( float t, float dt )
 
 void PageMain::render()
 {
+/*
 	auto window = getGlobals()->window();
 	auto renderer = getGlobals()->mainRenderer();
 	GE::Font* font = getGlobals()->font();
@@ -142,24 +185,8 @@ void PageMain::render()
 	mButtonCalibrate->render();
 	mButtonCalibrateAll->render();
 // 	mButtonCalibrateESCs->render();
-/*
-	std::string svbat = std::to_string( getGlobals()->controller()->localBatteryVoltage() );
-	svbat = svbat.substr( 0, svbat.find( "." ) + 4 ) + "V";
-	int w = 0;
-	int h = 0;
-	font->measureString( svbat, &w, &h );
-	window->ClearRegion( 0xFF303030, window->width() - w * 1.5f, 4 + font->size() * 0, w * 1.5f, h );
-	renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 0, font, 0xFFFFFFFF, svbat );
 
-	svbat = std::to_string( getGlobals()->controller()->batteryVoltage() ) + "V";
-	font->measureString( svbat, &w, &h );
-	window->ClearRegion( 0xFF303030, window->width() - w * 1.5f, 4 + font->size() * 1, w * 1.5f, h );
-	renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 1, font, 0xFFFFFFFF, svbat );
-
-	svbat = std::to_string( getGlobals()->controller()->totalCurrent() ) + "mAh";
-	font->measureString( svbat, &w, &h );
-	window->ClearRegion( 0xFF303030, window->width() - w * 1.5f, 4 + font->size() * 2, w * 1.5f, h );
-	renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 2, font, 0xFFFFFFFF, svbat );
+	mLastT = 0.0f;
 */
 }
 

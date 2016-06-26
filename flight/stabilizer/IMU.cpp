@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <unistd.h>
 #include <cmath>
 #include <Debug.h>
@@ -183,6 +201,11 @@ bool IMU::SensorsThreadRun()
 {
 	if ( mState == Running ) {
 		float dt = ((float)( Board::GetTicks() - mSensorsThreadTick ) ) / 1000000.0f;
+		mSensorsThreadTick = Board::GetTicks();
+		if ( std::abs( dt ) >= 1.0 ) {
+			gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
+			return true;
+		}
 
 		bool rate = ( mMain->stabilizer()->mode() == Stabilizer::Rate );
 		UpdateSensors( dt, rate );
@@ -196,6 +219,7 @@ bool IMU::SensorsThreadRun()
 		}
 	} else {
 		usleep( 1000 * 100 );
+		mSensorsThreadTick = Board::GetTicks();
 	}
 	return true;
 }
@@ -224,16 +248,26 @@ void IMU::Loop( float dt )
 void IMU::Calibrate( float dt, bool all )
 {
 	if ( mCalibrationAccum < 2000 ) {
+		if ( mCalibrationAccum == 0 ) {
+			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors\n";
+		}
 		bool last_pass = ( mCalibrationAccum >= 1999 );
+		if ( last_pass ) {
+			gDebug() << "Calibration last pass\n";
+		}
 		for ( auto dev : Sensor::Devices() ) {
 			if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
 				dev->Calibrate( dt, last_pass );
 			}
 		}
 	} else if ( all and mCalibrationAccum < 3000 ) {
+		if ( mCalibrationAccum == 2000 ) {
+			gDebug() << "Calibrating gravity\n";
+		}
 		UpdateSensors( dt );
 		mGravity += mAcceleration / 1000.0f;
 	} else {
+		gDebug() << "Calibration almost done...\n";
 		mState = CalibrationDone;
 		mAcceleration = Vector3f();
 		mGyroscope = Vector3f();
@@ -257,7 +291,7 @@ void IMU::Recalibrate()
 			break;
 		}
 	}
-	if (cal_all ) {
+	if ( cal_all ) {
 		RecalibrateAll();
 		return;
 	}

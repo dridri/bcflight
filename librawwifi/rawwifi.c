@@ -10,7 +10,7 @@ static rawwifi_pcap_t* setup_tx( rawwifi_t* rwifi, int port, int blocking )
 	char szErrbuf[PCAP_ERRBUF_SIZE];
 	memset( szErrbuf, 0, sizeof( szErrbuf ) );
 
-	rpcap->pcap = pcap_open_live( rwifi->device, 800, 1, 20, szErrbuf );
+	rpcap->pcap = pcap_open_live( rwifi->device, 800, 1, 1, szErrbuf );
 	if ( rpcap->pcap == NULL ) {
 		printf( "rawwifi_init : Unable to open interface %s in pcap_out: %s\n",  rwifi->device, szErrbuf );
 		return NULL;
@@ -110,9 +110,6 @@ void* rawwifi_send_thread( void* argp )
 
 rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking )
 {
-	int j;
-	char szErrbuf[PCAP_ERRBUF_SIZE];
-
 	rawwifi_t* rwifi = (rawwifi_t*)malloc( sizeof(rawwifi_t) );
 	memset( rwifi, 0, sizeof( rawwifi_t ) );
 
@@ -128,24 +125,6 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 		return NULL;
 	}
 
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
-	printf( "-------------------- blocking : %d (%d, %d) ------------------\n", blocking, rx_port, tx_port );
 	if ( blocking == 0 ) {
 		pthread_create( &rwifi->send_thread, 0, rawwifi_send_thread, rwifi );
 	}
@@ -175,10 +154,14 @@ int32_t rawwifi_recv_quality( rawwifi_t* rwifi )
 		if ( block->valid ) {
 			received_blocks++;
 		}
-		block = block->prev;
+		block = block->next;
 	}
 
-	int32_t ret = 100 * ( received_blocks + 1 ) / ( last_block - first_block + 1 );
+	if ( last_block - first_block == 0 ) {
+		return 0;
+	}
+
+	int32_t ret = 100 * received_blocks / ( last_block - first_block );
 	if ( ret > 100 ) {
 		ret = 100;
 	}

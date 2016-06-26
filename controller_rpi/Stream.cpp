@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -31,33 +49,19 @@ std::string interface_address( const std::string& itf )
 }
 */
 
-Stream::Stream( Controller* controller, Font* font, const std::string& addr, uint16_t port )
+Stream::Stream( Controller* controller, Font* font, Link* link )
 	: Thread()
 	, mInstance( nullptr )
 	, mWindow( nullptr )
 	, mController( controller )
 	, mFont( font )
+	, mLink( link )
+	, mDecodeInput( nullptr )
 	, mEGLVideoImage( 0 )
 	, mVideoTexture( 0 )
-	, mSocket( nullptr )
-	, mSockerAddr( addr )
-	, mSocketPort( port )
-	, mDecodeInput( nullptr )
 {
-// 	mRx = rwifi_rx_init( "wlan0", 0, 1 );
 	mFPS = 0;
 	mFrameCounter = 0;
-
-	gDebug() << "Waiting for IP address\n";
-	system( "killall -9 dhclient && dhclient wlan0 && while ! ifconfig | grep -F \"192.168.32.\" > /dev/null; do sleep 1; done" );
-
-	mSocket = new Socket( mSockerAddr, mSocketPort, Socket::UDPLite );
-	uint16_t checksum_coverage = 8;
-	setsockopt( mSocket->rawSocket(), IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
-	setsockopt( mSocket->rawSocket(), IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
-
-	uint32_t uid = htonl( 0x12345678 );
-	mSocket->Send( &uid, sizeof(uid) );
 
 	mIwSocket = iw_sockets_open();
 	memset( &mIwStats, 0, sizeof( mIwStats ) );
@@ -158,19 +162,21 @@ bool Stream::SignalThreadRun()
 
 bool Stream::DecodeThreadRun()
 {
-	unsigned int header[2];
 // 	uint8_t frame[32768] = { 0 };
 // 	uint8_t* frame = nullptr;
 	uint32_t frameSize = 0;
-/*
-	if ( not mRx and not mSocket ) {
-		gDebug() << "Waiting for IP address\n";
-		system( "dhclient wlan0 && while ! ifconfig | grep -F \"192.168.32.\" > /dev/null; do sleep 1; done" );
-		mSocket = new Socket( mSockerAddr, mSocketPort, Socket::UDPLite );
-		uint32_t uid = htonl( 0x12345678 );
-		mSocket->Send( &uid, sizeof(uid) );
+
+	if ( not mLink->isConnected() ) {
+		mLink->Connect();
+		if ( mLink->isConnected() ) {
+			uint32_t uid = htonl( 0x12345678 );
+			mLink->Write( &uid, sizeof(uid), 0 );
+		} else {
+			usleep( 1000 * 1000 );
+		}
+		return true;
 	}
-*/
+
 	if ( mDecodeInput == nullptr ) {
 		mDecodeInput = mDecodeContext->decinput->pBuffer;
 	} else {
@@ -180,38 +186,14 @@ bool Stream::DecodeThreadRun()
 	if ( mDecodeContext->decinput->pBuffer != mDecodeInput ) {
 		gDebug() << "GPU messed up decoder input buffer ! ( " << (void*)mDecodeContext->decinput->pBuffer << " != " << (void*)mDecodeInput << "\n";
 	}
-/*
-	if ( mRx ) {
-		uint8_t buffer[2][65536] = { 0 };
-		static uint32_t buf_i = 0;
-		uint32_t xbuf = 0;
 
-		{
-
-			buf_i = rwifi_rx_recv( mRx, buffer[xbuf], mDecodeContext->decinput->nAllocLen );
-
-			if ( buf_i > 0 ) {
-				memcpy( mDecodeInput, buffer[xbuf], buf_i );
-				mDecodeContext->decinput->nFilledLen = buf_i;
-				video_decode_frame( mDecodeContext );
-
-				mFrameCounter++;
-				mBitrateCounter += buf_i;
-				buf_i = 0;
-				xbuf = ( xbuf + 1 ) % 2;
-			}
-		}
-	}
-*/
-	if ( mSocket ) {
-		frameSize = mSocket->Receive( mDecodeInput, mDecodeContext->decinput->nAllocLen, false, 10 );
-		if ( frameSize > 0 ) {
-			mDecodeContext->decinput->nFilledLen = frameSize;
-			video_decode_frame( mDecodeContext );
-			mFrameCounter++;
-			mBitrateCounter += frameSize;
-			frameSize = 0;
-		}
+	frameSize = mLink->Read( mDecodeInput, mDecodeContext->decinput->nAllocLen, 0 );
+	if ( frameSize > 0 ) {
+		mDecodeContext->decinput->nFilledLen = frameSize;
+		video_decode_frame( mDecodeContext );
+		mFrameCounter++;
+		mBitrateCounter += frameSize;
+		frameSize = 0;
 	}
 
 	if ( mFPSTimer.ellapsed() >= 1000 ) {
@@ -222,10 +204,8 @@ bool Stream::DecodeThreadRun()
 		mFrameCounter = 0;
 		mBitrateCounter = 0;
 
-		if ( mSocket ) {
-			uint32_t uid = htonl( 0x12345678 );
-			mSocket->Send( &uid, sizeof(uid) );
-		}
+		uint32_t uid = htonl( 0x12345678 );
+		mLink->Write( &uid, sizeof(uid), 0 );
 	}
 
 	return true;
@@ -243,8 +223,7 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 	uint32_t display_width;
 	uint32_t display_height;
 
-	int32_t success = 0;
-	success = graphics_get_display_size( 5, &display_width, &display_height );
+	graphics_get_display_size( 5, &display_width, &display_height );
 	gDebug() << "display size: " << display_width << " x "<< display_height << "\n";
 
 	dst_rect.x = 0;

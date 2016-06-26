@@ -1,3 +1,21 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #ifndef NO_RAWWIFI
 
 #include <netinet/in.h>
@@ -6,7 +24,7 @@
 #include <iostream>
 #include "RawWifi.h"
 
-static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim );
+// static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim );
 
 bool RawWifi::mInitialized = false;
 
@@ -14,10 +32,11 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	: Link()
 	, mRawWifi( nullptr )
 	, mDevice( device )
-	, mChannel( 9 )
+	, mChannel( 11 )
 	, mTxPower( 33 )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
+	, mRetriesCount( 2 )
 {
 }
 
@@ -52,6 +71,12 @@ void RawWifi::SetTxPower( int mBm )
 }
 
 
+void RawWifi::setRetriesCount( int retries )
+{
+	mRetriesCount = retries;
+}
+
+
 int32_t RawWifi::RxQuality()
 {
 	return rawwifi_recv_quality( mRawWifi );
@@ -82,16 +107,19 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 
 int RawWifi::Connect()
 {
-	std::stringstream ss;
-
+	std::cout << "1\n";
 	Initialize( mDevice, mChannel, mTxPower );
+	std::cout << "2\n";
 
 	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1 );
+	std::cout << "3\n";
 	if ( !mRawWifi ) {
 		return -1;
 	}
 
+	std::cout << "4\n";
 	mConnected = true;
+	std::cout << "5\n";
 	return 0;
 }
 
@@ -132,7 +160,7 @@ int RawWifi::Write( const void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-	int ret = rawwifi_send( mRawWifi, (uint8_t*)buf, len );
+	int ret = rawwifi_send_retry( mRawWifi, (uint8_t*)buf, len, mRetriesCount );
 
 	if ( ret < 0 ) {
 		mConnected = false;
@@ -151,7 +179,7 @@ int RawWifi::Write( const void* buf, uint32_t len, int timeout )
 	return ret;
 }
 
-
+/*
 static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim )
 {
 	char buf[1024] = "";
@@ -184,5 +212,5 @@ static std::string readcmd( const std::string& cmd, const std::string& entry, co
 	pclose( fp );
 	return res;
 }
-
+*/
 #endif // NO_RAWWIFI

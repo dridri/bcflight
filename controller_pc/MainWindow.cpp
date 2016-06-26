@@ -1,6 +1,28 @@
+/*
+ * BCFlight
+ * Copyright (C) 2016 Adrien Aubry (drich)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
 #include <QtCore/QDebug>
 #include <QtCore/QThread>
 #include <QtCore/QTime>
+#include <QtWidgets/QScrollBar>
+#include <QtWidgets/QFileDialog>
+#include <Qsci/qsciscintilla.h>
+#include <Qsci/qscilexerlua.h>
 #include <iostream>
 
 extern "C" {
@@ -21,6 +43,7 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	: QMainWindow()
 	, mController( ctrl )
 	, mStreamLink( streamLink )
+	, mPIDsOk( false )
 {
 	mControllerMonitor = new ControllerMonitor( mController );
 	connect( mControllerMonitor, SIGNAL( connected() ), this, SLOT( connected() ) );
@@ -28,11 +51,15 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 
 	mUpdateTimer = new QTimer();
 	connect( mUpdateTimer, SIGNAL( timeout() ), this, SLOT( updateData() ) );
-	mUpdateTimer->setInterval( 50 );
+	mUpdateTimer->setInterval( 20 );
 	mUpdateTimer->start();
 
 	ui = new Ui::MainWindow;
 	ui->setupUi(this);
+
+	QsciLexerLua* lexerLua = new QsciLexerLua;
+	ui->config->setLexer( lexerLua );
+	ui->config->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
 
 	connect( ui->reset_battery, SIGNAL( pressed() ), this, SLOT( ResetBattery() ) );
 	connect( ui->calibrate, SIGNAL( pressed() ), this, SLOT( Calibrate() ) );
@@ -40,6 +67,10 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	connect( ui->calibrate_escs, SIGNAL( pressed() ), this, SLOT( CalibrateESCs() ) );
 	connect( ui->arm, SIGNAL( pressed() ), this, SLOT( ArmDisarm() ) );
 	connect( ui->throttle, SIGNAL( valueChanged(int) ), this, SLOT( throttleChanged(int) ) );
+	connect( ui->config_load, SIGNAL( pressed() ), this, SLOT( LoadConfig() ) );
+	connect( ui->config_save, SIGNAL( pressed() ), this, SLOT( SaveConfig() ) );
+	connect( ui->firmware_browse, SIGNAL( pressed() ), this, SLOT( FirmwareBrowse() ) );
+	connect( ui->firmware_upload, SIGNAL( pressed() ), this, SLOT( FirmwareUpload() ) );
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -91,6 +122,7 @@ MainWindow::~MainWindow()
 
 static void Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int index = -1, int indent = 0 )
 {
+	std::cout << "Recurse( L, parent, " << name.toStdString() << ", " << index << ", " << indent << ")\n";
 	if ( name == "CurrentSensors" ) {
 		name = "Current Sensors";
 	}
@@ -156,26 +188,37 @@ void MainWindow::connected()
 	}
 
 	QString sensors_infos = QString::fromStdString( mController->getSensorsInfos() );
+	qDebug() << "sensors_infos : " << sensors_infos;
 	lua_State* L = luaL_newstate();
 	luaL_dostring( L, sensors_infos.toLatin1().data() );
 	Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Sensors" );
 	lua_close(L);
 
 	ui->system->expandAll();
-
 }
-
 
 void MainWindow::updateData()
 {
 	QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-	ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX : %2 B/s    |    RX : %3 B/s    |    Camera : %4 KB/s    |    %5 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( ui->video->fps() ) );
+	ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s    |    %6 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
 	ui->latency->setText( QString::number( mController->ping() ) + " ms" );
 	ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );
 	ui->current->setText( QString::number( mController->currentDraw(), 'f', 2 ) + " A" );
+	ui->current_total->setText( QString::number( mController->totalCurrent() ) + " mAh" );
 	ui->cpu_load->setValue( mController->CPULoad() );
 	ui->temperature->setValue( mController->CPUTemp() );
+
+	std::string dbg = mController->debugOutput();
+	if ( dbg != "" ) {
+		QTextCursor cursor( ui->terminal->textCursor() );
+		bool move = true; //( ui->terminal->toPlainText().length() == 0 or cursor.position() == QTextCursor::End );
+		ui->terminal->setPlainText( ui->terminal->toPlainText() + QString::fromStdString( dbg ) );
+		if ( move ) {
+			cursor.movePosition( QTextCursor::End );
+			ui->terminal->setTextCursor( cursor );
+		}
+	}
 
 	if ( mDataT.size() >= 256 ) {
 		mDataT.pop_front();
@@ -204,6 +247,24 @@ void MainWindow::updateData()
 	ui->altitude->graph(0)->rescaleAxes();
 	ui->altitude->xAxis->rescale();
 	ui->altitude->replot();
+
+	if ( mController->isConnected() and ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
+		mController->ReloadPIDs();
+		ui->rateP->setValue( mController->pid().x );
+		ui->rateI->setValue( mController->pid().y );
+		ui->rateD->setValue( mController->pid().z );
+		ui->horizonP->setValue( mController->outerPid().x );
+		ui->horizonI->setValue( mController->outerPid().y );
+		ui->horizonD->setValue( mController->outerPid().z );
+		connect( ui->rateP, SIGNAL( valueChanged(double) ), this, SLOT( setRateP(double) ) );
+		connect( ui->rateI, SIGNAL( valueChanged(double) ), this, SLOT( setRateI(double) ) );
+		connect( ui->rateD, SIGNAL( valueChanged(double) ), this, SLOT( setRateD(double) ) );
+		connect( ui->horizonP, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonP(double) ) );
+		connect( ui->horizonI, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonI(double) ) );
+		connect( ui->horizonD, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonD(double) ) );
+		mPIDsOk = true;
+	}
+
 }
 
 
@@ -234,10 +295,14 @@ void MainWindow::CalibrateESCs()
 void MainWindow::ArmDisarm()
 {
 	if ( mController->armed() ) {
-		mController->Disarm();
+		std::cout << "Disarming...\n";
+// 		mController->Disarm();
+		mController->setArmed( false );
 		ui->arm->setText( "Arm" );
 	} else {
-		mController->Arm();
+		std::cout << "Arming...\n";
+// 		mController->Arm();
+		mController->setArmed( true );
 		ui->arm->setText( "Disarm" );
 	}
 }
@@ -246,4 +311,131 @@ void MainWindow::ArmDisarm()
 void MainWindow::throttleChanged( int throttle )
 {
 	mController->setControlThrust( (double)throttle / 100.0f );
+}
+
+
+void MainWindow::LoadConfig()
+{
+	std::string conf = mController->getConfigFile();
+	ui->config->setText( QString::fromStdString( conf ) );
+}
+
+
+void MainWindow::SaveConfig()
+{
+	std::string conf = ui->config->text().toStdString();
+	mController->setConfigFile( conf );
+}
+
+
+void MainWindow::FirmwareBrowse()
+{
+	QFileDialog* diag = new QFileDialog( this );
+	diag->setFileMode( QFileDialog::AnyFile );
+	diag->show();
+	connect( diag, SIGNAL( fileSelected(QString) ), this, SLOT( firmwareFileSelected(QString) ) );
+}
+
+
+void MainWindow::firmwareFileSelected( QString path )
+{
+	ui->firmware_path->setText( path );
+}
+
+
+void MainWindow::FirmwareUpload()
+{
+	ui->firmware_progress->setValue( 0 );
+
+	if ( ui->firmware_path->text().length() > 0 and QFile::exists( ui->firmware_path->text() ) and mController->isConnected() ) {
+		QFile f( ui->firmware_path->text() );
+		if ( !f.open( QFile::ReadOnly ) ) return;
+		QByteArray ba = f.readAll();
+
+		mController->UploadUpdateInit();
+		for ( uint32_t offset = 0; offset < (uint32_t)ba.size(); offset += 2048 ) {
+			uint32_t sz = 2048;
+			if ( ba.size() - offset < 2048 ) {
+				sz = ba.size() - offset;
+			}
+			mController->UploadUpdateData( (const uint8_t*)&ba.constData()[offset], offset, sz );
+			ui->firmware_progress->setValue( offset * 100 / ba.size() + 1 );
+			QApplication::processEvents();
+		}
+
+		QTextCursor cursor( ui->terminal->textCursor() );
+		ui->terminal->setPlainText( ui->terminal->toPlainText() + "====> Applying firmware update and restarting service, please wait... <====" );
+		cursor.movePosition( QTextCursor::End );
+		ui->terminal->setTextCursor( cursor );
+
+		mController->UploadUpdateProcess( (const uint8_t*)ba.constData(), ba.size() );
+	}
+
+	ui->firmware_progress->setValue( 0 );
+}
+
+
+void MainWindow::setRateP( double v )
+{
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec = mController->pid();
+	vec.x = v;
+	mController->setPID( vec );
+}
+
+
+void MainWindow::setRateI( double v )
+{
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec = mController->pid();
+	vec.y = v;
+	mController->setPID( vec );
+}
+
+
+void MainWindow::setRateD( double v )
+{
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec = mController->pid();
+	vec.z = v;
+	mController->setPID( vec );
+}
+
+
+void MainWindow::setHorizonP( double v )
+{
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec = mController->outerPid();
+	vec.x = v;
+	mController->setOuterPID( vec );
+}
+
+
+void MainWindow::setHorizonI( double v )
+{
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec = mController->outerPid();
+	vec.y = v;
+	mController->setOuterPID( vec );
+}
+
+
+void MainWindow::setHorizonD( double v )
+{
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec = mController->outerPid();
+	vec.z = v;
+	mController->setOuterPID( vec );
 }
