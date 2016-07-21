@@ -17,41 +17,50 @@
 **/
 
 #include <Debug.h>
-#include "Generic.h"
+#include "BrushlessPWM.h"
 
-Generic::Generic( Servo* servo, float minspeed, float maxSpeed )
+BrushlessPWM::BrushlessPWM( uint32_t pin, int us_min, int us_max )
 	: Motor()
-	, mServo( servo )
-	, mMinSpeed( std::min( std::max( minspeed, 0.0f ), 1.0f ) )
-	, mMaxSpeed( std::min( std::max( maxSpeed, 0.0f ), 1.0f ) )
+	, mPWM( new PWM( pin, 1000000, 2000, 2 ) )
+	, mMinUS( us_min )
+	, mMaxUS( us_max )
 {
 }
 
 
-Generic::~Generic()
+BrushlessPWM::~BrushlessPWM()
 {
 }
 
 
-void Generic::setSpeedRaw( float speed, bool force_hw_update )
+void BrushlessPWM::setSpeedRaw( float speed, bool force_hw_update )
 {
-	speed = std::max( mMinSpeed, std::min( mMaxSpeed, speed ) );
-	mServo->setValue( speed, force_hw_update );
-/*
-	speed = std::max( 0, std::min( (int)( 255.0f * mMaxSpeed ), speed ) );
-	mServo->setValue( 50 + speed * 200 / 256 );
-*/
+	if ( speed < 0.0f ) {
+		speed = 0.0f;
+	}
+	if ( speed > 1.0f ) {
+		speed = 1.0f;
+	}
+
+	uint32_t us = mMinUS + (uint32_t)( ( mMaxUS - mMinUS ) * speed );
+	mPWM->SetPWMus( us );
+
+	if ( force_hw_update ) {
+		mPWM->Update();
+	}
 }
 
 
-void Generic::Disarm()
+void BrushlessPWM::Disarm()
 {
-	mServo->Disarm();
+	mPWM->SetPWMus( (uint32_t)( mMinUS * 0.8f ) );
+	mPWM->Update();
 }
 
 
-void Generic::Disable()
+void BrushlessPWM::Disable()
 {
-	mServo->Disable();
+	mPWM->SetPWMus( 0 );
+	mPWM->Update();
 }
 

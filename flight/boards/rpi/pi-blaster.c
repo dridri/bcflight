@@ -44,14 +44,14 @@
 // Created new known_pins with raspberry pi list of pins
 // to compare against the param received.
 static uint8_t known_pins[] = {
-// 		4,      // P1-7
+		4,      // P1-7 // TEST
 // 		17,     // P1-11
 		18,     // P1-12
 // 		27,     // P1-13
 // 		21,     // P1-13
-// 		22,     // P1-15
-		23,     // P1-16
-		24,     // P1-18
+		22,     // P1-15 // TEST
+// 		23,     // P1-16
+// 		24,     // P1-18
 		25,     // P1-22
 };
 

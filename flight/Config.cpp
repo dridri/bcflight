@@ -133,6 +133,30 @@ bool Config::boolean( const std::string& name, bool def )
 }
 
 
+std::vector<int> Config::integerArray( const std::string& name )
+{
+	Debug() << "Config::integerArray( " << name << " )";
+	if ( LocateValue( name ) < 0 ) {
+		Debug() << " => not found !\n";
+		return std::vector<int>();
+	}
+
+	std::vector<int> ret;
+	size_t len = lua_objlen( L, -1 );
+	if ( len > 0 ) {
+		for ( size_t i = 1; i <= len; i++ ) {
+			lua_rawgeti( L, -1, i );
+			int value = lua_tointeger( L, -1 );
+			ret.emplace_back( value );
+			lua_pop( L, 1 );
+		}
+	}
+	lua_pop( L, 1 );
+	Debug() << " => Ok\n";
+	return ret;
+}
+
+
 int Config::LocateValue( const std::string& _name )
 {
 	const char* name = _name.c_str();
@@ -177,7 +201,9 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 	for ( int i = 0; i < indent; i++ ) {
 		Debug() << "    ";
 	}
-	Debug() << name << " = ";
+	if ( name != "" ) {
+		Debug() << name << " = ";
+	}
 
 	if ( indent == 0 ) {
 		LocateValue( name );
@@ -197,15 +223,25 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 		Debug() << "__userdata__";
 	} else if ( lua_istable( L, index ) ) {
 		Debug() << "{\n";
-		lua_pushnil( L );
-		while( lua_next( L, -2 ) != 0 ) {
-			std::string key = lua_tostring( L, index-1 );
-			if ( lua_isnumber( L, index - 1 ) ) {
-				key = "[" + key + "]";
+		size_t len = lua_objlen( L, index );
+		if ( len > 0 ) {
+			for ( size_t i = 1; i <= len; i++ ) {
+				lua_rawgeti( L, index, i );
+				DumpVariable( "", -1, indent + 1 );
+				lua_pop( L, 1 );
+				Debug() << ",\n";
 			}
-			DumpVariable( key, index, indent + 1 );
-			lua_pop( L, 1 );
-			Debug() << ",\n";
+		} else {
+			lua_pushnil( L );
+			while( lua_next( L, -2 ) != 0 ) {
+				std::string key = lua_tostring( L, index-1 );
+				if ( lua_isnumber( L, index - 1 ) ) {
+					key = "[" + key + "]";
+				}
+				DumpVariable( key, index, indent + 1 );
+				lua_pop( L, 1 );
+				Debug() << ",\n";
+			}
 		}
 		for ( int i = 0; i < indent; i++ ) {
 			Debug() << "    ";
@@ -227,12 +263,13 @@ void Config::Reload()
 	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
 	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; params.device = \"wlan0\" ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
+	luaL_dostring( L, "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" );
 	luaL_dostring( L, ( "board = { type = \"" + std::string( BOARD ) + "\" }" ).c_str() );
 	luaL_dostring( L, "frame = { motors = { front_left = {}, front_right = {}, rear_left = {}, rear_right = {} } }" );
 	luaL_dostring( L, "battery = {}" );
 	luaL_dostring( L, "camera = {}" );
 	luaL_dostring( L, "controller = {}" );
-	luaL_dostring( L, "stabilizer = { loop_time = 2500 }" );
+	luaL_dostring( L, "stabilizer = { loop_time = 2000 }" );
 	luaL_dostring( L, "accelerometers = {}" );
 	luaL_dostring( L, "gyroscopes = {}" );
 	luaL_dostring( L, "magnetometers = {}" );

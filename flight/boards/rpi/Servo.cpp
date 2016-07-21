@@ -15,14 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
-
+/*
 #include <sys/fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include "Servo.h"
+#include "Board.h"
 #include "Debug.h"
-#include "pi-blaster.h"
+// #include "pi-blaster.h"
 
 Servo::Servo( int pin, int us_min, int us_max )
 	: mID( pin )
@@ -38,17 +39,6 @@ Servo::~Servo()
 {
 }
 
-/*
-void Servo::setValue( int width_ms )
-{
-	char buf[32] = "";
-
-	if ( mID >= 0 and mFD >= 0 ) {
-		sprintf( buf, "%d=%d\n", mID, width_ms );
-		write( mFD, buf, strlen(buf) );
-	}
-}
-*/
 
 void Servo::setValue( float p, bool force_update )
 {
@@ -61,29 +51,38 @@ void Servo::setValue( float p, bool force_update )
 
 	uint32_t us = mMin + (uint32_t)( mRange * p );
 
-// 	PiBlasterSetPWM( mID, p );
-	PiBlasterSetPWMus( mID, us );
+	Board::motorsPWM()->SetPWMus( mID, us );
 	if ( force_update ) {
-		PiBlasterUpdatePWM();
+		Board::motorsPWM()->Update();
 	}
+// 	PiBlasterSetPWMus( mID, us );
+// 	if ( force_update ) {
+// 		PiBlasterUpdatePWM();
+// 	}
 }
 
 
 void Servo::HardwareSync()
 {
-	PiBlasterUpdatePWM();
+	Board::motorsPWM()->Update();
+// 	PiBlasterUpdatePWM();
 }
 
 
 void Servo::Disarm()
 {
-	PiBlasterSetPWMus( mID, mIdle );
-	PiBlasterUpdatePWM();
+	Board::motorsPWM()->SetPWMus( mID, mIdle );
+	Board::motorsPWM()->Update();
+// 	PiBlasterSetPWMus( mID, mIdle );
+// 	PiBlasterUpdatePWM();
 }
 
 
 void Servo::Disable()
 {
-	PiBlasterSetPWMus( mID, 0 );
-	PiBlasterUpdatePWM();
+	Board::motorsPWM()->SetPWMus( mID, 0 );
+	Board::motorsPWM()->Update();
+// 	PiBlasterSetPWMus( mID, 0 );
+// 	PiBlasterUpdatePWM();
 }
+*/

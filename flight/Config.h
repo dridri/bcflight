@@ -20,6 +20,7 @@
 #define CONFIG_H
 
 #include <string>
+#include <vector>
 
 extern "C" {
 #include <luajit.h>
@@ -42,6 +43,8 @@ public:
 	int integer( const std::string& name, int def = 0 );
 	float number( const std::string& name, float def = 0.0f );
 	bool boolean( const std::string& name, bool def = false );
+
+	std::vector<int> integerArray( const std::string& name );
 
 	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
 

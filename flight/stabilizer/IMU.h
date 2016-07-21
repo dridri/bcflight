@@ -39,6 +39,7 @@ public:
 
 	IMU( Main* main );
 	virtual ~IMU();
+	void setRateOnly( bool enabled );
 
 	const Vector3f acceleration() const;
 	const Vector3f gyroscope() const;

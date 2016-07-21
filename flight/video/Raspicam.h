@@ -22,6 +22,7 @@
 #include <fstream>
 #include <functional>
 #include <Thread.h>
+#include <Config.h>
 #include "Camera.h"
 
 class Main;
@@ -36,14 +37,18 @@ typedef struct AVCodec AVCodec;
 class Raspicam : public Camera
 {
 public:
-	Raspicam( Link* link );
+	Raspicam( Config* config, const std::string& conf_obj );
 	~Raspicam();
 
 	virtual void StartRecording();
 	virtual void StopRecording();
 
 	virtual const uint32_t brightness() const;
+	virtual const int32_t contrast() const;
+	virtual const int32_t saturation() const;
 	virtual void setBrightness( uint32_t value );
+	virtual void setContrast( int32_t value );
+	virtual void setSaturation( int32_t value );
 
 protected:
 	void SetupRecord();
@@ -63,7 +68,7 @@ protected:
 	bool mNeedNextEnc2ToBeFilled;
 	bool mNeedNextAudioToBeFilled;
 	bool mLiveSkipNextFrame;
-	int mLiveFrameCounter;
+	uint64_t mLiveFrameCounter;
 	uint64_t mLiveTicks;
 	uint64_t mRecordTicks;
 	uint64_t mLedTick;

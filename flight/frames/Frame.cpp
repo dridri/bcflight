@@ -18,7 +18,6 @@
 
 #include <unistd.h>
 #include <Debug.h>
-#include <Servo.h>
 #include "Frame.h"
 #include <Config.h>
 
@@ -51,16 +50,14 @@ void Frame::CalibrateESCs()
 	for ( Motor* m : mMotors ) {
 		m->setSpeed( 1.0f, true );
 	}
-	Servo::HardwareSync();
 
-	gDebug() << "Waiting 2 seconds...\n";
-	usleep( 2 * 1000 * 1000 );
+	gDebug() << "Waiting 10 seconds...\n";
+	usleep( 10 * 1000 * 1000 );
 
 	gDebug() << "Setting minimal speed\n";
 	for ( Motor* m : mMotors ) {
 		m->setSpeed( 0.0f, true );
 	}
-	Servo::HardwareSync();
 
 	gDebug() << "Waiting 2 seconds...\n";
 	usleep( 2 * 1000 * 1000 );
@@ -69,7 +66,6 @@ void Frame::CalibrateESCs()
 	for ( Motor* m : mMotors ) {
 		m->Disarm();
 	}
-	Servo::HardwareSync();
 }
 
 

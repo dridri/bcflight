@@ -28,6 +28,8 @@ extern "C" {
 #include <interface/vchi/vchi.h>
 };
 
+#include "PWM.h"
+
 class Main;
 
 class Board
@@ -67,11 +69,16 @@ public:
 	static void UpdateFirmwareProcess( uint32_t crc );
 	static void Reset();
 
+	static PWM* motorsPWM();
+
 private:
 	static uint64_t mTicksBase;
 	static std::map< std::string, std::string > mRegisters;
 	static uint64_t mLastWorkJiffies;
 	static uint64_t mLastTotalJiffies;
+	static bool mUpdating;
+
+	static PWM* mMotorsPWM;
 
 	static void AtExit();
 

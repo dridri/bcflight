@@ -29,17 +29,25 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	: mFrame( frame )
 	, mMode( Stabilize )
 	, mAltitudeHold( false )
-	, mRatePID( PID() )
-	, mHorizonPID( PID() )
-	, mAltitudePID( PID() )
+	, mRateRollPID( PID<float>() )
+	, mRatePitchPID( PID<float>() )
+	, mRateYawPID( PID<float>() )
+	, mHorizonPID( PID<Vector3f>() )
+	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
 	, mLockState( 0 )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
 {
-	mRatePID.setP( std::atof( Board::LoadRegister( "PID:P" ).c_str() ) );
-	mRatePID.setI( std::atof( Board::LoadRegister( "PID:I" ).c_str() ) );
-	mRatePID.setD( std::atof( Board::LoadRegister( "PID:D" ).c_str() ) );
+	mRateRollPID.setP( std::atof( Board::LoadRegister( "PID:Roll:P" ).c_str() ) );
+	mRateRollPID.setI( std::atof( Board::LoadRegister( "PID:Roll:I" ).c_str() ) );
+	mRateRollPID.setD( std::atof( Board::LoadRegister( "PID:Roll:D" ).c_str() ) );
+	mRatePitchPID.setP( std::atof( Board::LoadRegister( "PID:Pitch:P" ).c_str() ) );
+	mRatePitchPID.setI( std::atof( Board::LoadRegister( "PID:Pitch:I" ).c_str() ) );
+	mRatePitchPID.setD( std::atof( Board::LoadRegister( "PID:Pitch:D" ).c_str() ) );
+	mRateYawPID.setP( std::atof( Board::LoadRegister( "PID:Yaw:P" ).c_str() ) );
+	mRateYawPID.setI( std::atof( Board::LoadRegister( "PID:Yaw:I" ).c_str() ) );
+	mRateYawPID.setD( std::atof( Board::LoadRegister( "PID:Yaw:D" ).c_str() ) );
 
 	mHorizonPID.setP( std::atof( Board::LoadRegister( "PID:Outerloop:P" ).c_str() ) );
 	mHorizonPID.setI( std::atof( Board::LoadRegister( "PID:Outerloop:I" ).c_str() ) );
@@ -47,7 +55,7 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
-	mAltitudePID.setDeadBand( Vector3f( 0.05f, 0.0f, 0.0f ) );
+	mAltitudePID.setDeadBand( 0.05f );
 
 	float v;
 	if ( ( v = main->config()->number( "stabilizer.horizon_angles.x" ) ) > 0.0f ) {
@@ -66,36 +74,90 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 }
 
 
-void Stabilizer::setP( float p )
+void Stabilizer::setRollP( float p )
 {
-	mRatePID.setP( p );
-	Board::SaveRegister( "PID:P", std::to_string( p ) );
+	mRateRollPID.setP( p );
+	Board::SaveRegister( "PID:Roll:P", std::to_string( p ) );
 }
 
 
-void Stabilizer::setI( float i )
+void Stabilizer::setRollI( float i )
 {
-	mRatePID.setI( i );
-	Board::SaveRegister( "PID:I", std::to_string( i ) );
+	mRateRollPID.setI( i );
+	Board::SaveRegister( "PID:Roll:I", std::to_string( i ) );
 }
 
 
-void Stabilizer::setD( float d )
+void Stabilizer::setRollD( float d )
 {
-	mRatePID.setD( d );
-	Board::SaveRegister( "PID:D", std::to_string( d ) );
+	mRateRollPID.setD( d );
+	Board::SaveRegister( "PID:Roll:D", std::to_string( d ) );
 }
 
 
-Vector3f Stabilizer::getPID() const
+Vector3f Stabilizer::getRollPID() const
 {
-	return mRatePID.getPID();
+	return mRateRollPID.getPID();
+}
+
+
+void Stabilizer::setPitchP( float p )
+{
+	mRatePitchPID.setP( p );
+	Board::SaveRegister( "PID:Pitch:P", std::to_string( p ) );
+}
+
+
+void Stabilizer::setPitchI( float i )
+{
+	mRatePitchPID.setI( i );
+	Board::SaveRegister( "PID:Pitch:I", std::to_string( i ) );
+}
+
+
+void Stabilizer::setPitchD( float d )
+{
+	mRatePitchPID.setD( d );
+	Board::SaveRegister( "PID:Pitch:D", std::to_string( d ) );
+}
+
+
+Vector3f Stabilizer::getPitchPID() const
+{
+	return mRatePitchPID.getPID();
+}
+
+
+void Stabilizer::setYawP( float p )
+{
+	mRateYawPID.setP( p );
+	Board::SaveRegister( "PID:Yaw:P", std::to_string( p ) );
+}
+
+
+void Stabilizer::setYawI( float i )
+{
+	mRateYawPID.setI( i );
+	Board::SaveRegister( "PID:Yaw:I", std::to_string( i ) );
+}
+
+
+void Stabilizer::setYawD( float d )
+{
+	mRateYawPID.setD( d );
+	Board::SaveRegister( "PID:Yaw:D", std::to_string( d ) );
+}
+
+
+Vector3f Stabilizer::getYawPID() const
+{
+	return mRateYawPID.getPID();
 }
 
 
 Vector3f Stabilizer::lastPIDOutput() const
 {
-	return mHorizonPID.getPID();
+	return Vector3f( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
 }
 
 
@@ -170,7 +232,9 @@ bool Stabilizer::altitudeHold() const
 
 void Stabilizer::Reset( const float& yaw )
 {
-	mRatePID.Reset();
+	mRateRollPID.Reset();
+	mRatePitchPID.Reset();
+	mRateYawPID.Reset();
 	mHorizonPID.Reset();
 }
 
@@ -206,7 +270,10 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 			break;
 		}
 	}
-	mRatePID.Process( rate_control, imu->rate(), dt );
+
+	mRateRollPID.Process( rate_control.x, imu->rate().x, dt );
+	mRatePitchPID.Process( rate_control.y, imu->rate().y, dt );
+	mRateYawPID.Process( rate_control.z, imu->rate().z, dt );
 
 	float thrust = ctrl->thrust();
 	if ( mAltitudeHold ) {
@@ -220,11 +287,11 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		}
 		thrust *= 0.01f; // Reduce to 1m/s (assuming controller is sending at 100Hz update rate)
 		mAltitudeControl += thrust;
-		mAltitudePID.Process( Vector3f( mAltitudeControl, 0.0f, 0.0f ), Vector3f( imu->altitude(), 0.0f, 0.0f ), dt );
-		thrust = mAltitudePID.state().x;
+		mAltitudePID.Process( mAltitudeControl, imu->altitude(), dt );
+		thrust = mAltitudePID.state();
 	}
 
-	if ( mFrame->Stabilize( mRatePID.state(), thrust ) == false ) {
+	if ( mFrame->Stabilize( Vector3f( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() ), thrust ) == false ) {
 		Reset( mHorizonPID.state().z );
 	}
 }

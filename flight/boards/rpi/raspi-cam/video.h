@@ -48,6 +48,8 @@ typedef struct video_context {
 	int camera_ready;
 	OMX_BUFFERHEADERTYPE* cambufs;
 	uint32_t brightness;
+	int32_t contrast;
+	int32_t saturation;
 	// Encoders
 	OMX_BUFFERHEADERTYPE* enc1bufs;
 	OMX_BUFFERHEADERTYPE* enc2bufs;
@@ -55,11 +57,13 @@ typedef struct video_context {
 	int enc2_data_avail;
 } video_context;
 
-video_context* video_configure();
+video_context* video_configure( uint32_t fps, uint32_t live_width, uint32_t live_height, uint32_t live_kbps );
 void video_start( video_context* ctx );
 void video_stop( video_context* ctx );
 void video_start_recording( video_context* ctx, const char* filename );
 void video_set_brightness( video_context* ctx, uint32_t value );
+void video_set_contrast( video_context* ctx, int32_t value );
+void video_set_saturation( video_context* ctx, int32_t value );
 void video_recover( video_context* ctx );
 int video_fill_buffer( OMX_HANDLETYPE enc, OMX_BUFFERHEADERTYPE* bufs );
 char* video_buffer_ptr( OMX_BUFFERHEADERTYPE* bufs );

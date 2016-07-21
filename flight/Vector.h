@@ -100,6 +100,14 @@ public:
 		return *this;
 	}
 
+	Vector<T,n>& operator=( const T& v )
+	{
+		for ( int i = 0; i < n; i++ ) {
+			(&x)[i] = v;
+		}
+		return *this;
+	}
+
 	void normalize() {
 		T add = 0;
 		VEC_ADD( add, this-> , * , this-> );

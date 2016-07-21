@@ -31,7 +31,11 @@ public:
 	virtual void StopRecording() = 0;
 
 	virtual const uint32_t brightness() const = 0;
+	virtual const int32_t contrast() const = 0;
+	virtual const int32_t saturation() const = 0;
 	virtual void setBrightness( uint32_t value ) = 0;
+	virtual void setContrast( int32_t value ) = 0;
+	virtual void setSaturation( int32_t value ) = 0;
 };
 
 

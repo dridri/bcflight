@@ -20,6 +20,7 @@
 #define POWERTHREAD_H
 
 #include <mutex>
+#include <vector>
 #include <Thread.h>
 
 class Main;
@@ -55,9 +56,17 @@ private:
 		float multiplier;
 	} BatterySensor;
 
+
+	Main* mMain;
+	float mLowVoltageValue;
+	int32_t mLowVoltageBuzzerPin;
+	std::vector< uint32_t > mLowVoltageBuzzerPattern;
+	uint64_t mLowVoltageTick;
+	uint32_t mLowVoltagePatternCase;
+
 	uint64_t mSaveTicks;
 	uint64_t mTicks;
-	Main* mMain;
+	uint32_t mCellsCount;
 	float mLastVBat;
 	float mVBat;
 	float mCurrentTotal;

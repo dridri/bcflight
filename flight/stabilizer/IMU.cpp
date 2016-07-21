@@ -136,9 +136,9 @@ IMU::IMU( Main* main )
 
 	mSensorsThreadTick = 0;
 	mSensorsThreadTickRate = 0;
-	mSensorsThread = new HookThread<IMU>( "imu_sensors", this, &IMU::SensorsThreadRun );
-	mSensorsThread->Start();
-	mSensorsThread->setPriority( 99 );
+// 	mSensorsThread = new HookThread<IMU>( "imu_sensors", this, &IMU::SensorsThreadRun );
+// 	mSensorsThread->Start();
+// 	mSensorsThread->setPriority( 99 );
 }
 
 
@@ -195,10 +195,22 @@ const Vector3f IMU::magnetometer() const
 }
 
 
+void IMU::setRateOnly( bool enabled )
+{
+	fDebug( enabled );
+	if ( enabled ) {
+// 		mSensorsThread->Pause();
+	} else {
+// 		mSensorsThread->Start();
+	}
+}
+
+
 static int imu_fps = 0;
 static uint64_t imu_ticks = 0;
 bool IMU::SensorsThreadRun()
 {
+/*
 	if ( mState == Running ) {
 		float dt = ((float)( Board::GetTicks() - mSensorsThreadTick ) ) / 1000000.0f;
 		mSensorsThreadTick = Board::GetTicks();
@@ -222,6 +234,8 @@ bool IMU::SensorsThreadRun()
 		mSensorsThreadTick = Board::GetTicks();
 	}
 	return true;
+*/	// TEST
+	return false;
 }
 
 
@@ -234,6 +248,10 @@ void IMU::Loop( float dt )
 	} else if ( mState == CalibrationDone ) {
 		mState = Running;
 	} else if ( mState == Running ) {
+// 		if ( mMain->stabilizer()->mode() == Stabilizer::Rate ) {
+// 			UpdateSensors( dt, true );
+// 		}
+		UpdateSensors( dt, ( mMain->stabilizer()->mode() == Stabilizer::Rate ) ); // TEST
 		UpdateAttitude( dt );
 		if ( mPositionUpdate ) {
 			mPositionUpdateMutex.lock();
@@ -247,11 +265,11 @@ void IMU::Loop( float dt )
 
 void IMU::Calibrate( float dt, bool all )
 {
-	if ( mCalibrationAccum < 2000 ) {
+	if ( mCalibrationAccum < 3000 ) {
 		if ( mCalibrationAccum == 0 ) {
 			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors\n";
 		}
-		bool last_pass = ( mCalibrationAccum >= 1999 );
+		bool last_pass = ( mCalibrationAccum >= 2999 );
 		if ( last_pass ) {
 			gDebug() << "Calibration last pass\n";
 		}
@@ -260,8 +278,8 @@ void IMU::Calibrate( float dt, bool all )
 				dev->Calibrate( dt, last_pass );
 			}
 		}
-	} else if ( all and mCalibrationAccum < 3000 ) {
-		if ( mCalibrationAccum == 2000 ) {
+	} else if ( all and mCalibrationAccum < 4000 ) {
+		if ( mCalibrationAccum == 3000 ) {
 			gDebug() << "Calibrating gravity\n";
 		}
 		UpdateSensors( dt );

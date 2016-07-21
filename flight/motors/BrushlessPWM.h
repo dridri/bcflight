@@ -19,23 +19,23 @@
 #ifndef GENERIC_H
 #define GENERIC_H
 
-#include <Servo.h>
+#include <PWM.h>
 #include "Motor.h"
 
-class Generic : public Motor
+class BrushlessPWM : public Motor
 {
 public:
-	Generic( Servo* servo, float minspeed = 0.0f, float maxSpeed = 1.0f );
-	~Generic();
+	BrushlessPWM( uint32_t pin, int us_min = 1060, int us_max = 1860 );
+	~BrushlessPWM();
 
 	void Disarm();
 	void Disable();
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update = false );
-	Servo* mServo;
-	float mMinSpeed;
-	float mMaxSpeed;
+	PWM* mPWM;
+	uint32_t mMinUS;
+	uint32_t mMaxUS;
 };
 
 #endif // GENERIC_H

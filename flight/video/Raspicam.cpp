@@ -22,6 +22,7 @@
 #include <netinet/in.h>
 #include <Debug.h>
 #include <Link.h>
+#include <RawWifi.h>
 #include <GPIO.h>
 #include "Raspicam.h"
 
@@ -32,9 +33,8 @@ typedef struct OMX_BUFFERHEADERTYPE OMX_BUFFERHEADERTYPE;
 #include <Board.h>
 extern "C" void OMX_Init();
 
-Raspicam::Raspicam( Link* link )
+Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	: Camera()
-	, mLink( link )
 	, mNeedNextEnc1ToBeFilled( false )
 	, mNeedNextEnc2ToBeFilled( false )
 	, mNeedNextAudioToBeFilled( false )
@@ -53,9 +53,11 @@ Raspicam::Raspicam( Link* link )
 	mRecordFrameDataSize = 0;
 	mRecordFrameSize = 0;
 
+	mLink = Link::Create( config, conf_obj + ".link" );
+
 	OMX_Init();
 // 	mAudioContext = audio_configure();
-	mVideoContext = video_configure();
+	mVideoContext = video_configure( config->integer( conf_obj + ".fps", 40 ), config->integer( conf_obj + ".width", 1280 ), config->integer( conf_obj + ".height", 720 ), config->integer( conf_obj + ".kbps", 1024 ) );
 // 	SetupRecord();
 
 // 	mLiveThread = new HookThread<Raspicam>( this, &Raspicam::MixedThreadRun );
@@ -79,9 +81,33 @@ const uint32_t Raspicam::brightness() const
 }
 
 
+const int32_t Raspicam::contrast() const
+{
+	return mVideoContext->contrast;
+}
+
+
+const int32_t Raspicam::saturation() const
+{
+	return mVideoContext->saturation;
+}
+
+
 void Raspicam::setBrightness( uint32_t value )
 {
 	video_set_brightness( mVideoContext, value );
+}
+
+
+void Raspicam::setContrast( int32_t value )
+{
+	video_set_contrast( mVideoContext, value );
+}
+
+
+void Raspicam::setSaturation( int32_t value )
+{
+	video_set_saturation( mVideoContext, value );
 }
 
 
@@ -160,6 +186,7 @@ bool Raspicam::LiveThreadRun()
 			}
 		}
 
+		mLiveFrameCounter++;
 		ret = LiveSend( data, datalen );
 		if ( mRecording ) {
 			RecordWrite( data, datalen );
@@ -280,13 +307,23 @@ int Raspicam::LiveSend( char* data, int datalen )
 		return datalen;
 	}
 
+	int retries = 1;
+	RawWifi* rwifi = dynamic_cast< RawWifi* >( mLink );
+	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
+		retries = rwifi->retries();
+		rwifi->setRetries( 3 );
+	}
+
 	err = mLink->Write( (uint8_t*)data, datalen, 0 );
+
+	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
+		rwifi->setRetries( retries );
+	}
+
 	if ( err < 0 ) {
 		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
 		return -1;
 	}
-
-// 	gDebug() << "sent " << err << " bytes\n";
 	return 0;
 }
 

@@ -39,6 +39,7 @@ public:
 	void setRetries( int retries );
 	int Connect();
 	int32_t RxQuality();
+	int retries() const { return mRetries; }
 
 	static int flight_register( Main* main );
 

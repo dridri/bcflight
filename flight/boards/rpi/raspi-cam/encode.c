@@ -31,8 +31,7 @@ static int allocated_bufs_idx = 0;
 	if (oerr != OMX_ErrorNone) { \
 		fprintf(stderr, #cmd \
 			" failed on line %d: %x\n", \
-			__LINE__, oerr); \
-		exit(1); \
+			__LINE__, oerr); /*pthread_exit*/ \
 	} else { \
 		fprintf(stderr, #cmd \
 			" completed at %d.\n", \
@@ -43,8 +42,7 @@ static int allocated_bufs_idx = 0;
 	OMX_ERRORTYPE oerr = cmd; \
 	if (oerr != OMX_ErrorNone) { \
 		fprintf(stderr, #cmd \
-			" failed: %x\n", oerr); \
-		exit(1); \
+			" failed: %x\n", oerr); /*pthread_exit*/ \
 	} }
 
 #define CLKNAME "OMX.broadcom.clock"
@@ -59,7 +57,7 @@ void omx_block_until_port_changed( OMX_HANDLETYPE component, OMX_U32 nPortIndex,
 void omx_block_until_state_changed( OMX_HANDLETYPE component, OMX_STATETYPE state );
 void omx_print_port( OMX_HANDLETYPE component, OMX_U32 port );
 
-static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def );
+static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def, uint32_t fps, uint32_t width, uint32_t height );
 static void video_free_buffers();
 
 static OMX_ERRORTYPE genericeventhandler( OMX_HANDLETYPE component, context* ctx, OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2, OMX_PTR eventdata );
@@ -146,6 +144,33 @@ void video_set_brightness( video_context* ctx, uint32_t value )
 		brightness.nPortIndex = OMX_ALL;
 		brightness.nBrightness = value;
 		OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonBrightness, &brightness ) );
+		ctx->brightness = value;
+	}
+}
+
+
+void video_set_contrast( video_context* ctx, int32_t value )
+{
+	if ( ctx && ctx->cam && value >= -100 && value <= 100 ) {
+		OMX_CONFIG_CONTRASTTYPE contrast;
+		OMX_INIT_STRUCTURE(contrast);
+		contrast.nPortIndex = OMX_ALL;
+		contrast.nContrast = value;
+		OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonContrast, &contrast ) );
+		ctx->contrast = value;
+	}
+}
+
+
+void video_set_saturation( video_context* ctx, int32_t value )
+{
+	if ( ctx && ctx->cam && value >= -100 && value <= 100 ) {
+		OMX_CONFIG_SATURATIONTYPE saturation;
+		OMX_INIT_STRUCTURE(saturation);
+		saturation.nPortIndex = OMX_ALL;
+		saturation.nSaturation = value;
+		OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonSaturation, &saturation ) );
+		ctx->saturation = value;
 	}
 }
 
@@ -456,7 +481,7 @@ static void config_resize( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 #endif
 
 
-context* video_configure()
+context* video_configure( uint32_t fps, uint32_t live_width, uint32_t live_height, uint32_t live_kbps )
 {
 	context* ctx;
 // 	OMX_CONFIG_FRAMERATETYPE* framerate;
@@ -537,7 +562,7 @@ context* video_configure()
 	portdef2->nPortIndex = 200;
 	OERR( OMX_GetParameter( ctx->enc2, OMX_IndexParamPortDefinition, portdef2 ) );
 
-	config_camera( ctx, portdef );
+	config_camera( ctx, portdef, fps, live_width, live_height );
 
 	portdef->nPortIndex = 60;
 	OERR( OMX_SetParameter( ctx->rsz, OMX_IndexParamPortDefinition, portdef ) );
@@ -594,8 +619,8 @@ context* video_configure()
 #ifdef DUAL_ENCODERS
 	OERR( OMX_SetParameter( ctx->enc1, OMX_IndexParamVideoBitrate, bitrate ) );
 #endif
-	bitrate->eControlRate = OMX_Video_ControlRateVariable; //OMX_Video_ControlRateVariableSkipFrames
-	bitrate->nTargetBitrate = ( PREV_BITRATE * 1024 );
+	bitrate->eControlRate = OMX_Video_ControlRateVariableSkipFrames; //OMX_Video_ControlRateVariableSkipFrames
+	bitrate->nTargetBitrate = ( live_kbps * 1024 );
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoBitrate, bitrate ) );
 
 	OMX_CONFIG_PORTBOOLEANTYPE inlinePPSSPS;
@@ -604,6 +629,14 @@ context* video_configure()
 	inlinePPSSPS.bEnabled = OMX_TRUE;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamBrcmVideoAVCInlineHeaderEnable, &inlinePPSSPS ) );
 
+	OMX_VIDEO_CONFIG_AVCINTRAPERIOD idr;
+	OMX_INIT_STRUCTURE( idr );
+	idr.nPortIndex = 201;
+	idr.nIDRPeriod = 3;
+	idr.nPFrames = 2;
+	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &idr ) );
+/*
+#ifdef PC
 	// FIXME => use this with PC
 	OMX_VIDEO_PARAM_PROFILELEVELTYPE profile;
 	OMX_INIT_STRUCTURE( profile );
@@ -620,30 +653,24 @@ context* video_configure()
 	quantization.nQpP = 4;
 	quantization.nQpB = 0;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoQuantization, &quantization ) );
-/*
+#else
+	// FIXME => use this with RC-controller
+	OMX_VIDEO_PARAM_PROFILELEVELTYPE profile;
+	OMX_INIT_STRUCTURE( profile );
+	profile.nPortIndex = 201;
+	profile.eProfile = OMX_VIDEO_AVCProfileBaseline;
+	profile.eLevel = OMX_VIDEO_AVCLevel31;
+	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoProfileLevelCurrent, &profile ) );
+
 	// FIXME => use this with RC-controller
 	OMX_VIDEO_PARAM_QUANTIZATIONTYPE quantization;
 	OMX_INIT_STRUCTURE( quantization );
 	quantization.nPortIndex = 201;
 	quantization.nQpI = 1;
-	quantization.nQpP = 12;
+	quantization.nQpP = 4;
 	quantization.nQpB = 0;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoQuantization, &quantization ) );
-*/
-	OMX_VIDEO_CONFIG_AVCINTRAPERIOD idr;
-	OMX_INIT_STRUCTURE( idr );
-	idr.nPortIndex = 201;
-	idr.nIDRPeriod = 4;
-	idr.nPFrames = 4;
-	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &idr ) );
-/*
-	// TEST
-	OMX_VIDEO_CONFIG_AVCINTRAPERIOD intraPeriod;
-	OMX_INIT_STRUCTURE( intraPeriod );
-	intraPeriod.nPortIndex = 201;
-	intraPeriod.nIDRPeriod = 60;
-	intraPeriod.nPFrames = 12;
-	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &intraPeriod ) );
+#endif
 */
 /*
 	//FIXME => use this with real-time controller
@@ -652,7 +679,7 @@ context* video_configure()
 	avc.nPortIndex = 201;
 	OERR( OMX_GetParameter( ctx->enc2, OMX_IndexParamVideoAvc, &avc ) );
 // 	avc.nSliceHeaderSpacing = 15; // ??
-	avc.nPFrames = 12;
+	avc.nPFrames = 2;
 	avc.nBFrames = 0;
 	avc.bUseHadamard = OMX_FALSE;
 // 	avc.nRefFrames = 1; // ??
@@ -662,8 +689,8 @@ context* video_configure()
 	avc.bEnableFMO = OMX_FALSE;
 	avc.bEnableASO = OMX_TRUE;
 	avc.bEnableRS = OMX_FALSE;
-	avc.eProfile = OMX_VIDEO_AVCProfileBaseline;
-	avc.eLevel = OMX_VIDEO_AVCLevel31;
+	avc.eProfile = OMX_VIDEO_AVCProfileHigh; //OMX_VIDEO_AVCProfileBaseline
+	avc.eLevel = OMX_VIDEO_AVCLevel4; //OMX_VIDEO_AVCLevel31
 	avc.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP | OMX_VIDEO_PictureTypeEI | OMX_VIDEO_PictureTypeEP;
 	avc.bFrameMBsOnly = OMX_TRUE;
 	avc.bMBAFF = OMX_FALSE;
@@ -676,17 +703,17 @@ context* video_configure()
 	avc.nCabacInitIdc = 0;
 	avc.eLoopFilterMode = OMX_VIDEO_AVCLoopFilterDisable;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoAvc, &avc ) );
-*/
+
 	OMX_CONFIG_BOOLEANTYPE headerOnOpen;
 	OMX_INIT_STRUCTURE( headerOnOpen );
 	headerOnOpen.bEnabled = OMX_TRUE;
 	OERR( OMX_SetConfig( ctx->enc2, OMX_IndexParamBrcmHeaderOnOpen, &headerOnOpen ) );
-/*
+*/
 	OMX_CONFIG_BOOLEANTYPE lowLatency;
 	OMX_INIT_STRUCTURE( lowLatency );
 	lowLatency.bEnabled = OMX_TRUE;
 	OERR( OMX_SetConfig( ctx->enc2, OMX_IndexConfigBrcmVideoH264LowLatency, &lowLatency ) );
-*/
+
 // 	OERR( OMX_SetupTunnel( ctx->clk, 80, ctx->cam, 73 ) );
 
 #ifdef PREV_RSZ
@@ -752,7 +779,7 @@ context* video_configure()
 }
 
 
-static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
+static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def, uint32_t fps, uint32_t width, uint32_t height )
 {
 	// Enable callback for camera
 	OMX_CONFIG_REQUESTCALLBACKTYPE cbtype;
@@ -772,10 +799,10 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	// Set port definition
 	def->nPortIndex = 70;
 	OERR( OMX_GetParameter( ctx->cam, OMX_IndexParamPortDefinition, def ) );
-	def->format.video.nFrameWidth  = WIDTH;
-	def->format.video.nFrameHeight = HEIGHT;
+	def->format.video.nFrameWidth  = width;
+	def->format.video.nFrameHeight = height;
 // 	def->format.video.xFramerate   = 0;
-	def->format.video.xFramerate   = FPS << 16;
+	def->format.video.xFramerate   = fps << 16;
 	def->format.video.nStride      = ( def->format.video.nFrameWidth + def->nBufferAlignment - 1 ) & ( ~(def->nBufferAlignment - 1) );
 	def->format.video.eColorFormat = OMX_COLOR_FormatYUV420PackedPlanar;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamPortDefinition, def ) );
@@ -787,7 +814,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 /*
 	OMX_PARAM_BRCMFRAMERATERANGETYPE fps_range;
 	OMX_INIT_STRUCTURE( fps_range );
-	fps_range.xFramerateLow = FPS << 16;
+	fps_range.xFramerateLow = fps << 16;
 	fps_range.xFramerateHigh = 60 << 16;
 	fps_range.nPortIndex = 71;
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamBrcmFpsRange, &fps_range ) );
@@ -805,12 +832,13 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	- 6 - 720P binned and cropped (360 pixels off left/right, 512 pixels off top/bottom before binning), 40 to 90fps (120fps if overclocked)
 	- 7 - VGA binned and cropped (1000 pixels off left/right, 752 pixels off top/bottom before binning), 40 to 90fps (120fps if overclocked)
 	*/
+/*
 	OMX_PARAM_U32TYPE sensorMode;
 	OMX_INIT_STRUCTURE( sensorMode );
 	sensorMode.nPortIndex = OMX_ALL;
 	sensorMode.nU32 = 6; // 5
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCustomSensorConfig, &sensorMode ) );
-
+*/
 	OMX_PARAM_CAMERAIMAGEPOOLTYPE pool;
 	OMX_INIT_STRUCTURE( pool );
 	OERR( OMX_GetParameter( ctx->cam, OMX_IndexParamCameraImagePool, &pool ) );
@@ -952,6 +980,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	saturation.nPortIndex = OMX_ALL;
 	saturation.nSaturation = CAM_SATURATION;
 	OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonSaturation, &saturation ) );
+	ctx->saturation = CAM_SATURATION;
 
 	// Configure contrast
 	OMX_CONFIG_CONTRASTTYPE contrast;
@@ -959,6 +988,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def )
 	contrast.nPortIndex = OMX_ALL;
 	contrast.nContrast = CAM_CONTRAST;
 	OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonContrast, &contrast ) );
+	ctx->contrast = CAM_CONTRAST;
 
 	// Configure frame white balance control
 	OMX_CONFIG_WHITEBALCONTROLTYPE white_balance_control;

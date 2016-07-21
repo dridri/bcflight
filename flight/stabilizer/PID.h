@@ -19,32 +19,91 @@
 #ifndef PID_H
 #define PID_H
 
+#include <type_traits>
 #include "Vector.h"
 
-class PID
+template< typename T > class PID
 {
 public:
-	PID();
-	~PID();
+	PID() {
+		mIntegral = 0;
+		mLastError = 0;
+		mkPID = 0;
+		mState = 0;
+		mDeadBand = 0;
+	}
+	~PID() {
+	}
 
-	void Reset();
+	void Reset() {
+		mIntegral = 0;
+		mLastError = 0;
+		mState = 0;
+	}
 
-	void setP( float p );
-	void setI( float i );
-	void setD( float d );
-	void setDeadBand( const Vector3f& band );
+	void setP( float p ) {
+		mkPID.x = p;
+	}
+	void setI( float i ) {
+		mkPID.y = i;
+	}
+	void setD( float d ) {
+		mkPID.z = d;
+	}
+	void setDeadBand( const T& band ) {
+		mDeadBand = band;
+	}
 
-	void Process( const Vector3f& command, const Vector3f& measured, float dt );
-	Vector3f state() const;
+	void Process( const T& command, const T& measured, float dt ) {
+		T error = command - measured;
+		ApplyDeadBand( error );
 
-	Vector3f getPID() const;
+		mIntegral += error * dt;
+		T derivative = ( error - mLastError ) / dt;
+		T output = error * mkPID.x + mIntegral * mkPID.y + derivative * mkPID.z;
+
+		mLastError = error;
+		mState = output;
+	}
+
+	T state() const {
+		return mState;
+	}
+	Vector3f getPID() const {
+		return mkPID;
+	}
 
 private:
-	Vector3f mIntegral;
-	Vector3f mLastError;
+	void ApplyDeadBand( Vector3f& error ) {
+		if ( std::abs( error.x ) < mDeadBand.x ) {
+			error.x = 0.0f;
+		}
+		if ( std::abs( error.y ) < mDeadBand.y ) {
+			error.y = 0.0f;
+		}
+		if ( std::abs( error.z ) < mDeadBand.z ) {
+			error.z = 0.0f;
+		}
+	}
+	void ApplyDeadBand( Vector2f& error ) {
+		if ( std::abs( error.x ) < mDeadBand.x ) {
+			error.x = 0.0f;
+		}
+		if ( std::abs( error.y ) < mDeadBand.y ) {
+			error.y = 0.0f;
+		}
+	}
+	void ApplyDeadBand( float& error ) {
+		if ( std::abs( error ) < mDeadBand ) {
+			error = 0.0f;
+		}
+	}
+
+	T mIntegral;
+	T mLastError;
 	Vector3f mkPID;
-	Vector3f mState;
-	Vector3f mDeadBand;
+	T mState;
+	T mDeadBand;
 };
 
 #endif // PID_H

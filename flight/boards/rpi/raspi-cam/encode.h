@@ -49,11 +49,12 @@
 	#define PREV_WIDTH     640
 	#define PREV_HEIGHT    ((PREV_WIDTH)*9/16)
 #else
-	#define FPS       40
+// 	#define FPS       50
 // 	#define FPS       30
-	#define WIDTH     1280
-	#define HEIGHT    720
-	#define PREV_BITRATE   1024
+// 	#define WIDTH     640
+// 	#define WIDTH     1280
+// 	#define HEIGHT    720
+// 	#define PREV_BITRATE   (1152)
 // 	#define PREV_WIDTH     640
 	#define PREV_WIDTH     1280
 	#define PREV_HEIGHT    720
@@ -70,8 +71,8 @@
 #define CAM_DEVICE_NUMBER               0
 #define CAM_SHARPNESS                   100                       // -100 .. 100
 #define CAM_CONTRAST                    0                        // -100 .. 100
-#define CAM_BRIGHTNESS                  64                       // 0 .. 100
-#define CAM_SATURATION                  0                        // -100 .. 100
+#define CAM_BRIGHTNESS                  58                       // 0 .. 100
+#define CAM_SATURATION                  32                        // -100 .. 100
 #define CAM_EXPOSURE_VALUE_COMPENSATION 00
 #define CAM_EXPOSURE_ISO_SENSITIVITY    800
 #define CAM_EXPOSURE_AUTO_SENSITIVITY   OMX_TRUE
@@ -80,7 +81,7 @@
 // #define CAM_IMAGE_FILTER                OMX_ImageFilterNoise    // OMX_IMAGEFILTERTYPE
 #define CAM_IMAGE_FILTER                OMX_ImageFilterNone    // OMX_IMAGEFILTERTYPE
 #define CAM_FLIP_HORIZONTAL             OMX_FALSE
-#define CAM_FLIP_VERTICAL               OMX_FALSE
+#define CAM_FLIP_VERTICAL               OMX_TRUE
 
 typedef struct video_context {
 	int running;
@@ -103,6 +104,8 @@ typedef struct video_context {
 	int camera_ready;
 	OMX_BUFFERHEADERTYPE* cambufs;
 	uint32_t brightness;
+	int32_t contrast;
+	int32_t saturation;
 	// Encoders
 	OMX_BUFFERHEADERTYPE* enc1bufs;
 	OMX_BUFFERHEADERTYPE* enc2bufs;
@@ -110,7 +113,7 @@ typedef struct video_context {
 	int enc2_data_avail;
 } video_context;
 
-video_context* video_configure();
+video_context* video_configure( uint32_t fps, uint32_t live_width, uint32_t live_height, uint32_t live_kbps );
 void video_start( video_context* ctx );
 void video_stop( video_context* ctx );
 void video_start_recording( video_context* ctx, const char* filename );

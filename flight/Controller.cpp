@@ -28,7 +28,6 @@
 #include <Sensor.h>
 #include <Stabilizer.h>
 #include <Frame.h>
-#include <Servo.h>
 #include "video/Camera.h"
 
 #include <netinet/in.h>
@@ -93,7 +92,8 @@ Controller::~Controller()
 
 bool Controller::connected() const
 {
-	return mLink->isConnected();
+	return mConnected;
+// 	return mLink->isConnected();
 }
 
 
@@ -121,13 +121,11 @@ void Controller::Emergency()
 	gDebug() << "EMERGENCY MODE !\n";
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->frame()->Disarm();
-	Servo::HardwareSync();
 	mThrust = 0.0f;
 	mSmoothRPY = Vector3f();
 	mRPY = Vector3f();
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->frame()->Disarm();
-	Servo::HardwareSync();
 }
 
 
@@ -151,6 +149,7 @@ void Controller::SendDebug( const std::string& s )
 
 bool Controller::run()
 {
+/*
 	if ( mEmergencyTick != 0 and ( Board::GetTicks() - mEmergencyTick ) > 1 * 1000 * 1000 ) {
 		mThrust = 0.0f;
 		mMain->stabilizer()->Reset( 0.0f );
@@ -160,18 +159,18 @@ bool Controller::run()
 		mArmed = false;
 		gDebug() << "STONE MODE !\n";
 	}
-
-	mConnected = mLink->isConnected();
-	if ( !mConnected ) {
+*/
+	if ( !mLink->isConnected() ) {
+		mConnected = false;
 		mRPY.x = 0.0f;
 		mRPY.y = 0.0f;
 	}
 
 	if ( !mLink->isConnected() ) {
-		mConnected = false;
+// 		mConnected = false;
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
-			gDebug() << "Controller connected !\n";
+			gDebug() << "Controller link initialized !\n";
 			mEmergencyTick = 0;
 		} else {
 			usleep( 1000 * 250 );
@@ -179,14 +178,24 @@ bool Controller::run()
 		return true;
 	}
 
-	// Prevent CPU overhead
-	usleep( 1000 );
-
 	int readret = 0;
 	Packet command;
 // 	if ( mLink->Read( &command, 500 ) <= 0 ) {
-	if ( ( readret = mLink->Read( &command, 0 ) ) < 0 ) {
-		gDebug() << "Controller connection lost !\n";
+	if ( ( readret = mLink->Read( &command, 0 ) ) <= 0 ) {
+		/*
+		if ( mArmed ) {
+			gDebug() << "Controller connection lost !\n";
+			mThrust = 0.0f;
+			mMain->stabilizer()->Reset( 0.0f );
+			mMain->frame()->Disarm();
+			mRPY = Vector3f();
+			mSmoothRPY = Vector3f();
+			mArmed = false;
+			gDebug() << "STONE MODE !\n";
+			return true;
+		}
+		*/
+		/*
 		mMain->stabilizer()->setMode( Stabilizer::Stabilize );
 		mMain->imu()->ResetRPY();
 		mRPY.x = 0.0f;
@@ -198,6 +207,7 @@ bool Controller::run()
 		mEmergencyTick = Board::GetTicks();
 		gDebug() << "EMERGENCY MODE !\n";
 		return true;
+		*/
 	}
 
 	Cmd cmd = (Cmd)0;
@@ -209,6 +219,10 @@ bool Controller::run()
 		switch ( cmd )
 		{
 			case PING : {
+				if ( not mConnected ) {
+					gDebug() << "Controller connected !\n";
+					mConnected = true;
+				}
 				uint32_t ticks = 0;
 				if ( command.ReadU32( &ticks ) == sizeof(uint32_t) ) {
 					response.WriteU32( ticks );
@@ -311,6 +325,9 @@ bool Controller::run()
 							mMain->imu()->RecalibrateAll();
 						} else {
 							mMain->imu()->Recalibrate();
+						}
+						while ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
+							usleep( 1000 * 10 );
 						}
 						response.WriteU32( 0 );
 					}
@@ -461,12 +478,15 @@ bool Controller::run()
 			case SET_MODE : {
 				uint32_t mode = 0;
 				if( command.ReadU32( &mode ) == sizeof(uint32_t) ) {
+					gDebug() << "SET_MODE : " << mode << "\n";
 					mMain->stabilizer()->setMode( mode );
 					mRPY.x = 0.0f;
 					mRPY.y = 0.0f;
 					if ( mode == (uint32_t)Stabilizer::Rate ) {
+						mMain->imu()->setRateOnly( true );
 						mRPY.z = 0.0f;
 					} else if ( mode == (uint32_t)Stabilizer::Stabilize ) {
+						mMain->imu()->setRateOnly( false );
 						mMain->imu()->ResetRPY();
 						mRPY.z = mMain->imu()->RPY().z;
 					}
@@ -486,38 +506,114 @@ bool Controller::run()
 				break;
 			}
 
-			case SET_PID_P : {
+			case SET_ROLL_PID_P : {
 				float value;
 				if ( command.ReadFloat( &value ) < 0 ) {
 					break;
 				}
-				mMain->stabilizer()->setP( value );
+				mMain->stabilizer()->setRollP( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
 			}
-			case SET_PID_I : {
+			case SET_ROLL_PID_I : {
 				float value;
 				if ( command.ReadFloat( &value ) < 0 ) {
 					break;
 				}
-				mMain->stabilizer()->setI( value );
+				mMain->stabilizer()->setRollI( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
 			}
-			case SET_PID_D : {
+			case SET_ROLL_PID_D : {
 				float value;
 				if ( command.ReadFloat( &value ) < 0 ) {
 					break;
 				}
-				mMain->stabilizer()->setD( value );
+				mMain->stabilizer()->setRollD( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
 			}
-			case PID_FACTORS : {
-				Vector3f pid = mMain->stabilizer()->getPID();
+			case ROLL_PID_FACTORS : {
+				Vector3f pid = mMain->stabilizer()->getRollPID();
+				response.WriteFloat( pid.x );
+				response.WriteFloat( pid.y );
+				response.WriteFloat( pid.z );
+				do_response = true;
+				break;
+			}
+			case SET_PITCH_PID_P : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setPitchP( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_PITCH_PID_I : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setPitchI( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_PITCH_PID_D : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setPitchD( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case PITCH_PID_FACTORS : {
+				Vector3f pid = mMain->stabilizer()->getPitchPID();
+				response.WriteFloat( pid.x );
+				response.WriteFloat( pid.y );
+				response.WriteFloat( pid.z );
+				do_response = true;
+				break;
+			}
+			case SET_YAW_PID_P : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setYawP( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_YAW_PID_I : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setYawI( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case SET_YAW_PID_D : {
+				float value;
+				if ( command.ReadFloat( &value ) < 0 ) {
+					break;
+				}
+				mMain->stabilizer()->setYawD( value );
+				response.WriteFloat( value );
+				do_response = true;
+				break;
+			}
+			case YAW_PID_FACTORS : {
+				Vector3f pid = mMain->stabilizer()->getYawPID();
 				response.WriteFloat( pid.x );
 				response.WriteFloat( pid.y );
 				response.WriteFloat( pid.z );
@@ -601,32 +697,67 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->StartRecording();
+					gDebug() << "Video recording started\n";
 				}
+				response.WriteU32( 1 );
+				do_response = true;
 				break;
 			}
 			case VIDEO_STOP_RECORD : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->StopRecording();
+					gDebug() << "Video recording stopped\n";
+				}
+				response.WriteU32( 0 );
+				do_response = true;
+				break;
+			}
+			case VIDEO_BRIGHTNESS_INCR : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					gDebug() << "Setting camera brightness to " << cam->brightness() + 1 << "\n";
+					cam->setBrightness( cam->brightness() + 1 );
 				}
 				break;
 			}
-			case VIDEO_GET_BRIGHTNESS : {
+			case VIDEO_BRIGHTNESS_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					response.WriteU32( cam->brightness() );
-					do_response = true;
+					gDebug() << "Setting camera brightness to " << cam->brightness() - 1 << "\n";
+					cam->setBrightness( cam->brightness() - 1 );
 				}
 				break;
 			}
-			case VIDEO_SET_BRIGHTNESS : {
-				uint32_t value;
-				if ( command.ReadU32( &value ) < 0 ) {
-					break;
-				}
+			case VIDEO_CONTRAST_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					cam->setBrightness( value );
+					gDebug() << "Setting camera contrast to " << cam->contrast() + 1 << "\n";
+					cam->setContrast( cam->contrast() + 1 );
+				}
+				break;
+			}
+			case VIDEO_CONTRAST_DECR : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					gDebug() << "Setting camera contrast to " << cam->contrast() - 1 << "\n";
+					cam->setContrast( cam->contrast() - 1 );
+				}
+				break;
+			}
+			case VIDEO_SATURATION_INCR : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					gDebug() << "Setting camera saturation to " << cam->saturation() + 1 << "\n";
+					cam->setSaturation( cam->saturation() + 1 );
+				}
+				break;
+			}
+			case VIDEO_SATURATION_DECR : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					gDebug() << "Setting camera saturation to " << cam->saturation() - 1 << "\n";
+					cam->setSaturation( cam->saturation() - 1 );
 				}
 				break;
 			}

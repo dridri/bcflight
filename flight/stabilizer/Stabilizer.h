@@ -37,10 +37,18 @@ public:
 	Stabilizer( Main* main, Frame* frame );
 	~Stabilizer();
 
-	void setP( float p );
-	void setI( float i );
-	void setD( float d );
-	Vector3f getPID() const;
+	void setRollP( float p );
+	void setRollI( float i );
+	void setRollD( float d );
+	Vector3f getRollPID() const;
+	void setPitchP( float p );
+	void setPitchI( float i );
+	void setPitchD( float d );
+	Vector3f getPitchPID() const;
+	void setYawP( float p );
+	void setYawI( float i );
+	void setYawD( float d );
+	Vector3f getYawPID() const;
 	Vector3f lastPIDOutput() const;
 
 	void setOuterP( float p );
@@ -67,9 +75,11 @@ private:
 	float mRateFactor;
 	bool mAltitudeHold;
 
-	PID mRatePID;
-	PID mHorizonPID;
-	PID mAltitudePID;
+	PID<float> mRateRollPID;
+	PID<float> mRatePitchPID;
+	PID<float> mRateYawPID;
+	PID<Vector3f> mHorizonPID;
+	PID<float> mAltitudePID;
 	float mAltitudeControl;
 
 	int mLockState;

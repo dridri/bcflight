@@ -35,7 +35,6 @@ extern "C" {
 #include <Main.h>
 #include "Board.h"
 #include "I2C.h"
-#include "pi-blaster.h"
 
 extern "C" void bcm_host_init( void );
 extern "C" void bcm_host_deinit( void );
@@ -43,7 +42,9 @@ extern "C" void bcm_host_deinit( void );
 uint64_t Board::mTicksBase = 0;
 uint64_t Board::mLastWorkJiffies = 0;
 uint64_t Board::mLastTotalJiffies = 0;
+bool Board::mUpdating = false;
 decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
+PWM* Board::mMotorsPWM = nullptr;
 
 VCHI_INSTANCE_T Board::global_initialise_instance = nullptr;
 VCHI_CONNECTION_T* Board::global_connection = nullptr;
@@ -55,7 +56,10 @@ Board::Board( Main* main )
 // 	VCOSInit();
 
 	wiringPiSetupGpio();
-	PiBlasterInit( 100 );
+
+	//TODO : load later, using pins specified in config file
+// 	uint8_t motors_pins[] = { 18, 23, 24, 25 };
+// 	mMotorsPWM = new PWM( 14, 1000000, 2000, 2, motors_pins, 4 );
 
 	system( "mount -o remount,rw /data" );
 
@@ -81,6 +85,12 @@ Board::~Board()
 
 void Board::AtExit()
 {
+}
+
+
+PWM* Board::motorsPWM()
+{
+	return mMotorsPWM;
 }
 
 
@@ -121,7 +131,11 @@ static uint32_t crc32( const uint8_t* buf, uint32_t len )
 
 void Board::UpdateFirmwareProcess( uint32_t crc )
 {
+	if ( mUpdating ) {
+		return;
+	}
 	gDebug() << "Updating Flight Controller firmware\n";
+	mUpdating = true;
 
 	std::ifstream firmware( "/tmp/flight_update" );
 	if ( firmware.is_open() ) {
@@ -149,14 +163,15 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 		file << "sleep 1\n";
 		file << "rm /data/prog/flight\n";
 		file << "cp /tmp/flight_update /data/prog/flight\n";
-		file << "rm /tmp/flight_update\n";
-		file << "chmod +x /data/prog/flight\n";
 		file << "sleep 2\n";
-		file << "killall -9 flight\n";
+		file << "rm /tmp/flight_update\n";
+		file << "sleep 1\n";
+		file << "chmod +x /data/prog/flight\n";
+		file << "sleep 1\n";
 		file << "service flight start\n";
 		file.close();
 
-		system( "nohup sh /tmp/update.sh" );
+		system( "nohup sh /tmp/update.sh &" );
 	}
 }
 

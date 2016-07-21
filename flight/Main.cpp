@@ -43,6 +43,8 @@
 	#include <RawWifi.h>
 #endif
 
+#include "peripherals/WS2812.h" // TEST
+
 Main* Main::mInstance = nullptr;
 
 
@@ -83,6 +85,7 @@ Main::Main()
 	Board::InformLoading();
 	mConfig->DumpVariable( "board" );
 	mConfig->DumpVariable( "frame" );
+	mConfig->DumpVariable( "battery" );
 	mConfig->DumpVariable( "controller" );
 	mConfig->DumpVariable( "camera" );
 	mConfig->DumpVariable( "accelerometers" );
@@ -123,13 +126,12 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
-// #ifdef CAMERA
-// 	Link* cameraLink = Link::Create( mConfig, "camera.link" );
-// 	mCamera = new CAMERA( cameraLink );
-// 	Board::InformLoading();
-// #else
+#ifdef CAMERA
+	mCamera = new CAMERA( mConfig, "camera" );
+	Board::InformLoading();
+#else
 	mCamera = nullptr;
-// #endif
+#endif
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
