@@ -134,10 +134,11 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 */
 	pu8Payload += u16HeaderLen + rwifi->n80211HeaderLength;
 
-#ifndef __arm__
-	if ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS ) {
-		bytes -= 4;
-	}
+#ifndef __arm__ // Only on drone ? Oo
+	bytes -= 4;
+// 	if ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS ) {
+// 		bytes -= 4;
+// 	}
 #endif
 
 	int checksum_correct = ( prd.m_nRadiotapFlags & 0x40 ) == 0;
@@ -191,6 +192,12 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	};
 
 	int is_valid = ( header.crc == rawwifi_crc32( pu8Payload, bytes ) );
+	if ( is_valid == 0 ) {
+		dprintf( "Invalid CRC !\n" );
+		if ( bytes == 8 || bytes == 12 ) {
+			dprintf( "0x%08X   0x%08X   0x%08X\n", ((uint32_t*)pu8Payload)[0], ((uint32_t*)pu8Payload)[1], ((uint32_t*)pu8Payload)[2] );
+		}
+	}
 
 	if ( header.packets_count & RETRY_ACK ) {
 		ack.valid = is_valid;
@@ -237,9 +244,11 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	}
 	block->id = header.block_id;
 
-	memcpy( block->packets[header.packet_id].data, pu8Payload, bytes );
-	block->packets[header.packet_id].size = bytes;
-	block->packets[header.packet_id].valid = is_valid;
+	if ( block->packets[header.packet_id].size == 0 || block->packets[header.packet_id].valid == 0 ) {
+		memcpy( block->packets[header.packet_id].data, pu8Payload, bytes );
+		block->packets[header.packet_id].size = bytes;
+		block->packets[header.packet_id].valid = is_valid;
+	}
 
 	int block_ok = 1;
 	for ( uint32_t i = 0; i < header.packets_count; i++ ) {
@@ -248,6 +257,10 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 			block_ok = 0;
 			break;
 		}
+	}
+	if ( block->packets[block->packets_count-1].size > 0 ) {
+		dprintf( "========> Block %d half empty, deal with it <========\n", block->id );
+		block_ok = 1;
 	}
 	if ( block_ok ) {
 		uint32_t all_valid = 0;
@@ -264,6 +277,7 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		}
 		block->valid = ( all_valid == header.packets_count );
 		*valid = block->valid;
+		dprintf( "block %d ok : %d bytes total\n", block->id, offset );
 		return offset;
 	}
 

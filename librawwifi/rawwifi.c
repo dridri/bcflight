@@ -127,6 +127,7 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 
 	if ( blocking == 0 ) {
 		pthread_create( &rwifi->send_thread, 0, rawwifi_send_thread, rwifi );
+		pthread_setname_np( rwifi->send_thread, "rawwifi_tx" );
 	}
 
 	return rwifi;
