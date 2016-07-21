@@ -46,6 +46,16 @@ void ControllerPC::setArmed( const bool armed )
 }
 
 
+void ControllerPC::setModeSwitch( const Controller::Mode& mode )
+{
+	if ( mode == Controller::Stabilize ) {
+		mMode = true;
+	} else if ( mode == Controller::Rate ) {
+		mMode = false;
+	}
+}
+
+
 float ControllerPC::ReadThrust()
 {
 	return mThrust;
@@ -74,6 +84,9 @@ int8_t ControllerPC::ReadSwitch( uint32_t id )
 {
 	if ( id == 2 ) {
 		return mArmed;
+	}
+	if ( id == 3 ) {
+		return mMode;
 	}
 	return 0;
 }

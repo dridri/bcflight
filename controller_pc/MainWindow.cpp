@@ -44,6 +44,7 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	, mController( ctrl )
 	, mStreamLink( streamLink )
 	, mPIDsOk( false )
+	, mPIDsReading( true )
 {
 	mControllerMonitor = new ControllerMonitor( mController );
 	connect( mControllerMonitor, SIGNAL( connected() ), this, SLOT( connected() ) );
@@ -71,6 +72,14 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	connect( ui->config_save, SIGNAL( pressed() ), this, SLOT( SaveConfig() ) );
 	connect( ui->firmware_browse, SIGNAL( pressed() ), this, SLOT( FirmwareBrowse() ) );
 	connect( ui->firmware_upload, SIGNAL( pressed() ), this, SLOT( FirmwareUpload() ) );
+	connect( ui->stabilized_mode, SIGNAL( pressed() ), this, SLOT( ModeStabilized() ) );
+	connect( ui->rate_mode, SIGNAL( pressed() ), this, SLOT( ModeRate() ) );
+	connect( ui->brightness_dec, SIGNAL( pressed() ), this, SLOT( VideoBrightnessDecrease() ) );
+	connect( ui->brightness_inc, SIGNAL( pressed() ), this, SLOT( VideoBrightnessIncrease() ) );
+	connect( ui->contrast_dec, SIGNAL( pressed() ), this, SLOT( VideoContrastDecrease() ) );
+	connect( ui->contrast_inc, SIGNAL( pressed() ), this, SLOT( VideoContrastIncrease() ) );
+	connect( ui->saturation_dec, SIGNAL( pressed() ), this, SLOT( VideoSaturationDecrease() ) );
+	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -200,7 +209,7 @@ void MainWindow::connected()
 void MainWindow::updateData()
 {
 	QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-	ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s    |    %6 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( ui->video->fps() ) );
+	ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % )    |    %7 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
 	ui->latency->setText( QString::number( mController->ping() ) + " ms" );
 	ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );
@@ -249,22 +258,35 @@ void MainWindow::updateData()
 	ui->altitude->replot();
 
 	if ( mController->isConnected() and ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
+		mPIDsReading = true;
 		mController->ReloadPIDs();
-		ui->rateP->setValue( mController->pid().x );
-		ui->rateI->setValue( mController->pid().y );
-		ui->rateD->setValue( mController->pid().z );
+		ui->rateP->setValue( mController->rollPid().x );
+		ui->rateI->setValue( mController->rollPid().y );
+		ui->rateD->setValue( mController->rollPid().z );
+		ui->rateP_2->setValue( mController->pitchPid().x );
+		ui->rateI_2->setValue( mController->pitchPid().y );
+		ui->rateD_2->setValue( mController->pitchPid().z );
+		ui->rateP_3->setValue( mController->yawPid().x );
+		ui->rateI_3->setValue( mController->yawPid().y );
+		ui->rateD_3->setValue( mController->yawPid().z );
 		ui->horizonP->setValue( mController->outerPid().x );
 		ui->horizonI->setValue( mController->outerPid().y );
 		ui->horizonD->setValue( mController->outerPid().z );
-		connect( ui->rateP, SIGNAL( valueChanged(double) ), this, SLOT( setRateP(double) ) );
-		connect( ui->rateI, SIGNAL( valueChanged(double) ), this, SLOT( setRateI(double) ) );
-		connect( ui->rateD, SIGNAL( valueChanged(double) ), this, SLOT( setRateD(double) ) );
+		connect( ui->rateP, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
+		connect( ui->rateI, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
+		connect( ui->rateD, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
+		connect( ui->rateP_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
+		connect( ui->rateI_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
+		connect( ui->rateD_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
+		connect( ui->rateP_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
+		connect( ui->rateI_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
+		connect( ui->rateD_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
 		connect( ui->horizonP, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonP(double) ) );
 		connect( ui->horizonI, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonI(double) ) );
 		connect( ui->horizonD, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonD(double) ) );
 		mPIDsOk = true;
+		mPIDsReading = false;
 	}
-
 }
 
 
@@ -375,41 +397,71 @@ void MainWindow::FirmwareUpload()
 }
 
 
-void MainWindow::setRateP( double v )
+void MainWindow::ModeRate()
 {
-	if ( mController->isConnected() ) {
-		mPIDsOk = true;
-	}
-	vec3 vec = mController->pid();
-	vec.x = v;
-	mController->setPID( vec );
+	mController->setModeSwitch( Controller::Rate );
 }
 
 
-void MainWindow::setRateI( double v )
+void MainWindow::ModeStabilized()
 {
-	if ( mController->isConnected() ) {
-		mPIDsOk = true;
-	}
-	vec3 vec = mController->pid();
-	vec.y = v;
-	mController->setPID( vec );
+	mController->setModeSwitch( Controller::Stabilize );
 }
 
 
-void MainWindow::setRateD( double v )
+void MainWindow::setRatePIDRoll( double v )
 {
+	if ( mPIDsReading ) {
+		return;
+	}
 	if ( mController->isConnected() ) {
 		mPIDsOk = true;
 	}
-	vec3 vec = mController->pid();
-	vec.z = v;
-	mController->setPID( vec );
+	vec3 vec;
+	vec.x = ui->rateP->value();
+	vec.y = ui->rateI->value();
+	vec.z = ui->rateD->value();
+	mController->setRollPID( vec );
+}
+
+
+void MainWindow::setRatePIDPitch( double v )
+{
+	if ( mPIDsReading ) {
+		return;
+	}
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec;
+	vec.x = ui->rateP_2->value();
+	vec.y = ui->rateI_2->value();
+	vec.z = ui->rateD_2->value();
+	mController->setPitchPID( vec );
+}
+
+
+void MainWindow::setRatePIDYaw( double v )
+{
+	if ( mPIDsReading ) {
+		return;
+	}
+	if ( mController->isConnected() ) {
+		mPIDsOk = true;
+	}
+	vec3 vec;
+	vec.x = ui->rateP_3->value();
+	vec.y = ui->rateI_3->value();
+	vec.z = ui->rateD_3->value();
+	mController->setYawPID( vec );
 }
 
 
 void MainWindow::setHorizonP( double v )
 {
+	if ( mPIDsReading ) {
+		return;
+	}
 	if ( mController->isConnected() ) {
 		mPIDsOk = true;
 	}
@@ -421,6 +473,9 @@ void MainWindow::setHorizonP( double v )
 
 void MainWindow::setHorizonI( double v )
 {
+	if ( mPIDsReading ) {
+		return;
+	}
 	if ( mController->isConnected() ) {
 		mPIDsOk = true;
 	}
@@ -432,10 +487,61 @@ void MainWindow::setHorizonI( double v )
 
 void MainWindow::setHorizonD( double v )
 {
+	if ( mPIDsReading ) {
+		return;
+	}
 	if ( mController->isConnected() ) {
 		mPIDsOk = true;
 	}
 	vec3 vec = mController->outerPid();
 	vec.z = v;
 	mController->setOuterPID( vec );
+}
+
+
+void MainWindow::VideoBrightnessDecrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoBrightnessDecrease();
+	}
+}
+
+
+void MainWindow::VideoBrightnessIncrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoBrightnessIncrease();
+	}
+}
+
+
+void MainWindow::VideoContrastDecrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoContrastDecrease();
+	}
+}
+
+
+void MainWindow::VideoContrastIncrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoContrastIncrease();
+	}
+}
+
+
+void MainWindow::VideoSaturationDecrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoSaturationDecrease();
+	}
+}
+
+
+void MainWindow::VideoSaturationIncrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoSaturationIncrease();
+	}
 }

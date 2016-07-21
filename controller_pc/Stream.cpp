@@ -108,7 +108,7 @@ void Stream::paintGL()
 			"attribute highp vec2 tex;\n"
 			"varying vec2 texcoords;\n"
 			"void main(void) {\n"
-			"	texcoords = tex;\n"
+			"	texcoords = vec2( tex.s, 1.0 - tex.t );\n"
 			"	gl_Position = vec4( vertex, 0.0, 1.0 );\n"
 			"}" );
 		mShader->addShaderFromSourceCode( QGLShader::Fragment,

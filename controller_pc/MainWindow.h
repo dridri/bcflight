@@ -42,15 +42,17 @@ public:
 public slots:
 	void connected();
 	void updateData();
+	void ModeStabilized();
+	void ModeRate();
 	void ResetBattery();
 	void Calibrate();
 	void CalibrateAll();
 	void CalibrateESCs();
 	void ArmDisarm();
 	void throttleChanged( int throttle );
-	void setRateP( double v );
-	void setRateI( double v );
-	void setRateD( double v );
+	void setRatePIDRoll( double v );
+	void setRatePIDPitch( double v );
+	void setRatePIDYaw( double v );
 	void setHorizonP( double v );
 	void setHorizonI( double v );
 	void setHorizonD( double v );
@@ -59,6 +61,12 @@ public slots:
 	void FirmwareBrowse();
 	void FirmwareUpload();
 	void firmwareFileSelected( QString path );
+	void VideoBrightnessIncrease();
+	void VideoBrightnessDecrease();
+	void VideoContrastIncrease();
+	void VideoContrastDecrease();
+	void VideoSaturationIncrease();
+	void VideoSaturationDecrease();
 
 private:
 	Ui::MainWindow* ui;
@@ -75,6 +83,7 @@ private:
 	QVector< double > mDataAltitude;
 
 	bool mPIDsOk;
+	bool mPIDsReading;
 };
 
 #endif // MAINWINDOW_H
