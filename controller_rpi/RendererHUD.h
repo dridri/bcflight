@@ -41,6 +41,7 @@ typedef struct IwStats {
 	int level;
 	int noise;
 	int channel;
+	char source;
 } IwStats;
 
 
@@ -59,6 +60,7 @@ public:
 
 	void PreRender( VideoStats* videostats );
 	void setNightMode( bool m ) { mNightMode = m; }
+	void setStereo( bool en ) { mStereo = en; }
 
 protected:
 	typedef struct {
@@ -92,6 +94,7 @@ protected:
 
 	Instance* mInstance;
 	Font* mFont;
+	bool mStereo;
 	bool mNightMode;
 	float m3DStrength;
 	bool mBlinkingViews;

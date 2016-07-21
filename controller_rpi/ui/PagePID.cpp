@@ -48,14 +48,14 @@ void PagePID::lostFocus()
 void PagePID::click( float _x, float _y, float force )
 {
 	auto window = getGlobals()->window();
-	GE::Font* font = getGlobals()->font();
+// 	GE::Font* font = getGlobals()->font();
 	int x = _x * window->width();
 	int y = _y * window->height();
 
 	if ( getGlobals()->PageSwitcher( x, y ) ) {
 		return;
 	}
-
+/*
 	int tw = 0, th = 0;
 	char p[32];
 	sprintf( p, "-%+.6f+", getGlobals()->controller()->pid().x );
@@ -138,6 +138,7 @@ void PagePID::click( float _x, float _y, float force )
 		getGlobals()->controller()->setPID( pid );
 		getGlobals()->controller()->setOuterPID( outerPid );
 	}
+*/
 }
 
 
@@ -148,6 +149,7 @@ void PagePID::touch( float x, float y, float force )
 
 bool PagePID::update( float t, float dt )
 {
+/*
 	auto window = getGlobals()->window();
 	auto renderer = getGlobals()->mainRenderer();
 	GE::Font* font = getGlobals()->font();
@@ -173,7 +175,7 @@ bool PagePID::update( float t, float dt )
 	renderer->DrawText( drawer_width + 8 + tw + 16, window->height() / 2 - font->size() * 3 + font->size() * 0, font, 0xFFFFFFFF, op );
 	renderer->DrawText( drawer_width + 8 + tw + 16, window->height() / 2 - font->size() * 3 + font->size() * 2, font, 0xFFFFFFFF, oi );
 	renderer->DrawText( drawer_width + 8 + tw + 16, window->height() / 2 - font->size() * 3 + font->size() * 4, font, 0xFFFFFFFF, od );
-
+*/
 	return false;
 }
 

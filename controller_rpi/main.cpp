@@ -33,6 +33,7 @@
 #include <RawWifi.h>
 #include <Socket.h>
 #include "ControllerPi.h"
+#include "Config.h"
 #include "Stream.h"
 #include "ui/Globals.h"
 
@@ -55,6 +56,15 @@ void segv_handler( int sig )
 
 int main( int ac, char** av )
 {
+	ControllerPi* controller = nullptr;
+	Stream* stream = nullptr;
+	Link* controller_link = nullptr;
+	Link* stream_link = nullptr;
+
+	if ( ac <= 1 ) {
+		gDebug() << "FATAL ERROR : No config file specified !\n";
+		return -1;
+	}
 
 	bcm_host_init();
 	signal( SIGSEGV, segv_handler );
@@ -63,21 +73,44 @@ int main( int ac, char** av )
 	Font* font = new Font( "data/FreeMonoBold.ttf", 28 );
 	Font* font_hud = new Font( "data/RobotoCondensed-Bold.ttf", 28, 0xFF000000 );
 
+	Config* config = new Config( av[1] );
+	config->Reload();
+
 	Globals* globals = new Globals( instance, font );
 
-// 	Link* controller_link = new ::Socket( "192.168.32.1", 2020 );
-	Link* controller_link = new RawWifi( "wlan0", 0, 1 );
-// 	Link* stream_link = new ::Socket( "192.168.32.1", 2021 );
-	Link* stream_link = new RawWifi( "wlan0", 10, 11 );
+	if ( config->string( "controller.link.link_type" ) == "Socket" ) {
+		controller_link = new ::Socket( config->string( "controller.link.address", "192.168.32.1" ), config->integer( "controller.link.port", 2020 ) );
+	} else if ( config->string( "controller.link.link_type" ) == "RawWifi" ) {
+		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ) );
+	}
 
-	ControllerPi* controller = new ControllerPi( controller_link );
-	Stream* stream = new Stream( controller, font_hud, stream_link );
+	if ( config->string( "stream.link.link_type" ) == "Socket" ) {
+		stream_link = new ::Socket( config->string( "stream.link.address", "192.168.32.1" ), config->integer( "stream.link.port", 2020 ) );
+	} else if ( config->string( "stream.link.link_type" ) == "RawWifi" ) {
+		stream_link = new RawWifi( config->string( "stream.link.device", "wlan0" ), config->integer( "stream.link.output_port", 10 ), config->integer( "stream.link.input_port", 11 ) );
+		dynamic_cast< RawWifi* >( stream_link )->setBlocking( config->boolean( "stream.link.blocking", true ) );
+	}
 
-	globals->setStream( nullptr );
+	if ( controller_link ) {
+		controller = new ControllerPi( controller_link );
+	}
+	if ( stream_link ) {
+		stream = new Stream( controller, font_hud, stream_link, config->integer( "stream.width", 1920 ), config->integer( "stream.height", 1080 ), config->boolean( "stream.stereo", true ) );
+		stream->setStereo( config->boolean( "stream.stereo", true ) );
+		stream->setRenderHUD( config->boolean( "stream.hud", true ) );
+	}
+
 	globals->setStream( stream );
 	globals->setController( controller );
-	globals->setCurrentPage( "PageMain" );
-	globals->Run();
+
+	if ( config->boolean( "touchscreen.enabled", true ) ) {
+		globals->setCurrentPage( "PageMain" );
+		globals->Run();
+	} else {
+		while ( 1 ) {
+			usleep( 1000 * 1000 );
+		}
+	}
 
 	gDebug() << "Exiting\n";
 	globals->instance()->Exit( 0 );

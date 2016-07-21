@@ -12,9 +12,13 @@ add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )
 include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
+include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
+
+add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip "-m32" )
 
 add_executable( controller_rpi
 				main.cpp
+				Config.cpp
 				ControllerPi.cpp
 				Stream.cpp
 				RendererHUD.cpp
@@ -32,7 +36,8 @@ add_executable( controller_rpi
 				)
 
 add_dependencies( controller_rpi controller )
+add_dependencies( controller_rpi libluajit_static )
 
-target_link_libraries( controller_rpi controller -lbcui -lgammaengine -lpng -ljpeg -lfreetype -lmad -lrt -lwiringPi -ldl -lopenmaxil -lGLESv2 -lEGL -lbcm_host -lvcos -lvchiq_arm -liw rawwifi -lpcap -lz pthread )
+target_link_libraries( controller_rpi -L./ controller libluajit_static.a -lbcui -lgammaengine -lpng -ljpeg -lfreetype -lmad -lrt -lwiringPi -ldl -lopenmaxil -lGLESv2 -lEGL -lbcm_host -lvcos -lvchiq_arm -liw rawwifi -lpcap -lz pthread )
 
 install( TARGETS controller_rpi RUNTIME DESTINATION bin )

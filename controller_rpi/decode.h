@@ -44,6 +44,7 @@ typedef struct video_context {
 	pthread_mutex_t lock;
 	// Handles
 	OMX_HANDLETYPE dec;
+	OMX_HANDLETYPE fx;
 	OMX_HANDLETYPE spl;
 	OMX_HANDLETYPE rdr1;
 	OMX_HANDLETYPE rdr2;
@@ -53,9 +54,10 @@ typedef struct video_context {
 
 	int width;
 	int height;
+	int stereo;
 } video_context;
 
-video_context* video_configure();
+video_context* video_configure( int width, int height, int stereo );
 void video_start( video_context* ctx );
 void video_decode_frame( video_context* ctx );
 void video_stop( video_context* ctx );

@@ -30,15 +30,15 @@ PageMain::PageMain()
 
 	std::function<void()> fct_actionResetBattery = [this]() { this->actionResetBattery(); };
 	mButtonResetBattery = new Button( getGlobals()->font(), L"Reset battery", fct_actionResetBattery );
-	mButtonResetBattery->setGeometry( base_x, 16, mButtonResetBattery->width(), mButtonResetBattery->height() );
+	mButtonResetBattery->setGeometry( base_x, 32, mButtonResetBattery->width(), mButtonResetBattery->height() );
 
 	std::function<void()> fct_actionCalibrate = [this]() { this->actionCalibrate(); };
 	mButtonCalibrate = new Button( getGlobals()->font(), L"Calibrate", fct_actionCalibrate );
-	mButtonCalibrate->setGeometry( base_x, 16 + getGlobals()->font()->size() * 2, mButtonCalibrate->width(), mButtonCalibrate->height() );
+	mButtonCalibrate->setGeometry( base_x, 32 + getGlobals()->font()->size() * 2, mButtonCalibrate->width(), mButtonCalibrate->height() );
 
 	std::function<void()> fct_actionCalibrateAll = [this]() { this->actionCalibrateAll(); };
 	mButtonCalibrateAll = new Button( getGlobals()->font(), L"Calibrate all", fct_actionCalibrateAll );
-	mButtonCalibrateAll->setGeometry( base_x, 16 + getGlobals()->font()->size() * 4, mButtonCalibrateAll->width(), mButtonCalibrateAll->height() );
+	mButtonCalibrateAll->setGeometry( base_x, 32 + getGlobals()->font()->size() * 4, mButtonCalibrateAll->width(), mButtonCalibrateAll->height() );
 /*
 	std::function<void()> fct_actionCalibrateESCs = [this]() { this->actionCalibrateESCs(); };
 	mButtonCalibrateESCs = new Button( getGlobals()->font(), L"Calibrate ESCs", fct_actionCalibrateESCs );
@@ -102,66 +102,73 @@ bool PageMain::update( float t, float dt )
 		auto window = getGlobals()->window();
 		auto renderer = getGlobals()->mainRenderer();
 		GE::Font* font = getGlobals()->font();
+		uint32_t clear_color = 0xFF303030;
 
-		if ( getGlobals()->controller()->localBatteryVoltage() < 9.5f ) {
-			window->Clear( 0xFF303080 );
-		} else {
-			window->Clear( 0xFF303030 );
+		if ( getGlobals()->controller()->localBatteryVoltage() < 11.0f ) {
+			clear_color = 0xFFFF3030;
 		}
+/*
+		window->Clear( clear_color );
 		getGlobals()->RenderDrawer();
 		mButtonResetBattery->render();
 		mButtonCalibrate->render();
 		mButtonCalibrateAll->render();
 	// 	mButtonCalibrateESCs->render();
-
+*/
 		std::string svbat = std::to_string( getGlobals()->controller()->localBatteryVoltage() );
 		svbat = svbat.substr( 0, svbat.find( "." ) + 4 ) + "V";
 		int w = 0;
 		int h = 0;
 		font->measureString( svbat, &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 0, w, h );
-		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 0, font, 0xFFFFFFFF, svbat );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 1, w, h );
+		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 1, font, 0xFFFFFFFF, svbat );
 
 		svbat = std::to_string( 0.01f * std::round( getGlobals()->controller()->batteryVoltage() * 100.0f ) );
 		svbat = svbat.substr( 0, svbat.find( "." ) + 3 ) + "V";
 		font->measureString( "12.60 V", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 1, w, h );
-		font->measureString( svbat, &w, &h );
-		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 1, font, 0xFFFFFFFF, svbat );
-
-		svbat = std::to_string( getGlobals()->controller()->totalCurrent() ) + "mAh";
-		font->measureString( "1000 mAh", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 2, w, h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 2, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 2, font, 0xFFFFFFFF, svbat );
 
-		svbat = std::to_string( getGlobals()->controller()->ping() ) + "ms";
-		font->measureString( "1000 ms", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 3, w, h );
+		svbat = std::to_string( getGlobals()->controller()->totalCurrent() ) + "mAh";
+		font->measureString( "1000 mAh", &w, &h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 3, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 3, font, 0xFFFFFFFF, svbat );
-	
-		svbat = std::to_string( getGlobals()->controller()->link()->RxQuality() ) + "%";
-		font->measureString( "100 %", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 4, w, h );
+
+		svbat = std::to_string( getGlobals()->controller()->ping() ) + "ms";
+		font->measureString( "1000 ms", &w, &h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 4, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 4, font, 0xFFFFFFFF, svbat );
 	
-		svbat = std::to_string( getGlobals()->controller()->droneRxQuality() ) + "%";
-		font->measureString( "100 %", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 5, w, h );
+		svbat = std::to_string( getGlobals()->controller()->droneRxQuality() ) + "% TX";
+		font->measureString( "100 % TX", &w, &h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 5, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 5, font, 0xFFFFFFFF, svbat );
+	
+		svbat = std::to_string( getGlobals()->controller()->link()->RxQuality() ) + "% RX";
+		font->measureString( "100 % RX", &w, &h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 6, w, h );
+		font->measureString( svbat, &w, &h );
+		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 6, font, 0xFFFFFFFF, svbat );
+	
+		svbat = std::to_string( getGlobals()->stream()->link()->RxQuality() ) + "% RV";
+		font->measureString( "100 % RV", &w, &h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 7, w, h );
+		font->measureString( svbat, &w, &h );
+		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 7, font, 0xFFFFFFFF, svbat );
 /*
 		svbat = std::to_string( getGlobals()->stream()->linkQuality() ) + "%";
 		font->measureString( "100 %", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 4 + font->size() * 4, w, h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 4 + font->size() * 4, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 4, font, 0xFFFFFFFF, svbat );
 
 		svbat = std::to_string( getGlobals()->stream()->linkLevel() ) + "dBm";
 		font->measureString( "-100 dBm", &w, &h );
-		window->ClearRegion( 0xFF303030, window->width() - w * 1.05f, 5 + font->size() * 5, w, h );
+		window->ClearRegion( clear_color, window->width() - w * 1.05f, 5 + font->size() * 5, w, h );
 		font->measureString( svbat, &w, &h );
 		renderer->DrawText( window->width() - w * 1.05f, 4 + font->size() * 5, font, 0xFFFFFFFF, svbat );
 */
@@ -173,7 +180,7 @@ bool PageMain::update( float t, float dt )
 
 void PageMain::render()
 {
-/*
+
 	auto window = getGlobals()->window();
 	auto renderer = getGlobals()->mainRenderer();
 	GE::Font* font = getGlobals()->font();
@@ -187,7 +194,6 @@ void PageMain::render()
 // 	mButtonCalibrateESCs->render();
 
 	mLastT = 0.0f;
-*/
 }
 
 

@@ -171,7 +171,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		float level = controller->batteryLevel();
 		RenderBattery( level );
 		if ( level <= 0.25f and mBlinkingViews ) {
-			RenderText( (float)window->width() * 1.0f / 4.0f, window->height() - 125, "Low Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( (float)window->width() * 1.0f / 4.0f, window->height() - 150, "Low Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}
 		float battery_red = 1.0f - level;
 		RenderText( (float)window->width() * 0.5f * 0.30f, window->height() * 0.79f, std::to_string( (int)( level * 100.0f ) ) + "%", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f - battery_red * 0.5f, 1.0f ), 0.9 );
@@ -181,8 +181,8 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		RenderText( (float)window->width() * 0.5f * 0.13f, window->height() * 0.75f, std::to_string( controller->totalCurrent() ) + "mAh", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.9 );
 
 		float localVoltage = controller->localBatteryVoltage();
-		if ( localVoltage <= 3.2f * 2.0f and mBlinkingViews ) {
-			RenderText( (float)window->width() * 1.0f / 4.0f, window->height() - 155, "Low Controller Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+		if ( localVoltage <= 11.0f and mBlinkingViews ) {
+			RenderText( (float)window->width() * 1.0f / 4.0f, window->height() - 175, "Low Controller Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}
 		battery_red = 1.0f - ( ( localVoltage - 6.4f ) / 2.0f );
 		svolt = std::to_string( localVoltage );
@@ -236,7 +236,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 	{
 		RenderLink( (float)iwstats->qual / 100.0f );
 		float link_red = 1.0f - ((float)iwstats->qual) / 100.0f;
-		std::string link_quality_str = "Ch" + std::to_string( iwstats->channel ) + "  " + std::to_string( iwstats->level ) + "dBm  " + std::to_string( iwstats->qual ) + "%";
+		std::string link_quality_str = "Ch" + std::to_string( iwstats->channel ) + "  " + std::to_string( iwstats->level ) + "dBm  " + std::to_string( iwstats->qual ) + "% (" + iwstats->source + ")";
 		RenderText( (float)window->width() * 0.5f * 0.13f, 720.0f * 0.21f, link_quality_str, Vector4f( 0.5f + 0.5f * link_red, 1.0f - link_red * 0.25f, 0.5f - link_red * 0.5f, 1.0f ), 0.9f );
 	}
 

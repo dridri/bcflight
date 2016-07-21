@@ -22,9 +22,12 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <iwlib.h>
+#include <wiringPi.h>
 #include <gammaengine/Debug.h>
 #include <gammaengine/Time.h>
 #include <gammaengine/Image.h>
+#include <links/RawWifi.h>
+#include <links/Socket.h>
 #include "Stream.h"
 #include "Controller.h"
 #include "RendererHUDClassic.h"
@@ -49,12 +52,17 @@ std::string interface_address( const std::string& itf )
 }
 */
 
-Stream::Stream( Controller* controller, Font* font, Link* link )
+Stream::Stream( Controller* controller, Font* font, Link* link, uint32_t width, uint32_t height, bool stereo )
 	: Thread()
 	, mInstance( nullptr )
 	, mWindow( nullptr )
 	, mController( controller )
 	, mFont( font )
+	, mRendererHUD( nullptr )
+	, mRenderHUD( true )
+	, mStereo( stereo )
+	, mWidth( width )
+	, mHeight( height )
 	, mLink( link )
 	, mDecodeInput( nullptr )
 	, mEGLVideoImage( 0 )
@@ -82,6 +90,15 @@ Stream::~Stream()
 	vc_dispmanx_display_close( mDisplay );
 }
 
+void Stream::setStereo( bool en )
+{
+	while ( not this->running() or not mRendererHUD ) {
+		usleep( 1000 );
+	}
+	mStereo = en;
+	mRendererHUD->setStereo( en );
+}
+
 
 bool Stream::run()
 {
@@ -94,10 +111,11 @@ bool Stream::run()
 
 		mRendererHUD = new RendererHUDNeo( mInstance, mFont );
 
-		mDecodeContext = video_configure();
+		mDecodeContext = video_configure( mWidth, mHeight, mStereo );
 		video_start( mDecodeContext );
 
 		mDecodeThread = new HookThread< Stream >( "decoder", this, &Stream::DecodeThreadRun );
+		mDecodeThread->setPriority( 99 );
 		mDecodeThread->Start();
 
 		mFPSTimer.Start();
@@ -107,10 +125,15 @@ bool Stream::run()
 
 	glClear( GL_COLOR_BUFFER_BIT );
 
-	VideoStats video_stats = {
-		.fps = mFPS,
-	};
-	mRendererHUD->Render( mWindow, mController, &video_stats, &mIwStats );
+	if ( mRenderHUD ) {
+		VideoStats video_stats = {
+			.fps = mFPS,
+		};
+		mRendererHUD->PreRender( &video_stats );
+		mRendererHUD->Render( mWindow, mController, &video_stats, &mIwStats );
+	} else {
+		usleep( 1000 * 1000 / 20 );
+	}
 
 	if ( mSecondTimer.ellapsed() >= 1000 ) {
 		/*
@@ -155,7 +178,20 @@ bool Stream::SignalThreadRun()
 			mIwStats.channel = iw_freq_to_channel( info.freq, &range );
 		}
 	}
-	usleep( 1000 * 1000 );
+	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr and mController != nullptr ) {
+		mIwStats.source = 'R';
+		mIwStats.qual = mController->link()->RxQuality();
+		if ( (int)mController->droneRxQuality() < mIwStats.qual ) {
+			mIwStats.source = 'T';
+			mIwStats.qual = mController->droneRxQuality();
+		}
+		if ( mLink->RxQuality() < mIwStats.qual ) {
+			mIwStats.source = 'V';
+			mIwStats.qual = mLink->RxQuality();
+		}
+// 		mIwStats.channel = dynamic_cast< RawWifi* >( mLink )->channel();
+	} 
+	usleep( 1000 * 500 );
 	return true;
 }
 
@@ -204,8 +240,10 @@ bool Stream::DecodeThreadRun()
 		mFrameCounter = 0;
 		mBitrateCounter = 0;
 
-		uint32_t uid = htonl( 0x12345678 );
-		mLink->Write( &uid, sizeof(uid), 0 );
+		if ( dynamic_cast< Socket* >( mLink ) != nullptr ) {
+			uint32_t uid = htonl( 0x12345678 );
+			mLink->Write( &uid, sizeof(uid), 0 );
+		}
 	}
 
 	return true;

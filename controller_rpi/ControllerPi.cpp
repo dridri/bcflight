@@ -104,7 +104,7 @@ bool ControllerPi::run()
 	if ( mADC ) {
 		uint16_t battery_voltage = mADC->Read( 7 );
 		if ( battery_voltage != 0 ) {
-			mLocalBatteryVoltage = (float)battery_voltage * 5.0f * 2.0f / 4096.0f;
+			mLocalBatteryVoltage = (float)battery_voltage * 5.0f * 4.0f / 4096.0f;
 		}
 	}
 

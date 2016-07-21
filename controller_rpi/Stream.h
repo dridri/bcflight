@@ -47,9 +47,12 @@ class Controller;
 class Stream : GE::Thread
 {
 public:
-	Stream( Controller* controller, Font* font, Link* link );
+	Stream( Controller* controller, Font* font, Link* link, uint32_t width, uint32_t height, bool stereo );
 	~Stream();
+	void setRenderHUD( bool en ) { mRenderHUD = en; }
+	void setStereo( bool en );
 
+	Link* link() const { return mLink; }
 	int linkLevel() const { return mIwStats.level; }
 	int linkQuality() const { return mIwStats.qual; }
 
@@ -67,6 +70,10 @@ private:
 	Font* mFont;
 	Timer mSecondTimer;
 	RendererHUD* mRendererHUD;
+	bool mRenderHUD;
+	bool mStereo;
+	uint32_t mWidth;
+	uint32_t mHeight;
 
 	Link* mLink;
 	HookThread<Stream>* mDecodeThread;
