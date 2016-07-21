@@ -64,9 +64,11 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 	{ Controller::SENSORS_DATA, "0x20" },
 	{ Controller::PID_OUTPUT, "0x21" },
 	{ Controller::OUTER_PID_OUTPUT, "0x22" },
-	{ Controller::PID_FACTORS, "0x23" },
-	{ Controller::OUTER_PID_FACTORS, "0x24" },
-	{ Controller::HORIZON_OFFSET, "0x25" },
+	{ Controller::ROLL_PID_FACTORS, "0x23" },
+	{ Controller::PITCH_PID_FACTORS, "0x24" },
+	{ Controller::YAW_PID_FACTORS, "0x25" },
+	{ Controller::OUTER_PID_FACTORS, "0x26" },
+	{ Controller::HORIZON_OFFSET, "0x27" },
 	{ Controller::VBAT, "Battery voltage" },
 	{ Controller::TOTAL_CURRENT, "Total current draw" },
 	{ Controller::CURRENT_DRAW, "Current draw" },
@@ -82,18 +84,28 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 	{ Controller::RESET_MOTORS, "0x47" },
 	{ Controller::SET_MODE, "0x48" },
 	{ Controller::SET_ALTITUDE_HOLD, "Altitude hold" },
-	{ Controller::SET_PID_P, "0x50" },
-	{ Controller::SET_PID_I, "0x51" },
-	{ Controller::SET_PID_D, "0x52" },
-	{ Controller::SET_OUTER_PID_P, "0x53" },
-	{ Controller::SET_OUTER_PID_I, "0x54" },
-	{ Controller::SET_OUTER_PID_D, "0x55" },
-	{ Controller::SET_HORIZON_OFFSET, "0x56" },
+	{ Controller::SET_ROLL_PID_P, "0x50" },
+	{ Controller::SET_ROLL_PID_I, "0x51" },
+	{ Controller::SET_ROLL_PID_D, "0x52" },
+	{ Controller::SET_PITCH_PID_P, "0x53" },
+	{ Controller::SET_PITCH_PID_I, "0x54" },
+	{ Controller::SET_PITCH_PID_D, "0x55" },
+	{ Controller::SET_YAW_PID_P, "0x56" },
+	{ Controller::SET_YAW_PID_I, "0x57" },
+	{ Controller::SET_YAW_PID_D, "0x58" },
+	{ Controller::SET_OUTER_PID_P, "0x59" },
+	{ Controller::SET_OUTER_PID_I, "0x5A" },
+	{ Controller::SET_OUTER_PID_D, "0x5B" },
+	{ Controller::SET_HORIZON_OFFSET, "0x5C" },
 	// Video
 	{ Controller::VIDEO_START_RECORD, "0xA0" },
 	{ Controller::VIDEO_STOP_RECORD, "0xA1" },
-	{ Controller::VIDEO_GET_BRIGHTNESS, "0xA2" },
-	{ Controller::VIDEO_SET_BRIGHTNESS, "0xAA" },
+	{ Controller::VIDEO_BRIGHTNESS_INCR, "0xA4" },
+	{ Controller::VIDEO_BRIGHTNESS_DECR, "0xA5" },
+	{ Controller::VIDEO_CONTRAST_INCR, "0xA6" },
+	{ Controller::VIDEO_CONTRAST_DECR, "0xA7" },
+	{ Controller::VIDEO_SATURATION_INCR, "0xA8" },
+	{ Controller::VIDEO_SATURATION_DECR, "0xA9" },
 };
 
 
@@ -121,18 +133,20 @@ Controller::Controller( Link* link )
 	, mConfigUploadValid( false )
 	, mTicks( 0 )
 	, mSwitches{ 0 }
+	, mVideoRecording( false )
 	, mAcceleration( 0.0f )
 {
+	mCalibrated = false;
 	mArmed = false;
 	mMode = Stabilize;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
 
 	signal( SIGPIPE, SIG_IGN );
 
-	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
-	mRxThread->setPriority( 99 );
-
 	Start();
+
+	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
+	mRxThread->setPriority( 97 );
 }
 
 
@@ -164,7 +178,7 @@ bool Controller::run()
 		std::cout << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
-			setPriority( 99 );
+			setPriority( 98 );
 			std::cout << "Ok !\n";
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
@@ -192,12 +206,15 @@ bool Controller::run()
 		mXferMutex.lock();
 		mTxFrame.WriteU32( PING );
 		mTxFrame.WriteU32( (uint32_t)( ticks & 0xFFFFFFFFL ) );
+		mLink->Write( &mTxFrame );
 		mXferMutex.unlock();
 
 		if ( not mRxThread->running() ) {
 			mRxThread->Start();
 			mXferMutex.lock();
-			mTxFrame.WriteU32( PID_FACTORS );
+			mTxFrame.WriteU32( ROLL_PID_FACTORS );
+			mTxFrame.WriteU32( PITCH_PID_FACTORS );
+			mTxFrame.WriteU32( YAW_PID_FACTORS );
 			mTxFrame.WriteU32( OUTER_PID_FACTORS );
 			mTxFrame.WriteU32( HORIZON_OFFSET );
 			mXferMutex.unlock();
@@ -206,17 +223,6 @@ bool Controller::run()
 		mPingTimer = Thread::GetTick();
 	}
 
-/*
-	if ( switch_3 and not mSwitches[3] ) {
-		mXferMutex.lock();
-		mTxFrame.WriteU32( VIDEO_START_RECORD );
-		mXferMutex.unlock();
-	} else if ( not switch_3 and mSwitches[3] ) {
-		mXferMutex.lock();
-		mTxFrame.WriteU32( VIDEO_STOP_RECORD );
-		mXferMutex.unlock();
-	}
-*/
 	uint32_t oldswitch[8];
 	memcpy( oldswitch, mSwitches, sizeof(oldswitch) );
 	for ( uint32_t i = 0; i < 8; i++ ) {
@@ -229,7 +235,7 @@ bool Controller::run()
 		mSwitches[i] = on;
 	}
 
-	if ( mSwitches[2] and not mArmed ) {
+	if ( mSwitches[2] and not mArmed and mCalibrated ) {
 		Arm();
 	} else if ( not mSwitches[2] and mArmed ) {
 		Disarm();
@@ -238,6 +244,15 @@ bool Controller::run()
 		setMode( Stabilize );
 	} else if ( not mSwitches[3] and mMode != Rate ) {
 		setMode( Rate );
+	}
+	if ( mSwitches[5] and not mVideoRecording ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( VIDEO_START_RECORD );
+		mXferMutex.unlock();
+	} else if ( not mSwitches[5] and mVideoRecording ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( VIDEO_STOP_RECORD );
+		mXferMutex.unlock();
 	}
 
 	float r_thrust = ReadThrust();
@@ -294,7 +309,10 @@ bool Controller::run()
 bool Controller::RxRun()
 {
 	Packet telemetry;
-	mLink->Read( &telemetry );
+	if ( mLink->Read( &telemetry ) <= 0 ) {
+		usleep( 1000 * 10 );
+		return true;
+	}
 	Cmd cmd = (Cmd)0;
 
 	while ( telemetry.ReadU32( (uint32_t*)&cmd ) > 0 ) {
@@ -318,6 +336,7 @@ bool Controller::RxRun()
 			}
 			case CALIBRATE : {
 				if ( telemetry.ReadU32() == 0 ) {
+					mCalibrated = true;
 					std::cout << "Calibration success\n";
 				} else {
 					std::cout << "WARNING : Calibration failed !\n";
@@ -395,10 +414,24 @@ bool Controller::RxRun()
 				break;
 			}
 
-			case PID_FACTORS : {
-				mPID.x = telemetry.ReadFloat();
-				mPID.y = telemetry.ReadFloat();
-				mPID.z = telemetry.ReadFloat();
+			case ROLL_PID_FACTORS : {
+				mRollPID.x = telemetry.ReadFloat();
+				mRollPID.y = telemetry.ReadFloat();
+				mRollPID.z = telemetry.ReadFloat();
+				mPIDsLoaded = true;
+				break;
+			}
+			case PITCH_PID_FACTORS : {
+				mPitchPID.x = telemetry.ReadFloat();
+				mPitchPID.y = telemetry.ReadFloat();
+				mPitchPID.z = telemetry.ReadFloat();
+				mPIDsLoaded = true;
+				break;
+			}
+			case YAW_PID_FACTORS : {
+				mYawPID.x = telemetry.ReadFloat();
+				mYawPID.y = telemetry.ReadFloat();
+				mYawPID.z = telemetry.ReadFloat();
 				mPIDsLoaded = true;
 				break;
 			}
@@ -414,16 +447,40 @@ bool Controller::RxRun()
 				mHorizonOffset.y = telemetry.ReadFloat();
 				break;
 			}
-			case SET_PID_P : {
-				mPID.x = telemetry.ReadFloat();
+			case SET_ROLL_PID_P : {
+				mRollPID.x = telemetry.ReadFloat();
 				break;
 			}
-			case SET_PID_I : {
-				mPID.y = telemetry.ReadFloat();
+			case SET_ROLL_PID_I : {
+				mRollPID.y = telemetry.ReadFloat();
 				break;
 			}
-			case SET_PID_D : {
-				mPID.z = telemetry.ReadFloat();
+			case SET_ROLL_PID_D : {
+				mRollPID.z = telemetry.ReadFloat();
+				break;
+			}
+			case SET_PITCH_PID_P : {
+				mPitchPID.x = telemetry.ReadFloat();
+				break;
+			}
+			case SET_PITCH_PID_I : {
+				mPitchPID.y = telemetry.ReadFloat();
+				break;
+			}
+			case SET_PITCH_PID_D : {
+				mPitchPID.z = telemetry.ReadFloat();
+				break;
+			}
+			case SET_YAW_PID_P : {
+				mYawPID.x = telemetry.ReadFloat();
+				break;
+			}
+			case SET_YAW_PID_I : {
+				mYawPID.y = telemetry.ReadFloat();
+				break;
+			}
+			case SET_YAW_PID_D : {
+				mYawPID.z = telemetry.ReadFloat();
 				break;
 			}
 			case SET_OUTER_PID_P : {
@@ -468,6 +525,15 @@ bool Controller::RxRun()
 			}
 			case SET_MODE : {
 				mMode = (Mode)telemetry.ReadU32();
+				break;
+			}
+
+			case VIDEO_START_RECORD : {
+				mVideoRecording = telemetry.ReadU32();
+				break;
+			}
+			case VIDEO_STOP_RECORD : {
+				mVideoRecording = telemetry.ReadU32();
 				break;
 			}
 
@@ -701,7 +767,9 @@ void Controller::ReloadPIDs()
 {
 	for ( uint32_t retries = 0; retries < 4; retries++ ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( PID_FACTORS );
+		mTxFrame.WriteU32( ROLL_PID_FACTORS );
+		mTxFrame.WriteU32( PITCH_PID_FACTORS );
+		mTxFrame.WriteU32( YAW_PID_FACTORS );
 		mTxFrame.WriteU32( OUTER_PID_FACTORS );
 		mXferMutex.unlock();
 		usleep( 1000 * 10 );
@@ -709,21 +777,57 @@ void Controller::ReloadPIDs()
 }
 
 
-void Controller::setPID( const vec3& v )
+void Controller::setRollPID( const vec3& v )
 {
-	std::cout << "setPID...\n";
-	while ( mPID.x != v.x or mPID.y != v.y or mPID.z != v.z ) {
+	std::cout << "setRollPID...\n";
+	while ( mRollPID.x != v.x or mRollPID.y != v.y or mRollPID.z != v.z ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( SET_PID_P );
+		mTxFrame.WriteU32( SET_ROLL_PID_P );
 		mTxFrame.WriteFloat( v.x );
-		mTxFrame.WriteU32( SET_PID_I );
+		mTxFrame.WriteU32( SET_ROLL_PID_I );
 		mTxFrame.WriteFloat( v.y );
-		mTxFrame.WriteU32( SET_PID_D );
+		mTxFrame.WriteU32( SET_ROLL_PID_D );
 		mTxFrame.WriteFloat( v.z );
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	std::cout << "setPID ok\n";
+	std::cout << "setRollPID ok\n";
+}
+
+
+void Controller::setPitchPID( const vec3& v )
+{
+	std::cout << "setPitchPID...\n";
+	while ( mPitchPID.x != v.x or mPitchPID.y != v.y or mPitchPID.z != v.z ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( SET_PITCH_PID_P );
+		mTxFrame.WriteFloat( v.x );
+		mTxFrame.WriteU32( SET_PITCH_PID_I );
+		mTxFrame.WriteFloat( v.y );
+		mTxFrame.WriteU32( SET_PITCH_PID_D );
+		mTxFrame.WriteFloat( v.z );
+		mXferMutex.unlock();
+		usleep( 1000 * 100 );
+	}
+	std::cout << "setPitchPID ok\n";
+}
+
+
+void Controller::setYawPID( const vec3& v )
+{
+	std::cout << "setYawPID...\n";
+	while ( mYawPID.x != v.x or mYawPID.y != v.y or mYawPID.z != v.z ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( SET_YAW_PID_P );
+		mTxFrame.WriteFloat( v.x );
+		mTxFrame.WriteU32( SET_YAW_PID_I );
+		mTxFrame.WriteFloat( v.y );
+		mTxFrame.WriteU32( SET_YAW_PID_D );
+		mTxFrame.WriteFloat( v.z );
+		mXferMutex.unlock();
+		usleep( 1000 * 100 );
+	}
+	std::cout << "setYawPID ok\n";
 }
 
 
@@ -811,6 +915,54 @@ void Controller::setMode( const Controller::Mode& mode )
 	mXferMutex.lock();
 	mTxFrame.WriteU32( SET_MODE );
 	mTxFrame.WriteU32( (uint32_t)mode );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoBrightnessIncrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_BRIGHTNESS_INCR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoBrightnessDecrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_BRIGHTNESS_DECR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoContrastIncrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_CONTRAST_INCR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoContrastDecrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_CONTRAST_DECR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoSaturationIncrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_SATURATION_INCR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoSaturationDecrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_SATURATION_DECR );
 	mXferMutex.unlock();
 }
 

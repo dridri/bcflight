@@ -31,12 +31,15 @@ public:
 	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1 );
 	~RawWifi();
 
+	int Connect();
+	int32_t RxQuality();
+
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
 	void setRetriesCount( int retries );
-	int Connect();
-	int32_t RxQuality();
+
+	int channel() const;
 
 protected:
 	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );

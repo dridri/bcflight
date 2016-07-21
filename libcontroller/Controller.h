@@ -81,7 +81,15 @@ public:
 	void setThrustRelative( const float& v );
 	void ReloadPIDs();
 
+	void VideoBrightnessIncrease();
+	void VideoBrightnessDecrease();
+	void VideoContrastIncrease();
+	void VideoContrastDecrease();
+	void VideoSaturationIncrease();
+	void VideoSaturationDecrease();
+
 	DECL_RO_VAR( uint32_t, Ping, ping );
+	DECL_RO_VAR( bool, Calibrated, calibrated );
 	DECL_RO_VAR( bool, Armed, armed );
 	DECL_RO_VAR( uint32_t, TotalCurrent, totalCurrent );
 	DECL_RO_VAR( float, CurrentDraw, currentDraw );
@@ -90,7 +98,9 @@ public:
 	DECL_RO_VAR( uint32_t, CPULoad, CPULoad );
 	DECL_RO_VAR( uint32_t, CPUTemp, CPUTemp );
 	DECL_RO_VAR( float, Altitude, altitude );
-	DECL_RW_VAR( vec3, PID, pid );
+	DECL_RW_VAR( vec3, RollPID, rollPid );
+	DECL_RW_VAR( vec3, PitchPID, pitchPid );
+	DECL_RW_VAR( vec3, YawPID, yawPid );
 	DECL_RW_VAR( vec3, OuterPID, outerPid );
 	DECL_RW_VAR( vec3, HorizonOffset, horizonOffset );
 	DECL_RW_VAR( float, Thrust, thrust );
@@ -143,9 +153,11 @@ protected:
 		SENSORS_DATA = 0x20,
 		PID_OUTPUT = 0x21,
 		OUTER_PID_OUTPUT = 0x22,
-		PID_FACTORS = 0x23,
-		OUTER_PID_FACTORS = 0x24,
-		HORIZON_OFFSET = 0x25,
+		ROLL_PID_FACTORS = 0x23,
+		PITCH_PID_FACTORS = 0x24,
+		YAW_PID_FACTORS = 0x25,
+		OUTER_PID_FACTORS = 0x26,
+		HORIZON_OFFSET = 0x27,
 		VBAT = 0x30,
 		TOTAL_CURRENT = 0x31,
 		CURRENT_DRAW = 0x32,
@@ -161,18 +173,28 @@ protected:
 		RESET_MOTORS = 0x47,
 		SET_MODE = 0x48,
 		SET_ALTITUDE_HOLD = 0x49,
-		SET_PID_P = 0x50,
-		SET_PID_I = 0x51,
-		SET_PID_D = 0x52,
-		SET_OUTER_PID_P = 0x53,
-		SET_OUTER_PID_I = 0x54,
-		SET_OUTER_PID_D = 0x55,
-		SET_HORIZON_OFFSET = 0x56,
+		SET_ROLL_PID_P = 0x50,
+		SET_ROLL_PID_I = 0x51,
+		SET_ROLL_PID_D = 0x52,
+		SET_PITCH_PID_P = 0x53,
+		SET_PITCH_PID_I = 0x54,
+		SET_PITCH_PID_D = 0x55,
+		SET_YAW_PID_P = 0x56,
+		SET_YAW_PID_I = 0x57,
+		SET_YAW_PID_D = 0x58,
+		SET_OUTER_PID_P = 0x59,
+		SET_OUTER_PID_I = 0x5A,
+		SET_OUTER_PID_D = 0x5B,
+		SET_HORIZON_OFFSET = 0x5C,
 		// Video
 		VIDEO_START_RECORD = 0xA0,
 		VIDEO_STOP_RECORD = 0xA1,
-		VIDEO_GET_BRIGHTNESS = 0xA2,
-		VIDEO_SET_BRIGHTNESS = 0xAA,
+		VIDEO_BRIGHTNESS_INCR = 0xA4,
+		VIDEO_BRIGHTNESS_DECR = 0xA5,
+		VIDEO_CONTRAST_INCR = 0xA6,
+		VIDEO_CONTRAST_DECR = 0xA7,
+		VIDEO_SATURATION_INCR = 0xA8,
+		VIDEO_SATURATION_DECR = 0xA9,
 	} Cmd;
 
 	virtual float ReadThrust() = 0;
@@ -204,6 +226,7 @@ protected:
 
 	uint32_t mTicks;
 	uint32_t mSwitches[8];
+	bool mVideoRecording;
 
 	float mAcceleration;
 	std::list< vec3 > mRPYHistory;

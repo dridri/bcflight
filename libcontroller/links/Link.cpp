@@ -128,8 +128,8 @@ std::string Packet::ReadString()
 
 int32_t Link::Read( Packet* p, int32_t timeout )
 {
-	uint8_t buffer[8192] = { 0 };
-	int32_t ret = Read( buffer, 8192, timeout );
+	uint8_t buffer[65536] = { 0 };
+	int32_t ret = Read( buffer, 65536, timeout );
 	if ( ret > 0 ) {
 		p->Write( buffer, ret );
 	}

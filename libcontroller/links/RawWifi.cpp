@@ -56,8 +56,10 @@ int RawWifi::setBlocking( bool blocking )
 void RawWifi::SetChannel( int chan )
 {
 	mChannel = chan;
-	if ( mConnected ) {
-		// TODO : reconnect
+	if ( mConnected and mChannel > 0 and mChannel < 15 ) {
+		std::stringstream ss;
+		ss << "iwconfig " << mDevice << " channel " << mChannel;
+		(void)system( ss.str().c_str() );
 	}
 }
 
@@ -65,8 +67,10 @@ void RawWifi::SetChannel( int chan )
 void RawWifi::SetTxPower( int mBm )
 {
 	mTxPower = mBm;
-	if ( mConnected ) {
-		// TODO : reconnect
+	if ( mConnected and mTxPower > 0 ) {
+		std::stringstream ss;
+		ss << "iw dev " << mDevice << " set txpower fixed " << ( mTxPower * 1000 );
+		(void)system( ss.str().c_str() );
 	}
 }
 
@@ -74,6 +78,12 @@ void RawWifi::SetTxPower( int mBm )
 void RawWifi::setRetriesCount( int retries )
 {
 	mRetriesCount = retries;
+}
+
+
+int RawWifi::channel() const
+{
+	return mChannel;
 }
 
 
@@ -107,19 +117,14 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 
 int RawWifi::Connect()
 {
-	std::cout << "1\n";
 	Initialize( mDevice, mChannel, mTxPower );
-	std::cout << "2\n";
 
 	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1 );
-	std::cout << "3\n";
 	if ( !mRawWifi ) {
 		return -1;
 	}
 
-	std::cout << "4\n";
 	mConnected = true;
-	std::cout << "5\n";
 	return 0;
 }
 

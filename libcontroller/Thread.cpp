@@ -83,7 +83,7 @@ void Thread::ThreadEntry()
 	do {
 		while ( !mRunning ) {
 			mIsRunning = false;
-			usleep( 1000 * 10 );
+			usleep( 1000 * 100 );
 		}
 		mIsRunning = true;
 		if ( mSetPriority != mPriority ) {
