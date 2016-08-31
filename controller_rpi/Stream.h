@@ -78,6 +78,7 @@ private:
 	Link* mLink;
 	HookThread<Stream>* mDecodeThread;
 	void* mDecodeInput;
+	uint32_t mDecodeLen;
 
 	int mIwSocket;
 	IwStats mIwStats;

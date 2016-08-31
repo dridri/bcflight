@@ -40,6 +40,7 @@ public:
 	void setRetriesCount( int retries );
 
 	int channel() const;
+	bool lastIsCorrupt() const;
 
 protected:
 	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
@@ -53,6 +54,7 @@ protected:
 	int16_t mOutputPort;
 	int16_t mInputPort;
 	int mRetriesCount;
+	bool mLastIsCorrupt;
 
 	static bool mInitialized;
 };

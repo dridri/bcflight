@@ -25,6 +25,7 @@ ControllerPC::ControllerPC( Link* link )
 	: Controller( link )
 	, mThrust( 0.0f )
 	, mArmed( false )
+	, mRecording( false )
 {
 }
 
@@ -53,6 +54,12 @@ void ControllerPC::setModeSwitch( const Controller::Mode& mode )
 	} else if ( mode == Controller::Rate ) {
 		mMode = false;
 	}
+}
+
+
+void ControllerPC::setRecording( const bool record )
+{
+	mRecording = record;
 }
 
 
@@ -87,6 +94,9 @@ int8_t ControllerPC::ReadSwitch( uint32_t id )
 	}
 	if ( id == 3 ) {
 		return mMode;
+	}
+	if ( id == 5 ) {
+		return mRecording;
 	}
 	return 0;
 }

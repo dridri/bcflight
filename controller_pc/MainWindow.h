@@ -67,6 +67,8 @@ public slots:
 	void VideoContrastDecrease();
 	void VideoSaturationIncrease();
 	void VideoSaturationDecrease();
+	void VideoRecord();
+	void RecordingsRefresh();
 
 private:
 	Ui::MainWindow* ui;

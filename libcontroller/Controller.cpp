@@ -123,12 +123,14 @@ Controller::Controller( Link* link )
 	, mLink( link )
 	, mConnected( false )
 	, mLockState( 0 )
+	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
 	, mMsCounter( 0 )
 	, mMsCounter50( 0 )
 	, mBoardInfos( "" )
 	, mSensorsInfos( "" )
 	, mConfigFile( "" )
+	, mRecordingsList( "" )
 	, mUpdateUploadValid( false )
 	, mConfigUploadValid( false )
 	, mTicks( 0 )
@@ -505,7 +507,12 @@ bool Controller::RxRun()
 				mRPY.x = telemetry.ReadFloat();
 				mRPY.y = telemetry.ReadFloat();
 				mRPY.z = telemetry.ReadFloat();
-				mRPYHistory.emplace_back( mRPY );
+				vec4 rpy;
+				rpy.x = mRPY.x;
+				rpy.y = mRPY.y;
+				rpy.z = mRPY.z;
+				rpy.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mRPYHistory.emplace_back( rpy );
 				if ( mRPYHistory.size() > 256 ) {
 					mRPYHistory.pop_front();
 				}
@@ -534,6 +541,10 @@ bool Controller::RxRun()
 			}
 			case VIDEO_STOP_RECORD : {
 				mVideoRecording = telemetry.ReadU32();
+				break;
+			}
+			case GET_RECORDINGS_LIST : {
+				mRecordingsList = telemetry.ReadString();
 				break;
 			}
 
@@ -738,7 +749,8 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 		mLink->Write( &packet );
 		usleep( 1000 * 10 );
 		if ( not mUpdateUploadValid ) {
-			usleep( 1000 * 90 );
+			std::cout << "Broken data received, retrying...\n";
+			usleep( 1000 * 100 );
 		}
 	} while ( not mUpdateUploadValid );
 
@@ -967,13 +979,35 @@ void Controller::VideoSaturationDecrease()
 }
 
 
+std::vector< std::string > Controller::recordingsList()
+{
+	mRecordingsList = "";
+
+	// Wait for data to be filled by RX Thread (RxRun())
+	while ( mRecordingsList.length() == 0 ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU32( GET_RECORDINGS_LIST );
+		mXferMutex.unlock();
+		usleep( 1000 * 250 );
+	}
+
+	std::vector< std::string > list;
+	std::string full = mRecordingsList;
+	while ( full.length() > 0 ) {
+		list.emplace_back( full.substr( 0, full.find( ";" ) ) );
+		full = full.substr( full.find( ";" ) + 1 );
+	}
+	return list;
+}
+
+
 float Controller::acceleration() const
 {
 	return mAcceleration;
 }
 
 
-const std::list< vec3 >& Controller::rpyHistory() const
+const std::list< vec4 >& Controller::rpyHistory() const
 {
 	return mRPYHistory;
 }

@@ -37,6 +37,7 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
 	, mRetriesCount( 2 )
+	, mLastIsCorrupt( false )
 {
 }
 
@@ -87,6 +88,12 @@ int RawWifi::channel() const
 }
 
 
+bool RawWifi::lastIsCorrupt() const
+{
+	return mLastIsCorrupt;
+}
+
+
 int32_t RawWifi::RxQuality()
 {
 	return rawwifi_recv_quality( mRawWifi );
@@ -101,10 +108,10 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 
 // 		if ( readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
 			ss << "ifconfig " << device << " down";
-			ss << " && iw dev " << device << " set monitor otherbss fcsfail";
-			ss << " && ifconfig " << device << " up && ";
+			ss << " && sleep 0.5 && iw dev " << device << " set monitor otherbss fcsfail";
+			ss << " && sleep 0.5 && ifconfig " << device << " up && sleep 0.5 && ";
 // 		}
-		ss << "iwconfig " << device << " channel " << channel;
+		ss << "iwconfig " << device << " channel " << ( channel - 1 ) << " && sleep 0.5 && iwconfig " << device << " channel " << channel;
 		if ( txpower > 0 ) {
 			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 );
 		}
@@ -143,6 +150,9 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 	}
 	if ( ret > 0 and not valid ) {
 		std::cout << "WARNING : Received corrupt packets\n";
+		mLastIsCorrupt = true;
+	} else {
+		mLastIsCorrupt = false;
 	}
 
 	if ( ret > 0 ) {

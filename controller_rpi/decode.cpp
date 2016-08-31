@@ -36,6 +36,18 @@ static OMX_VERSIONTYPE SpecificationVersion = {
 	y->nSize = sizeof( x ) + z; \
 	y->nVersion = SpecificationVersion; \
 
+#define OERRn(cmd) { \
+	OMX_ERRORTYPE oerr = cmd; \
+	if (oerr != OMX_ErrorNone) { \
+		fprintf(stderr, #cmd \
+			" failed on line %d: %x\n", \
+			__LINE__, oerr); \
+	} else { \
+		fprintf(stderr, #cmd \
+			" completed at %d.\n", \
+			__LINE__); \
+	} }
+
 #define OERR(cmd) { \
 	OMX_ERRORTYPE oerr = cmd; \
 	if (oerr != OMX_ErrorNone) { \
@@ -87,7 +99,7 @@ OMX_BUFFERHEADERTYPE* video_decoder_buffer( video_context* ctx )
 
 // #define SHARPEN
 
-void video_decode_frame( video_context* ctx )
+void video_decode_frame( video_context* ctx, int corrupt )
 {
 // 	fDebug( ctx );
 
@@ -124,6 +136,19 @@ void video_decode_frame( video_context* ctx )
 		if ( ctx->stereo ) {
 			OERR( OMX_SetConfig( ctx->rdr2, OMX_IndexConfigCommonMirror, &mirror ) );
 		}
+
+		OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE errconceal;
+		OMX_INIT_STRUCTURE( errconceal );
+		errconceal.bStartWithValidFrame = OMX_FALSE;
+		OERR( OMX_SetParameter( ctx->dec, OMX_IndexParamBrcmVideoDecodeErrorConcealment, &errconceal ) );
+/*
+		OMX_PARAM_DATAUNITTYPE unit;
+		OMX_INIT_STRUCTURE( unit );
+		unit.nPortIndex = 130;
+		unit.eUnitType = OMX_DataUnitCodedPicture;
+		unit.eEncapsulationType = OMX_DataEncapsulationElementaryStream;
+		OERR( OMX_SetParameter( ctx->dec, OMX_IndexParamBrcmDataUnit, &unit ) );
+*/
 #ifdef SHARPEN
 		OMX_PARAM_PORTDEFINITIONTYPE def;
 		OMX_INIT_STRUCTURE( def );
@@ -211,8 +236,9 @@ void video_decode_frame( video_context* ctx )
 			omx_block_until_state_changed( ctx->rdr2, OMX_StateExecuting );
 		}
 		printf( "Video running !\n" );
+	} else {
+		pthread_mutex_unlock( &ctx->lock );
 	}
-	pthread_mutex_unlock( &ctx->lock );
 
 	ctx->decinput->nOffset = 0;
 	if ( ctx->first_frame ) {
@@ -221,12 +247,16 @@ void video_decode_frame( video_context* ctx )
 	} else {
 		ctx->decinput->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
 	}
+	ctx->decinput->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+// 	if ( corrupt ) {
+		ctx->decinput->nFlags |= OMX_BUFFERFLAG_DATACORRUPT;
+// 	}
 
 	uint32_t err = OMX_ErrorNone;
 // 	omx_print_state( "dec", ctx->dec );
 	if ( ( err = OMX_EmptyThisBuffer( ctx->dec, ctx->decinput ) ) != OMX_ErrorNone ) {
 		printf( "OMX_FillThisBuffer failed in video_decode_frame (0x%08X)\n", err );
-		exit(1);
+// 		exit(1);
 	}
 }
 
@@ -343,6 +373,23 @@ video_context* video_configure( int width, int height, int stereo )
 	pfmt->eCompressionFormat = OMX_VIDEO_CodingAVC;
 	OERR( OMX_SetParameter( ctx->dec, OMX_IndexParamVideoPortFormat, pfmt ) );
 
+	OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE errconceal;
+	OMX_INIT_STRUCTURE( errconceal );
+	errconceal.bStartWithValidFrame = OMX_FALSE;
+	OERR( OMX_SetParameter( ctx->dec, OMX_IndexParamBrcmVideoDecodeErrorConcealment, &errconceal ) );
+
+	OMX_PARAM_DATAUNITTYPE unit;
+	OMX_INIT_STRUCTURE( unit );
+	unit.nPortIndex = 130;
+	unit.eUnitType = OMX_DataUnitCodedPicture;
+	unit.eEncapsulationType = OMX_DataEncapsulationElementaryStream;
+	OERR( OMX_SetParameter( ctx->dec, OMX_IndexParamBrcmDataUnit, &unit ) );
+
+	OMX_CONFIG_BOOLEANTYPE lowLatency;
+	OMX_INIT_STRUCTURE( lowLatency );
+	lowLatency.bEnabled = OMX_TRUE;
+	OERRn( OMX_SetConfig( ctx->dec, OMX_IndexConfigBrcmVideoH264LowLatency, &lowLatency ) );
+
 	return ctx;
 }
 
@@ -414,11 +461,14 @@ static OMX_ERRORTYPE genericeventhandler( OMX_HANDLETYPE component, video_contex
 		printf( "ERROR : %08X %08X, %p\n", data1, data2, eventdata );
 // 		exit(1);
 	}
-	pthread_mutex_lock( &ctx->lock );
-	if ( event == OMX_EventPortSettingsChanged and component == _ctx->dec and ctx->decoder_valid == 0 ) {
-		ctx->decoder_valid = 1;
+	if ( ctx->decoder_valid == 0 ) {
+		pthread_mutex_lock( &ctx->lock );
+		if ( event == OMX_EventPortSettingsChanged and component == _ctx->dec and ctx->decoder_valid == 0 ) {
+			ctx->first_frame = 1;
+			ctx->decoder_valid = 1;
+		}
+		pthread_mutex_unlock( &ctx->lock );
 	}
-	pthread_mutex_unlock( &ctx->lock );
 	return OMX_ErrorNone;
 }
 

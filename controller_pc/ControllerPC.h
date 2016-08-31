@@ -31,6 +31,7 @@ public:
 	void setControlThrust( const float v );
 	void setArmed( const bool armed );
 	void setModeSwitch( const Controller::Mode& mode );
+	void setRecording( const bool record );
 
 protected:
 	float ReadThrust();
@@ -43,6 +44,7 @@ private:
 	float mThrust;
 	bool mArmed;
 	bool mMode;
+	bool mRecording;
 };
 
 

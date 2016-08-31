@@ -70,6 +70,7 @@ Stream::Stream( Controller* controller, Font* font, Link* link, uint32_t width, 
 {
 	mFPS = 0;
 	mFrameCounter = 0;
+	mDecodeLen = 0;
 
 	mIwSocket = iw_sockets_open();
 	memset( &mIwStats, 0, sizeof( mIwStats ) );
@@ -222,11 +223,18 @@ bool Stream::DecodeThreadRun()
 	if ( mDecodeContext->decinput->pBuffer != mDecodeInput ) {
 		gDebug() << "GPU messed up decoder input buffer ! ( " << (void*)mDecodeContext->decinput->pBuffer << " != " << (void*)mDecodeInput << "\n";
 	}
+	if ( mDecodeLen == 0 ) {
+		mDecodeLen = mDecodeContext->decinput->nAllocLen;
+	}
 
-	frameSize = mLink->Read( mDecodeInput, mDecodeContext->decinput->nAllocLen, 0 );
+	frameSize = mLink->Read( mDecodeInput, mDecodeLen, 0 );
+	int corrupted = 0;
+	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
+		corrupted = dynamic_cast< RawWifi* >( mLink )->lastIsCorrupt();
+	}
 	if ( frameSize > 0 ) {
 		mDecodeContext->decinput->nFilledLen = frameSize;
-		video_decode_frame( mDecodeContext );
+		video_decode_frame( mDecodeContext, corrupted );
 		mFrameCounter++;
 		mBitrateCounter += frameSize;
 		frameSize = 0;

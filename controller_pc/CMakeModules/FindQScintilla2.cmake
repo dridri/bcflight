@@ -32,6 +32,7 @@ IF(QT4_FOUND)
                 # standard locations
                 /usr/include
                 /usr/include/Qsci
+                /usr/include/qt4/Qsci
                 # qt4 location except mac's frameworks
                 "${QT_INCLUDE_DIR}/Qsci"
                 # mac's frameworks

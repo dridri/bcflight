@@ -59,5 +59,5 @@ typedef struct video_context {
 
 video_context* video_configure( int width, int height, int stereo );
 void video_start( video_context* ctx );
-void video_decode_frame( video_context* ctx );
+void video_decode_frame( video_context* ctx, int corrupt );
 void video_stop( video_context* ctx );

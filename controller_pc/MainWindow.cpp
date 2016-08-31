@@ -21,6 +21,8 @@
 #include <QtCore/QTime>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QFileDialog>
+#include <QtWidgets/QTableWidgetItem>
+#include <QtWidgets/QHBoxLayout>
 #include <Qsci/qsciscintilla.h>
 #include <Qsci/qscilexerlua.h>
 #include <iostream>
@@ -80,6 +82,8 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	connect( ui->contrast_inc, SIGNAL( pressed() ), this, SLOT( VideoContrastIncrease() ) );
 	connect( ui->saturation_dec, SIGNAL( pressed() ), this, SLOT( VideoSaturationDecrease() ) );
 	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
+	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
+	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -228,7 +232,7 @@ void MainWindow::updateData()
 			ui->terminal->setTextCursor( cursor );
 		}
 	}
-
+/*
 	if ( mDataT.size() >= 256 ) {
 		mDataT.pop_front();
 		mDataR.pop_front();
@@ -242,6 +246,18 @@ void MainWindow::updateData()
 	mDataP.append( mController->rpy().y );
 	mDataY.append( mController->rpy().z );
 	mDataAltitude.append( mController->altitude() );
+*/
+	const std::list< vec4 > rpy = mController->rpyHistory();
+	mDataT.clear();
+	mDataR.clear();
+	mDataP.clear();
+	mDataY.clear();
+	for ( vec4 v : rpy ) {
+		mDataT.append( v.w );
+		mDataR.append( v.x );
+		mDataP.append( v.y );
+		mDataY.append( v.z );
+	}
 
 	ui->rpy->graph(0)->setData( mDataT, mDataR );
 	ui->rpy->graph(1)->setData( mDataT, mDataP );
@@ -251,7 +267,16 @@ void MainWindow::updateData()
 	ui->rpy->graph(2)->rescaleAxes( true );
 	ui->rpy->xAxis->rescale();
 	ui->rpy->replot();
-
+/*
+	ui->rates->graph(0)->setData( mDataT, mDataR );
+	ui->rates->graph(1)->setData( mDataT, mDataP );
+	ui->rates->graph(2)->setData( mDataT, mDataY );
+	ui->rates->graph(0)->rescaleAxes();
+	ui->rates->graph(1)->rescaleAxes( true );
+	ui->rates->graph(2)->rescaleAxes( true );
+	ui->rates->xAxis->rescale();
+	ui->rates->replot();
+*/
 	ui->altitude->graph(0)->setData( mDataT, mDataAltitude );
 	ui->altitude->graph(0)->rescaleAxes();
 	ui->altitude->xAxis->rescale();
@@ -543,5 +568,58 @@ void MainWindow::VideoSaturationIncrease()
 {
 	if ( mController and mController->isConnected() ) {
 		mController->VideoSaturationIncrease();
+	}
+}
+
+
+void MainWindow::VideoRecord()
+{
+	qDebug() << "VideoRecord()" << ui->record->text();
+	if ( ui->record->text().mid( ui->record->text().indexOf( "S" ) ) == QString( "Start" ) ) {
+		qDebug() << "VideoRecord() Start";
+		mController->setRecording( true );
+		ui->record->setText( "Stop" );
+	} else {
+		qDebug() << "VideoRecord() Stop";
+		mController->setRecording( false );
+		ui->record->setText( "Start" );
+	}
+}
+
+
+void MainWindow::RecordingsRefresh()
+{
+	ui->recordings->clearContents();
+	ui->recordings->clear();
+	for ( int32_t i = ui->recordings->rowCount() - 1; i >= 0; i-- ) {
+		ui->recordings->removeRow( i );
+	}
+
+	std::vector< std::string > list = mController->recordingsList();
+	for ( std::string input : list ) {
+		std::string filename = input.substr( 0, input.find( ":" ) );
+		std::string size = input.substr( input.find( ":" ) + 1 );
+		if ( filename[0] != '.' ) {
+// 			std::string snapshot_b64 = input.substr( input.find( ":" ) + 1 );
+// 			QByteArray snapshot_raw = QByteArray::fromBase64( QString::fromStdString( snapshot_b64 ) );
+
+			ui->recordings->insertRow( ui->recordings->rowCount() );
+// 			ui->recordings->item( ui->recordings->rowCount() - 1, 0 )->setText( "" );
+// 			ui->recordings->item( ui->recordings->rowCount() - 1, 1 )->setText( QString::fromStdString( filename ) );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 1, new QLabel( QString::fromStdString( filename ) ) );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 2, new QLabel( QString::fromStdString( size ) ) );
+
+			QWidget* tools = new QWidget();
+			QHBoxLayout* layout = new QHBoxLayout();
+			tools->setLayout( layout );
+			QPushButton* btn_save = new QPushButton();
+			btn_save->setIcon( QIcon( ":icons/icon-download.png" ) );
+			QPushButton* btn_delete = new QPushButton();
+			btn_delete->setIcon( QIcon( ":icons/icon-delete.png" ) );
+			layout->addWidget( btn_save );
+			layout->addWidget( btn_delete );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 4, tools );
+			ui->recordings->setRowHeight( ui->recordings->rowCount() - 1, 42 );
+		}
 	}
 }

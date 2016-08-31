@@ -39,6 +39,9 @@
 typedef struct vec3 {
 	float x, y, z;
 } vec3;
+typedef struct vec4 {
+	float x, y, z, w;
+} vec4;
 
 class Controller : public ::Thread
 {
@@ -68,6 +71,7 @@ public:
 	std::string getBoardInfos();
 	std::string getSensorsInfos();
 	std::string debugOutput();
+	std::vector< std::string > recordingsList();
 
 	std::string getConfigFile();
 	void setConfigFile( const std::string& content );
@@ -111,7 +115,7 @@ public:
 	DECL_RO_VAR( uint32_t, DroneRxQuality, droneRxQuality );
 
 	float acceleration() const;
-	const std::list< vec3 >& rpyHistory() const;
+	const std::list< vec4 >& rpyHistory() const;
 	const std::list< vec3 >& outerPidHistory() const;
 	const std::list< float >& altitudeHistory() const;
 
@@ -195,6 +199,11 @@ protected:
 		VIDEO_CONTRAST_DECR = 0xA7,
 		VIDEO_SATURATION_INCR = 0xA8,
 		VIDEO_SATURATION_DECR = 0xA9,
+		GET_RECORDINGS_LIST = 0xB1,
+		RECORD_DOWNLOAD = 0x82,
+		RECORD_DOWNLOAD_INIT = 0x83,
+		RECORD_DOWNLOAD_DATA = 0x84,
+		RECORD_DOWNLOAD_PROCESS = 0x85,
 	} Cmd;
 
 	virtual float ReadThrust() = 0;
@@ -211,6 +220,7 @@ protected:
 	bool mConnected;
 	uint32_t mLockState;
 	std::mutex mXferMutex;
+	uint64_t mTickBase;
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
 	uint64_t mPingTimer;
@@ -221,6 +231,7 @@ protected:
 	std::string mBoardInfos;
 	std::string mSensorsInfos;
 	std::string mConfigFile;
+	std::string mRecordingsList;
 	bool mUpdateUploadValid;
 	bool mConfigUploadValid;
 
@@ -229,7 +240,7 @@ protected:
 	bool mVideoRecording;
 
 	float mAcceleration;
-	std::list< vec3 > mRPYHistory;
+	std::list< vec4 > mRPYHistory;
 	std::list< vec3 > mOuterPIDHistory;
 	std::list< float > mAltitudeHistory;
 
