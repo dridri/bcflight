@@ -32,41 +32,47 @@ static uint8_t u8aIeeeHeader[] = {
 static const uint32_t headers_length = sizeof( u8aRadiotapHeader ) + sizeof( u8aIeeeHeader ) + sizeof( wifi_packet_header_t );
 
 
+void rawwifi_init_txbuf( uint8_t* buf )
+{
+
+	memcpy( buf, u8aRadiotapHeader, sizeof( u8aRadiotapHeader ) );
+	buf += sizeof( u8aRadiotapHeader );
+	memcpy( buf, u8aIeeeHeader, sizeof( u8aIeeeHeader ) );
+	buf += sizeof( u8aIeeeHeader );
+}
+
+
 static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t block_id, uint16_t packet_id, uint16_t packets_count, uint32_t retries )
 {
 #ifdef DEBUG
 	uint32_t i = 0;
 #endif
-	uint8_t buffer[MAX_USER_PACKET_LENGTH];
-	uint8_t* pu8 = buffer;
-
-	memcpy( pu8, u8aRadiotapHeader, sizeof( u8aRadiotapHeader ) );
-	pu8 += sizeof( u8aRadiotapHeader );
-	memcpy( pu8, u8aIeeeHeader, sizeof( u8aIeeeHeader ) );
-	pu8 += sizeof( u8aIeeeHeader );
-
-	buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
-	buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
-
-	wifi_packet_header_t header = {
-		.block_id = block_id,
-		.packet_id = packet_id,
-		.packets_count = packets_count,
-		.crc = rawwifi_crc32( data, datalen )
-	};
-	if ( retries & RETRY_ACK ) {
-		header.packets_count = packets_count | RETRY_ACK;
+	uint8_t* tx_buffer = rwifi->tx_buffer;
+	if ( packet_id == 0 ) {
+		memcpy( tx_buffer + headers_length, data, datalen );
+	} else {
+		tx_buffer = data - headers_length;
+		rawwifi_init_txbuf( tx_buffer );
 	}
-	memcpy( pu8, &header, sizeof( header ) );
-	pu8 += sizeof( header );
 
-	memcpy( pu8, data, datalen );
+	tx_buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
+	tx_buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
+
+	wifi_packet_header_t* header = (wifi_packet_header_t*)( tx_buffer + sizeof( u8aRadiotapHeader ) + sizeof( u8aIeeeHeader ) );
+	header->block_id = block_id;
+	header->packet_id = packet_id;
+	header->packets_count = packets_count;
+	header->crc = rawwifi_crc32( data, datalen );
+	if ( retries & RETRY_ACK ) {
+		header->packets_count = packets_count | RETRY_ACK;
+	}
+
 	int plen = datalen + headers_length;
 
 	if ( retries & RETRY_ACK ) {
 		int ok = 0;
 		while ( ok == 0 ) {
-			int r = pcap_inject( rwifi->out->pcap, buffer, plen );
+			int r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
 			if ( r != plen ) {
 				pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
 				dprintf( "[%d, %d, %d] sent %d / %d\n", block_id, packet_id, i++, r, plen );
@@ -96,12 +102,12 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 		int r = 0;
 		for ( uint32_t i = 0; i < retries; i++ ) {
 retry:
-			r = pcap_inject( rwifi->out->pcap, buffer, plen );
+			r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
 			if ( r != plen ) {
 				pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
 				printf( "[%d/%d] sent %d / %d\n", i + 1, retries, r, plen );
 // 				exit(1);
-				usleep( 100 );
+				usleep( 1 );
 				goto retry;
 			} else {
 				dprintf( "[%d, %d, %d/%d] sent %d / %d\n", block_id, packet_id, i + 1, retries, r, plen );

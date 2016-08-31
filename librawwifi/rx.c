@@ -153,45 +153,49 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 
 int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint32_t retmax, uint32_t* valid )
 {
-	uint8_t payloadBuffer[4096];
-	uint8_t* pu8Payload = payloadBuffer;
+// 	uint8_t payloadBuffer[8192];
+// 	uint8_t* pu8Payload = payloadBuffer;
+	uint8_t* pu8PayloadBase = 0;
 
-	int32_t bytes = process_frame( rwifi, rpcap, payloadBuffer, &pu8Payload );
+	int32_t bytes = process_frame( rwifi, rpcap, pu8PayloadBase, &pu8PayloadBase );
 	if ( bytes <= 0 ) {
 		return bytes;
 	}
 
+	uint8_t* pu8Payload = pu8PayloadBase;
+
 	// Clear blocks which are too old
-	uint64_t ticks = GetTicks();
+// 	uint64_t ticks = GetTicks();
 	rawwifi_block_t* clear_block = rwifi->recv_block;
 	uint32_t front_block_id = ( clear_block ? clear_block->id : 0 );
 	while ( clear_block ) {
 		rawwifi_block_t* next = clear_block->next;
 // 		if ( ticks - clear_block->ticks >= 10 * 1000000ULL ) {
 		if ( front_block_id - clear_block->id > 64 ) {
+			dprintf( "poping block %d\n", clear_block->id );
 			blocks_pop( &rwifi->recv_block, &clear_block );
 		}
 		clear_block = next;
 	}
 
-	wifi_packet_header_t header;
-	memcpy( &header, pu8Payload, sizeof( header ) );
-	pu8Payload += sizeof( header );
-	bytes -= sizeof( header );
-	dprintf( "header = {\n    block_id = %d\n    packet_id = %d\n    packets_count = %d\n}\n", header.block_id, header.packet_id, header.packets_count & 0x7FFF );
+// 	wifi_packet_header_t header;
+// 	memcpy( &header, pu8Payload, sizeof( header ) );
+	wifi_packet_header_t* header = (wifi_packet_header_t*)pu8Payload;
+	pu8Payload += sizeof( wifi_packet_header_t );
+	bytes -= sizeof( wifi_packet_header_t );
+	dprintf( "header = {\n    block_id = %d\n    packet_id = %d\n    packets_count = %d\n}\n", header->block_id, header->packet_id, header->packets_count & 0x7FFF );
 
-	if ( bytes <= 0 || header.packet_id >= header.packets_count || header.packet_id > 2048 ) {
-		dprintf( "broken packet header\n" );
+	if ( bytes <= 0 || header->packet_id >= header->packets_count || header->packet_id > 2048 ) {
 		return 0;
 	}
 
 	wifi_packet_ack_t ack = {
-		.block_id = header.block_id,
-		.packet_id = header.packet_id,
+		.block_id = header->block_id,
+		.packet_id = header->packet_id,
 		.valid = 0,
 	};
 
-	int is_valid = ( header.crc == rawwifi_crc32( pu8Payload, bytes ) );
+	int is_valid = ( header->crc == rawwifi_crc32( pu8Payload, bytes ) );
 	if ( is_valid == 0 ) {
 		dprintf( "Invalid CRC !\n" );
 		if ( bytes == 8 || bytes == 12 ) {
@@ -199,59 +203,62 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		}
 	}
 
-	if ( header.packets_count & RETRY_ACK ) {
+	if ( header->packets_count & RETRY_ACK ) {
 		ack.valid = is_valid;
 		rawwifi_send_ack( rwifi, &ack );
 	}
 
-	header.packets_count &= 0x7FFF;
+	header->packets_count &= 0x7FFF;
 
 /*	TBD : keep it ?
-	if ( header.packets_count == 1 ) {
-		if ( header.block_id == rwifi->recv_last_block ) {
-			dprintf( "Block %d already completed\n", header.block_id );
+	if ( header->packets_count == 1 ) {
+		if ( header->block_id == rwifi->recv_last_block ) {
+			dprintf( "Block %d already completed\n", header->block_id );
 			return CONTINUE;
 		}
 		memcpy( pret, pu8Payload, bytes ); // TODO : limit to retmax
-		rwifi->recv_last_block = header.block_id;
+		rwifi->recv_last_block = header->block_id;
 		rwifi->recv_block_valid = is_valid;
 		return bytes;
 	}
 */
-	if ( rwifi->recv_block != 0 && header.block_id == rwifi->recv_block->id && rwifi->recv_block->valid ) {
-		dprintf( "Block %d already completed (1)\n", header.block_id );
+	if ( rwifi->recv_block != 0 && header->block_id == rwifi->recv_block->id && rwifi->recv_block->valid ) {
+		dprintf( "Block %d already completed (1)\n", header->block_id );
 		return CONTINUE;
 	}
 
 	rawwifi_block_t* block = rwifi->recv_block;
-	while ( block && block->id != header.block_id ) {
+	while ( block && block->id != header->block_id ) {
 		block = block->next;
 	}
 
 	if ( block && block->valid ) {
-		dprintf( "Block %d already completed (2)\n", header.block_id );
+		dprintf( "Block %d already completed (2)\n", header->block_id );
 		return CONTINUE;
 	}
 
 	if ( block == 0 ) {
-// 		if ( rwifi->recv_block != 0 && header.block_id > rwifi->recv_block->id ) {
-// 			dprintf( "Block %d already completed (3)\n", header.block_id );
+// 		if ( rwifi->recv_block != 0 && header->block_id > rwifi->recv_block->id ) {
+// 			dprintf( "Block %d already completed (3)\n", header->block_id );
 // 			return CONTINUE;
 // 		}
-		dprintf( "On new block %d\n", header.block_id );
-		block = blocks_insert_front( &rwifi->recv_block, header.packets_count );
+		dprintf( "On new block %d\n", header->block_id );
+		block = blocks_insert_front( &rwifi->recv_block, header->packets_count );
 		block->ticks = GetTicks();
 	}
-	block->id = header.block_id;
+	block->id = header->block_id;
 
-	if ( block->packets[header.packet_id].size == 0 || block->packets[header.packet_id].valid == 0 ) {
-		memcpy( block->packets[header.packet_id].data, pu8Payload, bytes );
-		block->packets[header.packet_id].size = bytes;
-		block->packets[header.packet_id].valid = is_valid;
+	if ( block->packets[header->packet_id].size == 0 || block->packets[header->packet_id].valid == 0 ) {
+		memcpy( block->packets[header->packet_id].data, pu8Payload, bytes );
+		block->packets[header->packet_id].size = bytes;
+		block->packets[header->packet_id].valid = is_valid;
+		dprintf( "setted data to %p\n", block->packets[header->packet_id].data );
+	} else {
+		dprintf( "packet already valid\n" );
 	}
 
 	int block_ok = 1;
-	for ( uint32_t i = 0; i < header.packets_count; i++ ) {
+	for ( uint32_t i = 0; i < header->packets_count; i++ ) {
 		if ( block->packets[i].size == 0 ) {
 			dprintf( "====> Block %d not ok : packet %d is empty\n", block->id, i );
 			block_ok = 0;
@@ -265,23 +272,25 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	if ( block_ok ) {
 		uint32_t all_valid = 0;
 		uint32_t offset = 0;
-		for ( uint32_t i = 0; i < header.packets_count; i++ ) {
+		for ( uint32_t i = 0; i < header->packets_count; i++ ) {
 			if ( block->packets[i].size <= 1500 && block->packets[i].size > 0 ) {
 				dprintf( "memcpy( %p, %p, %u )\n", pret + offset, block->packets[i].data, block->packets[i].size );
-				memcpy( pret + offset, block->packets[i].data, block->packets[i].size );
+				if ( block->packets[i].data ) {
+					memcpy( pret + offset, block->packets[i].data, block->packets[i].size );
+				}
 				offset += block->packets[i].size;
 				all_valid += ( block->packets[i].valid != 0 );
 			} else {
 				dprintf( "leak (%d)\n", block->packets[i].size );
 			}
 		}
-		block->valid = ( all_valid == header.packets_count );
+		block->valid = ( all_valid == header->packets_count );
 		*valid = block->valid;
 		dprintf( "block %d ok : %d bytes total\n", block->id, offset );
 		return offset;
 	}
 
-	return 0;
+	return CONTINUE;
 }
 
 

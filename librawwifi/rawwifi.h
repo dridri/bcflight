@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#define MAX_USER_PACKET_LENGTH 1450
+#define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
 #define RETRY_ACK 0x8000
 
 typedef struct {
@@ -93,6 +93,7 @@ typedef struct rawwifi_t {
 	uint8_t* send_queue;
 	uint32_t send_queue_size;
 	uint32_t send_queue_retries;
+	uint8_t tx_buffer[MAX_USER_PACKET_LENGTH];
 
 	// Receive
 	rawwifi_pcap_t* in;
@@ -110,6 +111,7 @@ int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint3
 int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t* valid );
 
 // internals
+void rawwifi_init_txbuf( uint8_t* buf );
 int32_t rawwifi_recv_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
 int32_t rawwifi_send_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
 uint32_t rawwifi_crc32( const uint8_t* data, uint32_t len );

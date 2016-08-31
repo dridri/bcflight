@@ -33,6 +33,7 @@ void blocks_pop_front( rawwifi_block_t** list )
 
 void blocks_pop( rawwifi_block_t** list, rawwifi_block_t** _block )
 {
+	uint32_t i = 0;
 	rawwifi_block_t* block = *_block;
 
 	if ( block == (*list) ) {

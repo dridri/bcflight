@@ -114,7 +114,7 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 	memset( rwifi, 0, sizeof( rawwifi_t ) );
 
 	rwifi->device = strdup( device );
-	rwifi->iw_socket = iw_sockets_open();
+	rwifi->iw_socket = -1;//iw_sockets_open();
 
 	rwifi->out = setup_tx( rwifi, rx_port * 2 + 0, blocking );
 	rwifi->out_ack = setup_rx( rwifi, rx_port * 2 + 1, 1 );
@@ -130,6 +130,7 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 		pthread_setname_np( rwifi->send_thread, "rawwifi_tx" );
 	}
 
+	rawwifi_init_txbuf( rwifi->tx_buffer );
 	return rwifi;
 }
 
