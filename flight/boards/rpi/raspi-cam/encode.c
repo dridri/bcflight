@@ -31,7 +31,7 @@ static int allocated_bufs_idx = 0;
 	if (oerr != OMX_ErrorNone) { \
 		fprintf(stderr, #cmd \
 			" failed on line %d: %x\n", \
-			__LINE__, oerr); /*pthread_exit*/ \
+			__LINE__, oerr); pthread_exit(0); \
 	} else { \
 		fprintf(stderr, #cmd \
 			" completed at %d.\n", \
@@ -42,7 +42,7 @@ static int allocated_bufs_idx = 0;
 	OMX_ERRORTYPE oerr = cmd; \
 	if (oerr != OMX_ErrorNone) { \
 		fprintf(stderr, #cmd \
-			" failed: %x\n", oerr); /*pthread_exit*/ \
+			" failed: %x\n", oerr); pthread_exit(0); \
 	} }
 
 #define CLKNAME "OMX.broadcom.clock"
@@ -195,6 +195,7 @@ void video_start( context* ctx )
 	ctx->enc1bufs = omx_allocbufs( ctx->enc1, 201, 1 );
 #endif
 	ctx->enc2bufs = omx_allocbufs( ctx->enc2, 201, 1 );
+	ctx->enc2bufs2 = omx_allocbufs( ctx->enc2, 201, 1 );
 
 // 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortEnable, 80, NULL ) );
 
@@ -409,10 +410,12 @@ void video_stop( context* ctx )
 	OERR( OMX_FreeBuffer( ctx->enc1, 201, ctx->enc1bufs ) );
 #endif
 	OERR( OMX_FreeBuffer( ctx->enc2, 201, ctx->enc2bufs ) );
+	OERR( OMX_FreeBuffer( ctx->enc2, 201, ctx->enc2bufs2 ) );
 // 	video_free_buffers();
 	ctx->cambufs = NULL;
 	ctx->enc1bufs = NULL;
 	ctx->enc2bufs = NULL;
+	ctx->enc2bufs2 = NULL;
 
 	int i;
 	for ( i = 0; i < 32; i++ ) {
@@ -635,6 +638,13 @@ context* video_configure( uint32_t fps, uint32_t live_width, uint32_t live_heigh
 	idr.nIDRPeriod = 3;
 	idr.nPFrames = 2;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &idr ) );
+
+	OMX_VIDEO_PARAM_PROFILELEVELTYPE profile;
+	OMX_INIT_STRUCTURE( profile );
+	profile.nPortIndex = 201;
+	profile.eProfile = OMX_VIDEO_AVCProfileHigh;
+	profile.eLevel = OMX_VIDEO_AVCLevel4;
+	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoProfileLevelCurrent, &profile ) );
 /*
 #ifdef PC
 	// FIXME => use this with PC
@@ -703,12 +713,12 @@ context* video_configure( uint32_t fps, uint32_t live_width, uint32_t live_heigh
 	avc.nCabacInitIdc = 0;
 	avc.eLoopFilterMode = OMX_VIDEO_AVCLoopFilterDisable;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexParamVideoAvc, &avc ) );
-
+*/
 	OMX_CONFIG_BOOLEANTYPE headerOnOpen;
 	OMX_INIT_STRUCTURE( headerOnOpen );
 	headerOnOpen.bEnabled = OMX_TRUE;
 	OERR( OMX_SetConfig( ctx->enc2, OMX_IndexParamBrcmHeaderOnOpen, &headerOnOpen ) );
-*/
+
 	OMX_CONFIG_BOOLEANTYPE lowLatency;
 	OMX_INIT_STRUCTURE( lowLatency );
 	lowLatency.bEnabled = OMX_TRUE;
@@ -832,13 +842,21 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def, uint
 	- 6 - 720P binned and cropped (360 pixels off left/right, 512 pixels off top/bottom before binning), 40 to 90fps (120fps if overclocked)
 	- 7 - VGA binned and cropped (1000 pixels off left/right, 752 pixels off top/bottom before binning), 40 to 90fps (120fps if overclocked)
 	*/
-/*
+
 	OMX_PARAM_U32TYPE sensorMode;
 	OMX_INIT_STRUCTURE( sensorMode );
 	sensorMode.nPortIndex = OMX_ALL;
-	sensorMode.nU32 = 6; // 5
+	if ( width <= 640 && height <= 480 ) {
+		sensorMode.nU32 = 7;
+	} else if ( width <= 1280 && height <= 720 ) {
+		sensorMode.nU32 = 6;
+	} else if ( width == 1920 && height == 1080 ) {
+		sensorMode.nU32 = 1;
+	} else {
+		sensorMode.nU32 = 0;
+	}
 	OERR( OMX_SetParameter( ctx->cam, OMX_IndexParamCameraCustomSensorConfig, &sensorMode ) );
-*/
+
 	OMX_PARAM_CAMERAIMAGEPOOLTYPE pool;
 	OMX_INIT_STRUCTURE( pool );
 	OERR( OMX_GetParameter( ctx->cam, OMX_IndexParamCameraImagePool, &pool ) );
@@ -950,7 +968,7 @@ static void config_camera( context* ctx, OMX_PARAM_PORTDEFINITIONTYPE* def, uint
 	OMX_CONFIG_EXPOSURECONTROLTYPE exposure_type;
 	OMX_INIT_STRUCTURE(exposure_type);
 	exposure_type.nPortIndex = OMX_ALL;
-	exposure_type.eExposureControl = OMX_ExposureControlSports ;//OMX_ExposureControlAuto;
+	exposure_type.eExposureControl = OMX_ExposureControlSports;//OMX_ExposureControlAuto;
 	OERR( OMX_SetConfig( ctx->cam, OMX_IndexConfigCommonExposure, &exposure_type ) );
 /*
 	// Enable HDR

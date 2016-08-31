@@ -35,6 +35,7 @@ extern "C" {
 #include <Main.h>
 #include "Board.h"
 #include "I2C.h"
+#include "Debug.h"
 
 extern "C" void bcm_host_init( void );
 extern "C" void bcm_host_deinit( void );
@@ -62,6 +63,7 @@ Board::Board( Main* main )
 // 	mMotorsPWM = new PWM( 14, 1000000, 2000, 2, motors_pins, 4 );
 
 	system( "mount -o remount,rw /data" );
+	system( "mkdir -p /data/VIDEO" );
 
 	atexit( &Board::AtExit );
 
@@ -75,6 +77,8 @@ Board::Board( Main* main )
 		}
 		file.close();
 	}
+
+	gDebug() << readcmd( "ls -R /data" );
 }
 
 

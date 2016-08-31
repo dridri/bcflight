@@ -16,6 +16,9 @@
 **/
 
 #include <unistd.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include "Main.h"
 #include "Controller.h"
 #include <I2C.h>
@@ -43,7 +46,7 @@
 	#include <RawWifi.h>
 #endif
 
-#include "peripherals/WS2812.h" // TEST
+// #include "peripherals/WS2812.h" // TEST
 
 Main* Main::mInstance = nullptr;
 
@@ -126,12 +129,12 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
-#ifdef CAMERA
-	mCamera = new CAMERA( mConfig, "camera" );
-	Board::InformLoading();
-#else
+// #ifdef CAMERA
+// 	mCamera = new CAMERA( mConfig, "camera" );
+// 	Board::InformLoading();
+// #else
 	mCamera = nullptr;
-#endif
+// #endif
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
@@ -188,6 +191,29 @@ bool Main::StabilizerThreadRun()
 
 Main::~Main()
 {
+}
+
+
+std::string Main::getRecordingsList() const
+{
+	std::string ret;
+	DIR* dir;
+	struct dirent* ent;
+
+	if ( ( dir = opendir( "/data/VIDEO/" ) ) != nullptr ) {
+		while ( ( ent = readdir( dir ) ) != nullptr ) {
+			struct stat st;
+			stat( ( "/data/VIDEO/" + std::string( ent->d_name ) ).c_str(), &st );
+			ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ";";
+		}
+		closedir( dir );
+	}
+
+	if ( ret.length() == 0 or ret == "" ) {
+		ret = ";";
+	}
+	gDebug() << "Recordings : " << ret << "\n";
+	return ret;
 }
 
 

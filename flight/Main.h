@@ -39,6 +39,8 @@ public:
 	Main();
 	~Main();
 
+	std::string getRecordingsList() const;
+
 	Config* config() const;
 	Board* board() const;
 	PowerThread* powerThread() const;

@@ -71,8 +71,8 @@
 #define CAM_DEVICE_NUMBER               0
 #define CAM_SHARPNESS                   100                       // -100 .. 100
 #define CAM_CONTRAST                    0                        // -100 .. 100
-#define CAM_BRIGHTNESS                  58                       // 0 .. 100
-#define CAM_SATURATION                  32                        // -100 .. 100
+#define CAM_BRIGHTNESS                  60                       // 0 .. 100
+#define CAM_SATURATION                  16                        // -100 .. 100
 #define CAM_EXPOSURE_VALUE_COMPENSATION 00
 #define CAM_EXPOSURE_ISO_SENSITIVITY    800
 #define CAM_EXPOSURE_AUTO_SENSITIVITY   OMX_TRUE
@@ -109,6 +109,8 @@ typedef struct video_context {
 	// Encoders
 	OMX_BUFFERHEADERTYPE* enc1bufs;
 	OMX_BUFFERHEADERTYPE* enc2bufs;
+	OMX_BUFFERHEADERTYPE* enc2bufs2;
+	int enc2_curr_buf;
 	int enc1_data_avail;
 	int enc2_data_avail;
 } video_context;

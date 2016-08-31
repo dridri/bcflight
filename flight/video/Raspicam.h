@@ -59,6 +59,8 @@ protected:
 	int LiveSend( char* data, int datalen );
 	int RecordWrite( char* data, int datalen, int64_t pts = 0, bool audio = false );
 
+	Config* mConfig;
+	std::string mConfigObject;
 	Link* mLink;
 	HookThread<Raspicam>* mLiveThread;
 	HookThread<Raspicam>* mRecordThread;

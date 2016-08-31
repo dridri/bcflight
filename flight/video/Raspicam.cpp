@@ -19,6 +19,7 @@
 #ifdef BOARD_rpi
 
 #include <unistd.h>
+#include <dirent.h>
 #include <netinet/in.h>
 #include <Debug.h>
 #include <Link.h>
@@ -35,6 +36,9 @@ extern "C" void OMX_Init();
 
 Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	: Camera()
+	, mConfig( config )
+	, mConfigObject( conf_obj )
+	, mVideoContext( nullptr )
 	, mNeedNextEnc1ToBeFilled( false )
 	, mNeedNextEnc2ToBeFilled( false )
 	, mNeedNextAudioToBeFilled( false )
@@ -57,8 +61,6 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 
 	OMX_Init();
 // 	mAudioContext = audio_configure();
-	mVideoContext = video_configure( config->integer( conf_obj + ".fps", 40 ), config->integer( conf_obj + ".width", 1280 ), config->integer( conf_obj + ".height", 720 ), config->integer( conf_obj + ".kbps", 1024 ) );
-// 	SetupRecord();
 
 // 	mLiveThread = new HookThread<Raspicam>( this, &Raspicam::MixedThreadRun );
 	mLiveThread = new HookThread<Raspicam>( "cam_live", this, &Raspicam::LiveThreadRun );
@@ -134,6 +136,13 @@ void Raspicam::StopRecording()
 bool Raspicam::LiveThreadRun()
 {
 	int ret = 0;
+
+	if ( mVideoContext == nullptr ) {
+		mVideoContext = video_configure( mConfig->integer( mConfigObject + ".fps", 40 ), mConfig->integer( mConfigObject + ".width", 1280 ), mConfig->integer( mConfigObject + ".height", 720 ), mConfig->integer( mConfigObject + ".kbps", 1024 ) );
+		video_set_brightness( mVideoContext, mConfig->integer( mConfigObject + ".brightness", 60 ) );
+		video_set_saturation( mVideoContext, mConfig->integer( mConfigObject + ".saturation", 16 ) );
+		video_set_contrast( mVideoContext, mConfig->integer( mConfigObject + ".contrast", 0 ) );
+	}
 
 	if ( mVideoContext->exiting ) {
 		video_stop( mVideoContext );
@@ -360,8 +369,22 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 */
 		if ( !mRecordStream ) {
 			char filename[256];
-			Board::Date date = Board::localDate();
-			sprintf( filename, "/data/VIDEO/video_%04d_%02d_%02d_%02d_%02d_%02d.h264", date.year, date.month, date.day, date.hour, date.minute, date.second );
+// 			Board::Date date = Board::localDate();
+// 			sprintf( filename, "/data/VIDEO/video_%04d_%02d_%02d_%02d_%02d_%02d.h264", date.year, date.month, date.day, date.hour, date.minute, date.second );
+			uint32_t fileid = 0;
+			DIR* dir;
+			struct dirent* ent;
+			if ( ( dir = opendir( "/data/VIDEO" ) ) != nullptr ) {
+				while ( ( ent = readdir( dir ) ) != nullptr ) {
+					std::string file = std::string( ent->d_name );
+					uint32_t id = std::atoi( file.substr( file.find( "_" ) + 1 ).c_str() );
+					if ( id >= fileid ) {
+						fileid = id + 1;
+					}
+				}
+				closedir( dir );
+			}
+			sprintf( filename, "/data/VIDEO/video_%06u.h264", fileid );
 			mRecordStream = new std::ofstream( filename );
 		}
 		auto pos = mRecordStream->tellp();

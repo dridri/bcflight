@@ -47,6 +47,8 @@ Controller::Controller( Main* main, Link* link )
 	, mEmergencyTick( 0 )
 	, mTelemetryFull( false )
 {
+	mTelemetryFrequency = main->config()->integer( "controller.telemetry_rate", 20 );
+
 	mExpo = Vector4f();
 	mExpo.x = main->config()->number( "controller.expo.roll" );
 	mExpo.y = main->config()->number( "controller.expo.pitch" );
@@ -77,11 +79,15 @@ Controller::Controller( Main* main, Link* link )
 		mExpo.w = 2.0f;
 	}
 
+	gDebug() << "Starting TX thread\n";
 	Start();
+	gDebug() << "Starting RX thread\n";
 	mTelemetryThread->Start();
+	gDebug() << "Waiting link to be ready\n";
 	while ( !mLink->isConnected() ) {
 		usleep( 1000 * 100 );
 	}
+	gDebug() << "Controller ready !\n";
 }
 
 
@@ -167,6 +173,7 @@ bool Controller::run()
 	}
 
 	if ( !mLink->isConnected() ) {
+		gDebug() << "Link not up, connecting...\n";
 // 		mConnected = false;
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
@@ -268,6 +275,7 @@ bool Controller::run()
 				break;
 			}
 			case UPDATE_UPLOAD_INIT : {
+				gDebug() << "UPDATE_UPLOAD_INIT\n";
 				if ( mTelemetryThread->running() ) {
 					mTelemetryThread->Pause();
 					gDebug() << "Telemetry thread paused\n";
@@ -275,6 +283,7 @@ bool Controller::run()
 				break;
 			}
 			case UPDATE_UPLOAD_DATA : {
+				gDebug() << "UPDATE_UPLOAD_DATA\n";
 				uint32_t crc = command.ReadU32();
 				uint32_t offset = command.ReadU32();
 				uint32_t offset2 = command.ReadU32();
@@ -309,6 +318,7 @@ bool Controller::run()
 				break;
 			}
 			case UPDATE_UPLOAD_PROCESS : {
+				gDebug() << "UPDATE_UPLOAD_PROCESS\n";
 				uint32_t crc = command.ReadU32();
 				gDebug() << "Processing firmware update...\n";
 				Board::UpdateFirmwareProcess( crc );
@@ -761,6 +771,16 @@ bool Controller::run()
 				}
 				break;
 			}
+			case GET_RECORDINGS_LIST : {
+				response.WriteString( mMain->getRecordingsList() );
+				do_response = true;
+				break;
+			}
+			case RECORD_DOWNLOAD : {
+				std::string file = command.ReadString();
+// 				mMain->UploadFile( filename ); // TODO
+				break;
+			}
 
 			default: {
 				printf( "Controller::run() WARNING : Unknown command 0x%08X\n", cmd );
@@ -812,9 +832,15 @@ bool Controller::TelemetryRun()
 	}
 
 	telemetry.WriteU32( ROLL_PITCH_YAW );
-	telemetry.WriteFloat( mMain->imu()->RPY().x );
-	telemetry.WriteFloat( mMain->imu()->RPY().y );
-	telemetry.WriteFloat( mMain->imu()->RPY().z );
+	if ( mMain->stabilizer()->mode() == Stabilizer::Rate ) {
+		telemetry.WriteFloat( mMain->imu()->gyroscope().x );
+		telemetry.WriteFloat( mMain->imu()->gyroscope().y );
+		telemetry.WriteFloat( mMain->imu()->gyroscope().z );
+	} else {
+		telemetry.WriteFloat( mMain->imu()->RPY().x );
+		telemetry.WriteFloat( mMain->imu()->RPY().y );
+		telemetry.WriteFloat( mMain->imu()->RPY().z );
+	}
 
 	telemetry.WriteU32( CURRENT_ACCELERATION );
 	telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
@@ -842,7 +868,7 @@ bool Controller::TelemetryRun()
 	mSendMutex.lock();
 	mLink->Write( &telemetry );
 	mSendMutex.unlock();
-	mTelemetryTick = Board::WaitTick( 1000000 / 10, mTelemetryTick );
+	mTelemetryTick = Board::WaitTick( 1000000 / mTelemetryFrequency, mTelemetryTick );
 	mTelemetryCounter++;
 	return true;
 }

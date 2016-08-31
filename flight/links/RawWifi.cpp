@@ -25,6 +25,8 @@
 #include "../Config.h"
 #include <Board.h>
 
+std::mutex RawWifi::mInitializingMutex;
+bool RawWifi::mInitializing = false;
 bool RawWifi::mInitialized = false;
 
 
@@ -109,10 +111,19 @@ int32_t RawWifi::RxQuality()
 
 void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
 {
+	mInitializingMutex.lock();
+	while ( mInitializing ) {
+		usleep( 1000 * 100 );
+	}
 	if ( not mInitialized ) {
+		mInitializing = true;
 		mInitialized = true;
 		std::stringstream ss;
 
+		(void)system( "ifconfig" );
+		usleep( 1000 * 250 );
+		(void)system( "iwconfig" );
+		usleep( 1000 * 250 );
 		if ( Board::readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
 			ss << "ifconfig " << device << " down && sleep 0.5";
 			ss << " && iw dev " << device << " set monitor otherbss fcsfail && sleep 0.5";
@@ -126,18 +137,28 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 
 		std::cout << "executing : " << ss.str().c_str() << "\n";
 		(void)system( ss.str().c_str() );
+		usleep( 1000 * 250 );
+		(void)system( "ifconfig" );
+		usleep( 1000 * 250 );
+		(void)system( "iwconfig" );
+		mInitializing = false;
 	}
+	mInitializingMutex.unlock();
 }
 
 
 int RawWifi::Connect()
 {
+	gDebug() << "1\n";
 	Initialize( mDevice, mChannel, mTxPower );
+	gDebug() << "2\n";
 
 	mRawWifi = rawwifi_init( "wlan0", mOutputPort, mInputPort, mBlocking );
+	gDebug() << "3\n";
 	if ( !mRawWifi ) {
 		return -1;
 	}
+	gDebug() << "4\n";
 
 	mConnected = true;
 	return 0;

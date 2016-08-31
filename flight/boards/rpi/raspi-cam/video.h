@@ -53,6 +53,8 @@ typedef struct video_context {
 	// Encoders
 	OMX_BUFFERHEADERTYPE* enc1bufs;
 	OMX_BUFFERHEADERTYPE* enc2bufs;
+	OMX_BUFFERHEADERTYPE* enc2bufs2;
+	int enc2_curr_buf;
 	int enc1_data_avail;
 	int enc2_data_avail;
 } video_context;

@@ -119,6 +119,11 @@ protected:
 		VIDEO_CONTRAST_DECR = 0xA7,
 		VIDEO_SATURATION_INCR = 0xA8,
 		VIDEO_SATURATION_DECR = 0xA9,
+		GET_RECORDINGS_LIST = 0xB1,
+		RECORD_DOWNLOAD = 0x82,
+		RECORD_DOWNLOAD_INIT = 0x83,
+		RECORD_DOWNLOAD_DATA = 0x84,
+		RECORD_DOWNLOAD_PROCESS = 0x85,
 	} Cmd;
 
 	virtual bool run();
@@ -140,6 +145,7 @@ protected:
 	uint64_t mTelemetryTick;
 	uint64_t mTelemetryCounter;
 	uint64_t mEmergencyTick;
+	uint32_t mTelemetryFrequency;
 	bool mTelemetryFull;
 };
 

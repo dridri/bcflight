@@ -229,9 +229,10 @@ Matrix operator+( const Matrix& m1, const Matrix& m2 )
 	int h = std::min( m1.height(), m2.height() );
 	Matrix ret( w, h );
 
-	for ( int j = 0; j < h; j++ ) {
+	for ( int j = 0, j1 = 0, j2 = 0; j < h; j++, j1 += m1.width(), j2 += m2.width() ) {
 		for ( int i = 0; i < w; i++ ) {
 			ret.m[ j * w + i ] = m1.m[ j * m1.width() + i ] + m2.m[ j * m2.width() + i ];
+// 			ret.m[ j * w + i ] = m1.m[ j1 + i ] + m2.m[ j2 + i ];
 		}
 	}
 
@@ -245,9 +246,10 @@ Matrix operator-( const Matrix& m1, const Matrix& m2 )
 	int h = std::min( m1.height(), m2.height() );
 	Matrix ret( w, h );
 
-	for ( int j = 0; j < h; j++ ) {
+	for ( int j = 0, j1 = 0, j2 = 0; j < h; j++, j1 += m1.width(), j2 += m2.width() ) {
 		for ( int i = 0; i < w; i++ ) {
 			ret.m[ j * w + i ] = m1.m[ j * m1.width() + i ] - m2.m[ j * m2.width() + i ];
+// 			ret.m[ j * w + i ] = m1.m[ j1 + i ] - m2.m[ j2 + i ];
 		}
 	}
 
@@ -261,9 +263,13 @@ Matrix operator*( const Matrix& m1, const Matrix& m2 )
 	memset( ret.data(), 0, sizeof(float) * ret.width() * ret.height() );
 
 	for ( int i = 0; i < ret.height(); i++ ) {
+// 	for ( int i1 = 0, i2 = 0; i1 < ret.height(); i1 += ret.width(), i2 += m1.width() ) {
 		for ( int j = 0; j < ret.width(); j++ ) {
 			for ( int n = 0; n < m2.height(); n++ ) {
 				ret.data()[ i * ret.width() + j ] += m1.constData()[ i * m1.width() + n ] * m2.constData()[ n * m2.width() + j ];
+// 			ret.data()[ i1 + j ] = 0.0f;
+// 			for ( int n = 0, nh = 0; n < m2.height(); n++, nh += m2.width() ) {
+// 				ret.data()[ i1 + j ] += m1.constData()[ i2 + n ] * m2.constData()[ nh + j ];
 			}
 		}
 	}
@@ -276,10 +282,10 @@ Vector4f operator*( const Matrix& m, const Vector4f& vec )
 {
 	Vector4f ret = Vector4f();
 
-	for ( int j = 0; j < m.height(); j++ ) {
+	for ( int j = 0, line = 0; j < m.height(); j++, line += m.width() ) {
 		for ( int i = 0; i < m.width(); i++ ) {
-// 			printf( "ret[%d] += vec[%d] * m.constData()[ %d * %d + %d => %d ]\n", j, j, j, m.width(), i, j * m.width() + i );
 			ret[j] += vec[i] * m.constData()[ j * m.width() + i ];
+// 			ret[j] += vec[i] * m.constData()[ line + i ];
 		}
 	}
 

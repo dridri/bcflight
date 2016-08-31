@@ -59,6 +59,8 @@ protected:
 	bool mDrop;
 	uint32_t mRetries;
 
+	static std::mutex mInitializingMutex;
+	static bool mInitializing;
 	static bool mInitialized;
 };
 
