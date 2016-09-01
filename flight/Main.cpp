@@ -129,12 +129,12 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
-// #ifdef CAMERA
-// 	mCamera = new CAMERA( mConfig, "camera" );
-// 	Board::InformLoading();
-// #else
+#ifdef CAMERA
+	mCamera = new CAMERA( mConfig, "camera" );
+	Board::InformLoading();
+#else
 	mCamera = nullptr;
-// #endif
+#endif
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );

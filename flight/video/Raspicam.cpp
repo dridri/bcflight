@@ -318,16 +318,16 @@ int Raspicam::LiveSend( char* data, int datalen )
 
 	int retries = 1;
 	RawWifi* rwifi = dynamic_cast< RawWifi* >( mLink );
-	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
-		retries = rwifi->retries();
-		rwifi->setRetries( 3 );
-	}
+// 	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
+// 		retries = rwifi->retries();
+// 		rwifi->setRetries( 3 );
+// 	}
 
 	err = mLink->Write( (uint8_t*)data, datalen, 0 );
 
-	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
-		rwifi->setRetries( retries );
-	}
+// 	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
+// 		rwifi->setRetries( retries );
+// 	}
 
 	if ( err < 0 ) {
 		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";

@@ -48,12 +48,12 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 	uint32_t i = 0;
 #endif
 	uint8_t* tx_buffer = rwifi->tx_buffer;
-	if ( packet_id == 0 ) {
+// 	if ( packet_id == 0 ) {
 		memcpy( tx_buffer + headers_length, data, datalen );
-	} else {
-		tx_buffer = data - headers_length;
-		rawwifi_init_txbuf( tx_buffer );
-	}
+// 	} else {
+// 		tx_buffer = data - headers_length;
+// 		rawwifi_init_txbuf( tx_buffer );
+// 	}
 
 	tx_buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
 	tx_buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;

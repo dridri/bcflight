@@ -29,11 +29,11 @@ static int allocated_bufs_idx = 0;
 #define OERR(cmd) { \
 	OMX_ERRORTYPE oerr = cmd; \
 	if (oerr != OMX_ErrorNone) { \
-		fprintf(stderr, #cmd \
+		printf( #cmd \
 			" failed on line %d: %x\n", \
 			__LINE__, oerr); pthread_exit(0); \
 	} else { \
-		fprintf(stderr, #cmd \
+		printf( #cmd \
 			" completed at %d.\n", \
 			__LINE__); \
 	} }
@@ -41,7 +41,7 @@ static int allocated_bufs_idx = 0;
 #define OERRq(cmd) { \
 	OMX_ERRORTYPE oerr = cmd; \
 	if (oerr != OMX_ErrorNone) { \
-		fprintf(stderr, #cmd \
+		printf( #cmd \
 			" failed: %x\n", oerr); pthread_exit(0); \
 	} }
 
@@ -100,7 +100,7 @@ int video_fill_buffer( OMX_HANDLETYPE enc, OMX_BUFFERHEADERTYPE* bufs )
 		exit(1);
 	}
 */
-
+/*
 	if ( OMX_SendCommand( _ctx->spl, OMX_CommandFlush, 250, NULL ) != OMX_ErrorNone ) {
 		printf( "OMX_CommandFlush failed for spl port 250\n" );
 		exit(1);
@@ -113,7 +113,7 @@ int video_fill_buffer( OMX_HANDLETYPE enc, OMX_BUFFERHEADERTYPE* bufs )
 		printf( "OMX_CommandFlush failed for enc2\n" );
 		exit(1);
 	}
-
+*/
 	return ret;
 }
 
@@ -195,7 +195,7 @@ void video_start( context* ctx )
 	ctx->enc1bufs = omx_allocbufs( ctx->enc1, 201, 1 );
 #endif
 	ctx->enc2bufs = omx_allocbufs( ctx->enc2, 201, 1 );
-	ctx->enc2bufs2 = omx_allocbufs( ctx->enc2, 201, 1 );
+// 	ctx->enc2bufs2 = omx_allocbufs( ctx->enc2, 201, 1 );
 
 // 	OERR( OMX_SendCommand( ctx->clk, OMX_CommandPortEnable, 80, NULL ) );
 
@@ -410,12 +410,12 @@ void video_stop( context* ctx )
 	OERR( OMX_FreeBuffer( ctx->enc1, 201, ctx->enc1bufs ) );
 #endif
 	OERR( OMX_FreeBuffer( ctx->enc2, 201, ctx->enc2bufs ) );
-	OERR( OMX_FreeBuffer( ctx->enc2, 201, ctx->enc2bufs2 ) );
+// 	OERR( OMX_FreeBuffer( ctx->enc2, 201, ctx->enc2bufs2 ) );
 // 	video_free_buffers();
 	ctx->cambufs = NULL;
 	ctx->enc1bufs = NULL;
 	ctx->enc2bufs = NULL;
-	ctx->enc2bufs2 = NULL;
+// 	ctx->enc2bufs2 = NULL;
 
 	int i;
 	for ( i = 0; i < 32; i++ ) {
@@ -635,8 +635,8 @@ context* video_configure( uint32_t fps, uint32_t live_width, uint32_t live_heigh
 	OMX_VIDEO_CONFIG_AVCINTRAPERIOD idr;
 	OMX_INIT_STRUCTURE( idr );
 	idr.nPortIndex = 201;
-	idr.nIDRPeriod = 3;
-	idr.nPFrames = 2;
+	idr.nIDRPeriod = 5;
+	idr.nPFrames = 0;
 	OERR( OMX_SetParameter( ctx->enc2, OMX_IndexConfigVideoAVCIntraPeriod, &idr ) );
 
 	OMX_VIDEO_PARAM_PROFILELEVELTYPE profile;

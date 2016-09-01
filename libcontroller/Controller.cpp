@@ -332,7 +332,9 @@ bool Controller::RxRun()
 			}
 			case DEBUG_OUTPUT : {
 				mDebugMutex.lock();
-				mDebug += telemetry.ReadString();
+				std::string str = telemetry.ReadString();
+				std::cout << str;
+				mDebug += str;
 				mDebugMutex.unlock();
 				break;
 			}
@@ -383,7 +385,9 @@ bool Controller::RxRun()
 				break;
 			}
 			case UPDATE_UPLOAD_DATA : {
-				mUpdateUploadValid = ( telemetry.ReadU32() == 1 );
+				bool ok = ( telemetry.ReadU32() == 1 );
+				std::cout << "UPDATE_UPLOAD_DATA : " << ok << "\n";
+				mUpdateUploadValid = ok;
 				break;
 			}
 
@@ -743,14 +747,14 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 	mUpdateUploadValid = false;
 	mXferMutex.lock();
 	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
-		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 1 );
+		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 2 );
 	}
 	do {
 		mLink->Write( &packet );
-		usleep( 1000 * 10 );
+		usleep( 1000 * 100 );
 		if ( not mUpdateUploadValid ) {
 			std::cout << "Broken data received, retrying...\n";
-			usleep( 1000 * 100 );
+			usleep( 1000 * 10 );
 		}
 	} while ( not mUpdateUploadValid );
 

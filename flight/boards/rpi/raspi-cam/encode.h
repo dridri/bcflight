@@ -80,8 +80,8 @@
 #define CAM_WHITE_BALANCE_CONTROL       OMX_WhiteBalControlAuto // OMX_WHITEBALCONTROLTYPE
 // #define CAM_IMAGE_FILTER                OMX_ImageFilterNoise    // OMX_IMAGEFILTERTYPE
 #define CAM_IMAGE_FILTER                OMX_ImageFilterNone    // OMX_IMAGEFILTERTYPE
-#define CAM_FLIP_HORIZONTAL             OMX_FALSE
-#define CAM_FLIP_VERTICAL               OMX_TRUE
+#define CAM_FLIP_HORIZONTAL             OMX_TRUE
+#define CAM_FLIP_VERTICAL               OMX_FALSE
 
 typedef struct video_context {
 	int running;
