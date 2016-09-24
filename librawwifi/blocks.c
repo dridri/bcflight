@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "rawwifi.h"
-
+/*
 rawwifi_block_t* blocks_insert_front( rawwifi_block_t** list, uint16_t packets_count )
 {
 	if ( packets_count < 16 ) {
@@ -55,3 +55,4 @@ void blocks_pop( rawwifi_block_t** list, rawwifi_block_t** _block )
 void blocks_pop_back( rawwifi_block_t** list )
 {
 }
+*/

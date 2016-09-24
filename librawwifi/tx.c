@@ -48,12 +48,6 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 	uint32_t i = 0;
 #endif
 	uint8_t* tx_buffer = rwifi->tx_buffer;
-// 	if ( packet_id == 0 ) {
-		memcpy( tx_buffer + headers_length, data, datalen );
-// 	} else {
-// 		tx_buffer = data - headers_length;
-// 		rawwifi_init_txbuf( tx_buffer );
-// 	}
 
 	tx_buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
 	tx_buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->out->port;
@@ -63,55 +57,22 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 	header->packet_id = packet_id;
 	header->packets_count = packets_count;
 	header->crc = rawwifi_crc32( data, datalen );
-	if ( retries & RETRY_ACK ) {
-		header->packets_count = packets_count | RETRY_ACK;
-	}
 
+	memcpy( tx_buffer + headers_length, data, datalen );
 	int plen = datalen + headers_length;
 
-	if ( retries & RETRY_ACK ) {
-		int ok = 0;
-		while ( ok == 0 ) {
-			int r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
-			if ( r != plen ) {
-				pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
-				dprintf( "[%d, %d, %d] sent %d / %d\n", block_id, packet_id, i++, r, plen );
-// 				exit(1);
-				continue;
-			}
-			dprintf( "[%d] sent %d bytes\n", i++, r );
-			wifi_packet_ack_t ack;
-			while ( 1 ) {
-				int32_t ret = rawwifi_recv_ack( rwifi, &ack );
-				if ( ret <= 0 ) {
-					dprintf( "ACK Error\n" );
-					break;
-				}
-				if ( ret == sizeof( ack ) && ack.block_id == block_id && ack.packet_id == packet_id && ack.valid != 0 ) {
-					dprintf( "ACK Ok\n" );
-					ok = 1;
-					break;
-				}
-				if ( ret == sizeof( ack ) && ( ack.block_id < block_id || ( ack.block_id == block_id && ack.packet_id < packet_id ) ) ) {
-					dprintf( "ACK too old\n" );
-					continue;
-				}
-			}
-		}
-	} else {
-		int r = 0;
-		for ( uint32_t i = 0; i < retries; i++ ) {
+	int r = 0;
+	for ( uint32_t i = 0; i < retries; i++ ) {
 retry:
-			r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
-			if ( r != plen ) {
-				pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
-				printf( "[%d/%d] sent %d / %d\n", i + 1, retries, r, plen );
-// 				exit(1);
-				usleep( 1 );
-				goto retry;
-			} else {
-				dprintf( "[%d, %d, %d/%d] sent %d / %d\n", block_id, packet_id, i + 1, retries, r, plen );
-			}
+		r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
+		if ( r != plen ) {
+			pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
+			printf( "[%d/%d] sent %d / %d\n", i + 1, retries, r, plen );
+// 			exit(1);
+			usleep( 1 );
+			goto retry;
+		} else {
+			dprintf( "[%d, %d, %d/%d] sent %d / %d\n", block_id, packet_id, i + 1, retries, r, plen );
 		}
 	}
 
@@ -119,7 +80,7 @@ retry:
 }
 
 
-int _rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries )
+int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries )
 {
 	int sent = 0;
 	int remain = datalen;
@@ -146,59 +107,7 @@ int _rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint
 }
 
 
-int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries )
-{
-	if ( rwifi->out->blocking == 0 ) {
-		pthread_mutex_lock( &rwifi->send_mutex );
-		rwifi->send_queue = (uint8_t*)malloc( datalen );
-		rwifi->send_queue_size = datalen;
-		rwifi->send_queue_retries = retries;
-		memcpy( rwifi->send_queue, data, datalen );
-		pthread_mutex_unlock( &rwifi->send_mutex );
-		pthread_cond_signal( &rwifi->send_cond );
-		return datalen;
-	}
-	return _rawwifi_send_retry( rwifi, data, datalen, retries );
-}
-
-
 int rawwifi_send( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen )
 {
 	return rawwifi_send_retry( rwifi, data, datalen, 1 );
-}
-
-
-int32_t rawwifi_send_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack )
-{
-	uint8_t buffer[MAX_USER_PACKET_LENGTH];
-	uint8_t* pu8 = buffer;
-
-	memcpy( pu8, u8aRadiotapHeader, sizeof( u8aRadiotapHeader ) );
-	pu8 += sizeof( u8aRadiotapHeader );
-	memcpy( pu8, u8aIeeeHeader, sizeof( u8aIeeeHeader ) );
-	pu8 += sizeof( u8aIeeeHeader );
-
-	buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->in_ack->port;
-	buffer[sizeof(u8aRadiotapHeader) + sizeof(uint32_t) + sizeof(uint8_t)*6 + sizeof(uint8_t)*6 + sizeof(uint8_t)*5 ] = rwifi->in_ack->port;
-
-	memcpy( pu8, ack, sizeof( wifi_packet_ack_t ) );
-	pu8 += sizeof( wifi_packet_ack_t );
-
-	const int RETRIES = 1;
-	int plen = sizeof( u8aRadiotapHeader ) + sizeof( u8aIeeeHeader ) + sizeof( wifi_packet_ack_t );
-	for ( uint32_t i = 0; i < RETRIES; i++ ) {
-		int r = 0;
-retry:
-		r = pcap_inject( rwifi->in_ack->pcap, buffer, plen );
-		if ( r != plen ) {
-			pcap_perror( rwifi->in_ack->pcap, "Trouble injecting ACK packet" );
-			dprintf( "[%d/%d] ACK sent %d / %d\n", i + 1, RETRIES, r, plen );
-// 			exit(1);
-			goto retry;
-		} else {
-			dprintf( "[%d/%d] ACK sent %d bytes on port %d\n", i + 1, RETRIES, r, rwifi->in_ack->port );
-		}
-	}
-
-	return sizeof( wifi_packet_ack_t );
 }

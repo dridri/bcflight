@@ -26,7 +26,7 @@ static rawwifi_pcap_t* setup_tx( rawwifi_t* rwifi, int port, int blocking )
 }
 
 
-static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking )
+static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking, int read_timeout_ms )
 {
 	rawwifi_pcap_t* rpcap = (rawwifi_pcap_t*)malloc( sizeof(rawwifi_pcap_t) );
 	char szErrbuf[PCAP_ERRBUF_SIZE];
@@ -34,7 +34,7 @@ static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking )
 	struct bpf_program bpfprogram;
 	memset( szErrbuf, 0, sizeof( szErrbuf ) );
 
-	rpcap->pcap = pcap_open_live( rwifi->device, 2048, 1, -1, szErrbuf );
+	rpcap->pcap = pcap_open_live( rwifi->device, 2048, 1, read_timeout_ms, szErrbuf );
 	if ( rpcap->pcap == NULL ) {
 		printf( "Unable to open interface %s in pcap: %s\n", rwifi->device, szErrbuf );
 		return NULL;
@@ -84,31 +84,7 @@ static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking )
 }
 
 
-int _rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries );
-void* rawwifi_send_thread( void* argp )
-{
-	rawwifi_t* rwifi = (rawwifi_t*)argp;
-
-	struct sched_param sched;
-	memset( &sched, 0, sizeof(sched) );
-	sched.sched_priority = sched_get_priority_max( SCHED_RR );
-	sched_setscheduler( 0, SCHED_RR, &sched );
-
-	while ( 1 ) {
-		pthread_mutex_lock( &rwifi->send_mutex );
-		pthread_cond_wait( &rwifi->send_cond, &rwifi->send_mutex );
-		if ( rwifi->send_queue && rwifi->send_queue_size > 0 ) {
-			_rawwifi_send_retry( rwifi, rwifi->send_queue, rwifi->send_queue_size, rwifi->send_queue_retries );
-			free( rwifi->send_queue );
-		}
-		pthread_mutex_unlock( &rwifi->send_mutex );
-	}
-
-	return 0;
-}
-
-
-rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking )
+rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking, int read_timeout_ms )
 {
 	rawwifi_t* rwifi = (rawwifi_t*)malloc( sizeof(rawwifi_t) );
 	memset( rwifi, 0, sizeof( rawwifi_t ) );
@@ -116,18 +92,12 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 	rwifi->device = strdup( device );
 	rwifi->iw_socket = -1;//iw_sockets_open();
 
-	rwifi->out = setup_tx( rwifi, rx_port * 2 + 0, blocking );
-	rwifi->out_ack = setup_rx( rwifi, rx_port * 2 + 1, 1 );
-	rwifi->in = setup_rx( rwifi, tx_port * 2 + 0, blocking );
-	rwifi->in_ack = setup_tx( rwifi, tx_port * 2 + 1, 1 );
+	rwifi->out = setup_tx( rwifi, rx_port, blocking );
+	rwifi->in = setup_rx( rwifi, tx_port, blocking, read_timeout_ms );
+	rwifi->recv_timeout_ms = read_timeout_ms;
 
-	if ( !rwifi->out || !rwifi->out_ack || !rwifi->in || !rwifi->in_ack ) {
+	if ( !rwifi->out || !rwifi->in ) {
 		return NULL;
-	}
-
-	if ( blocking == 0 ) {
-		pthread_create( &rwifi->send_thread, 0, rawwifi_send_thread, rwifi );
-		pthread_setname_np( rwifi->send_thread, "rawwifi_tx" );
 	}
 
 	rawwifi_init_txbuf( rwifi->tx_buffer );
@@ -137,44 +107,10 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 
 int32_t rawwifi_recv_quality( rawwifi_t* rwifi )
 {
-	uint32_t first_block = 4294967295;
-	uint32_t last_block = 0;
-	uint32_t valid_blocks = 0;
-	uint32_t broken_blocks = 0;
-	uint32_t loss_blocks = 0;
-
 	if ( rwifi == 0 ) {
 		return 0;
 	}
-
-	rawwifi_block_t* block = rwifi->recv_block;
-	while ( block ) {
-		if ( block->id < first_block ) {
-			first_block = block->id;
-		}
-		if ( block->id > last_block ) {
-			last_block = block->id;
-		}
-		if ( block->valid ) {
-			valid_blocks++;
-		} else {
-			broken_blocks++;
-		}
-		block = block->next;
-	}
-
-	if ( last_block - first_block == 0 ) {
-		return 0;
-	}
-
-	loss_blocks = ( last_block - first_block ) - valid_blocks - broken_blocks;
-
-	printf( "rawwifi_recv_quality : %d-%d : %d/%d/%d\n", first_block, last_block, valid_blocks, broken_blocks, loss_blocks );
-	int32_t ret = 100 * valid_blocks / ( last_block - first_block );
-	if ( ret > 100 ) {
-		ret = 100;
-	}
-	return ret;
+	return rwifi->recv_quality;
 }
 
 

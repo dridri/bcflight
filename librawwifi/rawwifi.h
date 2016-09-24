@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
-#define RETRY_ACK 0x8000
+#define MAX_PACKET_PER_BLOCK 64
 
 typedef struct {
 	uint32_t block_id;
@@ -34,12 +34,6 @@ typedef struct {
 	uint16_t packets_count;
 	uint32_t crc;
 } __attribute__((packed)) wifi_packet_header_t;
-
-typedef struct {
-	uint32_t block_id;
-	uint16_t packet_id;
-	uint16_t valid;
-} __attribute__((packed)) wifi_packet_ack_t;
 
 
 typedef struct rawwifi_packet_t {
@@ -54,9 +48,7 @@ typedef struct rawwifi_block_t {
 	uint64_t ticks;
 	uint16_t valid;
 	uint16_t packets_count;
-	rawwifi_packet_t* packets;
-	struct rawwifi_block_t* prev;
-	struct rawwifi_block_t* next;
+	rawwifi_packet_t packets[MAX_PACKET_PER_BLOCK];
 } rawwifi_block_t;
 
 
@@ -84,26 +76,25 @@ typedef struct rawwifi_t {
 
 	// Send
 	rawwifi_pcap_t* out;
-	rawwifi_pcap_t* out_ack;
 	uint32_t send_block_id;
 	rawwifi_link_t send_link;
-	pthread_t send_thread;
-	pthread_mutex_t send_mutex;
-	pthread_cond_t send_cond;
-	uint8_t* send_queue;
-	uint32_t send_queue_size;
-	uint32_t send_queue_retries;
 	uint8_t tx_buffer[4096];
 
 	// Receive
 	rawwifi_pcap_t* in;
-	rawwifi_pcap_t* in_ack;
 	rawwifi_block_t* recv_block;
 	rawwifi_link_t recv_link;
+	int32_t recv_timeout_ms;
+	uint32_t recv_last_returned;
+	uint32_t recv_quality;
+	uint64_t recv_perf_last_tick;
+	uint32_t recv_perf_last_index;
+	uint32_t recv_perf_valid;
+	uint32_t recv_perf_invalid;
 } rawwifi_t;
 
 
-rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking );
+rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking, int read_timeout_ms );
 int32_t rawwifi_recv_quality( rawwifi_t* rwifi );
 
 int rawwifi_send( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen );
@@ -112,8 +103,6 @@ int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t* v
 
 // internals
 void rawwifi_init_txbuf( uint8_t* buf );
-int32_t rawwifi_recv_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
-int32_t rawwifi_send_ack( rawwifi_t* rwifi, wifi_packet_ack_t* ack );
 uint32_t rawwifi_crc32( const uint8_t* data, uint32_t len );
 
 rawwifi_block_t* blocks_insert_front( rawwifi_block_t** list, uint16_t packets_count );
