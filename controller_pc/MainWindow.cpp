@@ -232,21 +232,7 @@ void MainWindow::updateData()
 			ui->terminal->setTextCursor( cursor );
 		}
 	}
-/*
-	if ( mDataT.size() >= 256 ) {
-		mDataT.pop_front();
-		mDataR.pop_front();
-		mDataP.pop_front();
-		mDataY.pop_front();
-		mDataAltitude.pop_front();
-	}
 
-	mDataT.append( (double)mTicks.elapsed() / 1000.0 );
-	mDataR.append( mController->rpy().x );
-	mDataP.append( mController->rpy().y );
-	mDataY.append( mController->rpy().z );
-	mDataAltitude.append( mController->altitude() );
-*/
 	const std::list< vec4 > rpy = mController->rpyHistory();
 	mDataT.clear();
 	mDataR.clear();
@@ -400,9 +386,10 @@ void MainWindow::FirmwareUpload()
 		QByteArray ba = f.readAll();
 
 		mController->UploadUpdateInit();
-		for ( uint32_t offset = 0; offset < (uint32_t)ba.size(); offset += 2048 ) {
-			uint32_t sz = 2048;
-			if ( ba.size() - offset < 2048 ) {
+		uint32_t chunk_size = 1024; // 2048
+		for ( uint32_t offset = 0; offset < (uint32_t)ba.size(); offset += chunk_size ) {
+			uint32_t sz = chunk_size;
+			if ( ba.size() - offset < chunk_size ) {
 				sz = ba.size() - offset;
 			}
 			mController->UploadUpdateData( (const uint8_t*)&ba.constData()[offset], offset, sz );

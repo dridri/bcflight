@@ -139,7 +139,9 @@ int32_t rawwifi_recv_quality( rawwifi_t* rwifi )
 {
 	uint32_t first_block = 4294967295;
 	uint32_t last_block = 0;
-	uint32_t received_blocks = 0;
+	uint32_t valid_blocks = 0;
+	uint32_t broken_blocks = 0;
+	uint32_t loss_blocks = 0;
 
 	if ( rwifi == 0 ) {
 		return 0;
@@ -154,7 +156,9 @@ int32_t rawwifi_recv_quality( rawwifi_t* rwifi )
 			last_block = block->id;
 		}
 		if ( block->valid ) {
-			received_blocks++;
+			valid_blocks++;
+		} else {
+			broken_blocks++;
 		}
 		block = block->next;
 	}
@@ -163,7 +167,10 @@ int32_t rawwifi_recv_quality( rawwifi_t* rwifi )
 		return 0;
 	}
 
-	int32_t ret = 100 * received_blocks / ( last_block - first_block );
+	loss_blocks = ( last_block - first_block ) - valid_blocks - broken_blocks;
+
+	printf( "rawwifi_recv_quality : %d-%d : %d/%d/%d\n", first_block, last_block, valid_blocks, broken_blocks, loss_blocks );
+	int32_t ret = 100 * valid_blocks / ( last_block - first_block );
 	if ( ret > 100 ) {
 		ret = 100;
 	}

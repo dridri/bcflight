@@ -127,10 +127,10 @@ void Stream::paintGL()
 			"}\n"
 			"void main(void) {\n"
 			"	vec4 center = fetch( texcoords.st );\n"
-			"	vec4 top = fetch( texcoords.st + vec2( 0.0, -0.0001 ) );\n"
-			"	vec4 bottom = fetch( texcoords.st + vec2( 0.0, +0.0001 ) );\n"
-			"	vec4 left = fetch( texcoords.st + vec2( -0.0001, 0.0 ) );\n"
-			"	vec4 right = fetch( texcoords.st + vec2( +0.0001, 0.0 ) );\n"
+			"	vec4 top = fetch( texcoords.st + vec2( 0.0, -0.00001 ) );\n"
+			"	vec4 bottom = fetch( texcoords.st + vec2( 0.0, +0.00001 ) );\n"
+			"	vec4 left = fetch( texcoords.st + vec2( -0.00001, 0.0 ) );\n"
+			"	vec4 right = fetch( texcoords.st + vec2( +0.00001, 0.0 ) );\n"
 			"	gl_FragColor = center * 5.0 - top - left - bottom - right;\n"
 			"}" );
 		mShader->link();
@@ -239,7 +239,7 @@ bool Stream::run()
 		return true;
 	}
 
-	uint8_t data[16384] = { 0 };
+	uint8_t data[65536] = { 0 };
 	int32_t size = mLink->Read( data, sizeof( data ), 0 );
 	if ( size > 0 ) {
 		DecodeFrame( data, size );

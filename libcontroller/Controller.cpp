@@ -125,6 +125,7 @@ Controller::Controller( Link* link )
 	, mLockState( 0 )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
+	, mDataTimer( 0 )
 	, mMsCounter( 0 )
 	, mMsCounter50( 0 )
 	, mBoardInfos( "" )
@@ -223,6 +224,15 @@ bool Controller::run()
 		}
 
 		mPingTimer = Thread::GetTick();
+	}
+
+	// Send controls at 10Hz, allowing to be sure that TRPY are well received by the drone
+	if ( Thread::GetTick() - mDataTimer >= 100 ) {
+		setThrust( mThrust );
+		setRoll( mControlRPY.x );
+		setPitch( mControlRPY.y );
+		setYaw( mControlRPY.z );
+		mDataTimer = Thread::GetTick();
 	}
 
 	uint32_t oldswitch[8];

@@ -52,6 +52,7 @@ int main( int ac, char** av )
 	app.setPalette( palette );
 */
 	Link* controller_link = new RawWifi( device, 0, 1 );
+	static_cast< RawWifi* >( controller_link )->setRetriesCount( 2 );
 // 	Link* controller_link = new Socket( "127.0.0.1", 2020 );
 // 	Link* controller_link = new Socket( "192.168.32.1", 2020 );
 	ControllerPC* controller = new ControllerPC( controller_link );

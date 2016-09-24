@@ -93,7 +93,7 @@ typedef struct rawwifi_t {
 	uint8_t* send_queue;
 	uint32_t send_queue_size;
 	uint32_t send_queue_retries;
-	uint8_t tx_buffer[MAX_USER_PACKET_LENGTH];
+	uint8_t tx_buffer[4096];
 
 	// Receive
 	rawwifi_pcap_t* in;

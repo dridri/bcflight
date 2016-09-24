@@ -33,7 +33,7 @@ typedef u32 __le32;
 
 #define CONTINUE -2
 
-// #define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #define dprintf printf
 #else
@@ -136,9 +136,9 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 
 #ifndef __arm__ // Only on drone ? Oo
 	bytes -= 4;
-// 	if ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS ) {
+	if ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS ) {
 // 		bytes -= 4;
-// 	}
+	}
 #endif
 
 	int checksum_correct = ( prd.m_nRadiotapFlags & 0x40 ) == 0;

@@ -29,6 +29,8 @@
 
 class Config;
 
+#define LINK_ERROR_TIMEOUT -3
+
 
 class Packet
 {

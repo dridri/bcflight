@@ -224,6 +224,7 @@ protected:
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
 	uint64_t mPingTimer;
+	uint64_t mDataTimer;
 	uint64_t mMsCounter;
 	uint64_t mMsCounter50;
 

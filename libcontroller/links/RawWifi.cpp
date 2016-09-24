@@ -111,9 +111,9 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 			ss << " && sleep 0.5 && iw dev " << device << " set monitor otherbss fcsfail";
 			ss << " && sleep 0.5 && ifconfig " << device << " up && sleep 0.5 && ";
 // 		}
-		ss << "iwconfig " << device << " channel " << ( channel - 1 ) << " && sleep 0.5 && iwconfig " << device << " channel " << channel;
+		ss << "iwconfig " << device << " channel " << ( channel - 1 ) << " && sleep 0.5 && iwconfig " << device << " channel " << channel << " && sleep 0.5";
 		if ( txpower > 0 ) {
-			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 );
+			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 ) << " && sleep 0.5";
 		}
 
 		std::cout << "executing : " << ss.str().c_str() << "\n";
@@ -126,7 +126,7 @@ int RawWifi::Connect()
 {
 	Initialize( mDevice, mChannel, mTxPower );
 
-	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1 );
+	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1, -1 );
 	if ( !mRawWifi ) {
 		return -1;
 	}
@@ -144,6 +144,12 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 
 	uint32_t valid = 0;
 	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
+
+	if ( ret == -3 ) {
+		std::cout << "WARNING : Read timeout\n";
+		mConnected = false;
+		return LINK_ERROR_TIMEOUT;
+	}
 
 	if ( ret < 0 ) {
 		mConnected = false;
