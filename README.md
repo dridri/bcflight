@@ -1,8 +1,6 @@
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
 
-At this time, you won't be able to fly a drone using this project, as the controller is not finished yet.
-
 ## flight
 Current status : flying - beta
 
