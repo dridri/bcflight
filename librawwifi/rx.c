@@ -74,7 +74,7 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 {
 	struct pcap_pkthdr* ppcapPacketHeader = NULL;
 	struct ieee80211_radiotap_iterator rti;
-	PENUMBRA_RADIOTAP_DATA prd;
+	PENUMBRA_RADIOTAP_DATA prd = { 0, 0, 0, 0, 0 };
 	int bytes;
 	int retval;
 	int u16HeaderLen;
@@ -126,23 +126,23 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 	while ( ( n = ieee80211_radiotap_iterator_next(&rti) ) == 0 ) {
 		switch ( rti.this_arg_index ) {
 			case IEEE80211_RADIOTAP_RATE:
-// 				rwifi->recv_link.rate = (*rti.this_arg);
+				rwifi->recv_link.rate = (*rti.this_arg);
 // 				link_update = 1;
 				break;
 
 			case IEEE80211_RADIOTAP_CHANNEL:
 // 				rwifi->recv_link.channel = le16_to_cpu(*((u16 *)rti.this_arg));
-	// 			prd.m_nChannelFlags = le16_to_cpu(*((u16 *)(rti.this_arg + 2)));
+				prd.m_nChannelFlags = le16_to_cpu(*((u16 *)(rti.this_arg + 2)));
 // 				link_update = 1;
 				break;
 
 			case IEEE80211_RADIOTAP_ANTENNA:
-// 				rwifi->recv_link.antenna = (*rti.this_arg) + 1;
+				rwifi->recv_link.antenna = (*rti.this_arg) + 1;
 // 				link_update = 1;
 				break;
 
 			case IEEE80211_RADIOTAP_FLAGS:
-// 	// 			prd.m_nRadiotapFlags = *rti.this_arg;
+				prd.m_nRadiotapFlags = *rti.this_arg;
 // 				link_update = 1;
 				break;
 
@@ -159,10 +159,10 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 
 	pu8Payload += u16HeaderLen + rwifi->n80211HeaderLength;
 
-#ifndef __arm__ // Only on drone ? Oo
-	bytes -= 4;
+#ifndef __arm__
+// 	bytes -= 4;
 	if ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS ) {
-// 		bytes -= 4;
+		bytes -= 4;
 	}
 #endif
 
@@ -203,7 +203,7 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		dprintf( "Invalid CRC !\n" );
 	}
 
-	if ( _rawwifi_get_tick() - rwifi->recv_perf_last_tick >= 500 * 1000 ) {
+	if ( _rawwifi_get_tick() - rwifi->recv_perf_last_tick >= 1000 * 1000 ) {
 		uint32_t den = header->block_id - rwifi->recv_perf_last_index;
 		if ( den == 0 ) {
 			rwifi->recv_quality = 0;
@@ -219,24 +219,23 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		rwifi->recv_perf_invalid = 0;
 	}
 
-
 	if ( header->block_id <= rwifi->recv_last_returned ) {
 		dprintf( "Block %d already completed\n", header->block_id );
 		return CONTINUE;
 	}
-	if ( header->packets_count == 1 && is_valid ) {
-		memcpy( pret, pu8Payload, bytes );
-		*valid = is_valid;
-		rwifi->recv_last_returned = header->block_id;
-		rwifi->recv_perf_valid++;
-		return bytes;
-	}
-
 
 	if ( rwifi->recv_block && header->block_id > rwifi->recv_block->id ) {
 		// TODO : return rwifi->recv_block
 		free( rwifi->recv_block );
 		rwifi->recv_block = NULL;
+	}
+
+	if ( header->packets_count == 1 && ( is_valid || header->retry_id >= header->retries_count - 1 ) ) {
+		memcpy( pret, pu8Payload, bytes );
+		*valid = is_valid;
+		rwifi->recv_last_returned = header->block_id;
+		rwifi->recv_perf_valid++;
+		return bytes;
 	}
 
 	if ( !rwifi->recv_block ) {

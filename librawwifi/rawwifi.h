@@ -30,8 +30,10 @@ extern "C" {
 
 typedef struct {
 	uint32_t block_id;
-	uint16_t packet_id;
-	uint16_t packets_count;
+	uint8_t packet_id;
+	uint8_t packets_count;
+	uint8_t retry_id;
+	uint8_t retries_count;
 	uint32_t crc;
 } __attribute__((packed)) wifi_packet_header_t;
 

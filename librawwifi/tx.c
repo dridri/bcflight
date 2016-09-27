@@ -56,6 +56,7 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 	header->block_id = block_id;
 	header->packet_id = packet_id;
 	header->packets_count = packets_count;
+	header->retries_count = retries;
 	header->crc = rawwifi_crc32( data, datalen );
 
 	memcpy( tx_buffer + headers_length, data, datalen );
@@ -63,6 +64,7 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 
 	int r = 0;
 	for ( uint32_t i = 0; i < retries; i++ ) {
+		header->retry_id = i;
 retry:
 		r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
 		if ( r != plen ) {
