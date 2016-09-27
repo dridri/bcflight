@@ -1,8 +1,6 @@
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
 
-At this time, you won't be able to fly a drone using this project, as the controller is not finished yet.
-
 ## flight
 Current status : flying - beta
 
@@ -36,7 +34,7 @@ Contains buildroot configuration for both flight and ground targets.
 ![Photo of drone and controller](https://dl.dropboxusercontent.com/u/81758777/drich-drone-zmr-controller-small.jpg)
 
 Racer :
-* ZMR25 frame
+* ZMR250 frame
 * Raspberry Pi Zero v1.2
 * Raspberry Pi official camera v2.1 (8MP, Sony IMX219 sensor) + wide-angle lens
 * Alfa Network AWUS036NH (pushed to 2000mW TX power)
