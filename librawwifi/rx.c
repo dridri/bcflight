@@ -190,17 +190,24 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	bytes -= sizeof( wifi_packet_header_t );
 	dprintf( "header = {\n    block_id = %d\n    packet_id = %d\n    packets_count = %d\n}\n", header->block_id, header->packet_id, header->packets_count );
 
-	if ( bytes <= 0 || header->packet_id >= header->packets_count || header->packet_id > MAX_PACKET_PER_BLOCK || header->packets_count > MAX_PACKET_PER_BLOCK ) {
+	if ( bytes <= 0 || bytes > MAX_USER_PACKET_LENGTH - sizeof( wifi_packet_header_t ) || header->packet_id >= header->packets_count || header->packet_id > MAX_PACKET_PER_BLOCK || header->packets_count > MAX_PACKET_PER_BLOCK ) {
 		*valid = 0;
-		return 0;
+		return CONTINUE;
 	}
-	if ( rwifi->recv_last_returned >= header->block_id + 64 ) {
-		// More than 64 underruns, TX has been probably resetted
+	if ( rwifi->recv_last_returned >= header->block_id + 32 ) {
+		// More than 32 underruns, TX has probably been resetted
 		rwifi->recv_last_returned = 0;
 	}
-	int is_valid = ( header->crc == rawwifi_crc32( pu8Payload, bytes ) );
+
+	if ( header->header_crc != rawwifi_crc16( (uint8_t*)header, sizeof(wifi_packet_header_t) - sizeof(uint16_t) ) ) {
+		dprintf( "Invalid header CRC ! Dropping ! [%d]\n", sizeof(wifi_packet_header_t) );
+		return CONTINUE;
+	}
+
+	uint32_t calculated_crc = rawwifi_crc32( pu8Payload, bytes );
+	int is_valid = ( header->crc == calculated_crc );
 	if ( is_valid == 0 ) {
-		dprintf( "Invalid CRC !\n" );
+		dprintf( "Invalid CRC ! (%08X != %08X)\n", header->crc, calculated_crc );
 	}
 
 	if ( _rawwifi_get_tick() - rwifi->recv_perf_last_tick >= 1000 * 1000 ) {

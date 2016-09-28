@@ -62,21 +62,45 @@ static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking, int r
 			return NULL;
 	}
 
-	printf( "pcap_in program : %s\n", szProgram );
+	printf( "pcap_in program : %s\n", szProgram ); fflush(stdout);
 
+	int i = 0;
+	int ok = 0;
+	for ( i = 0; i < 8; i++ ) {
+		if ( pcap_compile( rpcap->pcap, &bpfprogram, szProgram, 1, 0 ) >= 0 ) {
+			ok = 1;
+			break;
+		}
+	}
+	if ( !ok ) {
+		printf( "PCAP ERROR 1 : %s\n", pcap_geterr( rpcap->pcap ) ); fflush(stdout);
+		return NULL;
+	}
+	ok = 0;
+	for ( i = 0; i < 8; i++ ) {
+		if ( pcap_setfilter( rpcap->pcap, &bpfprogram ) >= 0 ) {
+			ok = 1;
+			break;
+		}
+	}
+	if ( !ok ) {
+		printf( "PCAP ERROR 2 : %s\n", pcap_geterr( rpcap->pcap ) ); fflush(stdout);
+		return NULL;
+	}
+	pcap_freecode( &bpfprogram );
+/*
 	if ( pcap_compile( rpcap->pcap, &bpfprogram, szProgram, 1, 0 ) < 0 ) {
-		printf( "%s\n", szProgram );
-		printf( "%s\n", pcap_geterr( rpcap->pcap ) );
+		printf( "PCAP ERROR 1 : %s\n", pcap_geterr( rpcap->pcap ) ); fflush(stdout);
 		return NULL;
 	} else {
 		if ( pcap_setfilter( rpcap->pcap, &bpfprogram ) == -1 ) {
-			printf( "%s\n", szProgram );
-			printf( "%s\n", pcap_geterr( rpcap->pcap ) );
+			printf( "PCAP ERROR 2 : %s\n", pcap_geterr( rpcap->pcap ) ); fflush(stdout);
+			return NULL;
 		} else {
 		}
 		pcap_freecode( &bpfprogram );
 	}
-
+*/
 	rpcap->port = port;
 	rpcap->blocking = blocking;
 
@@ -129,4 +153,19 @@ uint32_t rawwifi_crc32( const uint8_t* buf, uint32_t len )
 	}
 
 	return ~crc;
+}
+
+
+uint16_t rawwifi_crc16( const uint8_t* buf, uint32_t len )
+{
+	uint8_t x;
+	uint16_t crc = 0xFFFF;
+
+	while ( len-- ) {
+		x = crc >> 8 ^ *buf++;
+		x ^= x >> 4;
+		crc = (crc << 8) ^ ((uint16_t)(x << 12)) ^ ((uint16_t)(x <<5)) ^ ((uint16_t)x);
+	}
+
+	return crc;
 }

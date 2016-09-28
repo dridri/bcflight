@@ -28,14 +28,15 @@ extern "C" {
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
 #define MAX_PACKET_PER_BLOCK 64
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 	uint32_t block_id;
 	uint8_t packet_id;
 	uint8_t packets_count;
 	uint8_t retry_id;
 	uint8_t retries_count;
 	uint32_t crc;
-} __attribute__((packed)) wifi_packet_header_t;
+	uint16_t header_crc;
+} wifi_packet_header_t;
 
 
 typedef struct rawwifi_packet_t {
@@ -105,6 +106,7 @@ int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t* v
 
 // internals
 void rawwifi_init_txbuf( uint8_t* buf );
+uint16_t rawwifi_crc16( const uint8_t* data, uint32_t len );
 uint32_t rawwifi_crc32( const uint8_t* data, uint32_t len );
 
 rawwifi_block_t* blocks_insert_front( rawwifi_block_t** list, uint16_t packets_count );
