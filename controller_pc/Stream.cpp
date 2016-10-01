@@ -44,7 +44,7 @@ Stream::Stream( QWidget* parent )
 	SDecodingParam decParam;
 	memset( &decParam, 0, sizeof (SDecodingParam) );
 	decParam.uiTargetDqLayer = UCHAR_MAX;
-	decParam.eEcActiveIdc = ERROR_CON_SLICE_COPY;
+	decParam.eEcActiveIdc = ERROR_CON_SLICE_MV_COPY_CROSS_IDR;//ERROR_CON_SLICE_COPY;
 	decParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_AVC;
 
 	qDebug() << "mDecoder->Initialize :" << mDecoder->Initialize( &decParam );
@@ -127,11 +127,11 @@ void Stream::paintGL()
 			"}\n"
 			"void main(void) {\n"
 			"	vec4 center = fetch( texcoords.st );\n"
-			"	vec4 top = fetch( texcoords.st + vec2( 0.0, -0.00001 ) );\n"
-			"	vec4 bottom = fetch( texcoords.st + vec2( 0.0, +0.00001 ) );\n"
-			"	vec4 left = fetch( texcoords.st + vec2( -0.00001, 0.0 ) );\n"
-			"	vec4 right = fetch( texcoords.st + vec2( +0.00001, 0.0 ) );\n"
-			"	gl_FragColor = center * 5.0 - top - left - bottom - right;\n"
+			"//	vec4 top = fetch( texcoords.st + vec2( 0.0, -0.00001 ) );\n"
+			"//	vec4 bottom = fetch( texcoords.st + vec2( 0.0, +0.00001 ) );\n"
+			"//	vec4 left = fetch( texcoords.st + vec2( -0.00001, 0.0 ) );\n"
+			"//	vec4 right = fetch( texcoords.st + vec2( +0.00001, 0.0 ) );\n"
+			"	gl_FragColor = center;// * 5.0 - top - left - bottom - right;\n"
 			"}" );
 		mShader->link();
 		mShader->bind();
@@ -243,7 +243,7 @@ bool Stream::run()
 	int32_t size = mLink->Read( data, sizeof( data ), 0 );
 	if ( size > 0 ) {
 		DecodeFrame( data, size );
-		if ( size > 19 ) {
+		if ( size > 41 ) {
 			mFpsCounter++;
 		}
 	}
@@ -266,7 +266,8 @@ void Stream::DecodeFrame( const uint8_t* src, size_t sliceSize )
 	memset( data, 0, sizeof(data) );
 	memset( &bufInfo, 0, sizeof(SBufferInfo) );
 
-	/*qDebug() << "mDecoder->DecodeFrame2 :" << */mDecoder->DecodeFrameNoDelay( src, (int)sliceSize, data, &bufInfo );
+	DECODING_STATE ret = mDecoder->DecodeFrameNoDelay( src, (int)sliceSize, data, &bufInfo );
+// 	printf( "        DecodeFrameNoDelay returned %08X\n", ret );
 
 	if ( bufInfo.iBufferStatus == 1 ) {
 		mY.stride = bufInfo.UsrData.sSystemBuffer.iStride[0];

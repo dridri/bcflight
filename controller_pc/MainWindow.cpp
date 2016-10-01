@@ -233,7 +233,7 @@ void MainWindow::updateData()
 		}
 	}
 
-	const std::list< vec4 > rpy = mController->rpyHistory();
+	const std::list< vec4 > rpy;// = mController->rpyHistory();
 	mDataT.clear();
 	mDataR.clear();
 	mDataP.clear();
