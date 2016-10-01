@@ -1,7 +1,7 @@
 execute_process( COMMAND uname -p OUTPUT_VARIABLE BUILD_ARCH )
 
 if ( ${BUILD_ARCH} MATCHES "x86*" )
-	message( "Cross compilation detected, setting compiler prefix to arm-linux-gnueabihf-" )
+# 	message( "Cross compilation detected, setting compiler prefix to arm-linux-gnueabihf-" )
 # 	set( CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc" )
 # 	set( CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++" )
 # 	set( CMAKE_AR "arm-linux-gnueabihf-ar" )
@@ -19,6 +19,10 @@ set( BOARD_LIBS -lasound -lwiringPi -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -l
 set( BOARD_LIBS ${BOARD_LIBS} -lavformat -lavcodec -lavutil -lz -liw )
 include_directories( /opt/vc/include )
 
+include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/include )
+add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++ ${CMAKE_CURRENT_BINARY_DIR}/OpenMaxIL++ )
+set( BOARD_DEPENDENCIES "OpenMaxIL++" )
+set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" )
 
 function( board_strip )
 	add_custom_target( flight ALL
