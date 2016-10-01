@@ -82,6 +82,15 @@ void RawWifi::setRetriesCount( int retries )
 }
 
 
+int RawWifi::level() const
+{
+	if ( not mRawWifi ) {
+		return 0;
+	}
+	return mRawWifi->recv_link.signal;
+}
+
+
 int RawWifi::channel() const
 {
 	return mChannel;
@@ -155,7 +164,7 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		mConnected = false;
 	}
 	if ( ret > 0 and not valid ) {
-		std::cout << "WARNING : Received corrupt packets\n";
+		std::cout << "WARNING : Received corrupt packets (port " << mInputPort << ")\n";
 		mLastIsCorrupt = true;
 	} else {
 		mLastIsCorrupt = false;

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <sched.h>
 #include <string.h>
+#include <signal.h>
 #include "Thread.h"
 
 Thread::Thread( const std::string& name )
@@ -68,6 +69,9 @@ void Thread::Join()
 
 bool Thread::running()
 {
+	if ( pthread_kill( mThread, 0 ) == ESRCH ) {
+		mIsRunning = false;
+	}
 	return mIsRunning;
 }
 

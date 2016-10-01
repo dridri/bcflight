@@ -39,6 +39,7 @@ public:
 	int setBlocking( bool blocking );
 	void setRetriesCount( int retries );
 
+	int level() const;
 	int channel() const;
 	bool lastIsCorrupt() const;
 
