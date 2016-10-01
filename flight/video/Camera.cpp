@@ -16,10 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#include <Debug.h>
 #include "Camera.h"
 
 Camera::Camera()
 {
+	fDebug0();
 }
 
 

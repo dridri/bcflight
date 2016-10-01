@@ -26,49 +26,47 @@
 #include <RawWifi.h>
 #include <GPIO.h>
 #include "Raspicam.h"
-
-typedef void* OMX_HANDLETYPE;
-typedef struct OMX_BUFFERHEADERTYPE OMX_BUFFERHEADERTYPE;
-#include "boards/rpi/raspi-cam/video.h"
-#include "boards/rpi/raspi-cam/audio.h"
 #include <Board.h>
-extern "C" void OMX_Init();
 
 Raspicam::Raspicam( Config* config, const std::string& conf_obj )
-	: Camera()
+	: ::Camera()
+	, IL::Camera( config->integer( conf_obj + ".width", 1280 ), config->integer( conf_obj + ".height", 720 ), 0, true, true )
 	, mConfig( config )
 	, mConfigObject( conf_obj )
-	, mVideoContext( nullptr )
-	, mNeedNextEnc1ToBeFilled( false )
-	, mNeedNextEnc2ToBeFilled( false )
-	, mNeedNextAudioToBeFilled( false )
-	, mLiveSkipNextFrame( false )
 	, mLiveFrameCounter( 0 )
 	, mLedTick( 0 )
 	, mLedState( true )
 	, mRecording( false )
-	, mRecordContext( nullptr )
 	, mRecordStream( nullptr )
 {
+	fDebug( config, conf_obj );
+
+	IL::Camera::setMirror( true, false );
+// 	IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlAuto );
+	IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlHorizon );
+	IL::Camera::setExposureControl( IL::Camera::ExposureControlLargeAperture );
+	IL::Camera::setExposureValue( mConfig->integer( mConfigObject + ".exposure", 0 ), mConfig->integer( mConfigObject + ".aperture", 2.8f ), mConfig->integer( mConfigObject + ".iso", 0 ), mConfig->integer( mConfigObject + ".shutter_speed", 0 ) );
+	IL::Camera::setSharpness( mConfig->integer( mConfigObject + ".sharpness", 100 ) );
+	IL::Camera::setFramerate( mConfig->integer( mConfigObject + ".fps", 60 ) );
+	IL::Camera::setBrightness( mConfig->integer( mConfigObject + ".brightness", 55 ) );
+	IL::Camera::setSaturation( mConfig->integer( mConfigObject + ".saturation", 8 ) );
+	IL::Camera::setContrast( mConfig->integer( mConfigObject + ".contrast", 0 ) );
+	IL::Camera::setFrameStabilisation( mConfig->boolean( mConfigObject + ".stabilisation", false ) );
+
+	mEncoder = new IL::VideoEncode( mConfig->integer( mConfigObject + ".kbps", 1024 ), IL::VideoEncode::CodingAVC, true );
+	IL::Camera::SetupTunnel( 71, mEncoder, 200 );
+
 	mLiveTicks = 0;
 	mRecordTicks = 0;
 	mRecordFrameData = nullptr;
-// 	mRecordFrameData = (char*)malloc(1024 * 1024);
 	mRecordFrameDataSize = 0;
 	mRecordFrameSize = 0;
 
 	mLink = Link::Create( config, conf_obj + ".link" );
 
-	OMX_Init();
-// 	mAudioContext = audio_configure();
-
-// 	mLiveThread = new HookThread<Raspicam>( this, &Raspicam::MixedThreadRun );
 	mLiveThread = new HookThread<Raspicam>( "cam_live", this, &Raspicam::LiveThreadRun );
 	mLiveThread->Start();
 	mLiveThread->setPriority( 99 );
-
-// 	mRecordThread = new HookThread<Raspicam>( "cam_record", this, &Raspicam::RecordThreadRun );
-// 	mRecordThread->Start();
 }
 
 
@@ -77,39 +75,42 @@ Raspicam::~Raspicam()
 }
 
 
-const uint32_t Raspicam::brightness() const
+const uint32_t Raspicam::brightness()
 {
-	return mVideoContext->brightness;
+	return 0;
+// 	return IL::Camera::brightness();
 }
 
 
-const int32_t Raspicam::contrast() const
+const int32_t Raspicam::contrast()
 {
-	return mVideoContext->contrast;
+	return 0;
+// 	return IL::Camera::contrast();
 }
 
 
-const int32_t Raspicam::saturation() const
+const int32_t Raspicam::saturation()
 {
-	return mVideoContext->saturation;
+	return 0;
+// 	return IL::Camera::saturation();
 }
 
 
 void Raspicam::setBrightness( uint32_t value )
 {
-	video_set_brightness( mVideoContext, value );
+	IL::Camera::setBrightness( value );
 }
 
 
 void Raspicam::setContrast( int32_t value )
 {
-	video_set_contrast( mVideoContext, value );
+	IL::Camera::setContrast( value );
 }
 
 
 void Raspicam::setSaturation( int32_t value )
 {
-	video_set_saturation( mVideoContext, value );
+	IL::Camera::setSaturation( value );
 }
 
 
@@ -135,31 +136,14 @@ void Raspicam::StopRecording()
 
 bool Raspicam::LiveThreadRun()
 {
-	int ret = 0;
-
-	if ( mVideoContext == nullptr ) {
-		mVideoContext = video_configure( mConfig->integer( mConfigObject + ".fps", 40 ), mConfig->integer( mConfigObject + ".width", 1280 ), mConfig->integer( mConfigObject + ".height", 720 ), mConfig->integer( mConfigObject + ".kbps", 1024 ) );
-		video_set_brightness( mVideoContext, mConfig->integer( mConfigObject + ".brightness", 60 ) );
-		video_set_saturation( mVideoContext, mConfig->integer( mConfigObject + ".saturation", 16 ) );
-		video_set_contrast( mVideoContext, mConfig->integer( mConfigObject + ".contrast", 0 ) );
-	}
-
-	if ( mVideoContext->exiting ) {
-		video_stop( mVideoContext );
-		return false;
-	}
-
 	if ( !mLink->isConnected() ) {
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
 			gDebug() << "Raspicam connected !\n";
 			mLink->setBlocking( false );
-// 			audio_start( mAudioContext );
-			video_start( mVideoContext );
+			IL::Camera::SetState( IL::Component::StateExecuting );
+			mEncoder->SetState( IL::Component::StateExecuting );
 			mLiveFrameCounter = 0;
-			mNeedNextEnc1ToBeFilled = true;
-			mNeedNextEnc2ToBeFilled = true;
-			mNeedNextAudioToBeFilled = true;
 		}
 		return true;
 	} else if ( mRecording and Board::GetTicks() - mLedTick >= 1000 * 500 ) {
@@ -167,167 +151,27 @@ bool Raspicam::LiveThreadRun()
 		mLedTick = Board::GetTicks();
 	}
 
-	Packet in;
-// 	uint32_t uid = 0;
-// 	if ( mLink->Read( &uid, sizeof(uid), 0 ) > 0 ) {
-// 		gDebug() << "Received uid " << uid << "\n";
-// 	}
-
-	if ( not mNeedNextEnc2ToBeFilled and not mVideoContext->enc2_data_avail ) {
-		pthread_mutex_lock( &mVideoContext->mutex_enc2 );
-		pthread_cond_wait( &mVideoContext->cond_enc2, &mVideoContext->mutex_enc2 );
-		pthread_mutex_unlock( &mVideoContext->mutex_enc2 );
-	}
-
-	if ( mVideoContext->enc2_data_avail ) {
-// 		uint64_t timestamp = video_buffer_timestamp( mVideoContext->enc2bufs );
-		int datalen = video_buffer_len( mVideoContext->enc2bufs );
-		char* data = new char[ datalen ];
-		memcpy( data, video_buffer_ptr( mVideoContext->enc2bufs ), datalen );
-
-		{
-			mNeedNextEnc2ToBeFilled = false;
-			pthread_mutex_lock( &mVideoContext->lock );
-			mVideoContext->enc2_data_avail = 0;
-			pthread_mutex_unlock( &mVideoContext->lock );
-			if ( ( ret = video_fill_buffer( mVideoContext->enc2, mVideoContext->enc2bufs ) ) != 0 ) {
-				gDebug() << "Failed to request filling of the output buffer on encoder 2 output : " << ret << "\n";
-			}
-		}
-
+	uint8_t data[65536] = { 0 };
+	uint32_t datalen = mEncoder->getOutputData( data );
+	if ( (int32_t)datalen > 0 ) {
 		mLiveFrameCounter++;
-		ret = LiveSend( data, datalen );
+		LiveSend( (char*)data, datalen );
 		if ( mRecording ) {
-			RecordWrite( data, datalen );
-// 			gDebug() << "filling record (" << datalen << ")\n";
-// 			mRecordTimestamp = timestamp;
-// 			memcpy( mRecordFrameData, data, datalen );
-// 			mRecordFrameDataSize = datalen;
-		}
-		delete data;
-
-		if ( ret == -42 ) {
-			gDebug() << "video: Remote complaining about frame loss ! Restarting...\n";
-			video_recover( mVideoContext );
-		} else if ( ret < 0 ) {
-			gDebug() << "video: Disconnected ?!\n";
-			/*
-			video_stop( mVideoContext );
-// 			audio_stop( mAudioContext );
-			mVideoContext->enc1_data_avail = 0;
-			mVideoContext->enc2_data_avail = 0;
-			*/
+			RecordWrite( (char*)data, datalen );
 		}
 	}
 
-	if ( mNeedNextEnc2ToBeFilled && mLink->isConnected() ) {
-		mNeedNextEnc2ToBeFilled = false;
-		pthread_mutex_lock( &mVideoContext->lock );
-		mVideoContext->enc2_data_avail = 0;
-		pthread_mutex_unlock( &mVideoContext->lock );
-		if ( ( ret = video_fill_buffer( mVideoContext->enc2, mVideoContext->enc2bufs ) ) != 0 ) {
-			gDebug() << "Failed to request filling of the output buffer on encoder 2 output : " << ret << "\n";
-		}
-	}
-
-// 	if ( not mVideoContext->enc2_data_avail ) {
-// 		mLiveTicks = Board::WaitTick( 1000 * 1000 / 100, mLiveTicks, -500 );
-// 	}
 	return true;
-}
-
-
-bool Raspicam::RecordThreadRun()
-{
-	return false;
-/*
-	int ret = 0;
-	double audio_pts, video_pts;
-
-	if ( mVideoContext->exiting ) {
-		return false;
-	}
-
-	if ( !mRecording ) {
-		usleep( 1000 * 100 );
-		return true;
-	}
-
-	audio_pts = (double)mAudioStream->pts.val * mAudioStream->time_base.num / mAudioStream->time_base.den;
-	video_pts = (double)mVideoStream->pts.val * mVideoStream->time_base.num / mVideoStream->time_base.den;
-
-// 	gDebug() << "pts : " << audio_pts << ", " << video_pts << "\n";
-
-	if ( audio_pts < video_pts ) {
-		gDebug() << "audio 1\n";
-		AVPacket pkt;
-		static uint8_t data[1024*1024];
-		av_init_packet( &pkt );
-		gDebug() << "audio 2\n";
-
-		audio_capture_raw( mAudioContext );
-		gDebug() << "audio 3\n";
-		pkt.size = avcodec_encode_audio( mAudioEncoderContext, data, sizeof(data), (const short*)mAudioContext->pcm.ptr );
-		gDebug() << "audio 4\n";
-// 		pkt.pts = av_rescale_q( Board::GetTicks() - mRecordPTSBase, mAudioStream->codec->time_base, mAudioStream->time_base );
-		gDebug() << "audio 5\n";
-		pkt.flags |= AV_PKT_FLAG_KEY;
-		pkt.stream_index = mAudioStream->index;
-		gDebug() << "audio 6\n";
-
-		ret = av_interleaved_write_frame( mRecordContext, &pkt );
-		gDebug() << "audio 7\n";
-		avio_flush( mRecordContext->pb );
-		gDebug() << "av_interleaved_write_frame (audio) returned " << ret << "\n";
-	} else if ( mRecordFrameData != nullptr and mRecordFrameDataSize > 0 ) {
-		gDebug() << "video 1\n";
-		AVPacket pkt;
-		av_init_packet( &pkt );
-		gDebug() << "video 1\n";
-
-		pkt.data = (uint8_t*)mRecordFrameData;
-		pkt.size = mRecordFrameDataSize;
-		gDebug() << "video 2\n";
-// 		pkt.pts = av_rescale_q( mRecordTimestamp, mVideoStream->codec->time_base, mVideoStream->time_base );
-		gDebug() << "video 3\n";
-		pkt.flags |= AV_PKT_FLAG_KEY;
-		pkt.stream_index = mVideoStream->index;
-		gDebug() << "video 4\n";
-
-		ret = av_interleaved_write_frame( mRecordContext, &pkt );
-		gDebug() << "video 5\n";
-		avio_flush( mRecordContext->pb );
-		gDebug() << "av_interleaved_write_frame (video) returned " << ret << "\n";
-
-		ret = pkt.size;
-	}
-
-	usleep( 1000 );
-	return true;
-*/
 }
 
 
 int Raspicam::LiveSend( char* data, int datalen )
 {
-	int err = 0;
-
 	if ( datalen <= 0 ) {
 		return datalen;
 	}
 
-	int retries = 1;
-	RawWifi* rwifi = dynamic_cast< RawWifi* >( mLink );
-// 	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
-// 		retries = rwifi->retries();
-// 		rwifi->setRetries( 3 );
-// 	}
-
-	err = mLink->Write( (uint8_t*)data, datalen, 0 );
-
-// 	if ( rwifi and mLiveFrameCounter % 20 == 0 ) {
-// 		rwifi->setRetries( retries );
-// 	}
+	int err = mLink->Write( (uint8_t*)data, datalen, 0 );
 
 	if ( err < 0 ) {
 		gDebug() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")\n";
@@ -340,141 +184,32 @@ int Raspicam::LiveSend( char* data, int datalen )
 int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 {
 	int ret = 0;
-/*
-	if ( mRecordContext ) {
-// 		AVRational omxtimebase = { 1, 1000000 };
-		AVPacket pkt;
-		av_init_packet( &pkt );
 
-		pkt.data = (uint8_t*)data;
-		pkt.size = datalen;
-	// 	pkt.pts = AV_NOPTS_VALUE;
-		pkt.flags |= AV_PKT_FLAG_KEY;
-
-		if ( audio ) {
-			pkt.stream_index = mAudioStream->index;
-			pkt.pts = ( Board::GetTicks() - mRecordPTSBase ) * 44100 / 1000000;
-		} else {
-			pkt.stream_index = mVideoStream->index;
-			pkt.pts = ( Board::GetTicks() - mRecordPTSBase ) * 45 / 1000000;
-		}
-
-		pkt.dts = pkt.pts;
-		ret = av_interleaved_write_frame( mRecordContext, &pkt );
-		avio_flush( mRecordContext->pb );
-		gDebug() << "av_interleaved_write_frame returned " << ret << "\n";
-
-		ret = pkt.size;
-	} else {
-*/
-		if ( !mRecordStream ) {
-			char filename[256];
-// 			Board::Date date = Board::localDate();
-// 			sprintf( filename, "/data/VIDEO/video_%04d_%02d_%02d_%02d_%02d_%02d.h264", date.year, date.month, date.day, date.hour, date.minute, date.second );
-			uint32_t fileid = 0;
-			DIR* dir;
-			struct dirent* ent;
-			if ( ( dir = opendir( "/data/VIDEO" ) ) != nullptr ) {
-				while ( ( ent = readdir( dir ) ) != nullptr ) {
-					std::string file = std::string( ent->d_name );
-					uint32_t id = std::atoi( file.substr( file.find( "_" ) + 1 ).c_str() );
-					if ( id >= fileid ) {
-						fileid = id + 1;
-					}
+	if ( !mRecordStream ) {
+		char filename[256];
+		uint32_t fileid = 0;
+		DIR* dir;
+		struct dirent* ent;
+		if ( ( dir = opendir( "/data/VIDEO" ) ) != nullptr ) {
+			while ( ( ent = readdir( dir ) ) != nullptr ) {
+				std::string file = std::string( ent->d_name );
+				uint32_t id = std::atoi( file.substr( file.find( "_" ) + 1 ).c_str() );
+				if ( id >= fileid ) {
+					fileid = id + 1;
 				}
-				closedir( dir );
 			}
-			sprintf( filename, "/data/VIDEO/video_%06u.h264", fileid );
-			mRecordStream = new std::ofstream( filename );
+			closedir( dir );
 		}
-		auto pos = mRecordStream->tellp();
-		mRecordStream->write( data, datalen );
-		ret = mRecordStream->tellp() - pos;
-		mRecordStream->flush();
-// 	}
-
-	return ret;
-}
-
-
-void Raspicam::SetupRecord()
-{
-/*
-	avcodec_register_all();
-
-	gDebug() << "1\n";
-	AVOutputFormat* fmt;
-	char filename[256];
-	Board::Date date = Board::localDate();
-	gDebug() << "2\n";
-
-	sprintf( filename, "/data/VIDEO/video_%04d_%02d_%02d_%02d_%02d_%02d.mp4", date.year, date.month, date.day, date.hour, date.minute, date.second );
-	av_register_all();
-	fmt = av_guess_format( "MP4", filename, NULL );
-	gDebug() << "3\n";
-	fmt->audio_codec = CODEC_ID_MP2;
-	fmt->video_codec = CODEC_ID_H264;
-	mRecordContext = avformat_alloc_context();
-	mRecordContext->oformat = fmt;
-	gDebug() << "4\n";
-	gDebug() << "5\n";
-
-	mVideoStream = avformat_new_stream( mRecordContext, 0 );
-	gDebug() << "6\n";
-	AVCodecContext* vc = mVideoStream->codec;
-	gDebug() << "7\n";
-	avcodec_get_context_defaults2( vc, AVMEDIA_TYPE_VIDEO );
-	vc->codec_type = AVMEDIA_TYPE_VIDEO;
-	vc->flags |= CODEC_FLAG_GLOBAL_HEADER;
-	vc->codec_id = fmt->video_codec;
-	vc->bit_rate = 2 * 1000 * 1000;
-	vc->width = 800;
-	vc->height = 600;
-	vc->time_base.num = 1;
-	vc->time_base.den = 1000;
-	vc->pix_fmt = PIX_FMT_YUV420P;
-	gDebug() << "8\n";
-
-	mAudioStream = avformat_new_stream( mRecordContext, 0 );
-	AVCodecContext* ac = mAudioStream->codec;
-	ac->codec_type = AVMEDIA_TYPE_AUDIO;
-	ac->flags |= CODEC_FLAG_GLOBAL_HEADER;
-	ac->codec_id = fmt->audio_codec;
-	ac->sample_fmt = AV_SAMPLE_FMT_S16;
-	ac->bit_rate = 128000;
-	ac->sample_rate = 44100;
-	ac->channels = 1;
-	ac->channel_layout = AV_CH_LAYOUT_MONO;
-	ac->time_base.num = 1;
-	ac->time_base.den = 44100;
-
-
-	printf( "1\n" );
-	mAudioEncoder = avcodec_find_encoder( CODEC_ID_MP2 );
-	printf( "2 %p\n", mAudioEncoder );
-	mAudioEncoderContext = avcodec_alloc_context3( mAudioEncoder );
-	printf( "3\n" );
-	mAudioEncoderContext->bit_rate = 128000;
-	mAudioEncoderContext->sample_fmt = AV_SAMPLE_FMT_S16;
-	mAudioEncoderContext->sample_rate = 44100;
-	mAudioEncoderContext->channel_layout = AV_CH_LAYOUT_MONO;
-	mAudioEncoderContext->channels = 1;
-	printf( "4\n" );
-
-	if ( avcodec_open2( mAudioEncoderContext, mAudioEncoder, NULL ) < 0 ) {
-		fprintf( stdout, "Could not open audio codec\n" );
-		exit(1);
+		sprintf( filename, "/data/VIDEO/video_%06u.h264", fileid );
+		mRecordStream = new std::ofstream( filename );
 	}
 
+	auto pos = mRecordStream->tellp();
+	mRecordStream->write( data, datalen );
+	ret = mRecordStream->tellp() - pos;
+	mRecordStream->flush();
 
-
-	snprintf( mRecordContext->filename, sizeof( mRecordContext->filename ), "%s", filename );
-	avio_open( &mRecordContext->pb, filename, URL_WRONLY );
-	avformat_write_header( mRecordContext, nullptr );
-
-	mRecordPTSBase = Board::GetTicks();
-	mRecordFrameCounter = 0;
-*/
+	return ret;
 }
 
 #endif // BOARD_rpi
