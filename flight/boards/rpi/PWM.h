@@ -101,12 +101,15 @@ private:
 
 		void get_model( unsigned mbox_board_rev );
 		void* map_peripheral( uint32_t base, uint32_t len );
+
 	};
 
 	Channel* mChannel;
 	uint8_t mPin;
 
 	static std::vector< Channel* > mChannels;
+	static void terminate( int dummy );
+	static bool mSigHandlerOk;
 
 };
 

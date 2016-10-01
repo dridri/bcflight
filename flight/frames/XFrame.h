@@ -44,6 +44,7 @@ protected:
 	float mMaxSpeed;
 	bool mArmed;
 	bool mAirMode;
+	float mAirModeSpeed;
 };
 
 #endif // XFRAME_H

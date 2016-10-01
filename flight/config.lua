@@ -83,7 +83,8 @@ controller.link = RawWifi {
 	output_port = 1,
 	retries = 2,
 	blocking = true,
-	drop = true
+	drop = true,
+	read_timeout = 2000, -- If nothing is received withing 2seconds, the drone will disarm and falls
 }
 
 

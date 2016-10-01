@@ -46,6 +46,7 @@ XFrame::XFrame( Config* config )
 	, mMaxSpeed( 1.0f )
 	, mArmed( false )
 	, mAirMode( false )
+	, mAirModeSpeed( config->number( "frame.air_mode.speed", 0.15f ) )
 {
 	mMotors.resize( 4 );
 
@@ -172,10 +173,10 @@ bool XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 
 
 		if ( mAirMode ) {
-			mStabSpeeds[0] = std::max( mStabSpeeds[0], 0.1f ); // TODO : Use config-defined value
-			mStabSpeeds[1] = std::max( mStabSpeeds[1], 0.1f );
-			mStabSpeeds[2] = std::max( mStabSpeeds[2], 0.1f );
-			mStabSpeeds[3] = std::max( mStabSpeeds[3], 0.1f );
+			mStabSpeeds[0] = std::max( mStabSpeeds[0], mAirModeSpeed ); // TODO : Use config-defined value
+			mStabSpeeds[1] = std::max( mStabSpeeds[1], mAirModeSpeed );
+			mStabSpeeds[2] = std::max( mStabSpeeds[2], mAirModeSpeed );
+			mStabSpeeds[3] = std::max( mStabSpeeds[3], mAirModeSpeed );
 		} else if ( thrust <= 0.15f ) {
 			mStabSpeeds[0] = thrust;
 			mStabSpeeds[1] = thrust;

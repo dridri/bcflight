@@ -206,8 +206,8 @@ void IMU::setRateOnly( bool enabled )
 }
 
 
-static int imu_fps = 0;
-static uint64_t imu_ticks = 0;
+// static int imu_fps = 0;
+// static uint64_t imu_ticks = 0;
 bool IMU::SensorsThreadRun()
 {
 /*

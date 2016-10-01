@@ -77,6 +77,7 @@
 
 #define DMA_CS			(0x00/4)
 #define DMA_CONBLK_AD		(0x04/4)
+#define DMA_SOURCE_AD		(0x0c/4)
 #define DMA_DEBUG		(0x20/4)
 
 #define GPIO_FSEL0		(0x00/4)
@@ -104,6 +105,8 @@
 
 #define PWMPWMC_ENAB		(1<<31)
 #define PWMPWMC_THRSHLD		((15<<8)|(15<<0))
+
+#define BUS_TO_PHYS(x) ((x)&~0xC0000000)
 
 /* New Board Revision format: 
 SRRR MMMM PPPP TTTT TTTT VVVV
@@ -134,6 +137,7 @@ V revision (0-15)
 #define BOARD_REVISION_TYPE_PI1_A_PLUS (2 << 4)
 #define BOARD_REVISION_TYPE_PI1_B_PLUS (3 << 4)
 #define BOARD_REVISION_TYPE_PI2_B (4 << 4)
+#define BOARD_REVISION_TYPE_PI3_B (8 << 4)
 #define BOARD_REVISION_TYPE_ALPHA (5 << 4)
 #define BOARD_REVISION_TYPE_CM (6 << 4)
 #define BOARD_REVISION_REV_MASK (0xF)
@@ -150,6 +154,7 @@ V revision (0-15)
 #endif
 
 std::vector< PWM::Channel* > PWM::mChannels = std::vector< PWM::Channel* >();
+bool PWM::mSigHandlerOk = false;
 
 static void fatal( const char *fmt, ... )
 {
@@ -165,6 +170,18 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 	: mChannel( nullptr )
 	, mPin( pin )
 {
+	if ( not mSigHandlerOk ) {
+		mSigHandlerOk = true;
+		static int sig_list[] = { 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 16, 19, 20 };
+		uint32_t i;
+		for ( i = 0; i <= sizeof(sig_list)/sizeof(int); i++ ) {
+			struct sigaction sa;
+			memset( &sa, 0, sizeof(sa) );
+			sa.sa_handler = &PWM::terminate;
+			sigaction( sig_list[i], &sa, NULL );
+		}
+	}
+
 	uint8_t channel = 14;
 	for ( Channel* chan : mChannels ) {
 		if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time ) {
@@ -267,6 +284,47 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 
 PWM::Channel::~Channel()
 {
+}
+
+void PWM::terminate( int dummy )
+{
+	size_t i, j;
+	printf( "pi-blaster::terminate( %d )\n", dummy );
+
+	void* array[16];
+	size_t size;
+	size = backtrace( array, 16 );
+	fprintf( stderr, "Error: signal %d :\n", dummy );
+	backtrace_symbols( array, size );
+
+	dprintf("Resetting DMA...\n");
+	for ( j = 0; j < mChannels.size(); j++ ) {
+		if ( mChannels[j]->dma_reg && mChannels[j]->mMbox.virt_addr ) {
+			for ( i = 0; i < mChannels[j]->mPinsCount; i++ ) {
+				mChannels[j]->mPinsPWM[i] = 0.0f;
+			}
+			mChannels[j]->update_pwm();
+			usleep( mChannels[j]->mCycleTime * 2 );
+			mChannels[j]->dma_reg[DMA_CS] = DMA_RESET;
+			usleep(10);
+		}
+	}
+
+	dprintf("Freeing mbox memory...\n");
+	for ( j = 0; j < mChannels.size(); j++ ) {
+		if ( mChannels[j]->mMbox.virt_addr != NULL ) {
+			unmapmem( mChannels[j]->mMbox.virt_addr, mChannels[j]->mNumPages * PAGE_SIZE );
+			if ( mChannels[j]->mMbox.handle <= 2 ) {
+				mChannels[j]->mMbox.handle = mChannels[j]->mbox_open();
+			}
+			mem_unlock( mChannels[j]->mMbox.handle, mChannels[j]->mMbox.mem_ref );
+			mem_free( mChannels[j]->mMbox.handle, mChannels[j]->mMbox.mem_ref );
+// 			mChannels[j]->mbox_close( mChannels[j]->mMbox.handle );
+		}
+	}
+
+	dprintf("Unlink %s...\n", DEVFILE_MBOX);
+	unlink(DEVFILE_MBOX);
 }
 
 
@@ -503,14 +561,18 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 	if ( ( mbox_board_rev & BOARD_REVISION_SCHEME_MASK ) == BOARD_REVISION_SCHEME_NEW ) {
 		if ( ( mbox_board_rev & BOARD_REVISION_TYPE_MASK ) == BOARD_REVISION_TYPE_PI2_B ) {
 			board_model = 2;
+		} else if ( ( mbox_board_rev & BOARD_REVISION_TYPE_MASK ) == BOARD_REVISION_TYPE_PI3_B ) {
+			board_model = 3;
 		} else {
-			// no Pi 2, we assume a Pi 1
+			// no Pi 2 nor Pi 3, we assume a Pi 1
 			board_model = 1;
 		}
 	} else {
 		// if revision scheme is old, we assume a Pi 1
 		board_model = 1;
 	}
+
+	gDebug() << "board_model : " << board_model << "\n";
 
 	switch ( board_model ) {
 		case 1:
@@ -519,6 +581,7 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 			mem_flag         = MEM_FLAG_L1_NONALLOCATING | MEM_FLAG_ZERO;
 			break;
 		case 2:
+		case 3:
 			periph_virt_base = 0x3f000000;
 			periph_phys_base = 0x7e000000;
 			mem_flag         = MEM_FLAG_L1_NONALLOCATING | MEM_FLAG_ZERO; 

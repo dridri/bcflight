@@ -75,6 +75,9 @@ Main::Main()
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
 
+	// Wait a little bit for the system to boot completely
+	usleep( 1000 * 1000 * 2 );
+
 	mBoard = new Board( this );
 	flight_register();
 	Board::InformLoading();
@@ -117,7 +120,7 @@ Main::Main()
 
 	mPowerThread = new PowerThread( this );
 	mPowerThread->Start();
-	mPowerThread->setPriority( 96 );
+	mPowerThread->setPriority( 97 );
 	Board::InformLoading();
 
 	mIMU = new IMU( this );
@@ -138,7 +141,7 @@ Main::Main()
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
-	mController->setPriority( 98 );
+	mController->setPriority( 99 );
 	Board::InformLoading();
 
 	mLoopTime = mConfig->integer( "stabilizer.loop_time" );
