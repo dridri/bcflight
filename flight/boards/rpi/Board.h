@@ -56,6 +56,8 @@ public:
 	static Date localDate();
 
 	static const std::string LoadRegister( const std::string& name );
+	static const uint32_t LoadRegisterU32( const std::string& name, uint32_t def = 0 );
+	static const float LoadRegisterFloat( const std::string& name, float def = 0.0f );
 	static int SaveRegister( const std::string& name, const std::string& value );
 
 	static uint64_t GetTicks();

@@ -39,6 +39,7 @@ extern "C" {
 
 extern "C" void bcm_host_init( void );
 extern "C" void bcm_host_deinit( void );
+extern "C" void OMX_Init();
 
 uint64_t Board::mTicksBase = 0;
 uint64_t Board::mLastWorkJiffies = 0;
@@ -54,6 +55,7 @@ VCHI_CONNECTION_T* Board::global_connection = nullptr;
 Board::Board( Main* main )
 {
 	bcm_host_init();
+	OMX_Init();
 // 	VCOSInit();
 
 	wiringPiSetupGpio();
@@ -78,7 +80,8 @@ Board::Board( Main* main )
 		file.close();
 	}
 
-	gDebug() << readcmd( "ls -R /data" );
+	gDebug() << readcmd( "iw list" ) << "\n";
+	gDebug() << readcmd( "ls -R /data" ) << "\n";
 }
 
 
@@ -152,6 +155,7 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 		firmware.close();
 		if ( crc32( buf, length ) != crc ) {
 			gDebug() << "ERROR : Wrong CRC32 for firmware upload, please retry\n";
+			mUpdating = false;
 			return;
 		}
 		
@@ -163,6 +167,10 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 		file << "sleep 1\n";
 		file << "service flight stop &\n";
 		file << "sleep 1\n";
+		file << "killall -9 flight\n";
+		file << "sleep 0.5\n";
+		file << "killall -9 flight\n";
+		file << "sleep 0.5\n";
 		file << "killall -9 flight\n";
 		file << "sleep 1\n";
 		file << "rm /data/prog/flight\n";
@@ -192,6 +200,11 @@ void Board::Reset()
 	file << "service flight stop &\n";
 	file << "sleep 1\n";
 	file << "killall -9 flight\n";
+	file << "sleep 0.5\n";
+	file << "killall -9 flight\n";
+	file << "sleep 0.5\n";
+	file << "killall -9 flight\n";
+	file << "sleep 1\n";
 	file << "service flight start\n";
 	file.close();
 
@@ -332,6 +345,26 @@ Board::Date Board::localDate()
 	ret.second = tm->tm_sec;
 
 	return ret;
+}
+
+
+const uint32_t Board::LoadRegisterU32( const std::string& name, uint32_t def )
+{
+	std::string str = LoadRegister( name );
+	if ( str != "" and str.length() > 0 ) {
+		return std::strtoul( str.c_str(), nullptr, 10 );
+	}
+	return def;
+}
+
+
+const float Board::LoadRegisterFloat( const std::string& name, float def )
+{
+	std::string str = LoadRegister( name );
+	if ( str != "" and str.length() > 0 ) {
+		return std::atof( str.c_str() );
+	}
+	return def;
 }
 
 

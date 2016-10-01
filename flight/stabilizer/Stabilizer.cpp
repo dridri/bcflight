@@ -27,7 +27,7 @@
 
 Stabilizer::Stabilizer( Main* main, Frame* frame )
 	: mFrame( frame )
-	, mMode( Stabilize )
+	, mMode( Rate )
 	, mAltitudeHold( false )
 	, mRateRollPID( PID<float>() )
 	, mRatePitchPID( PID<float>() )
@@ -39,19 +39,19 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
 {
-	mRateRollPID.setP( std::atof( Board::LoadRegister( "PID:Roll:P" ).c_str() ) );
-	mRateRollPID.setI( std::atof( Board::LoadRegister( "PID:Roll:I" ).c_str() ) );
-	mRateRollPID.setD( std::atof( Board::LoadRegister( "PID:Roll:D" ).c_str() ) );
-	mRatePitchPID.setP( std::atof( Board::LoadRegister( "PID:Pitch:P" ).c_str() ) );
-	mRatePitchPID.setI( std::atof( Board::LoadRegister( "PID:Pitch:I" ).c_str() ) );
-	mRatePitchPID.setD( std::atof( Board::LoadRegister( "PID:Pitch:D" ).c_str() ) );
-	mRateYawPID.setP( std::atof( Board::LoadRegister( "PID:Yaw:P" ).c_str() ) );
-	mRateYawPID.setI( std::atof( Board::LoadRegister( "PID:Yaw:I" ).c_str() ) );
-	mRateYawPID.setD( std::atof( Board::LoadRegister( "PID:Yaw:D" ).c_str() ) );
+	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->number( "stabilizer.pid_roll.p" ) ) );
+	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->number( "stabilizer.pid_roll.i" ) ) );
+	mRateRollPID.setD( Board::LoadRegisterFloat( "PID:Roll:D", main->config()->number( "stabilizer.pid_roll.d" ) ) );
+	mRatePitchPID.setP( Board::LoadRegisterFloat( "PID:Pitch:P", main->config()->number( "stabilizer.pid_pitch.p" ) ) );
+	mRatePitchPID.setI( Board::LoadRegisterFloat( "PID:Pitch:I", main->config()->number( "stabilizer.pid_pitch.i" ) ) );
+	mRatePitchPID.setD( Board::LoadRegisterFloat( "PID:Pitch:D", main->config()->number( "stabilizer.pid_pitch.d" ) ) );
+	mRateYawPID.setP( Board::LoadRegisterFloat( "PID:Yaw:P", main->config()->number( "stabilizer.pid_yaw.p" ) ) );
+	mRateYawPID.setI( Board::LoadRegisterFloat( "PID:Yaw:I", main->config()->number( "stabilizer.pid_yaw.i" ) ) );
+	mRateYawPID.setD( Board::LoadRegisterFloat( "PID:Yaw:D", main->config()->number( "stabilizer.pid_yaw.d" ) ) );
 
-	mHorizonPID.setP( std::atof( Board::LoadRegister( "PID:Outerloop:P" ).c_str() ) );
-	mHorizonPID.setI( std::atof( Board::LoadRegister( "PID:Outerloop:I" ).c_str() ) );
-	mHorizonPID.setD( std::atof( Board::LoadRegister( "PID:Outerloop:D" ).c_str() ) );
+	mHorizonPID.setP( Board::LoadRegisterFloat( "PID:Outerloop:P", main->config()->number( "stabilizer.pid_horizon.p" ) ) );
+	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->number( "stabilizer.pid_horizon.i" ) ) );
+	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->number( "stabilizer.pid_horizon.d" ) ) );
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
