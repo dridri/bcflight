@@ -184,10 +184,10 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		if ( localVoltage <= 11.0f and mBlinkingViews ) {
 			RenderText( (float)window->width() * 1.0f / 4.0f, window->height() - 175, "Low Controller Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}
-		battery_red = 1.0f - ( ( localVoltage - 6.4f ) / 2.0f );
+		battery_red = 1.0f - ( ( localVoltage - 11.0f ) / 1.6f );
 		svolt = std::to_string( localVoltage );
 		svolt = svolt.substr( 0, svolt.find( "." ) + 3 );
-		RenderText( (float)window->width() * 0.5f * 0.12f, window->height() * 0.67f, svolt + "V", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f - battery_red * 0.5f, 1.0f ), 0.75 );
+		RenderText( (float)window->width() * 0.5f * 0.12f, window->height() * 0.67f, svolt + "V", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f, 1.0f ), 0.75 );
 	}
 
 	// Static elements
@@ -234,7 +234,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 
 	// Link status
 	{
-		RenderLink( (float)iwstats->qual / 100.0f );
+		RenderLink( (float)iwstats->qual / 100.0f, ( (float)( 100 + iwstats->level ) * 100.0f / 60.0f ) / 100.0f );
 		float link_red = 1.0f - ((float)iwstats->qual) / 100.0f;
 		std::string link_quality_str = "Ch" + std::to_string( iwstats->channel ) + "  " + std::to_string( iwstats->level ) + "dBm  " + std::to_string( iwstats->qual ) + "% (" + iwstats->source + ")";
 		RenderText( (float)window->width() * 0.5f * 0.13f, 720.0f * 0.21f, link_quality_str, Vector4f( 0.5f + 0.5f * link_red, 1.0f - link_red * 0.25f, 0.5f - link_red * 0.5f, 1.0f ), 0.9f );
@@ -298,7 +298,7 @@ void RendererHUDNeo::RenderThrustAcceleration( float thrust, float acceleration 
 }
 
 
-void RendererHUDNeo::RenderLink( float quality )
+void RendererHUDNeo::RenderLink( float quality, float level )
 {
 	glUseProgram( mColorShader.mShader );
 	glUniform4f( mColorShader.mColorID, 1.0f, 1.0f, 1.0f, 1.0f );
@@ -306,6 +306,40 @@ void RendererHUDNeo::RenderLink( float quality )
 	glVertexAttribPointer( mColorShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertexColor ), (void*)( 0 ) );
 	glVertexAttribPointer( mColorShader.mVertexColorID, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( FastVertexColor ), (void*)( sizeof( float ) * 2 ) );
 	glVertexAttribPointer( mColorShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertexColor ), (void*)( sizeof( float ) * 2 + sizeof( uint32_t ) ) );
+
+	FastVertexColor linkBuffer[6 * 16];
+	memset( linkBuffer, 0, sizeof( linkBuffer ) );
+	for ( uint32_t i = 0; i < 16; i++ ) {
+		float height = std::exp( i * 0.1f );
+		int ofsy = level * height * 12.0f;
+		float x = 1280.0f * 0.5f * 0.12f + i * ( 11 + 1 );
+		float y = 720.0f * 0.22f;
+
+		linkBuffer[i*6 + 0].x = x;
+		linkBuffer[i*6 + 0].y = y-ofsy;
+		linkBuffer[i*6 + 1].x = x+11;
+		linkBuffer[i*6 + 1].y = y;
+		linkBuffer[i*6 + 2].x = x+11;
+		linkBuffer[i*6 + 2].y = y-ofsy;
+		linkBuffer[i*6 + 3].x = x;
+		linkBuffer[i*6 + 3].y = y-ofsy;
+		linkBuffer[i*6 + 4].x = x;
+		linkBuffer[i*6 + 4].y = y;
+		linkBuffer[i*6 + 5].x = x+11;
+		linkBuffer[i*6 + 5].y = y;
+
+		Vector4f fcolor = Vector4f( 0.5f + 0.5f * 0.0625f * ( 15 - i ), 0.5f + 0.5f * 0.0625f * i, 0.5f, 1.0f );
+		uint32_t color = 0xFF7F0000 | ( (uint32_t)( fcolor.y * 255.0f ) << 8 ) | ( (uint32_t)( fcolor.x * 255.0f ) );
+		linkBuffer[i*6 + 0].color = linkBuffer[i*6 + 1].color = linkBuffer[i*6 + 2].color = linkBuffer[i*6 + 3].color = linkBuffer[i*6 + 4].color = linkBuffer[i*6 + 5].color = color;
+
+		for ( int j = 0; j < 6; j++ ) {
+			Vector2f vec = VR_Distort( Vector2f( linkBuffer[i*6 + j].x, linkBuffer[i*6 + j].y ) );
+			linkBuffer[i*6 + j].x = vec.x;
+			linkBuffer[i*6 + j].y = vec.y;
+		}
+	}
+	glBindBuffer( GL_ARRAY_BUFFER, mLinkVBO );
+	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(linkBuffer), linkBuffer );
 
 	glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 	glDrawArrays( GL_TRIANGLES, 0, 6 * std::min( 16, (int)( quality * 16.0f ) ) );

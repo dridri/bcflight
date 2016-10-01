@@ -34,7 +34,10 @@
 
 #include <Link.h>
 #include <Thread.h>
-#include "decode.h"
+// #include "decode.h"
+#include "../../external/OpenMaxIL++/include/VideoDecode.h"
+#include "../../external/OpenMaxIL++/include/VideoSplitter.h"
+#include "../../external/OpenMaxIL++/include/VideoRender.h"
 #include "DecodedImage.h"
 #include "RendererHUD.h"
 
@@ -79,6 +82,10 @@ private:
 	HookThread<Stream>* mDecodeThread;
 	void* mDecodeInput;
 	uint32_t mDecodeLen;
+	IL::VideoDecode* mDecoder;
+	IL::VideoSplitter* mDecoderSplitter;
+	IL::VideoRender* mDecoderRender1;
+	IL::VideoRender* mDecoderRender2;
 
 	int mIwSocket;
 	IwStats mIwStats;
@@ -92,7 +99,7 @@ private:
 	EGL_DISPMANX_WINDOW_T mLayerDisplay;
 	EGLImageKHR mEGLVideoImage;
 	GLuint mVideoTexture;
-	video_context* mDecodeContext;
+// 	video_context* mDecodeContext;
 
 	DISPMANX_DISPLAY_HANDLE_T mDisplay;
 	struct {

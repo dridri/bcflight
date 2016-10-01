@@ -33,7 +33,7 @@ public:
 	void Render( GE::Window* window, Controller* controller, VideoStats* videostats, IwStats* iwstats );
 
 	void RenderThrustAcceleration( float thrust, float acceleration );
-	void RenderLink( float quality );
+	void RenderLink( float quality, float level );
 	void RenderBattery( float level );
 	void RenderAttitude( const vec3& rpy );
 

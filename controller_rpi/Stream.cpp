@@ -64,6 +64,7 @@ Stream::Stream( Controller* controller, Font* font, Link* link, uint32_t width, 
 	, mWidth( width )
 	, mHeight( height )
 	, mLink( link )
+	, mDecodeThread( nullptr )
 	, mDecodeInput( nullptr )
 	, mEGLVideoImage( 0 )
 	, mVideoTexture( 0 )
@@ -112,8 +113,33 @@ bool Stream::run()
 
 		mRendererHUD = new RendererHUDNeo( mInstance, mFont );
 
-		mDecodeContext = video_configure( mWidth, mHeight, mStereo );
-		video_start( mDecodeContext );
+// 		mDecodeContext = video_configure( mWidth, mHeight, mStereo );
+// 		video_start( mDecodeContext );
+		float reduce = 0.25f;
+		int y_offset = mStereo * 56 + ( reduce * mHeight * 0.1 );
+		int width = mWidth / ( 1 + mStereo ) - ( reduce * mWidth * 0.1 );
+		int height = mHeight - ( mStereo * 112 ) - ( reduce * mHeight * 0.2 );
+
+		OMX_Init();
+		mDecoder = new IL::VideoDecode( 0, IL::VideoDecode::CodingAVC, true );
+		mDecoderRender1 = new IL::VideoRender( reduce * mWidth * 0.05, y_offset, width, height, true );
+		mDecoderRender1->setMirror( false, true );
+		if ( mStereo ) {
+			mDecoderSplitter = new IL::VideoSplitter( true );
+			mDecoderRender2 = new IL::VideoRender( mWidth / 2 + reduce * mWidth * 0.05, y_offset, width, height, true );
+			mDecoderRender2->setMirror( false, true );
+			mDecoder->SetupTunnel( 131, mDecoderSplitter, 250 );
+			mDecoderSplitter->SetupTunnel( 251, mDecoderRender1, 90 );
+			mDecoderSplitter->SetupTunnel( 252, mDecoderRender2, 90 );
+			mDecoder->SetState( IL::Component::StateExecuting );
+			mDecoderSplitter->SetState( IL::Component::StateExecuting );
+			mDecoderRender1->SetState( IL::Component::StateExecuting );
+			mDecoderRender2->SetState( IL::Component::StateExecuting );
+		} else {
+			mDecoder->SetupTunnel( 131, mDecoderRender1, 90 );
+			mDecoder->SetState( IL::Component::StateExecuting );
+			mDecoderRender1->SetState( IL::Component::StateExecuting );
+		}
 
 		mDecodeThread = new HookThread< Stream >( "decoder", this, &Stream::DecodeThreadRun );
 		mDecodeThread->setPriority( 99 );
@@ -133,7 +159,7 @@ bool Stream::run()
 		mRendererHUD->PreRender( &video_stats );
 		mRendererHUD->Render( mWindow, mController, &video_stats, &mIwStats );
 	} else {
-		usleep( 1000 * 1000 / 20 );
+		usleep( 1000 * 1000 / 30 );
 	}
 
 	if ( mSecondTimer.ellapsed() >= 1000 ) {
@@ -190,9 +216,17 @@ bool Stream::SignalThreadRun()
 			mIwStats.source = 'V';
 			mIwStats.qual = mLink->RxQuality();
 		}
+		mIwStats.level = dynamic_cast< RawWifi* >( mLink )->level();
 // 		mIwStats.channel = dynamic_cast< RawWifi* >( mLink )->channel();
-	} 
-	usleep( 1000 * 500 );
+	}
+/*
+	if ( not mDecodeThread or not mDecodeThread->running() ) {
+		mDecodeThread = new HookThread< Stream >( "decoder", this, &Stream::DecodeThreadRun );
+		mDecodeThread->setPriority( 99 );
+		mDecodeThread->Start();
+	}
+	*/
+	usleep( 1000 * 250 );
 	return true;
 }
 
@@ -201,7 +235,7 @@ bool Stream::DecodeThreadRun()
 {
 // 	uint8_t frame[32768] = { 0 };
 // 	uint8_t* frame = nullptr;
-	uint32_t frameSize = 0;
+	int32_t frameSize = 0;
 
 	if ( not mLink->isConnected() ) {
 		mLink->Connect();
@@ -213,7 +247,7 @@ bool Stream::DecodeThreadRun()
 		}
 		return true;
 	}
-
+/*
 	if ( mDecodeInput == nullptr ) {
 		mDecodeInput = mDecodeContext->decinput->pBuffer;
 	} else {
@@ -225,16 +259,16 @@ bool Stream::DecodeThreadRun()
 	}
 	if ( mDecodeLen == 0 ) {
 		mDecodeLen = mDecodeContext->decinput->nAllocLen;
-	}
+	}*/
 
-	frameSize = mLink->Read( mDecodeInput, mDecodeLen, 0 );
+	uint8_t buffer[65536] = { 0 };
+	frameSize = mLink->Read( buffer, sizeof(buffer), 0 );
 	int corrupted = 0;
 	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
 		corrupted = dynamic_cast< RawWifi* >( mLink )->lastIsCorrupt();
 	}
 	if ( frameSize > 0 ) {
-		mDecodeContext->decinput->nFilledLen = frameSize;
-		video_decode_frame( mDecodeContext, corrupted );
+		mDecoder->fillInput( buffer, frameSize );
 		mFrameCounter++;
 		mBitrateCounter += frameSize;
 		frameSize = 0;

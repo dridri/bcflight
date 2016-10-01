@@ -51,7 +51,8 @@ void segv_handler( int sig )
 	fprintf( stderr, "Error: signal %d :\n", sig ); fflush(stderr);
 	backtrace_symbols_fd( array, size, STDERR_FILENO );
 
-	exit(0);
+// 	exit(0);
+	pthread_exit(0);
 }
 
 int main( int ac, char** av )
