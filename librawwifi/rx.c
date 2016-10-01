@@ -88,12 +88,13 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 		return -3;
 	}
 
-	if ( retval < 0 ) {
+	if ( retval < 0 || pu8Payload == 0 ) {
 		fprintf( stderr, "pcap_next_ex ERROR : %s\n", pcap_geterr( rpcap->pcap ) );
 // 		char str[1024] = "";
 // 		sprintf( str, "ifconfig %s up", rwifi->device );
 // 		exit(1);
-		return CONTINUE;
+// 		return CONTINUE;
+		return -1;
 	}
 
 	if ( retval != 1 ) {
@@ -181,7 +182,7 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	uint8_t* pu8Payload = 0;
 
 	int32_t bytes = process_frame( rwifi, rpcap, pu8Payload, &pu8Payload );
-	if ( bytes <= 0 ) {
+	if ( pu8Payload == 0 || bytes <= 0 ) {
 		return bytes;
 	}
 
@@ -197,10 +198,12 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	if ( rwifi->recv_last_returned >= header->block_id + 32 ) {
 		// More than 32 underruns, TX has probably been resetted
 		rwifi->recv_last_returned = 0;
+		free( rwifi->recv_block );
+		rwifi->recv_block = NULL;
 	}
 
 	if ( header->header_crc != rawwifi_crc16( (uint8_t*)header, sizeof(wifi_packet_header_t) - sizeof(uint16_t) ) ) {
-		dprintf( "Invalid header CRC ! Dropping ! [%d]\n", sizeof(wifi_packet_header_t) );
+		dprintf( "Invalid header CRC, dropping ! [%d:%d]\n", header->block_id, header->packet_id );
 		return CONTINUE;
 	}
 
@@ -279,7 +282,7 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		uint32_t all_valid = 0;
 		uint32_t offset = 0;
 		for ( uint32_t i = 0; i < header->packets_count; i++ ) {
-			if ( block->packets[i].size <= 1500 && block->packets[i].size > 0 ) {
+			if ( block->packets[i].size > 0 ) {
 				dprintf( "memcpy( %p, %p, %u ) [%s]\n", pret + offset, block->packets[i].data, block->packets[i].size, block->packets[i].valid ? "valid" : "invalid" );
 				if ( block->packets[i].data ) {
 					memcpy( pret + offset, block->packets[i].data, block->packets[i].size );

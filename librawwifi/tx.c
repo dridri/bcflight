@@ -72,8 +72,9 @@ retry:
 			pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
 			printf( "[%d/%d] sent %d / %d\n", i + 1, retries, r, plen );
 // 			exit(1);
-			usleep( 1 );
-			goto retry;
+// 			usleep( 1 );
+// 			goto retry;
+			return -1;
 		} else {
 			dprintf( "[%d, %d, %d/%d] sent %d / %d\n", block_id, packet_id, i + 1, retries, r, plen );
 		}
