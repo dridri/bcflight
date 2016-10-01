@@ -30,7 +30,7 @@ class Main;
 class RawWifi : public Link
 {
 public:
-	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1, bool blocking = true, bool drop_invalid_packets = false );
+	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1, int read_timeout_ms = -1, bool blocking = true, bool drop_invalid_packets = false );
 	~RawWifi();
 
 	void SetChannel( int chan );
@@ -51,6 +51,7 @@ protected:
 
 	rawwifi_t* mRawWifi;
 	std::string mDevice;
+	int mReadTimeout;
 	int mChannel;
 	int mTxPower;
 	int16_t mOutputPort;

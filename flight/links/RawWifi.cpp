@@ -42,20 +42,22 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 	std::string device = config->string( lua_object + ".device", "wlan0" );
 	int output_port = config->integer( lua_object + ".output_port" );
 	int input_port = config->integer( lua_object + ".input_port" );
+	int timeout = config->integer( lua_object + ".read_timeout" );
 	bool blocking = config->boolean( lua_object + ".blocking", true );
 	bool drop = config->boolean( lua_object + ".drop", false );
 
-	Link* link = new RawWifi( device, output_port, input_port, blocking, drop );
+	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
 	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries" ) );
 	return link;
 }
 
 
 
-RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, bool blocking, bool drop_invalid_packets )
+RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, int read_timeout_ms, bool blocking, bool drop_invalid_packets )
 	: Link()
 	, mRawWifi( nullptr )
 	, mDevice( device )
+	, mReadTimeout( read_timeout_ms )
 	, mChannel( 11 )
 	, mTxPower( 33 )
 	, mOutputPort( out_port )
@@ -153,7 +155,7 @@ int RawWifi::Connect()
 	Initialize( mDevice, mChannel, mTxPower );
 	gDebug() << "2\n";
 
-	mRawWifi = rawwifi_init( "wlan0", mOutputPort, mInputPort, mBlocking );
+	mRawWifi = rawwifi_init( "wlan0", mOutputPort, mInputPort, mBlocking, mReadTimeout );
 	gDebug() << "3\n";
 	if ( !mRawWifi ) {
 		return -1;
@@ -173,6 +175,11 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 
 	uint32_t valid = 0;
 	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
+
+	if ( ret == -3 ) {
+		std::cout << "WARNING : Read timeout\n";
+		return LINK_ERROR_TIMEOUT;
+	}
 
 	if ( ret < 0 ) {
 		mConnected = false;

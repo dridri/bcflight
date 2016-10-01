@@ -188,8 +188,7 @@ bool Controller::run()
 	int readret = 0;
 	Packet command;
 // 	if ( mLink->Read( &command, 500 ) <= 0 ) {
-	if ( ( readret = mLink->Read( &command, 0 ) ) <= 0 ) {
-		/*
+	if ( ( readret = mLink->Read( &command, 0 ) ) == LINK_ERROR_TIMEOUT ) {
 		if ( mArmed ) {
 			gDebug() << "Controller connection lost !\n";
 			mThrust = 0.0f;
@@ -201,7 +200,6 @@ bool Controller::run()
 			gDebug() << "STONE MODE !\n";
 			return true;
 		}
-		*/
 		/*
 		mMain->stabilizer()->setMode( Stabilizer::Stabilize );
 		mMain->imu()->ResetRPY();
