@@ -36,6 +36,7 @@ public:
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
+	void setCECMode( const std::string& mode );
 	void setRetries( int retries );
 	int Connect();
 	int32_t RxQuality();

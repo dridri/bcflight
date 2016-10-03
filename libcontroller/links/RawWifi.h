@@ -24,6 +24,7 @@
 #include "Link.h"
 
 #include <rawwifi.h>
+#include <mutex>
 
 class RawWifi : public Link
 {
@@ -37,6 +38,7 @@ public:
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
+	void setCECMode( const std::string& mode );
 	void setRetriesCount( int retries );
 
 	int level() const;
@@ -57,6 +59,8 @@ protected:
 	int mRetriesCount;
 	bool mLastIsCorrupt;
 
+	static std::mutex mInitializingMutex;
+	static bool mInitializing;
 	static bool mInitialized;
 };
 

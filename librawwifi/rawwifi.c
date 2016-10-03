@@ -3,6 +3,7 @@
 #include <iwlib.h>
 #include "rawwifi.h"
 
+static pthread_mutex_t compile_mutex;
 
 static rawwifi_pcap_t* setup_tx( rawwifi_t* rwifi, int port, int blocking )
 {
@@ -110,6 +111,7 @@ static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking, int r
 
 rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking, int read_timeout_ms )
 {
+	pthread_mutex_lock( &compile_mutex );
 	rawwifi_t* rwifi = (rawwifi_t*)malloc( sizeof(rawwifi_t) );
 	memset( rwifi, 0, sizeof( rawwifi_t ) );
 
@@ -121,11 +123,19 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 	rwifi->recv_timeout_ms = read_timeout_ms;
 
 	if ( !rwifi->out || !rwifi->in ) {
+		pthread_mutex_unlock( &compile_mutex );
 		return NULL;
 	}
 
 	rawwifi_init_txbuf( rwifi->tx_buffer );
+	pthread_mutex_unlock( &compile_mutex );
 	return rwifi;
+}
+
+
+void rawwifi_set_recv_mode( rawwifi_t* rwifi, int mode )
+{
+	rwifi->recv_mode = mode;
 }
 
 

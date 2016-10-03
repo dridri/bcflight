@@ -111,7 +111,7 @@ include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 if ( "${rawwifi}" MATCHES 1 )
 	add_subdirectory( ${CMAKE_SOURCE_DIR}/../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )
 	include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
-	set( LIBS ${LIBS} ${CMAKE_BINARY_DIR}/librawwifi/librawwifi.a -lpcap )
+	set( LIBS ${LIBS} ${CMAKE_BINARY_DIR}/librawwifi/librawwifi.a -lpcap ${NLGENL_LIBRARY} ${NLROUTE_LIBRARY} ${NL_LIBRARY}  )
 endif()
 
 file( GLOB_RECURSE BOARD_SOURCES boards/${board}/*.cpp boards/${board}/*.c )
@@ -160,6 +160,7 @@ if ( "${rawwifi}" MATCHES 1 )
 	add_dependencies( flight_unstripped rawwifi )
 endif()
 
+message( "LIBS : ${LIBS} ${BOARD_LIBS}" )
 target_link_libraries( flight_unstripped -L./ -lluajit_static ${LIBS} ${BOARD_LIBS} )
 
 board_strip()

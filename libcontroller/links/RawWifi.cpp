@@ -19,6 +19,7 @@
 #ifndef NO_RAWWIFI
 
 #include <netinet/in.h>
+#include <unistd.h>
 #include <string.h>
 #include <sstream>
 #include <iostream>
@@ -26,6 +27,8 @@
 
 // static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim );
 
+std::mutex RawWifi::mInitializingMutex;
+bool RawWifi::mInitializing = false;
 bool RawWifi::mInitialized = false;
 
 RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
@@ -51,6 +54,18 @@ int RawWifi::setBlocking( bool blocking )
 {
 	// TODO
 	return 0;
+}
+
+
+void RawWifi::setCECMode( const std::string& mode )
+{
+	if ( mRawWifi ) {
+		if ( mode == "weighted" ) {
+			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
+		} else {
+			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
+		}
+	}
 }
 
 
@@ -111,8 +126,17 @@ int32_t RawWifi::RxQuality()
 
 void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
 {
+	mInitializingMutex.lock();
+	while ( mInitializing ) {
+		usleep( 1000 * 100 );
+	}
+
 	if ( not mInitialized ) {
 		mInitialized = true;
+		mInitializing = true;
+
+		rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
+/*
 		std::stringstream ss;
 
 // 		if ( readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
@@ -127,7 +151,10 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 
 		std::cout << "executing : " << ss.str().c_str() << "\n";
 		(void)system( ss.str().c_str() );
+*/
+		mInitializing = false;
 	}
+	mInitializingMutex.unlock();
 }
 
 
@@ -151,8 +178,10 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
+// 	uint64_t t = GetTicks();
 	uint32_t valid = 0;
 	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
+// 	std::cout << "read time : " << ( ( GetTicks() - t ) / 1000 ) << "\n";
 
 	if ( ret == -3 ) {
 		std::cout << "WARNING : Read timeout\n";

@@ -25,6 +25,10 @@
 extern "C" {
 #endif
 
+#define RAWWIFI_RX_FAST 0
+#define RAWWIFI_RX_FEC_WEIGHTED 1
+#define RAWWIFI_RX_FEC_CEC 2
+
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
 #define MAX_PACKET_PER_BLOCK 64
 
@@ -87,6 +91,8 @@ typedef struct rawwifi_t {
 	rawwifi_pcap_t* in;
 	rawwifi_block_t* recv_block;
 	rawwifi_link_t recv_link;
+	uint32_t recv_mode;
+	void* recv_private;
 	int32_t recv_timeout_ms;
 	uint32_t recv_last_returned;
 	uint32_t recv_quality;
@@ -96,9 +102,12 @@ typedef struct rawwifi_t {
 	uint32_t recv_perf_invalid;
 } rawwifi_t;
 
+// Must be called only once, before any other call to rawwifi
+int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpower, uint32_t bHT, uint32_t bitrate );
 
 rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking, int read_timeout_ms );
 int32_t rawwifi_recv_quality( rawwifi_t* rwifi );
+void rawwifi_set_recv_mode( rawwifi_t* rwifi, int mode );
 
 int rawwifi_send( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen );
 int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries );

@@ -48,6 +48,7 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 
 	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
 	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries" ) );
+	static_cast< RawWifi* >( link )->setCECMode( config->string( lua_object + ".cec_mode" ) );
 	return link;
 }
 
@@ -78,6 +79,18 @@ int RawWifi::setBlocking( bool blocking )
 {
 	// TODO
 	return 0;
+}
+
+
+void RawWifi::setCECMode( const std::string& mode )
+{
+	if ( mRawWifi ) {
+		if ( mode == "weighted" ) {
+			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
+		} else {
+			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
+		}
+	}
 }
 
 
@@ -120,6 +133,9 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 	if ( not mInitialized ) {
 		mInitializing = true;
 		mInitialized = true;
+
+		rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
+/*
 		std::stringstream ss;
 
 		(void)system( "ifconfig" );
@@ -143,6 +159,7 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 		(void)system( "ifconfig" );
 		usleep( 1000 * 250 );
 		(void)system( "iwconfig" );
+*/
 		mInitializing = false;
 	}
 	mInitializingMutex.unlock();
