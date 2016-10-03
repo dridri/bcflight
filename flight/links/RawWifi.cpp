@@ -87,6 +87,7 @@ void RawWifi::setCECMode( const std::string& mode )
 	if ( mRawWifi ) {
 		if ( mode == "weighted" ) {
 			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
+			gDebug() << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
 		} else {
 			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
 		}
