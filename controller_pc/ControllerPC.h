@@ -25,7 +25,7 @@
 class ControllerPC : public Controller
 {
 public:
-	ControllerPC( Link* link );
+	ControllerPC( Link* link, bool spectate = false );
 	~ControllerPC();
 
 	void setControlThrust( const float v );

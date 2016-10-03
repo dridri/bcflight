@@ -21,8 +21,8 @@
 #include "MainWindow.h"
 #include "ControllerPC.h"
 
-ControllerPC::ControllerPC( Link* link )
-	: Controller( link )
+ControllerPC::ControllerPC( Link* link, bool spectate )
+	: Controller( link, spectate )
 	, mThrust( 0.0f )
 	, mArmed( false )
 	, mRecording( false )

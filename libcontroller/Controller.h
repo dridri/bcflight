@@ -53,9 +53,10 @@ public:
 		Follow = 3,
 	} Mode;
 
-	Controller( Link* link );
+	Controller( Link* link, bool spectate = false );
 	virtual ~Controller();
 	bool isConnected() const { return mLink->isConnected(); }
+	bool isSpectate() const { return mSpectate; }
 	Link* link() const { return mLink; }
 
 	void Lock() { mLockState = 1; while ( mLockState != 2 ) usleep(1); }
@@ -216,6 +217,7 @@ protected:
 	uint32_t crc32( const uint8_t* buf, uint32_t len );
 
 	Link* mLink;
+	bool mSpectate;
 	Packet mTxFrame;
 	bool mConnected;
 	uint32_t mLockState;

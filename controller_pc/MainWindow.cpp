@@ -44,13 +44,16 @@ extern "C" {
 MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	: QMainWindow()
 	, mController( ctrl )
+	, mControllerMonitor( nullptr )
 	, mStreamLink( streamLink )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
-	mControllerMonitor = new ControllerMonitor( mController );
-	connect( mControllerMonitor, SIGNAL( connected() ), this, SLOT( connected() ) );
-	mControllerMonitor->start();
+	if ( mController ) {
+		mControllerMonitor = new ControllerMonitor( mController );
+		connect( mControllerMonitor, SIGNAL( connected() ), this, SLOT( connected() ) );
+		mControllerMonitor->start();
+	}
 
 	mUpdateTimer = new QTimer();
 	connect( mUpdateTimer, SIGNAL( timeout() ), this, SLOT( updateData() ) );
@@ -186,178 +189,200 @@ void MainWindow::connected()
 {
 	ui->statusbar->showMessage( "Connected" );
 
-	QTreeWidgetItem* board_item = ui->system->findItems( "Board", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first();
-	QStringList board_infos = QString::fromStdString( mController->getBoardInfos() ).split("\n");
-	for ( QString s : board_infos ) {
-		if ( s.contains(":") ) {
-			QStringList key_value = s.split(":");
-			QString key = key_value.at(0);
-			QString value = key_value.at(1);
-			QTreeWidgetItem* item = new QTreeWidgetItem();
-			item->setData( 0, 0, key );
-			item->setData( 1, 0, value );
-			board_item->addChild( item );
+	if ( mController and not mController->isSpectate() ) {
+		QTreeWidgetItem* board_item = ui->system->findItems( "Board", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first();
+		QStringList board_infos = QString::fromStdString( mController->getBoardInfos() ).split("\n");
+		for ( QString s : board_infos ) {
+			if ( s.contains(":") ) {
+				QStringList key_value = s.split(":");
+				QString key = key_value.at(0);
+				QString value = key_value.at(1);
+				QTreeWidgetItem* item = new QTreeWidgetItem();
+				item->setData( 0, 0, key );
+				item->setData( 1, 0, value );
+				board_item->addChild( item );
+			}
 		}
-	}
 
-	QString sensors_infos = QString::fromStdString( mController->getSensorsInfos() );
-	qDebug() << "sensors_infos : " << sensors_infos;
-	lua_State* L = luaL_newstate();
-	luaL_dostring( L, sensors_infos.toLatin1().data() );
-	Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Sensors" );
-	lua_close(L);
+		QString sensors_infos = QString::fromStdString( mController->getSensorsInfos() );
+		qDebug() << "sensors_infos : " << sensors_infos;
+		lua_State* L = luaL_newstate();
+		luaL_dostring( L, sensors_infos.toLatin1().data() );
+		Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Sensors" );
+		lua_close(L);
+	}
 
 	ui->system->expandAll();
 }
 
 void MainWindow::updateData()
 {
-	QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-	ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % )    |    %7 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+	if ( not mController ) {
+		ui->statusbar->showMessage( QString( "Camera : %1 KB/s    |    Quality : %2 %    |    %3 FPS" ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+	} else {
+		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
+		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % )    |    %7 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
-	ui->latency->setText( QString::number( mController->ping() ) + " ms" );
-	ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );
-	ui->current->setText( QString::number( mController->currentDraw(), 'f', 2 ) + " A" );
-	ui->current_total->setText( QString::number( mController->totalCurrent() ) + " mAh" );
-	ui->cpu_load->setValue( mController->CPULoad() );
-	ui->temperature->setValue( mController->CPUTemp() );
+		ui->latency->setText( QString::number( mController->ping() ) + " ms" );
+		ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );
+		ui->current->setText( QString::number( mController->currentDraw(), 'f', 2 ) + " A" );
+		ui->current_total->setText( QString::number( mController->totalCurrent() ) + " mAh" );
+		ui->cpu_load->setValue( mController->CPULoad() );
+		ui->temperature->setValue( mController->CPUTemp() );
 
-	std::string dbg = mController->debugOutput();
-	if ( dbg != "" ) {
-		QTextCursor cursor( ui->terminal->textCursor() );
-		bool move = true; //( ui->terminal->toPlainText().length() == 0 or cursor.position() == QTextCursor::End );
-		ui->terminal->setPlainText( ui->terminal->toPlainText() + QString::fromStdString( dbg ) );
-		if ( move ) {
-			cursor.movePosition( QTextCursor::End );
-			ui->terminal->setTextCursor( cursor );
+		std::string dbg = mController->debugOutput();
+		if ( dbg != "" ) {
+			QTextCursor cursor( ui->terminal->textCursor() );
+			bool move = true; //( ui->terminal->toPlainText().length() == 0 or cursor.position() == QTextCursor::End );
+			ui->terminal->setPlainText( ui->terminal->toPlainText() + QString::fromStdString( dbg ) );
+			if ( move ) {
+				cursor.movePosition( QTextCursor::End );
+				ui->terminal->setTextCursor( cursor );
+			}
 		}
-	}
 
-	const std::list< vec4 > rpy;// = mController->rpyHistory();
-	mDataT.clear();
-	mDataR.clear();
-	mDataP.clear();
-	mDataY.clear();
-	for ( vec4 v : rpy ) {
-		mDataT.append( v.w );
-		mDataR.append( v.x );
-		mDataP.append( v.y );
-		mDataY.append( v.z );
-	}
+		const std::list< vec4 > rpy;// = mController->rpyHistory();
+		mDataT.clear();
+		mDataR.clear();
+		mDataP.clear();
+		mDataY.clear();
+		for ( vec4 v : rpy ) {
+			mDataT.append( v.w );
+			mDataR.append( v.x );
+			mDataP.append( v.y );
+			mDataY.append( v.z );
+		}
 
-	ui->rpy->graph(0)->setData( mDataT, mDataR );
-	ui->rpy->graph(1)->setData( mDataT, mDataP );
-	ui->rpy->graph(2)->setData( mDataT, mDataY );
-	ui->rpy->graph(0)->rescaleAxes();
-	ui->rpy->graph(1)->rescaleAxes( true );
-	ui->rpy->graph(2)->rescaleAxes( true );
-	ui->rpy->xAxis->rescale();
-	ui->rpy->replot();
-/*
-	ui->rates->graph(0)->setData( mDataT, mDataR );
-	ui->rates->graph(1)->setData( mDataT, mDataP );
-	ui->rates->graph(2)->setData( mDataT, mDataY );
-	ui->rates->graph(0)->rescaleAxes();
-	ui->rates->graph(1)->rescaleAxes( true );
-	ui->rates->graph(2)->rescaleAxes( true );
-	ui->rates->xAxis->rescale();
-	ui->rates->replot();
-*/
-	ui->altitude->graph(0)->setData( mDataT, mDataAltitude );
-	ui->altitude->graph(0)->rescaleAxes();
-	ui->altitude->xAxis->rescale();
-	ui->altitude->replot();
+		ui->rpy->graph(0)->setData( mDataT, mDataR );
+		ui->rpy->graph(1)->setData( mDataT, mDataP );
+		ui->rpy->graph(2)->setData( mDataT, mDataY );
+		ui->rpy->graph(0)->rescaleAxes();
+		ui->rpy->graph(1)->rescaleAxes( true );
+		ui->rpy->graph(2)->rescaleAxes( true );
+		ui->rpy->xAxis->rescale();
+		ui->rpy->replot();
+	/*
+		ui->rates->graph(0)->setData( mDataT, mDataR );
+		ui->rates->graph(1)->setData( mDataT, mDataP );
+		ui->rates->graph(2)->setData( mDataT, mDataY );
+		ui->rates->graph(0)->rescaleAxes();
+		ui->rates->graph(1)->rescaleAxes( true );
+		ui->rates->graph(2)->rescaleAxes( true );
+		ui->rates->xAxis->rescale();
+		ui->rates->replot();
+	*/
+		ui->altitude->graph(0)->setData( mDataT, mDataAltitude );
+		ui->altitude->graph(0)->rescaleAxes();
+		ui->altitude->xAxis->rescale();
+		ui->altitude->replot();
 
-	if ( mController->isConnected() and ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
-		mPIDsReading = true;
-		mController->ReloadPIDs();
-		ui->rateP->setValue( mController->rollPid().x );
-		ui->rateI->setValue( mController->rollPid().y );
-		ui->rateD->setValue( mController->rollPid().z );
-		ui->rateP_2->setValue( mController->pitchPid().x );
-		ui->rateI_2->setValue( mController->pitchPid().y );
-		ui->rateD_2->setValue( mController->pitchPid().z );
-		ui->rateP_3->setValue( mController->yawPid().x );
-		ui->rateI_3->setValue( mController->yawPid().y );
-		ui->rateD_3->setValue( mController->yawPid().z );
-		ui->horizonP->setValue( mController->outerPid().x );
-		ui->horizonI->setValue( mController->outerPid().y );
-		ui->horizonD->setValue( mController->outerPid().z );
-		connect( ui->rateP, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
-		connect( ui->rateI, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
-		connect( ui->rateD, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
-		connect( ui->rateP_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
-		connect( ui->rateI_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
-		connect( ui->rateD_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
-		connect( ui->rateP_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
-		connect( ui->rateI_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
-		connect( ui->rateD_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
-		connect( ui->horizonP, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonP(double) ) );
-		connect( ui->horizonI, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonI(double) ) );
-		connect( ui->horizonD, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonD(double) ) );
-		mPIDsOk = true;
-		mPIDsReading = false;
+		if ( mController->isConnected() and not mController->isSpectate() and ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
+			mPIDsReading = true;
+			mController->ReloadPIDs();
+			ui->rateP->setValue( mController->rollPid().x );
+			ui->rateI->setValue( mController->rollPid().y );
+			ui->rateD->setValue( mController->rollPid().z );
+			ui->rateP_2->setValue( mController->pitchPid().x );
+			ui->rateI_2->setValue( mController->pitchPid().y );
+			ui->rateD_2->setValue( mController->pitchPid().z );
+			ui->rateP_3->setValue( mController->yawPid().x );
+			ui->rateI_3->setValue( mController->yawPid().y );
+			ui->rateD_3->setValue( mController->yawPid().z );
+			ui->horizonP->setValue( mController->outerPid().x );
+			ui->horizonI->setValue( mController->outerPid().y );
+			ui->horizonD->setValue( mController->outerPid().z );
+			connect( ui->rateP, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
+			connect( ui->rateI, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
+			connect( ui->rateD, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDRoll(double) ) );
+			connect( ui->rateP_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
+			connect( ui->rateI_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
+			connect( ui->rateD_2, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDPitch(double) ) );
+			connect( ui->rateP_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
+			connect( ui->rateI_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
+			connect( ui->rateD_3, SIGNAL( valueChanged(double) ), this, SLOT( setRatePIDYaw(double) ) );
+			connect( ui->horizonP, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonP(double) ) );
+			connect( ui->horizonI, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonI(double) ) );
+			connect( ui->horizonD, SIGNAL( valueChanged(double) ), this, SLOT( setHorizonD(double) ) );
+			mPIDsOk = true;
+			mPIDsReading = false;
+		}
 	}
 }
 
 
 void MainWindow::ResetBattery()
 {
-	mController->ResetBattery();
+	if ( mController and not mController->isSpectate() ) {
+		mController->ResetBattery();
+	}
 }
 
 
 void MainWindow::Calibrate()
 {
-	mController->Calibrate();
+	if ( mController and not mController->isSpectate() ) {
+		mController->Calibrate();
+	}
 }
 
 
 void MainWindow::CalibrateAll()
 {
-	mController->CalibrateAll();
+	if ( mController and not mController->isSpectate() ) {
+		mController->CalibrateAll();
+	}
 }
 
 
 void MainWindow::CalibrateESCs()
 {
-	mController->CalibrateESCs();
+	if ( mController and not mController->isSpectate() ) {
+		mController->CalibrateESCs();
+	}
 }
 
 
 void MainWindow::ArmDisarm()
 {
-	if ( mController->armed() ) {
-		std::cout << "Disarming...\n";
-// 		mController->Disarm();
-		mController->setArmed( false );
-		ui->arm->setText( "Arm" );
-	} else {
-		std::cout << "Arming...\n";
-// 		mController->Arm();
-		mController->setArmed( true );
-		ui->arm->setText( "Disarm" );
+	if ( mController and not mController->isSpectate() ) {
+		if ( mController->armed() ) {
+			std::cout << "Disarming...\n";
+	// 		mController->Disarm();
+			mController->setArmed( false );
+			ui->arm->setText( "Arm" );
+		} else {
+			std::cout << "Arming...\n";
+	// 		mController->Arm();
+			mController->setArmed( true );
+			ui->arm->setText( "Disarm" );
+		}
 	}
 }
 
 
 void MainWindow::throttleChanged( int throttle )
 {
-	mController->setControlThrust( (double)throttle / 100.0f );
+	if ( mController and not mController->isSpectate() ) {
+		mController->setControlThrust( (double)throttle / 100.0f );
+	}
 }
 
 
 void MainWindow::LoadConfig()
 {
-	std::string conf = mController->getConfigFile();
-	ui->config->setText( QString::fromStdString( conf ) );
+	if ( mController and not mController->isSpectate() ) {
+		std::string conf = mController->getConfigFile();
+		ui->config->setText( QString::fromStdString( conf ) );
+	}
 }
 
 
 void MainWindow::SaveConfig()
 {
-	std::string conf = ui->config->text().toStdString();
-	mController->setConfigFile( conf );
+	if ( mController and not mController->isSpectate() ) {
+		std::string conf = ui->config->text().toStdString();
+		mController->setConfigFile( conf );
+	}
 }
 
 
@@ -378,51 +403,60 @@ void MainWindow::firmwareFileSelected( QString path )
 
 void MainWindow::FirmwareUpload()
 {
-	ui->firmware_progress->setValue( 0 );
+	if ( mController and not mController->isSpectate() ) {
+		ui->firmware_progress->setValue( 0 );
 
-	if ( ui->firmware_path->text().length() > 0 and QFile::exists( ui->firmware_path->text() ) and mController->isConnected() ) {
-		QFile f( ui->firmware_path->text() );
-		if ( !f.open( QFile::ReadOnly ) ) return;
-		QByteArray ba = f.readAll();
+		if ( ui->firmware_path->text().length() > 0 and QFile::exists( ui->firmware_path->text() ) and mController->isConnected() ) {
+			QFile f( ui->firmware_path->text() );
+			if ( !f.open( QFile::ReadOnly ) ) return;
+			QByteArray ba = f.readAll();
 
-		mController->UploadUpdateInit();
-		uint32_t chunk_size = 1024; // 2048
-		for ( uint32_t offset = 0; offset < (uint32_t)ba.size(); offset += chunk_size ) {
-			uint32_t sz = chunk_size;
-			if ( ba.size() - offset < chunk_size ) {
-				sz = ba.size() - offset;
+			mController->UploadUpdateInit();
+			uint32_t chunk_size = 1024; // 2048
+			for ( uint32_t offset = 0; offset < (uint32_t)ba.size(); offset += chunk_size ) {
+				uint32_t sz = chunk_size;
+				if ( ba.size() - offset < chunk_size ) {
+					sz = ba.size() - offset;
+				}
+				mController->UploadUpdateData( (const uint8_t*)&ba.constData()[offset], offset, sz );
+				ui->firmware_progress->setValue( offset * 100 / ba.size() + 1 );
+				QApplication::processEvents();
 			}
-			mController->UploadUpdateData( (const uint8_t*)&ba.constData()[offset], offset, sz );
-			ui->firmware_progress->setValue( offset * 100 / ba.size() + 1 );
-			QApplication::processEvents();
+
+			QTextCursor cursor( ui->terminal->textCursor() );
+			ui->terminal->setPlainText( ui->terminal->toPlainText() + "====> Applying firmware update and restarting service, please wait... <====" );
+			cursor.movePosition( QTextCursor::End );
+			ui->terminal->setTextCursor( cursor );
+
+			mController->UploadUpdateProcess( (const uint8_t*)ba.constData(), ba.size() );
 		}
 
-		QTextCursor cursor( ui->terminal->textCursor() );
-		ui->terminal->setPlainText( ui->terminal->toPlainText() + "====> Applying firmware update and restarting service, please wait... <====" );
-		cursor.movePosition( QTextCursor::End );
-		ui->terminal->setTextCursor( cursor );
-
-		mController->UploadUpdateProcess( (const uint8_t*)ba.constData(), ba.size() );
+		ui->firmware_progress->setValue( 0 );
 	}
-
-	ui->firmware_progress->setValue( 0 );
 }
 
 
 void MainWindow::ModeRate()
 {
-	mController->setModeSwitch( Controller::Rate );
+	if ( mController and not mController->isSpectate() ) {
+		mController->setModeSwitch( Controller::Rate );
+	}
 }
 
 
 void MainWindow::ModeStabilized()
 {
-	mController->setModeSwitch( Controller::Stabilize );
+	if ( mController and not mController->isSpectate() ) {
+		mController->setModeSwitch( Controller::Stabilize );
+	}
 }
 
 
 void MainWindow::setRatePIDRoll( double v )
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	if ( mPIDsReading ) {
 		return;
 	}
@@ -439,6 +473,9 @@ void MainWindow::setRatePIDRoll( double v )
 
 void MainWindow::setRatePIDPitch( double v )
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	if ( mPIDsReading ) {
 		return;
 	}
@@ -455,6 +492,9 @@ void MainWindow::setRatePIDPitch( double v )
 
 void MainWindow::setRatePIDYaw( double v )
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	if ( mPIDsReading ) {
 		return;
 	}
@@ -471,6 +511,9 @@ void MainWindow::setRatePIDYaw( double v )
 
 void MainWindow::setHorizonP( double v )
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	if ( mPIDsReading ) {
 		return;
 	}
@@ -485,6 +528,9 @@ void MainWindow::setHorizonP( double v )
 
 void MainWindow::setHorizonI( double v )
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	if ( mPIDsReading ) {
 		return;
 	}
@@ -499,6 +545,9 @@ void MainWindow::setHorizonI( double v )
 
 void MainWindow::setHorizonD( double v )
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	if ( mPIDsReading ) {
 		return;
 	}
@@ -513,7 +562,7 @@ void MainWindow::setHorizonD( double v )
 
 void MainWindow::VideoBrightnessDecrease()
 {
-	if ( mController and mController->isConnected() ) {
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
 		mController->VideoBrightnessDecrease();
 	}
 }
@@ -521,7 +570,7 @@ void MainWindow::VideoBrightnessDecrease()
 
 void MainWindow::VideoBrightnessIncrease()
 {
-	if ( mController and mController->isConnected() ) {
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
 		mController->VideoBrightnessIncrease();
 	}
 }
@@ -529,7 +578,7 @@ void MainWindow::VideoBrightnessIncrease()
 
 void MainWindow::VideoContrastDecrease()
 {
-	if ( mController and mController->isConnected() ) {
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
 		mController->VideoContrastDecrease();
 	}
 }
@@ -537,7 +586,7 @@ void MainWindow::VideoContrastDecrease()
 
 void MainWindow::VideoContrastIncrease()
 {
-	if ( mController and mController->isConnected() ) {
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
 		mController->VideoContrastIncrease();
 	}
 }
@@ -545,7 +594,7 @@ void MainWindow::VideoContrastIncrease()
 
 void MainWindow::VideoSaturationDecrease()
 {
-	if ( mController and mController->isConnected() ) {
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
 		mController->VideoSaturationDecrease();
 	}
 }
@@ -553,7 +602,7 @@ void MainWindow::VideoSaturationDecrease()
 
 void MainWindow::VideoSaturationIncrease()
 {
-	if ( mController and mController->isConnected() ) {
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
 		mController->VideoSaturationIncrease();
 	}
 }
@@ -561,6 +610,9 @@ void MainWindow::VideoSaturationIncrease()
 
 void MainWindow::VideoRecord()
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	qDebug() << "VideoRecord()" << ui->record->text();
 	if ( ui->record->text().mid( ui->record->text().indexOf( "S" ) ) == QString( "Start" ) ) {
 		qDebug() << "VideoRecord() Start";
@@ -576,6 +628,9 @@ void MainWindow::VideoRecord()
 
 void MainWindow::RecordingsRefresh()
 {
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
 	ui->recordings->clearContents();
 	ui->recordings->clear();
 	for ( int32_t i = ui->recordings->rowCount() - 1; i >= 0; i-- ) {

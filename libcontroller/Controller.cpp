@@ -109,7 +109,7 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 };
 
 
-Controller::Controller( Link* link )
+Controller::Controller( Link* link, bool spectate )
 	: Thread( "controller-tx" )
 	, mPing( 0 )
 	, mTotalCurrent( 0 )
@@ -121,6 +121,7 @@ Controller::Controller( Link* link )
 	, mControlRPY{ 0.0f, 0.0f, 0.0f }
 	, mPIDsLoaded( false )
 	, mLink( link )
+	, mSpectate( spectate )
 	, mConnected( false )
 	, mLockState( 0 )
 	, mTickBase( Thread::GetTick() )
@@ -146,10 +147,14 @@ Controller::Controller( Link* link )
 
 	signal( SIGPIPE, SIG_IGN );
 
-	Start();
-
 	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
 	mRxThread->setPriority( 97 );
+
+	if ( spectate ) {
+		mRxThread->Start();
+	} else {
+		Start();
+	}
 }
 
 
@@ -309,8 +314,8 @@ bool Controller::run()
 	mTxFrame = Packet();
 	mXferMutex.unlock();
 
-	if ( Thread::GetTick() - mTicks < 1000 / 100 ) {
-		usleep( 1000 * std::max( 0, 1000 / 100 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
+	if ( Thread::GetTick() - mTicks < 1000 / 200 ) {
+		usleep( 1000 * std::max( 0, 1000 / 200 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
 	}
 	mTicks = Thread::GetTick();
 	mMsCounter += ( mTicks - ticks0 );
@@ -320,6 +325,18 @@ bool Controller::run()
 
 bool Controller::RxRun()
 {
+	if ( mSpectate and not mLink->isConnected() ) {
+		std::cout << "Connecting...";
+		mConnected = ( mLink->Connect() == 0 );
+		if ( mConnected ) {
+			std::cout << "Ok !\n";
+		} else {
+			std::cout << "Nope !\n";
+			usleep( 1000 * 250 );
+		}
+		return true;
+	}
+
 	Packet telemetry;
 	if ( mLink->Read( &telemetry ) <= 0 ) {
 		usleep( 1000 * 10 );
