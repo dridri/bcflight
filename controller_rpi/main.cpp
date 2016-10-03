@@ -90,6 +90,7 @@ int main( int ac, char** av )
 	} else if ( config->string( "stream.link.link_type" ) == "RawWifi" ) {
 		stream_link = new RawWifi( config->string( "stream.link.device", "wlan0" ), config->integer( "stream.link.output_port", 10 ), config->integer( "stream.link.input_port", 11 ) );
 		dynamic_cast< RawWifi* >( stream_link )->setBlocking( config->boolean( "stream.link.blocking", true ) );
+		dynamic_cast< RawWifi* >( stream_link )->setCECMode( config->string( "stream.link.cec_mode", "none" ) );
 	}
 
 	if ( controller_link ) {

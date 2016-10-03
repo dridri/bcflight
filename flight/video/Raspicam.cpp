@@ -77,22 +77,19 @@ Raspicam::~Raspicam()
 
 const uint32_t Raspicam::brightness()
 {
-	return 0;
-// 	return IL::Camera::brightness();
+	return IL::Camera::brightness();
 }
 
 
 const int32_t Raspicam::contrast()
 {
-	return 0;
-// 	return IL::Camera::contrast();
+	return IL::Camera::contrast();
 }
 
 
 const int32_t Raspicam::saturation()
 {
-	return 0;
-// 	return IL::Camera::saturation();
+	return IL::Camera::saturation();
 }
 
 
