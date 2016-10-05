@@ -64,12 +64,12 @@ Board::Board( Main* main )
 // 	uint8_t motors_pins[] = { 18, 23, 24, 25 };
 // 	mMotorsPWM = new PWM( 14, 1000000, 2000, 2, motors_pins, 4 );
 
-	system( "mount -o remount,rw /data" );
-	system( "mkdir -p /data/VIDEO" );
+	system( "mount -o remount,rw /var" );
+	system( "mkdir -p /var/VIDEO" );
 
 	atexit( &Board::AtExit );
 
-	std::ifstream file( "/data/flight_regs" );
+	std::ifstream file( "/var/flight/registers" );
 	std::string line;
 	if ( file.is_open() ) {
 		while ( std::getline( file, line, '\n' ) ) {
@@ -81,7 +81,6 @@ Board::Board( Main* main )
 	}
 
 	gDebug() << readcmd( "iw list" ) << "\n";
-	gDebug() << readcmd( "ls -R /data" ) << "\n";
 }
 
 
@@ -163,9 +162,9 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 	
 		std::ofstream file( "/tmp/update.sh" );
 		file << "#!/bin/bash\n\n";
-		file << "service flight stop &\n";
+		file << "systemctl stop flight.service &\n";
 		file << "sleep 1\n";
-		file << "service flight stop &\n";
+		file << "systemctl stop flight.service &\n";
 		file << "sleep 1\n";
 		file << "killall -9 flight\n";
 		file << "sleep 0.5\n";
@@ -173,14 +172,14 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 		file << "sleep 0.5\n";
 		file << "killall -9 flight\n";
 		file << "sleep 1\n";
-		file << "rm /data/prog/flight\n";
-		file << "cp /tmp/flight_update /data/prog/flight\n";
+		file << "rm /var/flight/flight\n";
+		file << "cp /tmp/flight_update /var/flight/flight\n";
 		file << "sleep 2\n";
 		file << "rm /tmp/flight_update\n";
 		file << "sleep 1\n";
-		file << "chmod +x /data/prog/flight\n";
+		file << "chmod +x /var/flight/flight\n";
 		file << "sleep 1\n";
-		file << "service flight start\n";
+		file << "systemctl start flight.service\n";
 		file.close();
 
 		system( "nohup sh /tmp/update.sh &" );
@@ -195,9 +194,9 @@ void Board::Reset()
 
 	std::ofstream file( "/tmp/reset.sh" );
 	file << "#!/bin/bash\n\n";
-	file << "service flight stop &\n";
+	file << "systemctl stop flight.service &\n";
 	file << "sleep 1\n";
-	file << "service flight stop &\n";
+	file << "systemctl stop flight.service &\n";
 	file << "sleep 1\n";
 	file << "killall -9 flight\n";
 	file << "sleep 0.5\n";
@@ -205,7 +204,7 @@ void Board::Reset()
 	file << "sleep 0.5\n";
 	file << "killall -9 flight\n";
 	file << "sleep 1\n";
-	file << "service flight start\n";
+	file << "systemctl start flight.service\n";
 	file.close();
 
 	system( "sh /tmp/reset.sh" );
@@ -381,7 +380,7 @@ int Board::SaveRegister( const std::string& name, const std::string& value )
 {
 	mRegisters[ name ] = value;
 
-	std::ofstream file( "/data/flight_regs" );
+	std::ofstream file( "/var/flight/registers" );
 	if ( file.is_open() ) {
 		for ( auto reg : mRegisters ) {
 			std::string line = reg.first + "=" + reg.second + "\n";

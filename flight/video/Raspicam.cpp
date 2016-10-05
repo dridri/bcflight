@@ -187,7 +187,7 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 		uint32_t fileid = 0;
 		DIR* dir;
 		struct dirent* ent;
-		if ( ( dir = opendir( "/data/VIDEO" ) ) != nullptr ) {
+		if ( ( dir = opendir( "/var/VIDEO" ) ) != nullptr ) {
 			while ( ( ent = readdir( dir ) ) != nullptr ) {
 				std::string file = std::string( ent->d_name );
 				uint32_t id = std::atoi( file.substr( file.find( "_" ) + 1 ).c_str() );
@@ -197,7 +197,7 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 			}
 			closedir( dir );
 		}
-		sprintf( filename, "/data/VIDEO/video_%06u.h264", fileid );
+		sprintf( filename, "/var/VIDEO/video_%06u.h264", fileid );
 		mRecordStream = new std::ofstream( filename );
 	}
 
