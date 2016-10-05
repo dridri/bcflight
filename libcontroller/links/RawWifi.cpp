@@ -37,6 +37,7 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	, mDevice( device )
 	, mChannel( 11 )
 	, mTxPower( 33 )
+	, mCECMode( RAWWIFI_RX_FAST )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
 	, mRetriesCount( 2 )
@@ -62,8 +63,16 @@ void RawWifi::setCECMode( const std::string& mode )
 	if ( mRawWifi ) {
 		if ( mode == "weighted" ) {
 			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
+			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
 		} else {
 			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
+		}
+	} else {
+		if ( mode == "weighted" ) {
+			mCECMode = RAWWIFI_RX_FEC_WEIGHTED;
+			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
+		} else {
+			mCECMode = RAWWIFI_RX_FAST;
 		}
 	}
 }
@@ -167,6 +176,13 @@ int RawWifi::Connect()
 		return -1;
 	}
 
+	if ( mCECMode != mRawWifi->recv_mode ) {
+		rawwifi_set_recv_mode( mRawWifi, mCECMode );
+		if ( mCECMode == RAWWIFI_RX_FEC_WEIGHTED ) {
+			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
+		}
+	}
+
 	mConnected = true;
 	return 0;
 }
@@ -178,10 +194,15 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		return -1;
 	}
 
-// 	uint64_t t = GetTicks();
+	uint64_t t = GetTicks();
 	uint32_t valid = 0;
+// 	if ( mInputPort == 11) {
+// 		std::cout << "reading...\n";
+// 	}
 	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
-// 	std::cout << "read time : " << ( ( GetTicks() - t ) / 1000 ) << "\n";
+// 	if ( mInputPort == 11) {
+// 		std::cout << "read time : " << ( ( GetTicks() - t ) / 1000 ) << "\n";
+// 	}
 
 	if ( ret == -3 ) {
 		std::cout << "WARNING : Read timeout\n";
@@ -193,7 +214,7 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		mConnected = false;
 	}
 	if ( ret > 0 and not valid ) {
-		std::cout << "WARNING : Received corrupt packets (port " << mInputPort << ")\n";
+// 		std::cout << "WARNING : Received corrupt packets (port " << mInputPort << ")\n";
 		mLastIsCorrupt = true;
 	} else {
 		mLastIsCorrupt = false;

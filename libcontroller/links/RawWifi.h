@@ -54,6 +54,7 @@ protected:
 	std::string mDevice;
 	int mChannel;
 	int mTxPower;
+	uint32_t mCECMode;
 	int16_t mOutputPort;
 	int16_t mInputPort;
 	int mRetriesCount;

@@ -142,7 +142,7 @@ Controller::Controller( Link* link, bool spectate )
 {
 	mCalibrated = false;
 	mArmed = false;
-	mMode = Stabilize;
+	mMode = Rate;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
 
 	signal( SIGPIPE, SIG_IGN );
@@ -291,6 +291,11 @@ bool Controller::run()
 		if ( fabsf( r_pitch ) <= 0.05f ) {
 			r_pitch = 0.0f;
 		}
+		else if ( r_pitch < 0.0f ) {
+			r_pitch += 0.05f;
+		} else if ( r_pitch > 0.0f ) {
+			r_pitch -= 0.05f;
+		}
 		if ( fabsf( r_pitch - mControlRPY.y ) >= 0.01f ) {
 			setPitch( r_pitch );
 		}
@@ -298,6 +303,11 @@ bool Controller::run()
 	if ( r_roll >= -1.0f and r_roll <= 1.0f ) {
 		if ( fabsf( r_roll ) <= 0.05f ) {
 			r_roll = 0.0f;
+		}
+		else if ( r_roll < 0.0f ) {
+			r_roll += 0.05f;
+		} else if ( r_roll > 0.0f ) {
+			r_roll -= 0.05f;
 		}
 		if ( fabsf( r_roll - mControlRPY.x ) >= 0.01f ) {
 			setRoll( r_roll );
