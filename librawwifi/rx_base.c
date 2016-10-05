@@ -90,7 +90,7 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 	}
 
 	if ( retval < 0 || pu8Payload == 0 ) {
-		fprintf( stderr, "pcap_next_ex ERROR : %s\n", pcap_geterr( rpcap->pcap ) );
+		fprintf( stderr, "pcap_next_ex ERROR : %s (%d - %s)\n", pcap_geterr( rpcap->pcap ), errno, strerror(errno) );
 // 		char str[1024] = "";
 // 		sprintf( str, "ifconfig %s up", rwifi->device );
 // 		exit(1);

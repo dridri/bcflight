@@ -29,6 +29,7 @@ static uint8_t u8aIeeeHeader[] = {
 #define dprintf(...) ;
 #endif
 
+static pthread_mutex_t inject_mutex = PTHREAD_MUTEX_INITIALIZER; 
 static const uint32_t headers_length = sizeof( u8aRadiotapHeader ) + sizeof( u8aIeeeHeader ) + sizeof( wifi_packet_header_t );
 
 
@@ -59,7 +60,10 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 	header->retries_count = retries;
 	header->crc = rawwifi_crc32( data, datalen );
 
-	memcpy( tx_buffer + headers_length, data, datalen );
+// 	if ( rwifi->interleaved ) {
+// 	} else {
+		memcpy( tx_buffer + headers_length, data, datalen );
+// 	}
 	int plen = datalen + headers_length;
 
 	int r = 0;
@@ -67,7 +71,9 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 		header->retry_id = i;
 		header->header_crc = rawwifi_crc16( (uint8_t*)header, sizeof(wifi_packet_header_t) - sizeof(uint16_t) );
 // retry:
+		pthread_mutex_lock( &inject_mutex );
 		r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
+		pthread_mutex_unlock( &inject_mutex );
 		if ( r != plen ) {
 			pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
 			printf( "[%d/%d] sent %d / %d\n", i + 1, retries, r, plen );
