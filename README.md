@@ -14,9 +14,9 @@ This subfolder contains a ground controller specifically designed for Raspberry 
 ## librawwifi
 Current status : ok
 
-This is a fork of wifibroadcast from befinitiv, it allows to directly use WiFi in analog-like transmission.
+This is inspired from befinitiv's wifibroadcast, it allows to directly use WiFi in analog-like transmission.
 
-Alternatively, hostapd is used on the drone and wpa_supplicant on the controller to allow socket communication.
+Alternatively, hostapd can be used on the drone and wpa_supplicant on the controller to allow TCP/UDP/UDPLite communication.
 
 ## tools
 Current status : ok
