@@ -142,7 +142,7 @@ Controller::Controller( Link* link, bool spectate )
 {
 	mCalibrated = false;
 	mArmed = false;
-	mMode = Stabilize;
+	mMode = Rate;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
 
 	signal( SIGPIPE, SIG_IGN );
