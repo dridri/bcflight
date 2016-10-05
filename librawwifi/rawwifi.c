@@ -3,7 +3,7 @@
 #include <iwlib.h>
 #include "rawwifi.h"
 
-static pthread_mutex_t compile_mutex;
+static pthread_mutex_t compile_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
 static rawwifi_pcap_t* setup_tx( rawwifi_t* rwifi, int port, int blocking )
 {
@@ -11,11 +11,20 @@ static rawwifi_pcap_t* setup_tx( rawwifi_t* rwifi, int port, int blocking )
 	char szErrbuf[PCAP_ERRBUF_SIZE];
 	memset( szErrbuf, 0, sizeof( szErrbuf ) );
 
-	rpcap->pcap = pcap_open_live( rwifi->device, 800, 1, 1, szErrbuf );
+// 	rpcap->pcap = pcap_open_live( rwifi->device, 800, 1, 1, szErrbuf );
+	rpcap->pcap = pcap_create( rwifi->device, szErrbuf );
 	if ( rpcap->pcap == NULL ) {
 		printf( "rawwifi_init : Unable to open interface %s in pcap_out: %s\n",  rwifi->device, szErrbuf );
 		return NULL;
 	}
+	pcap_set_snaplen( rpcap->pcap, 800 );
+	pcap_set_promisc( rpcap->pcap, 1 );
+	pcap_set_immediate_mode( rpcap->pcap, 1 );
+	if ( pcap_activate( rpcap->pcap ) != 0 ) {
+		printf( "Unable to open interface %s in pcap: %s\n", rwifi->device, szErrbuf );
+		return NULL;
+	}
+
 	if ( pcap_setnonblock( rpcap->pcap, !blocking, szErrbuf ) < 0 ) {
 		printf( "Error setting %s output to %s mode: %s\n", rwifi->device, blocking ? "blocking" : "non blocking", szErrbuf );
 	}
@@ -35,8 +44,17 @@ static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking, int r
 	struct bpf_program bpfprogram;
 	memset( szErrbuf, 0, sizeof( szErrbuf ) );
 
-	rpcap->pcap = pcap_open_live( rwifi->device, 2048, 1, read_timeout_ms, szErrbuf );
+// 	rpcap->pcap = pcap_open_live( rwifi->device, 2048, 1, read_timeout_ms, szErrbuf );
+	rpcap->pcap = pcap_create( rwifi->device, szErrbuf );
 	if ( rpcap->pcap == NULL ) {
+		printf( "Unable to open interface %s in pcap: %s\n", rwifi->device, szErrbuf );
+		return NULL;
+	}
+	pcap_set_snaplen( rpcap->pcap, 2048 );
+	pcap_set_promisc( rpcap->pcap, 1 );
+	pcap_set_immediate_mode( rpcap->pcap, 1 );
+	pcap_set_timeout( rpcap->pcap, read_timeout_ms );
+	if ( pcap_activate( rpcap->pcap ) != 0 ) {
 		printf( "Unable to open interface %s in pcap: %s\n", rwifi->device, szErrbuf );
 		return NULL;
 	}

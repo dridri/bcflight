@@ -75,9 +75,6 @@ Main::Main()
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
 
-	// Wait a little bit for the system to boot completely
-	usleep( 1000 * 1000 * 2 );
-
 	mBoard = new Board( this );
 	flight_register();
 	Board::InformLoading();
@@ -86,7 +83,7 @@ Main::Main()
 #ifdef BOARD_generic
 	mConfig = new Config( "config.lua" );
 #else
-	mConfig = new Config( "/data/prog/config.lua" );
+	mConfig = new Config( "/var/flight/config.lua" );
 #endif
 	Board::InformLoading();
 	mConfig->DumpVariable( "board" );
@@ -203,10 +200,10 @@ std::string Main::getRecordingsList() const
 	DIR* dir;
 	struct dirent* ent;
 
-	if ( ( dir = opendir( "/data/VIDEO/" ) ) != nullptr ) {
+	if ( ( dir = opendir( "/var/VIDEO/" ) ) != nullptr ) {
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
 			struct stat st;
-			stat( ( "/data/VIDEO/" + std::string( ent->d_name ) ).c_str(), &st );
+			stat( ( "/var/VIDEO/" + std::string( ent->d_name ) ).c_str(), &st );
 			ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ";";
 		}
 		closedir( dir );

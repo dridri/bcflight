@@ -172,7 +172,9 @@ static int32_t reconstruct( rawwifi_t* rwifi, block_t* block, uint8_t* pret, uin
 				offset += MAX_USER_PACKET_LENGTH - _rawwifi_headers_length;
 			}
 		}
-		rwifi->recv_perf_valid += quality * 100 / ret / block->packets_count;
+		if ( ret > 0 && block->packets_count > 0 ) {
+			rwifi->recv_perf_valid += quality * 100 / ret / block->packets_count;
+		}
 	}
 	block->valid = ( all_valid == block->packets_count );
 	*valid = block->valid;
