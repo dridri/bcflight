@@ -54,20 +54,23 @@ void HStatusBar::setSuffix( const QString& sfx )
 
 void HStatusBar::paintEvent( QPaintEvent* ev )
 {
-	
+	QColor backGroundColor = palette().color( QPalette::Base );
+	QColor contourColor = palette().color( QPalette::Button );
+	QColor fillColor = palette().color( QPalette::Link );
+	QColor foreGroundColor = palette().color( QPalette::WindowText );
 	QPainter painter( this );
 
 	QPainterPath backpath;
 	backpath.addRoundedRect( QRectF( 0, 0, width() - 1, height() - 1 ), 2, 2 );
-	painter.fillPath( backpath, QColor( 32, 32, 38 ) );
-	painter.setPen( Qt::darkGray );
+	painter.fillPath( backpath, backGroundColor );
+	painter.setPen( contourColor );
 	painter.drawPath( backpath );
 
 	QPainterPath path;
-	path.addRoundedRect( QRectF( 1, 1, mValue * ( width() - 2 ) / mMaxValue, height() - 2 ), 5, 5 );
-	painter.fillPath( path, QColor( 0, 64, 128 ) );
+	path.addRoundedRect( QRectF( 2, 2, ( std::min( mValue, mMaxValue ) ) * ( width() - 4 ) / mMaxValue, height() - 4 ), 2, 2 );
+	painter.fillPath( path, fillColor/*QColor( 0, 64, 128 )*/ );
 
 	painter.setFont( QFont( "Helvetica", height() / 2 ) );
-	painter.setPen( Qt::white );
+	painter.setPen( foreGroundColor );
 	painter.drawText( QRect( 0, 0, width(), height() ), Qt::AlignCenter, QString::number( mValue ) + mSuffix );
 }

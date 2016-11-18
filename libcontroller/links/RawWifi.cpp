@@ -81,22 +81,12 @@ void RawWifi::setCECMode( const std::string& mode )
 void RawWifi::SetChannel( int chan )
 {
 	mChannel = chan;
-	if ( mConnected and mChannel > 0 and mChannel < 15 ) {
-		std::stringstream ss;
-		ss << "iwconfig " << mDevice << " channel " << mChannel;
-		(void)system( ss.str().c_str() );
-	}
 }
 
 
 void RawWifi::SetTxPower( int mBm )
 {
 	mTxPower = mBm;
-	if ( mConnected and mTxPower > 0 ) {
-		std::stringstream ss;
-		ss << "iw dev " << mDevice << " set txpower fixed " << ( mTxPower * 1000 );
-		(void)system( ss.str().c_str() );
-	}
 }
 
 

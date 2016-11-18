@@ -55,7 +55,7 @@ public:
 
 	Controller( Link* link, bool spectate = false );
 	virtual ~Controller();
-	bool isConnected() const { return mLink->isConnected(); }
+	bool isConnected() const { return ( mLink->isConnected() and mConnectionEstablished ); }
 	bool isSpectate() const { return mSpectate; }
 	Link* link() const { return mLink; }
 
@@ -220,6 +220,7 @@ protected:
 	bool mSpectate;
 	Packet mTxFrame;
 	bool mConnected;
+	bool mConnectionEstablished;
 	uint32_t mLockState;
 	std::mutex mXferMutex;
 	uint64_t mTickBase;

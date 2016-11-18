@@ -123,6 +123,7 @@ Controller::Controller( Link* link, bool spectate )
 	, mLink( link )
 	, mSpectate( spectate )
 	, mConnected( false )
+	, mConnectionEstablished( false )
 	, mLockState( 0 )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
@@ -365,6 +366,7 @@ bool Controller::RxRun()
 				uint32_t ret = telemetry.ReadU32();
 				uint32_t curr = (uint32_t)( Thread::GetTick() & 0xFFFFFFFFL );
 				mPing = curr - ret;
+				mConnectionEstablished = true;
 				break;
 			}
 			case DEBUG_OUTPUT : {

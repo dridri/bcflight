@@ -33,6 +33,7 @@ add_custom_target( libopenh264_static COMMAND bash ${CMAKE_SOURCE_DIR}/../extern
 
 qt5_wrap_ui( controller_pc_UI
 				ui/mainWindow.ui
+				ui/config.ui
 )
 
 add_executable( controller_pc
@@ -43,6 +44,7 @@ add_executable( controller_pc
 				ui/HStatusBar.cpp
 				ui/resources.qrc
 				MainWindow.cpp
+				Config.cpp
 				${controller_pc_MOCS}
 				${controller_pc_UI}
 				)

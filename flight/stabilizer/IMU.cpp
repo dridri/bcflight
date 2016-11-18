@@ -428,19 +428,22 @@ void IMU::UpdateAttitude( float dt )
 	mAccelerationSmoother.Process( dt );
 	Vector3f accel = mAccelerationSmoother.state( 0 );
 
-	Vector2f accel_rp = Vector2f();
+	Vector2f accel_roll_pitch = Vector2f();
 	if ( std::abs( accel.x ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
-		accel_rp.x = std::atan2( accel.x, accel.z ) * 180.0f / M_PI;
+		accel_roll_pitch.x = std::atan2( accel.x, accel.z ) * 180.0f / M_PI;
 	}
 	if ( std::abs( accel.y ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
-		accel_rp.y = std::atan2( accel.y, accel.z ) * 180.0f / M_PI;
+		accel_roll_pitch.y = std::atan2( accel.y, accel.z ) * 180.0f / M_PI;
 	}
 
 	// Update accelerometer values
-	mAttitude.UpdateInput( 0, accel_rp.x );
-	mAttitude.UpdateInput( 1, accel_rp.y );
-	mAttitude.UpdateInput( 2, mRPY.z + mRate.z * dt ); // TODO : calculate using magnetometer, for now, use integrated value from gyro
-
+	mAttitude.UpdateInput( 0, accel_roll_pitch.x );
+	mAttitude.UpdateInput( 1, accel_roll_pitch.y );
+	if ( mMain->stabilizer()->mode() != Stabilizer::Rate and 0 /*TODO*/ ) {
+// 		mAttitude.UpdateInput( 2, magnetometer.heading );
+	} else {
+		mAttitude.UpdateInput( 2, mRPY.z + mRate.z * dt );
+	}
 	// Integrate and update rates values
 	mAttitude.UpdateInput( 3, mRPY.x + mRate.x * dt );
 	mAttitude.UpdateInput( 4, mRPY.y + mRate.y * dt );

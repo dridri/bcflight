@@ -34,6 +34,10 @@ extern "C" {
 #include <lauxlib.h>
 };
 
+#include <RawWifi.h>
+#include <Socket.h>
+
+#include <functional>
 #include "MainWindow.h"
 #include "ControllerPC.h"
 #include "Controller.h"
@@ -41,14 +45,40 @@ extern "C" {
 #include "qcustomplot.h"
 #include "ui/HStatusBar.h"
 
-MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
+MainWindow::MainWindow()
 	: QMainWindow()
-	, mController( ctrl )
+	, mController( nullptr )
 	, mControllerMonitor( nullptr )
-	, mStreamLink( streamLink )
+	, mStreamLink( nullptr )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
+	ui = new Ui::MainWindow;
+	ui->setupUi(this);
+
+	mConfig = new Config();
+	connect( ui->actionSettings, SIGNAL( triggered(bool) ), mConfig, SLOT( show() ) );
+	Link* mControllerLink = nullptr;
+	if ( mConfig->value( "link/rawwifi", true ).toBool() == true ) {
+		std::string device = mConfig->value( "rawwifi/device", "" ).toString().toStdString();
+		if ( device != "" ) {
+			RawWifi* controllerLink = new RawWifi( device, mConfig->value( "rawwifi/controller/outport", 0 ).toInt(), mConfig->value( "rawwifi/controller/inport", 1 ).toInt() );
+			mControllerLink = controllerLink;
+			controllerLink->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			controllerLink->setRetriesCount( mConfig->value( "rawwifi/controller/retries", 1 ).toInt() );
+			controllerLink->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			mStreamLink = new RawWifi( device, mConfig->value( "rawwifi/video/outport", 10 ).toInt(), mConfig->value( "rawwifi/video/inport", 11 ).toInt() );
+			static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
+			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+		}
+	} else {
+		std::function<Socket::PortType(const QString&)> socket_type = [](const QString& type){ if ( type == "UDPLite" ) return Socket::UDPLite; else if ( type == "UDP" ) return Socket::UDP; else return Socket::TCP; };
+		mControllerLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/controller/port", 2020 ).toInt(), socket_type( mConfig->value( "tcpip/controller/type", "TCP" ).toString() ) );
+		mStreamLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/video/port", 2021 ).toInt(), socket_type( mConfig->value( "tcpip/video/type", "UDPLite" ).toString() ) );
+	}
+	mController = new ControllerPC( mControllerLink, mConfig->value( "controller/spectate", false ).toBool() );
+
 	if ( mController ) {
 		mControllerMonitor = new ControllerMonitor( mController );
 		connect( mControllerMonitor, SIGNAL( connected() ), this, SLOT( connected() ) );
@@ -59,9 +89,6 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 	connect( mUpdateTimer, SIGNAL( timeout() ), this, SLOT( updateData() ) );
 	mUpdateTimer->setInterval( 20 );
 	mUpdateTimer->start();
-
-	ui = new Ui::MainWindow;
-	ui->setupUi(this);
 
 	QsciLexerLua* lexerLua = new QsciLexerLua;
 	ui->config->setLexer( lexerLua );
@@ -126,13 +153,14 @@ MainWindow::MainWindow( ControllerPC* ctrl, Link* streamLink )
 
 	mTicks.start();
 
-	ui->video->setLink( streamLink );
+	ui->video->setLink( mStreamLink );
 }
 
 
 MainWindow::~MainWindow()
 {
 	delete ui;
+	delete mConfig;
 }
 
 
@@ -187,6 +215,7 @@ static void Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int in
 
 void MainWindow::connected()
 {
+	qDebug() << "Fetching board data";
 	ui->statusbar->showMessage( "Connected" );
 
 	if ( mController and not mController->isSpectate() ) {
@@ -218,7 +247,9 @@ void MainWindow::connected()
 void MainWindow::updateData()
 {
 	if ( not mController ) {
-		ui->statusbar->showMessage( QString( "Camera : %1 KB/s    |    Quality : %2 %    |    %3 FPS" ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		if ( mStreamLink ) {
+			ui->statusbar->showMessage( QString( "Camera : %1 KB/s    |    Quality : %2 %    |    %3 FPS" ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		}
 	} else {
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
 		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % )    |    %7 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
