@@ -42,7 +42,7 @@ int main( int ac, char** av )
 
 	QApplication app( ac, av );
 	ControllerPC* controller = nullptr;
-
+/*
 // 	if ( spectate == false ) {
 		Link* controller_link = new RawWifi( device, 0, 1 );
 		static_cast< RawWifi* >( controller_link )->setRetriesCount( 2 );
@@ -51,12 +51,12 @@ int main( int ac, char** av )
 	// 	Link* controller_link = new Socket( "192.168.32.1", 2020 );
 		controller = new ControllerPC( controller_link, spectate );
 // 	}
-
-	Link* stream_link = new RawWifi( device, 10, 11 );
+*/
+// 	Link* stream_link = new RawWifi( device, 10, 11 );
 // 	Link* stream_link = new Socket( "127.0.0.1", 2021, Socket::UDPLite );
 // 	Link* stream_link = new Socket( "192.168.32.1", 2021, Socket::UDPLite );
 
-	MainWindow win( controller, stream_link );
+	MainWindow win;
 	win.show();
 
 	return app.exec();

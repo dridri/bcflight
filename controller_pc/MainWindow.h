@@ -22,6 +22,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QElapsedTimer>
 #include <QtWidgets/QMainWindow>
+#include "Config.h"
 
 namespace Ui {
 	class MainWindow;
@@ -36,7 +37,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	MainWindow( ControllerPC* ctrl, Link* streamLink );
+	MainWindow();
 	~MainWindow();
 
 public slots:
@@ -72,6 +73,7 @@ public slots:
 
 private:
 	Ui::MainWindow* ui;
+	Config* mConfig;
 	ControllerPC* mController;
 	ControllerMonitor* mControllerMonitor;
 	Link* mStreamLink;
