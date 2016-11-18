@@ -14,6 +14,10 @@ find_package( Qt5PrintSupport )
 find_package( QScintilla2 )
 find_package( OpenGL )
 
+if ( WIN32 )
+	set( QSCINTILLA_LIBRARY -lqscintilla2 )
+endif()
+
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )
