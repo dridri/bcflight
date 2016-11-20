@@ -1,14 +1,20 @@
 #include <stdlib.h>
 #include <string.h>
-
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <time.h>
+
+#ifdef WIN32
+#include <winsock2.h>
+#define socklen_t int
+#else
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <iwlib.h>
+#endif
+
 #include "rawwifi.h"
 
 #define CONTINUE -2

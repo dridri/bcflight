@@ -53,8 +53,10 @@ MainWindow::MainWindow()
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
+	printf( "A\n" );
 	ui = new Ui::MainWindow;
 	ui->setupUi(this);
+	printf( "B\n" );
 
 	mConfig = new Config();
 	connect( ui->actionSettings, SIGNAL( triggered(bool) ), mConfig, SLOT( show() ) );

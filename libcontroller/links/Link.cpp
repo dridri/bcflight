@@ -82,6 +82,7 @@ uint32_t Packet::ReadU32( uint32_t* u )
 uint32_t Packet::ReadFloat( float* f )
 {
 	union { float f; uint32_t u; } u;
+	u.u = 0;
 	uint32_t ret = ReadU32( &u.u );
 	*f = u.f;
 	return ret;

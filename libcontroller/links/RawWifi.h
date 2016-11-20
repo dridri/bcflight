@@ -19,12 +19,15 @@
 #ifndef RAWWIFI_H
 #define RAWWIFI_H
 
-#ifndef NO_RAWWIFI
+//#ifndef NO_RAWWIFI
 
 #include "Link.h"
-
-#include <rawwifi.h>
 #include <mutex>
+#ifdef NO_RAWWIFI
+typedef void rawwifi_t;
+#else
+#include <rawwifi.h>
+#endif
 
 class RawWifi : public Link
 {
@@ -65,6 +68,6 @@ protected:
 	static bool mInitialized;
 };
 
-#endif // NO_RAWWIFI
+//#endif // NO_RAWWIFI
 
 #endif // RAWWIFI_H

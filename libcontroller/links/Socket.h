@@ -19,7 +19,12 @@
 #ifndef SOCKET_H
 #define SOCKET_H
 
+#ifdef WIN32
+#include <winsock2.h>
+#define socklen_t int
+#else
 #include <netinet/in.h>
+#endif
 #include "Link.h"
 
 class Main;

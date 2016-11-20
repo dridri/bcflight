@@ -10,7 +10,7 @@ if [ ! -d ${DIR}/openh264-master ]; then
 fi
 
 if [ ! -f $1/libopenh264_static.a ]; then
-	make -C $DIR/openh264-master
+	make CC=$2 -C $DIR/openh264-master
 	cp $DIR/openh264-master/libdecoder.a $1/libdecoder_static.a
 	cp $DIR/openh264-master/libopenh264.a $1/libopenh264_static.a
 fi

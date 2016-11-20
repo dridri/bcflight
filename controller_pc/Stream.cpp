@@ -23,6 +23,10 @@
 #include "Stream.h"
 
 
+#if ( defined(WIN32) && !defined(glActiveTexture) )
+PFNGLACTIVETEXTUREPROC glActiveTexture = 0;
+#endif
+
 Stream::Stream( QWidget* parent )
 	: QGLWidget( parent )
 	, mStreamThread( new StreamThread( this ) )
@@ -35,6 +39,12 @@ Stream::Stream( QWidget* parent )
 	memset( &mY, 0, sizeof(mY) );
 	memset( &mU, 0, sizeof(mU) );
 	memset( &mV, 0, sizeof(mV) );
+
+#ifdef WIN32
+	if ( glActiveTexture == 0 ) {
+		glActiveTexture = (PFNGLACTIVETEXTUREPROC)GetProcAddress( LoadLibrary("opengl32.dll"), "glActiveTexture" );
+	}
+#endif
 
 	mStreamThread->start();
 	connect( this, SIGNAL( repaintEmitter() ), this, SLOT( repaintReceiver() ) );

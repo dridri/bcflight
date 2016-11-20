@@ -18,10 +18,13 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#ifdef WIN32
+#else
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <linux/wireless.h>
 #include <ifaddrs.h>
+#endif
 #include <QtCore/QDebug>
 #include "Config.h"
 #include "ui_config.h"

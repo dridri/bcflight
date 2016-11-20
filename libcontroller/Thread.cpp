@@ -21,6 +21,9 @@
 #include <sched.h>
 #include <string.h>
 #include <signal.h>
+#ifdef WIN32
+#include <windows.h>
+#endif
 #include "Thread.h"
 
 Thread::Thread( const std::string& name )
@@ -32,7 +35,9 @@ Thread::Thread( const std::string& name )
 	, mTerminate( false )
 {
 	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+#ifndef WIN32
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
+#endif
 }
 
 

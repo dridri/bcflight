@@ -21,8 +21,8 @@
 #include <string.h>
 #include <signal.h>
 #include <math.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
+//#include <netinet/in.h>
+//#include <netinet/tcp.h>
 #include <stdio.h>
 #include <iostream>
 #include "Controller.h"
@@ -146,8 +146,9 @@ Controller::Controller( Link* link, bool spectate )
 	mMode = Rate;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
 
+#ifndef WIN32
 	signal( SIGPIPE, SIG_IGN );
-
+#endif
 	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
 	mRxThread->setPriority( 97 );
 

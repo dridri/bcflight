@@ -29,8 +29,9 @@
 #include <QtGui/QImage>
 
 #include <Link.h>
+extern "C" {
 #include <codec_api.h>
-
+}
 class Stream : public QGLWidget
 {
 	Q_OBJECT

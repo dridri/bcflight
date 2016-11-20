@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include <iwlib.h>
+//#include <iwlib.h>
 #include "rawwifi.h"
 
 static pthread_mutex_t compile_mutex = PTHREAD_MUTEX_INITIALIZER; 
@@ -19,7 +19,9 @@ static rawwifi_pcap_t* setup_tx( rawwifi_t* rwifi, int port, int blocking )
 	}
 	pcap_set_snaplen( rpcap->pcap, 800 );
 	pcap_set_promisc( rpcap->pcap, 1 );
+#ifndef WIN32
 	pcap_set_immediate_mode( rpcap->pcap, 1 );
+#endif
 	if ( pcap_activate( rpcap->pcap ) != 0 ) {
 		printf( "Unable to open interface %s in pcap: %s\n", rwifi->device, szErrbuf );
 		return NULL;
@@ -52,7 +54,9 @@ static rawwifi_pcap_t* setup_rx( rawwifi_t* rwifi, int port, int blocking, int r
 	}
 	pcap_set_snaplen( rpcap->pcap, 2048 );
 	pcap_set_promisc( rpcap->pcap, 1 );
+#ifndef WIN32
 	pcap_set_immediate_mode( rpcap->pcap, 1 );
+#endif
 	pcap_set_timeout( rpcap->pcap, read_timeout_ms );
 	if ( pcap_activate( rpcap->pcap ) != 0 ) {
 		printf( "Unable to open interface %s in pcap: %s\n", rwifi->device, szErrbuf );

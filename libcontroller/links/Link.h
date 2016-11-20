@@ -19,7 +19,12 @@
 #ifndef LINK_H
 #define LINK_H
 
+#ifdef WIN32
+#include <windows.h>
+#define socklen_t int
+#else
 #include <netinet/in.h>
+#endif
 #include <stdint.h>
 #include <stdarg.h>
 #include <string>
