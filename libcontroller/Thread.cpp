@@ -34,7 +34,7 @@ Thread::Thread( const std::string& name )
 	, mSetPriority( 0 )
 	, mTerminate( false )
 {
-	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::sThreadEntry, this );
 #ifndef WIN32
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 #endif
@@ -84,6 +84,12 @@ bool Thread::running()
 void Thread::setPriority( int32_t p )
 {
 	mSetPriority = p;
+}
+
+
+void Thread::sThreadEntry( void* argp )
+{
+	static_cast< Thread* >( argp )->ThreadEntry();
 }
 
 

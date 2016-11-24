@@ -185,15 +185,15 @@ bool Controller::run()
 	uint64_t ticks0 = Thread::GetTick();
 
 	if ( /*not mConnected or*/ not mLink->isConnected() ) {
-		std::cout << "Connecting...";
+		std::cout << "Connecting..." << std::flush;
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
 			setPriority( 98 );
-			std::cout << "Ok !\n";
+			std::cout << "Ok !\n" << std::flush;
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
 		} else {
-			std::cout << "Nope !\n";
+			std::cout << "Nope !\n" << std::flush;
 			usleep( 1000 * 250 );
 		}
 		return true;
@@ -247,9 +247,9 @@ bool Controller::run()
 	for ( uint32_t i = 0; i < 8; i++ ) {
 		bool on = ReadSwitch( i );
 		if ( on and not mSwitches[i] ) {
-			std::cout << "Switch " << i << " on\n";
+			std::cout << "Switch " << i << " on\n" << std::flush;
 		} else if ( not on and mSwitches[i] ) {
-			std::cout << "Switch " << i << " off\n";
+			std::cout << "Switch " << i << " off\n" << std::flush;
 		}
 		mSwitches[i] = on;
 	}
@@ -338,12 +338,12 @@ bool Controller::run()
 bool Controller::RxRun()
 {
 	if ( mSpectate and not mLink->isConnected() ) {
-		std::cout << "Connecting...";
+		std::cout << "Connecting..." << std::flush;
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
-			std::cout << "Ok !\n";
+			std::cout << "Ok !\n" << std::flush;
 		} else {
-			std::cout << "Nope !\n";
+			std::cout << "Nope !\n" << std::flush;
 			usleep( 1000 * 250 );
 		}
 		return true;
@@ -373,7 +373,7 @@ bool Controller::RxRun()
 			case DEBUG_OUTPUT : {
 				mDebugMutex.lock();
 				std::string str = telemetry.ReadString();
-				std::cout << str;
+				std::cout << str << std::flush;
 				mDebug += str;
 				mDebugMutex.unlock();
 				break;
@@ -381,9 +381,9 @@ bool Controller::RxRun()
 			case CALIBRATE : {
 				if ( telemetry.ReadU32() == 0 ) {
 					mCalibrated = true;
-					std::cout << "Calibration success\n";
+					std::cout << "Calibration success\n" << std::flush;
 				} else {
-					std::cout << "WARNING : Calibration failed !\n";
+					std::cout << "WARNING : Calibration failed !\n" << std::flush;
 				}
 				break;
 			}
@@ -415,7 +415,7 @@ bool Controller::RxRun()
 				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
 					mConfigFile = content;
 				} else {
-					std::cout << "Received broken config flie, retrying...\n";
+					std::cout << "Received broken config flie, retrying...\n" << std::flush;
 					mConfigFile = "";
 				}
 				break;
@@ -426,7 +426,7 @@ bool Controller::RxRun()
 			}
 			case UPDATE_UPLOAD_DATA : {
 				bool ok = ( telemetry.ReadU32() == 1 );
-				std::cout << "UPDATE_UPLOAD_DATA : " << ok << "\n";
+				std::cout << "UPDATE_UPLOAD_DATA : " << ok << "\n" << std::flush;
 				mUpdateUploadValid = ok;
 				break;
 			}
@@ -593,7 +593,7 @@ bool Controller::RxRun()
 			}
 
 			default :
-				std::cout << "WARNING : Received unknown packet (" << (uint32_t)cmd << ") !\n";
+				std::cout << "WARNING : Received unknown packet (" << (uint32_t)cmd << ") !\n" << std::flush;
 				break;
 		}
 	}
@@ -793,7 +793,7 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 		mLink->Write( &packet );
 		usleep( 1000 * 100 );
 		if ( not mUpdateUploadValid ) {
-			std::cout << "Broken data received, retrying...\n";
+			std::cout << "Broken data received, retrying...\n" << std::flush;
 			usleep( 1000 * 10 );
 		}
 	} while ( not mUpdateUploadValid );
@@ -835,7 +835,7 @@ void Controller::ReloadPIDs()
 
 void Controller::setRollPID( const vec3& v )
 {
-	std::cout << "setRollPID...\n";
+	std::cout << "setRollPID...\n" << std::flush;
 	while ( mRollPID.x != v.x or mRollPID.y != v.y or mRollPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU32( SET_ROLL_PID_P );
@@ -847,13 +847,13 @@ void Controller::setRollPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	std::cout << "setRollPID ok\n";
+	std::cout << "setRollPID ok\n" << std::flush;
 }
 
 
 void Controller::setPitchPID( const vec3& v )
 {
-	std::cout << "setPitchPID...\n";
+	std::cout << "setPitchPID...\n" << std::flush;
 	while ( mPitchPID.x != v.x or mPitchPID.y != v.y or mPitchPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU32( SET_PITCH_PID_P );
@@ -865,13 +865,13 @@ void Controller::setPitchPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	std::cout << "setPitchPID ok\n";
+	std::cout << "setPitchPID ok\n" << std::flush;
 }
 
 
 void Controller::setYawPID( const vec3& v )
 {
-	std::cout << "setYawPID...\n";
+	std::cout << "setYawPID...\n" << std::flush;
 	while ( mYawPID.x != v.x or mYawPID.y != v.y or mYawPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU32( SET_YAW_PID_P );
@@ -883,13 +883,13 @@ void Controller::setYawPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	std::cout << "setYawPID ok\n";
+	std::cout << "setYawPID ok\n" << std::flush;
 }
 
 
 void Controller::setOuterPID( const vec3& v )
 {
-	std::cout << "setOuterPID...\n";
+	std::cout << "setOuterPID...\n" << std::flush;
 	while ( mOuterPID.x != v.x or mOuterPID.y != v.y or mOuterPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU32( SET_OUTER_PID_P );
@@ -901,7 +901,7 @@ void Controller::setOuterPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	std::cout << "setOuterPID ok\n";
+	std::cout << "setOuterPID ok\n" << std::flush;
 }
 
 

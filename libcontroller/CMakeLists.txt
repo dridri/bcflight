@@ -1,10 +1,11 @@
 cmake_minimum_required( VERSION 2.6 )
 project( controller )
 
-set( RAWWIFI_ON 1 )
+set( RAWWIFI_ON 1 PARENT_SCOPE )
 
 if ( WIN32 OR MINGW )
-	set( RAWWIFI_ON 0 )
+	message( "Win32 detected, disabling rawwifi" )
+	set( RAWWIFI_ON 0 PARENT_SCOPE )
 	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNO_RAWWIFI" )
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_RAWWIFI" )
 endif()

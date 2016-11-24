@@ -203,18 +203,12 @@ void Stream::paintGL()
 	glActiveTexture( GL_TEXTURE1 );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, mU.tex );
-// 	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mU.stride, mU.height, GL_RED, GL_UNSIGNED_BYTE, mU.data );
-// 	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, mU.height, mV.stride, mV.height, GL_RED, GL_UNSIGNED_BYTE, mV.data );
-	uint8_t d[1024*2048];
+	uint8_t* d = new uint8_t[ ( mU.stride * mU.height + mU.stride * mV.height ) * 2 ];
 	memcpy( d, mU.data, mU.stride * mU.height );
 	memcpy( d + mU.stride * mU.height, mV.data, mU.stride * mV.height );
 	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mU.stride, mU.height + mV.height, GL_RED, GL_UNSIGNED_BYTE, d );
-/*
-	glActiveTexture( GL_TEXTURE2 );
-	glEnable( GL_TEXTURE_2D );
-	glBindTexture( GL_TEXTURE_2D, mV.tex );
-	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mV.stride, mV.height, GL_RED, GL_UNSIGNED_BYTE, mV.data );
-*/
+	delete d;
+
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	mShader->disableAttributeArray( vertexLocation );
 	mShader->disableAttributeArray( texLocation );

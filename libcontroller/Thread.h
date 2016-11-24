@@ -41,6 +41,7 @@ protected:
 	virtual bool run() = 0;
 
 private:
+	static void sThreadEntry( void* argp );
 	void ThreadEntry();
 	bool mRunning;
 	bool mIsRunning;
