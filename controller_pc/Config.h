@@ -16,18 +16,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef GPS_H
-#define GPS_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
-#include "Sensor.h"
+#include <vector>
+#include <QtWidgets/QDialog>
+#include <QtCore//QSettings>
 
-class GPS : public Sensor
+namespace Ui {
+	class Config;
+}
+
+class Config : public QDialog
 {
-public:
-	GPS();
-	~GPS();
+	Q_OBJECT
 
-	virtual void Read( float lattitude, float longitude, float* altitude ) = 0;
+public:
+	Config();
+	~Config();
+
+	void setValue( const QString &key, const QVariant &value );
+	QVariant value( const QString &key, const QVariant &defaultValue = QVariant() ) const;
+
+public slots:
+	void Save();
+
+protected:
+	Ui::Config* ui;
+	QSettings* mSettings;
 };
 
-#endif // GPS_H
+#endif // CONFIG_H

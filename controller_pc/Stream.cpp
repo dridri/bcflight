@@ -123,7 +123,7 @@ void Stream::paintGL()
 			"	float r = 2*(y/2 + 1.402/2 * v);\n"
 			"	float g = 2*(y/2 - 0.344136 * u/2 - 0.714136 * v/2);\n"
 			"	float b = 2*(y/2 + 1.773/2 * u);\n"
-			"	return clamp( vec4( r, g, b, 1.0 ), 0.0, 1.0 );\n"
+			"	return clamp( vec4( r, g, b, 1.0 ), vec4(0.0), vec4(1.0) );\n"
 			"}\n"
 			"void main(void) {\n"
 			"	vec4 center = fetch( texcoords.st );\n"

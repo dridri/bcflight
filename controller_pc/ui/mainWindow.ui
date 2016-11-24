@@ -1247,17 +1247,23 @@ color: rgb(255, 255, 255);</string>
      <x>0</x>
      <y>0</y>
      <width>980</width>
-     <height>27</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>Fi&amp;le</string>
     </property>
+    <addaction name="actionSettings"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings...</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
