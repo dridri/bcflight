@@ -18,11 +18,16 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#ifdef WIN32
+#else
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <linux/wireless.h>
 #include <ifaddrs.h>
+#endif
 #include <QtCore/QDebug>
+#include <QtCore/QProcess>
+#include "tinyxml2.h"
 #include "Config.h"
 #include "ui_config.h"
 
@@ -34,6 +39,7 @@ Config::Config()
 	ui->setupUi(this);
 	connect( this, SIGNAL( accepted() ), this, SLOT( Save() ) );
 
+	QStringList wlanList;
 #ifdef WIN32
 #else
 	struct ifaddrs *ifa, *ifap;
@@ -52,12 +58,32 @@ Config::Config()
 		}
 		::close(sock);
 		if ( iswifi ) {
-			ui->rawwifi_device->addItem( ifa->ifa_name );
+			printf( "add %s\n", ifa->ifa_name ); fflush(stdout);
+			wlanList.append( ifa->ifa_name );
 		}
 		ifa = ifa->ifa_next;
 	}
 	freeifaddrs( ifap );
 #endif
+	wlanList.removeDuplicates();
+	for ( auto wlan : wlanList ) {
+#ifdef WIN32
+#else
+		QProcess process;
+		process.start( QString( "lshw -xml -c network -quiet" ) );
+		process.waitForFinished( -1 );
+		QString data = process.readAllStandardOutput();
+		tinyxml2::XMLDocument doc;
+		doc.Parse( data.toStdString().c_str() );
+		for ( tinyxml2::XMLNode* node = doc.FirstChildElement( "list" )->FirstChildElement( "node" ); node != nullptr; node = node->NextSiblingElement( "node" ) ) {
+			if ( QString(node->FirstChildElement("logicalname")->GetText()) == wlan ) {
+				wlan = wlan + " (" + QString( node->FirstChildElement("vendor")->GetText() ) + " " + node->FirstChildElement("product")->GetText() + ")";
+				break;
+			}
+		}
+#endif
+		ui->rawwifi_device->addItem( wlan );
+	}
 
 	// Set controller settings
 	ui->spectate->setChecked( value( "controller/spectate", false ).toBool() );
@@ -99,7 +125,7 @@ void Config::Save()
 	setValue( "controller/spectate", ui->spectate->isChecked() );
 	setValue( "link/rawwifi", ui->rawwifi->isChecked() );
 	setValue( "link/tcpip", ui->tcpip->isChecked() );
-	setValue( "rawwifi/device", ui->rawwifi_device->currentText() );
+	setValue( "rawwifi/device", ui->rawwifi_device->currentText().mid( 0, ui->rawwifi_device->currentText().indexOf( " " ) ) );
 	setValue( "rawwifi/channel", ui->rawwifi_channel->currentIndex() + 1 );
 	setValue( "rawwifi/controller/inport", ui->rawwifi_controller_inport->value() );
 	setValue( "rawwifi/controller/nodrop", ui->rawwifi_controller_nodrop->isChecked() );

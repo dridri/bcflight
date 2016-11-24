@@ -183,6 +183,11 @@ bool Controller::run()
 {
 	uint64_t ticks0 = Thread::GetTick();
 
+	if ( not mLink ) {
+		usleep( 1000 * 500 );
+		return true;
+	}
+
 	if ( /*not mConnected or*/ not mLink->isConnected() ) {
 		std::cout << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
