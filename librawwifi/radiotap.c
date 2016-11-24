@@ -18,11 +18,21 @@
 #include <time.h>
 //#include <sys/mman.h>
 
+#ifndef u32
 typedef unsigned int u32;
+#endif
+#ifndef u16
 typedef unsigned short u16;
+#endif
+#ifndef u8
 typedef unsigned char u8;
+#endif
+#ifndef __le32
 typedef u32 __le32;
+#endif
+#if ( defined(WIN32) && !defined(ulong) )
 typedef u32 ulong;
+#endif
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define	le16_to_cpu(x) (x)

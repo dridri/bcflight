@@ -23,7 +23,11 @@ if ( WIN32 OR MINGW )
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWIN32" )
 else()
 	find_package( OpenGL )
-	set( OTHER_LIBS rawwifi )
+	set( OTHER_LIBS -ldl )
+endif()
+
+if ( RAWWIFI_ON )
+	set( OTHER_LIBS ${OTHER_LIBS} rawwifi ) 
 endif()
 
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )

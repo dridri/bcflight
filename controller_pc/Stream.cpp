@@ -49,15 +49,11 @@ Stream::Stream( QWidget* parent )
 	mStreamThread->start();
 	connect( this, SIGNAL( repaintEmitter() ), this, SLOT( repaintReceiver() ) );
 
-	qDebug() << "WelsCreateDecoder :" << WelsCreateDecoder( &mDecoder );
-
 	SDecodingParam decParam;
 	memset( &decParam, 0, sizeof (SDecodingParam) );
 	decParam.uiTargetDqLayer = UCHAR_MAX;
 	decParam.eEcActiveIdc = ERROR_CON_SLICE_MV_COPY_CROSS_IDR;//ERROR_CON_SLICE_COPY;
 	decParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_AVC;
-
-	qDebug() << "mDecoder->Initialize :" << mDecoder->Initialize( &decParam );
 }
 
 
