@@ -35,7 +35,7 @@ public:
 		UDPLite
 	} PortType;
 
-	Socket( uint16_t port, PortType type = TCP, bool broadcast = false );
+	Socket( uint16_t port, PortType type = TCP, bool broadcast = false, uint32_t timeout = 0 );
 	virtual ~Socket();
 
 	int Connect();
@@ -51,6 +51,7 @@ protected:
 	uint16_t mPort;
 	PortType mPortType;
 	bool mBroadcast;
+	uint32_t mTimeout;
 	int mSocket;
 	struct sockaddr_in mSin;
 	int mClientSocket;

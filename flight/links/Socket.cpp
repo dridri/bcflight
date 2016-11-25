@@ -39,6 +39,7 @@ typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
 
 #include "../Debug.h"
+#include "Board.h"
 #include "Socket.h"
 #include "../Config.h"
 
@@ -70,15 +71,17 @@ Link* Socket::Instanciate( Config* config, const std::string& lua_object )
 
 	int port = config->integer( lua_object + ".port" );
 	bool broadcast = config->boolean( lua_object + ".broadcast" );
+	uint32_t timeout = config->integer( lua_object + ".read_timeout" );
 
-	return new Socket( port, type, broadcast );
+	return new Socket( port, type, broadcast, timeout );
 }
 
 
-Socket::Socket( uint16_t port, PortType type, bool broadcast )
+Socket::Socket( uint16_t port, PortType type, bool broadcast, uint32_t timeout )
 	: mPort( port )
 	, mPortType( type )
 	, mBroadcast( broadcast )
+	, mTimeout( timeout )
 	, mSocket( -1 )
 	, mClientSocket( -1 )
 {
@@ -153,7 +156,7 @@ int Socket::Connect()
 		if ( not mBroadcast ) {
 			uint32_t flag = 0;
 			uint32_t fromsize = sizeof( mClientSin );
-			int ret = recvfrom( mSocket, &flag, sizeof( flag ), 0, (SOCKADDR *)&mClientSin, &fromsize );
+			int ret = recvfrom( mSocket, &flag, sizeof( flag ), 0, (SOCKADDR*)&mClientSin, &fromsize );
 			if ( ret > 0 ) {
 				flag = ntohl( flag );
 				gDebug() << "flag : " << ntohl( flag ) << "\n";
@@ -191,7 +194,12 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 	int ret = 0;
 	memset( buf, 0, len );
 
-// 	timeout = 500;
+	// If timeout is not set, default it to mTimeout
+	if ( timeout < 0 ) {
+		timeout = mTimeout;
+	}
+
+	uint64_t timebase = Board::GetTicks();
 	if ( timeout > 0 ) {
 		struct timeval tv;
 		tv.tv_sec = timeout / 1000;
@@ -202,20 +210,17 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 	if ( mPortType == UDP or mPortType == UDPLite ) {
 		uint32_t fromsize = sizeof( mClientSin );
 		ret = recvfrom( mSocket, buf, len, 0, (SOCKADDR *)&mClientSin, &fromsize );
-		if ( ret <= 0 and errno != EAGAIN ) {
-			gDebug() << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
-			mConnected = false;
-			return -1;
-		}
-// 		return -1;
 	} else {
 		ret = recv( mClientSocket, buf, len, MSG_NOSIGNAL );
-// 		if ( ( ret <= 0 and errno != EAGAIN ) or ( errno == EAGAIN and timeout > 0 ) ) {
-		if ( ret <= 0 ) {
-			gDebug() << "TCP disconnected ( " << strerror( errno ) << " )\n";
-			mConnected = false;
-			return -1;
+	}
+
+	if ( ret <= 0 ) {
+		if ( Board::GetTicks() - timebase >= timeout * 1000ULL ) {
+			return LINK_ERROR_TIMEOUT;
 		}
+		gDebug() << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
+		mConnected = false;
+		return -1;
 	}
 
 	return ret;

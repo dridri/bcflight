@@ -69,8 +69,8 @@ public:
 	virtual int Connect() = 0;
 	virtual int setBlocking( bool blocking ) = 0;
 	virtual int32_t RxQuality() { return 100; }
-	int32_t Read( Packet* p, int32_t timeout = 0 );
-	int32_t Write( const Packet* p, int32_t timeout = 0 );
+	int32_t Read( Packet* p, int32_t timeout = -1 );
+	int32_t Write( const Packet* p, int32_t timeout = -1 );
 	virtual int Read( void* buf, uint32_t len, int32_t timeout ) = 0;
 	virtual int Write( const void* buf, uint32_t len, int32_t timeout ) = 0;
 
