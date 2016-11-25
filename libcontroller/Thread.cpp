@@ -24,11 +24,14 @@
 #include "Thread.h"
 
 Thread::Thread( const std::string& name )
-	: mRunning( false )
+	: mName( name )
+	, mRunning( false )
 	, mIsRunning( false )
 	, mFinished( false )
 	, mPriority( 0 )
 	, mSetPriority( 0 )
+	, mAffinity( 0 )
+	, mSetAffinity( 0 )
 	, mTerminate( false )
 {
 	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
@@ -76,9 +79,12 @@ bool Thread::running()
 }
 
 
-void Thread::setPriority( int32_t p )
+void Thread::setPriority( int32_t p, int affinity )
 {
 	mSetPriority = p;
+	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
+		mSetAffinity = affinity;
+	}
 }
 
 
@@ -92,6 +98,7 @@ void Thread::ThreadEntry()
 		mIsRunning = true;
 		if ( mSetPriority != mPriority ) {
 			mPriority = mSetPriority;
+			printf( "Thread '%s' priority set to %d\n", mName.c_str(), mPriority );
 #ifdef __linux__
 			struct sched_param sched;
 			memset( &sched, 0, sizeof(sched) );
@@ -102,6 +109,14 @@ void Thread::ThreadEntry()
 			}
 			sched_setscheduler( 0, SCHED_RR, &sched );
 #endif
+		}
+		if ( mSetAffinity != mAffinity ) {
+			mAffinity = mSetAffinity;
+			printf( "Thread '%s' affinity set to %d\n", mName.c_str(), mAffinity );
+			cpu_set_t cpuset;
+			CPU_ZERO( &cpuset );
+			CPU_SET( mAffinity, &cpuset );
+			pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
 		}
 	} while ( not mTerminate and run() );
 	mIsRunning = false;

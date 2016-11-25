@@ -27,7 +27,7 @@ class Thread
 public:
 	Thread( const std::string& name );
 	virtual ~Thread();
-	void setPriority( int32_t prio );
+	void setPriority( int32_t prio, int affinity = -1 );
 
 	void Start();
 	void Pause();
@@ -42,12 +42,15 @@ protected:
 
 private:
 	void ThreadEntry();
+	std::string mName;
 	bool mRunning;
 	bool mIsRunning;
 	bool mFinished;
 	pthread_t mThread;
 	int mPriority;
 	int mSetPriority;
+	int mAffinity;
+	int mSetAffinity;
 	bool mTerminate;
 };
 
