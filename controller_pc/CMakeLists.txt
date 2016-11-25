@@ -41,6 +41,7 @@ add_executable( controller_pc
 				ui/resources.qrc
 				MainWindow.cpp
 				Config.cpp
+				tinyxml2.cpp
 				${controller_pc_MOCS}
 				${controller_pc_UI}
 				)

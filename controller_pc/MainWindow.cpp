@@ -247,7 +247,7 @@ void MainWindow::connected()
 
 void MainWindow::updateData()
 {
-	if ( not mController ) {
+	if ( not mController or not mController->link() ) {
 		if ( mStreamLink ) {
 			ui->statusbar->showMessage( QString( "Camera : %1 KB/s    |    Quality : %2 %    |    %3 FPS" ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 		}
