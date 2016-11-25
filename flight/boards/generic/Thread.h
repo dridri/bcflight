@@ -33,7 +33,7 @@ public:
 	void Stop();
 	void Join();
 	bool running();
-	void setPriority( int p );
+	void setPriority( int p, int affinity = -1 );
 	static void setMainPriority( int p );
 
 protected:

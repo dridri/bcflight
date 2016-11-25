@@ -26,6 +26,8 @@ Thread::Thread( const std::string& name )
 	, mFinished( false )
 	, mPriority( 0 )
 	, mSetPriority( 0 )
+	, mAffinity( 0 )
+	, mSetAffinity( 0 )
 {
 	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
@@ -69,9 +71,12 @@ void Thread::setMainPriority( int p )
 }
 
 
-void Thread::setPriority( int p )
+void Thread::setPriority( int p, int affinity )
 {
 	mSetPriority = p;
+	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
+		mSetAffinity = affinity;
+	}
 }
 
 
@@ -86,6 +91,13 @@ void Thread::ThreadEntry()
 		if ( mSetPriority != mPriority ) {
 			mPriority = mSetPriority;
 			piHiPri( mPriority );
+		}
+		if ( mSetAffinity != mAffinity ) {
+			mAffinity = mSetAffinity;
+			cpu_set_t cpuset;
+			CPU_ZERO( &cpuset );
+			CPU_SET( mAffinity, &cpuset );
+			pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
 		}
 	} while ( run() );
 	mIsRunning = false;

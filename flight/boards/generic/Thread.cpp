@@ -70,7 +70,7 @@ void Thread::setMainPriority( int p )
 }
 
 
-void Thread::setPriority( int p )
+void Thread::setPriority( int p, int affinity )
 {
 	mSetPriority = p;
 }
