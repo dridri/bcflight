@@ -67,6 +67,8 @@ public:
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
 
+	static void EnableTunDevice();
+	static void DisableTunDevice();
 	static void UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t size );
 	static void UpdateFirmwareProcess( uint32_t crc );
 	static void Reset();

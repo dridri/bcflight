@@ -62,6 +62,7 @@ public slots:
 	void FirmwareBrowse();
 	void FirmwareUpload();
 	void firmwareFileSelected( QString path );
+	void tunDevice();
 	void VideoBrightnessIncrease();
 	void VideoBrightnessDecrease();
 	void VideoContrastIncrease();

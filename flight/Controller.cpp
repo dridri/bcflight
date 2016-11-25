@@ -322,6 +322,16 @@ bool Controller::run()
 				Board::UpdateFirmwareProcess( crc );
 				break;
 			}
+			case ENABLE_TUN_DEVICE : {
+				gDebug() << "Enabling tun device...\n";
+				Board::EnableTunDevice();
+				break;
+			}
+			case DISABLE_TUN_DEVICE : {
+				gDebug() << "Disabling tun device...\n";
+				Board::DisableTunDevice();
+				break;
+			}
 			case CALIBRATE : {
 				uint32_t full_recalibration = 0;
 				float curr_altitude = 0.0f;

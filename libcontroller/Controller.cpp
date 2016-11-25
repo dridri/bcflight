@@ -372,7 +372,7 @@ bool Controller::RxRun()
 			case DEBUG_OUTPUT : {
 				mDebugMutex.lock();
 				std::string str = telemetry.ReadString();
-				std::cout << str;
+//  				std::cout << str; // TODO : uncomment this
 				mDebug += str;
 				mDebugMutex.unlock();
 				break;
@@ -815,6 +815,22 @@ void Controller::UploadUpdateProcess( const uint8_t* buf, uint32_t size )
 		mXferMutex.unlock();
 		usleep( 1000 * 50 );
 	}
+}
+
+
+void Controller::EnableTunDevice()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( ENABLE_TUN_DEVICE );
+	mXferMutex.unlock();
+}
+
+
+void Controller::DisableTunDevice()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( DISABLE_TUN_DEVICE );
+	mXferMutex.unlock();
 }
 
 

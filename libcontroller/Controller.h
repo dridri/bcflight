@@ -79,6 +79,8 @@ public:
 	void UploadUpdateInit();
 	void UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t size );
 	void UploadUpdateProcess( const uint8_t* buf, uint32_t size );
+	void EnableTunDevice();
+	void DisableTunDevice();
 
 	void setRoll( const float& v );
 	void setPitch( const float& v );
@@ -142,6 +144,8 @@ protected:
 		UPDATE_UPLOAD_INIT = 0x9A,
 		UPDATE_UPLOAD_DATA = 0x9B,
 		UPDATE_UPLOAD_PROCESS = 0x9C,
+		ENABLE_TUN_DEVICE = 0x9E,
+		DISABLE_TUN_DEVICE = 0x9F,
 		// Getters
 		PRESSURE = 0x10,
 		TEMPERATURE = 0x11,
@@ -201,10 +205,10 @@ protected:
 		VIDEO_SATURATION_INCR = 0xA8,
 		VIDEO_SATURATION_DECR = 0xA9,
 		GET_RECORDINGS_LIST = 0xB1,
-		RECORD_DOWNLOAD = 0x82,
-		RECORD_DOWNLOAD_INIT = 0x83,
-		RECORD_DOWNLOAD_DATA = 0x84,
-		RECORD_DOWNLOAD_PROCESS = 0x85,
+		RECORD_DOWNLOAD = 0xB2,
+		RECORD_DOWNLOAD_INIT = 0xB3,
+		RECORD_DOWNLOAD_DATA = 0xB4,
+		RECORD_DOWNLOAD_PROCESS = 0xB5,
 	} Cmd;
 
 	virtual float ReadThrust() = 0;

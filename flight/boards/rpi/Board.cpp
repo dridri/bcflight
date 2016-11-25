@@ -21,6 +21,18 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/signal.h>
+#include <net/if.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/fcntl.h>
+#include <sys/ioctl.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#if ( BUILD_RAWWIFI == 1 )
+#include "rawwifi.h"
+#endif
 
 extern "C" {
 #include <interface/vmcs_host/vc_vchi_gencmd.h>
@@ -489,4 +501,120 @@ uint32_t Board::CPULoad()
 uint32_t Board::CPUTemp()
 {
 	return std::atoi( readcmd( "vcgencmd measure_temp", "temp", "=" ).c_str() );
+}
+
+
+static int tun_alloc( const char* dev )
+{
+	struct ifreq ifr;
+	int fd, err;
+
+	if ( ( fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
+		printf( "open error : %s\n", strerror( errno ) );
+		return fd;
+	}
+
+	memset( &ifr, 0, sizeof(ifr) );
+	ifr.ifr_flags = 0x0001 | 0x1000;
+// 	ifr.ifr_flags = 0x0002;
+	strncpy( ifr.ifr_name, dev, IFNAMSIZ );
+	if ( ( err = ioctl( fd, _IOW('T', 202, int), (void *) &ifr ) ) < 0 ) {
+		printf( "ioctl error : %s\n", strerror( errno ) );
+		close( fd );
+		return err;
+	}
+
+	return fd;
+}
+
+
+static void cmd( const char* fmt, ... )
+{
+	char buffer[256];
+	va_list args;
+	va_start( args, fmt );
+	vsnprintf( buffer, 256, fmt, args );
+	perror( buffer );
+	va_end( args );
+	system( buffer );
+}
+
+
+typedef struct tun_args {
+	int fd;
+	rawwifi_t* rwifi;
+} tun_args;
+
+
+static void* thread_rx( void* argp )
+{
+	tun_args* args = (tun_args*)argp;
+	uint8_t buffer[16384] = {0};
+
+	while ( 1 ) {
+		uint32_t valid = 0;
+		int nread = rawwifi_recv( args->rwifi, buffer, sizeof(buffer), &valid );
+		if ( nread > 0 ) {
+			write( args->fd, buffer, nread );
+		}
+	}
+
+	return NULL;
+}
+
+static void* thread_tx( void* argp )
+{
+	tun_args* args = (tun_args*)argp;
+	uint8_t buffer[16384] = {0};
+
+	while ( 1 ) {
+		int nread = read( args->fd, buffer, sizeof(buffer) );
+		if ( nread < 0 ) {
+			gDebug() << "Error reading from air0 interface\n";
+			close( args->fd );
+			break;
+		}
+		rawwifi_send_retry( args->rwifi, buffer, nread, 4 );
+	}
+
+	return NULL;
+}
+
+
+void Board::EnableTunDevice()
+{
+	if ( true ) { // TODO : detect if rawwifi is currently in use
+#if ( BUILD_RAWWIFI == 1 )
+		int port = 128; // TODO : Dynamically find unused ports
+
+		int fd = tun_alloc( "air0" );
+	// 	fcntl( fd, F_SETFL, O_NONBLOCK );
+		gDebug() << "tunnel fd ready\n";
+
+		rawwifi_t* rwifi = rawwifi_init( "wlan0", port, port + 1, 1, -1 ); // TODO : Use same device as RawWifi
+		gDebug() << "tunnel rawwifi ready\n";
+
+		// TODO : use ThreadHooks
+		tun_args* args = (tun_args*)malloc(sizeof(tun_args));
+		args->fd = fd;
+		args->rwifi = rwifi;
+		pthread_t thid1, thid2;
+		pthread_create( &thid1, nullptr, thread_rx, (void*)args );
+		pthread_create( &thid2, nullptr, thread_tx, (void*)args );
+
+		// TODO : use libnl
+		usleep( 1000 * 1000 );
+		cmd( "ip link set air0 up" );
+		usleep( 1000 * 500 );
+		cmd( "ip addr add 10.0.0.1/24 dev air0" );
+#endif
+	} else {
+		// TODO
+	}
+}
+
+
+void Board::DisableTunDevice()
+{
+	// TODO
 }

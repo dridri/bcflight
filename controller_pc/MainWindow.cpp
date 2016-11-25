@@ -104,6 +104,7 @@ MainWindow::MainWindow()
 	connect( ui->config_save, SIGNAL( pressed() ), this, SLOT( SaveConfig() ) );
 	connect( ui->firmware_browse, SIGNAL( pressed() ), this, SLOT( FirmwareBrowse() ) );
 	connect( ui->firmware_upload, SIGNAL( pressed() ), this, SLOT( FirmwareUpload() ) );
+	connect( ui->tundev, SIGNAL( pressed() ), this, SLOT( tunDevice() ) );
 	connect( ui->stabilized_mode, SIGNAL( pressed() ), this, SLOT( ModeStabilized() ) );
 	connect( ui->rate_mode, SIGNAL( pressed() ), this, SLOT( ModeRate() ) );
 	connect( ui->brightness_dec, SIGNAL( pressed() ), this, SLOT( VideoBrightnessDecrease() ) );
@@ -463,6 +464,18 @@ void MainWindow::FirmwareUpload()
 		}
 
 		ui->firmware_progress->setValue( 0 );
+	}
+}
+
+
+void MainWindow::tunDevice()
+{
+	if ( ui->tundev->text().startsWith( "Enable" ) ) {
+		ui->tundev->setText( "Disable Tun Device" );
+		mController->EnableTunDevice();
+	} else {
+		ui->tundev->setText( "Enable Tun Device" );
+		mController->DisableTunDevice();
 	}
 }
 
