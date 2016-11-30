@@ -23,6 +23,8 @@
 #include <signal.h>
 #include "Thread.h"
 
+std::mutex Thread::mCriticalMutex;
+
 Thread::Thread( const std::string& name )
 	: mName( name )
 	, mRunning( false )
@@ -34,7 +36,10 @@ Thread::Thread( const std::string& name )
 	, mSetAffinity( 0 )
 	, mTerminate( false )
 {
-	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+	pthread_attr_t attr;
+	pthread_attr_init( &attr );
+	pthread_attr_setstacksize( &attr, 16 * 1024 * 1024 );
+	pthread_create( &mThread, &attr, (void*(*)(void*))&Thread::ThreadEntry, this );
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 }
 

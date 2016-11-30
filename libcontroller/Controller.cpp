@@ -108,14 +108,17 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 	{ Controller::VIDEO_SATURATION_DECR, "0xA9" },
 };
 
-
 Controller::Controller( Link* link, bool spectate )
 	: Thread( "controller-tx" )
 	, mPing( 0 )
+	, mCalibrated( false )
+	, mArmed( false )
 	, mTotalCurrent( 0 )
 	, mCurrentDraw( 0 )
 	, mBatteryVoltage( 0 )
 	, mBatteryLevel( 0 )
+	, mCPULoad( 0 )
+	, mCPUTemp( 0 )
 	, mAltitude( 0.0f )
 	, mThrust( 0.0f )
 	, mControlRPY{ 0.0f, 0.0f, 0.0f }
@@ -141,15 +144,13 @@ Controller::Controller( Link* link, bool spectate )
 	, mVideoRecording( false )
 	, mAcceleration( 0.0f )
 {
-	mCalibrated = false;
-	mArmed = false;
 	mMode = Rate;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
 
 	signal( SIGPIPE, SIG_IGN );
 
 	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
-	mRxThread->setPriority( 97 );
+	mRxThread->setPriority( 98, 1 );
 
 	if ( spectate ) {
 		mRxThread->Start();
@@ -192,7 +193,7 @@ bool Controller::run()
 		std::cout << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
-			setPriority( 98 );
+			setPriority( 99, 1 );
 			std::cout << "Ok !\n";
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
@@ -355,7 +356,7 @@ bool Controller::RxRun()
 
 	Packet telemetry;
 	if ( mLink->Read( &telemetry ) <= 0 ) {
-		usleep( 1000 * 10 );
+		usleep( 500 );
 		return true;
 	}
 	Cmd cmd = (Cmd)0;
@@ -377,7 +378,7 @@ bool Controller::RxRun()
 			case DEBUG_OUTPUT : {
 				mDebugMutex.lock();
 				std::string str = telemetry.ReadString();
-//  				std::cout << str; // TODO : uncomment this
+ 				std::cout << str;
 				mDebug += str;
 				mDebugMutex.unlock();
 				break;
@@ -790,12 +791,14 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 
 	mUpdateUploadValid = false;
 	mXferMutex.lock();
+	int retries = 1;
 	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
-		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 2 );
+		retries = dynamic_cast< RawWifi* >( mLink )->retriesCount();
+		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 1 );
 	}
 	do {
 		mLink->Write( &packet );
-		usleep( 1000 * 100 );
+		usleep( 1000 * 50 );
 		if ( not mUpdateUploadValid ) {
 			std::cout << "Broken data received, retrying...\n";
 			usleep( 1000 * 10 );
@@ -803,7 +806,7 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 	} while ( not mUpdateUploadValid );
 
 	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
-		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 2 );
+		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( retries );
 	}
 	mXferMutex.unlock();
 

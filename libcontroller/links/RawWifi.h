@@ -39,11 +39,13 @@ public:
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
 	void setCECMode( const std::string& mode );
+	void setBlockRecoverMode( const std::string& mode );
 	void setRetriesCount( int retries );
 
 	int level() const;
 	int channel() const;
 	bool lastIsCorrupt() const;
+	int retriesCount() const;
 
 protected:
 	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
@@ -54,7 +56,8 @@ protected:
 	std::string mDevice;
 	int mChannel;
 	int mTxPower;
-	uint32_t mCECMode;
+	RAWWIFI_RX_FEC_MODE mCECMode;
+	RAWWIFI_BLOCK_RECOVER_MODE mRecoverMode;
 	int16_t mOutputPort;
 	int16_t mInputPort;
 	int mRetriesCount;

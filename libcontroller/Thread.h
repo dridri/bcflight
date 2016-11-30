@@ -19,7 +19,7 @@
 #ifndef THREAD_H
 #define THREAD_H
 
-#include <thread>
+#include <mutex>
 #include <pthread.h>
 
 class Thread
@@ -36,6 +36,8 @@ public:
 	bool running();
 
 	static uint64_t GetTick();
+	static void EnterCritical() { mCriticalMutex.lock(); }
+	static void ExitCritical() { mCriticalMutex.unlock(); }
 
 protected:
 	virtual bool run() = 0;
@@ -52,6 +54,8 @@ private:
 	int mAffinity;
 	int mSetAffinity;
 	bool mTerminate;
+
+	static std::mutex mCriticalMutex;
 };
 
 

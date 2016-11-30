@@ -38,6 +38,7 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
 	, mChannel( 11 )
 	, mTxPower( 33 )
 	, mCECMode( RAWWIFI_RX_FAST )
+	, mRecoverMode( RAWWIFI_FILL_WITH_ZEROS )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
 	, mRetriesCount( 2 )
@@ -60,19 +61,33 @@ int RawWifi::setBlocking( bool blocking )
 
 void RawWifi::setCECMode( const std::string& mode )
 {
-	if ( mRawWifi ) {
-		if ( mode == "weighted" ) {
-			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
-			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
-		} else {
-			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
+	if ( mode == "weighted" ) {
+		mCECMode = RAWWIFI_RX_FEC_WEIGHTED;
+		if ( mRawWifi ) {
+			rawwifi_set_recv_mode( mRawWifi, mCECMode );
 		}
+		std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
 	} else {
-		if ( mode == "weighted" ) {
-			mCECMode = RAWWIFI_RX_FEC_WEIGHTED;
-			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
-		} else {
-			mCECMode = RAWWIFI_RX_FAST;
+		mCECMode = RAWWIFI_RX_FAST;
+		if ( mRawWifi ) {
+			rawwifi_set_recv_mode( mRawWifi, mCECMode );
+		}
+	}
+}
+
+
+void RawWifi::setBlockRecoverMode( const std::string& mode )
+{
+	if ( mode == "contiguous" ) {
+		mRecoverMode = RAWWIFI_CONTIGUOUS;
+		if ( mRawWifi ) {
+			rawwifi_set_recv_block_recover_mode( mRawWifi, mRecoverMode );
+		}
+		std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in contiguous mode\n";
+	} else {
+		mRecoverMode = RAWWIFI_FILL_WITH_ZEROS;
+		if ( mRawWifi ) {
+			rawwifi_set_recv_block_recover_mode( mRawWifi, mRecoverMode );
 		}
 	}
 }
@@ -108,6 +123,12 @@ int RawWifi::level() const
 int RawWifi::channel() const
 {
 	return mChannel;
+}
+
+
+int RawWifi::retriesCount() const
+{
+	return mRetriesCount;
 }
 
 
@@ -170,6 +191,12 @@ int RawWifi::Connect()
 		rawwifi_set_recv_mode( mRawWifi, mCECMode );
 		if ( mCECMode == RAWWIFI_RX_FEC_WEIGHTED ) {
 			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
+		}
+	}
+	if ( mRecoverMode != mRawWifi->recv_recover ) {
+		rawwifi_set_recv_block_recover_mode( mRawWifi, mRecoverMode );
+		if ( mRecoverMode == RAWWIFI_CONTIGUOUS ) {
+			std::cout << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in contiguous mode\n";
 		}
 	}
 
