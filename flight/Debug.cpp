@@ -20,9 +20,11 @@
 #include "Debug.h"
 
 std::string Debug::sBufferedData;
+std::mutex Debug::mMutex;
 
 void Debug::SendControllerOutput( const std::string& s )
 {
+	mMutex.lock();
 	sBufferedData += s;
 
 	if ( sBufferedData.find('\n') != sBufferedData.npos and Main::instance() ) {
@@ -32,4 +34,5 @@ void Debug::SendControllerOutput( const std::string& s )
 			sBufferedData = "";
 		}
 	}
+	mMutex.unlock();
 }

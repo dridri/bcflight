@@ -209,6 +209,6 @@ bool PowerThread::run()
 
 	mCapacityMutex.unlock();
 
-	usleep( 1000 * 50 );
+	usleep( 1000 * 20 );
 	return true;
 }

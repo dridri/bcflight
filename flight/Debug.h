@@ -31,7 +31,7 @@
 
 #include <cxxabi.h>
 #include <malloc.h>
-
+/*
 class Debug
 {
 public:
@@ -48,6 +48,29 @@ public:
 	}
 
 private:
+	static std::string sBufferedData;
+	static void SendControllerOutput( const std::string& s );
+};
+*/
+class Debug
+{
+public:
+	Debug() {
+	}
+	~Debug() {
+		std::string s = mSS.str();// + "\n"; TODO : uncomment this, and remove <<"\n" everywhere..
+		printf( s.c_str() );
+		fflush( stdout );
+		SendControllerOutput( s );
+	}
+	template<typename T> Debug& operator<<( const T& t ) {
+		mSS << t;
+		return *this;
+	}
+
+private:
+	std::stringstream mSS;
+	static std::mutex mMutex;
 	static std::string sBufferedData;
 	static void SendControllerOutput( const std::string& s );
 };

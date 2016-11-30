@@ -55,25 +55,17 @@ const int I2C::address() const
 
 int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
 {
-// 	uint64_t tick = Board::GetTicks();
-
 	pthread_mutex_lock( &mMutex );
-
-// 	printf( "t1 : %llu\n", Board::GetTicks() - tick ); tick = Board::GetTicks();
 
 	if ( mCurrAddr != addr ) {
 		mCurrAddr = addr;
 		ioctl( mFD, I2C_SLAVE, addr );
 	}
-// 	printf( "t2 : %llu\n", Board::GetTicks() - tick ); tick = Board::GetTicks();
 
 	write( mFD, &reg, 1 );
-// 	printf( "t3 : %llu\n", Board::GetTicks() - tick ); tick = Board::GetTicks();
 	int ret = read( mFD, buf, len );
-// 	printf( "t4 : %llu\n", Board::GetTicks() - tick ); tick = Board::GetTicks();
 
 	pthread_mutex_unlock( &mMutex );
-// 	printf( "t5 : %llu\n", Board::GetTicks() - tick ); tick = Board::GetTicks();
 	return ret;
 }
 

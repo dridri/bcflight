@@ -608,6 +608,7 @@ void Board::EnableTunDevice()
 		usleep( 1000 * 500 );
 		cmd( "ip addr add 10.0.0.1/24 dev air0" );
 #endif
+		cmd( "systemctl start sshd.service" );
 	} else {
 		// TODO
 	}

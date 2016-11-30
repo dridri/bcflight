@@ -66,7 +66,7 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 
 	mLiveThread = new HookThread<Raspicam>( "cam_live", this, &Raspicam::LiveThreadRun );
 	mLiveThread->Start();
-	mLiveThread->setPriority( 99 );
+	mLiveThread->setPriority( 99, 1 );
 }
 
 
