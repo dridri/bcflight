@@ -167,11 +167,14 @@ void ::Globals::Run()
 	uint64_t ticks = 0;
 	float t = Time::GetSeconds();
 	float dt = 0.0f;
+	bool redraw = true;
 
 	while ( !exiting() ) {
-		if ( update_( t, dt ) ) {
-			window()->SwapBuffers();
+		if ( redraw and currentPage() ) {
+			currentPage()->render();
 		}
+		redraw = update_( t, dt );
+		window()->SwapBuffers();
 		dt = Time::GetSeconds() - t;
 		t = Time::GetSeconds();
 		ticks = Time::WaitTick( 1000 / 10, ticks );
@@ -201,7 +204,6 @@ bool ::Globals::update_( float t, float dt )
 	if ( pPage ) {
 		if ( pPage->update( t, dt ) or t - mUpdateLastT > 2.0f ) {
 			mUpdateLastT = t;
-			pPage->render();
 			redraw = true;
 		}
 		if ( mCursorCounter > 3 and ( ie_ptr[0] & 0x1 ) ) {

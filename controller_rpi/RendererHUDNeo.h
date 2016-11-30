@@ -52,6 +52,7 @@ protected:
 	uint32_t mStaticLinesVBO;
 
 	uint32_t mStaticLinesCount;
+	uint32_t mStaticLinesCountNoAttitude;
 };
 
 #endif // RENDERERHUDNEO_H

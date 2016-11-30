@@ -26,7 +26,6 @@
 #include <gammaengine/Time.h>
 #include "RendererHUD.h"
 
-
 static const char hud_text_vertices_shader[] =
 R"(	#define in attribute
 	#define out varying
@@ -237,10 +236,12 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, const Vecto
 
 	for ( uint32_t i = 0; i < text.length(); i++ ) {
 		uint8_t c = (uint8_t)( (int)text.data()[i] );
-		glUniform2f( mTextShader.mOffsetID, 1280.0f * +m3DStrength + x, y );
-		glDrawArrays( GL_TRIANGLES, c * 6, 6 );
-		glUniform2f( mTextShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f + x, y );
-		glDrawArrays( GL_TRIANGLES, c * 6, 6 );
+		if ( c > 0 and c < 128 ) {
+			glUniform2f( mTextShader.mOffsetID, 1280.0f * +m3DStrength + x, y );
+			glDrawArrays( GL_TRIANGLES, c * 6, 6 );
+			glUniform2f( mTextShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f + x, y );
+			glDrawArrays( GL_TRIANGLES, c * 6, 6 );
+		}
 		x += mTextAdv[ c ] * size;
 	}
 }

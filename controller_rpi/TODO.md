@@ -1,0 +1,2 @@
+- Report on-screen warning when over-temperature is reached, both for controller and drone
+- Report on-screen warning when under-voltage is reached, both for controller and drone

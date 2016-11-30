@@ -53,7 +53,7 @@ std::string interface_address( const std::string& itf )
 */
 
 Stream::Stream( Controller* controller, Font* font, Link* link, uint32_t width, uint32_t height, bool stereo )
-	: Thread()
+	: ::Thread( "HUD" )
 	, mInstance( nullptr )
 	, mWindow( nullptr )
 	, mController( controller )
@@ -79,7 +79,7 @@ Stream::Stream( Controller* controller, Font* font, Link* link, uint32_t width, 
 	mFPSTimer = Timer();
 	mSecondTimer = Timer();
 	mSecondTimer.Start();
-	Start();
+// 	Start(); //TEST
 
 	mSignalThread = new HookThread< Stream >( "signal-quality", this, &Stream::SignalThreadRun );
 	mSignalThread->Start();
@@ -88,12 +88,16 @@ Stream::Stream( Controller* controller, Font* font, Link* link, uint32_t width, 
 
 Stream::~Stream()
 {
-	vc_dispmanx_resource_delete( mScreenshot.resource );
+// 	vc_dispmanx_resource_delete( mScreenshot.resource );
 	vc_dispmanx_display_close( mDisplay );
 }
 
 void Stream::setStereo( bool en )
 {
+	usleep( 1000 * 500 );
+	if ( not this->running() and not mInstance ) {
+		return;
+	}
 	while ( not this->running() or not mRendererHUD ) {
 		usleep( 1000 );
 	}
@@ -105,40 +109,48 @@ void Stream::setStereo( bool en )
 bool Stream::run()
 {
 	if ( !mInstance and !mWindow ) {
+
 		mInstance = Instance::Create( "flight::control", 1, false, "opengles20" );
 		mWindow = mInstance->CreateWindow( "", -1, -1, Window::Fullscreen );
 
 		mLayerDisplay = CreateNativeWindow( 2 );
-		mWindow->SetNativeWindow( reinterpret_cast< EGLNativeWindowType >( &mLayerDisplay ) );
+		mWindow->SetNativeWindow( reinterpret_cast< EGLNativeWindowType >( &mLayerDisplay ), false );
 
 		mRendererHUD = new RendererHUDNeo( mInstance, mFont );
 
-// 		mDecodeContext = video_configure( mWidth, mHeight, mStereo );
-// 		video_start( mDecodeContext );
 		float reduce = 0.25f;
 		int y_offset = mStereo * 56 + ( reduce * mHeight * 0.1 );
 		int width = mWidth / ( 1 + mStereo ) - ( reduce * mWidth * 0.1 );
 		int height = mHeight - ( mStereo * 112 ) - ( reduce * mHeight * 0.2 );
 
+#if ( VID_INTF_ID == 0 )
 		OMX_Init();
-		mDecoder = new IL::VideoDecode( 0, IL::VideoDecode::CodingAVC, true );
-		mDecoderRender1 = new IL::VideoRender( reduce * mWidth * 0.05, y_offset, width, height, true );
+#endif
+		mDecoder = new VID_INTF::VideoDecode( 0, VID_INTF::VideoDecode::CodingAVC, true );
+		mDecoderRender1 = new VID_INTF::VideoRender( reduce * mWidth * 0.05, y_offset, width, height, true );
 		mDecoderRender1->setMirror( false, true );
+#if ( VID_INTF_ID == 0 )
 		if ( mStereo ) {
-			mDecoderSplitter = new IL::VideoSplitter( true );
-			mDecoderRender2 = new IL::VideoRender( mWidth / 2 + reduce * mWidth * 0.05, y_offset, width, height, true );
+			mDecoderSplitter = new VID_INTF::VideoSplitter( true );
+			mDecoderRender2 = new VID_INTF::VideoRender( mWidth / 2 + reduce * mWidth * 0.05, y_offset, width, height, true );
 			mDecoderRender2->setMirror( false, true );
-			mDecoder->SetupTunnel( 131, mDecoderSplitter, 250 );
-			mDecoderSplitter->SetupTunnel( 251, mDecoderRender1, 90 );
-			mDecoderSplitter->SetupTunnel( 252, mDecoderRender2, 90 );
-			mDecoder->SetState( IL::Component::StateExecuting );
-			mDecoderSplitter->SetState( IL::Component::StateExecuting );
-			mDecoderRender1->SetState( IL::Component::StateExecuting );
-			mDecoderRender2->SetState( IL::Component::StateExecuting );
+			mDecoder->SetupTunnel( mDecoderSplitter );
+			mDecoderSplitter->SetupTunnel( mDecoderRender1 );
+			mDecoderSplitter->SetupTunnel( mDecoderRender2 );
+			mDecoder->SetState( VID_INTF::Component::StateExecuting );
+			mDecoderSplitter->SetState( VID_INTF::Component::StateExecuting );
+			mDecoderRender1->SetState( VID_INTF::Component::StateExecuting );
+			mDecoderRender2->SetState( VID_INTF::Component::StateExecuting );
 		} else {
-			mDecoder->SetupTunnel( 131, mDecoderRender1, 90 );
-			mDecoder->SetState( IL::Component::StateExecuting );
-			mDecoderRender1->SetState( IL::Component::StateExecuting );
+#else
+		{
+			if ( mStereo ) {
+				mDecoderRender1->setStereo( true );
+			}
+#endif
+			mDecoder->SetupTunnel( mDecoderRender1 );
+			mDecoder->SetState( VID_INTF::Component::StateExecuting );
+			mDecoderRender1->SetState( VID_INTF::Component::StateExecuting );
 		}
 
 		mDecodeThread = new HookThread< Stream >( "decoder", this, &Stream::DecodeThreadRun );
@@ -150,7 +162,10 @@ bool Stream::run()
 		glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 	}
 
+// 	glClearColor( 1.0f, 0.0f, 0.0f, 0.25f ); //TEST
 	glClear( GL_COLOR_BUFFER_BIT );
+// 	mWindow->SwapBuffers(); //TEST
+// 	return true; //TEST
 
 	if ( mRenderHUD ) {
 		VideoStats video_stats = {
@@ -162,8 +177,14 @@ bool Stream::run()
 		usleep( 1000 * 1000 / 30 );
 	}
 
+	uint64_t t = Time::GetTick();
+	uint32_t minuts = t / ( 1000 * 60 );
+	uint32_t seconds = ( t / 1000 ) % 60;
+	uint32_t ms = t % 1000;
+	mRendererHUD->RenderText( 200, 400, std::to_string(minuts) + ":" + std::to_string(seconds) + ":" + std::to_string(ms), 0xFFFFFFFF );
+
 	if ( mSecondTimer.ellapsed() >= 1000 ) {
-		/*
+		/* TEST : NIGHT MODE
 		vc_dispmanx_snapshot( mDisplay, mScreenshot.resource, DISPMANX_NO_ROTATE );
 		vc_dispmanx_resource_read_data( mScreenshot.resource, &mScreenshot.rect, mScreenshot.image, 1920 / 2 * 3 );
 		uint32_t r = 0;
@@ -182,14 +203,17 @@ bool Stream::run()
 		mSecondTimer.Start();
 	}
 
+	EnterCritical();
 	mWindow->SwapBuffers();
-// 	printf( "%.2f\n", mWindow->fps() );
+	usleep( 1000 * 1000 / 30 );
+	ExitCritical();
 	return true;
 }
 
 
 bool Stream::SignalThreadRun()
 {
+// 	return false; // TEST
 	iwstats stats;
 	wireless_config info;
 	iwrange range;
@@ -233,8 +257,6 @@ bool Stream::SignalThreadRun()
 
 bool Stream::DecodeThreadRun()
 {
-// 	uint8_t frame[32768] = { 0 };
-// 	uint8_t* frame = nullptr;
 	int32_t frameSize = 0;
 
 	if ( not mLink->isConnected() ) {
@@ -247,29 +269,20 @@ bool Stream::DecodeThreadRun()
 		}
 		return true;
 	}
-/*
-	if ( mDecodeInput == nullptr ) {
-		mDecodeInput = mDecodeContext->decinput->pBuffer;
-	} else {
-		mDecodeContext->decinput->pBuffer = (OMX_U8*)mDecodeInput;
-	}
-
-	if ( mDecodeContext->decinput->pBuffer != mDecodeInput ) {
-		gDebug() << "GPU messed up decoder input buffer ! ( " << (void*)mDecodeContext->decinput->pBuffer << " != " << (void*)mDecodeInput << "\n";
-	}
-	if ( mDecodeLen == 0 ) {
-		mDecodeLen = mDecodeContext->decinput->nAllocLen;
-	}*/
 
 	uint8_t buffer[65536] = { 0 };
 	frameSize = mLink->Read( buffer, sizeof(buffer), 0 );
-	int corrupted = 0;
+	bool corrupted = true; // presume first that the data is corrupted
 	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
 		corrupted = dynamic_cast< RawWifi* >( mLink )->lastIsCorrupt();
 	}
 	if ( frameSize > 0 ) {
+		EnterCritical();
 		mDecoder->fillInput( buffer, frameSize );
-		mFrameCounter++;
+		ExitCritical();
+		if ( frameSize > 41 ) {
+			mFrameCounter++;
+		}
 		mBitrateCounter += frameSize;
 		frameSize = 0;
 	}
@@ -278,7 +291,6 @@ bool Stream::DecodeThreadRun()
 		mFPS = mFrameCounter;
 		mFPSTimer.Stop();
 		mFPSTimer.Start();
-// 		gDebug() << "fps : " << ( mFPS * 1 ) << "    bitrate : " << ( mBitrateCounter * 8 / 1024 ) << "kbps ( " << ( mBitrateCounter / 1024 ) << " KBps )\n";
 		mFrameCounter = 0;
 		mBitrateCounter = 0;
 
@@ -310,7 +322,8 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 	dst_rect.y = 0;
 	dst_rect.width = display_width;
 	dst_rect.height = display_height;
-	
+
+	// Force this layer to 720p for better performances (automatically upscaled by dispman)
 	display_width = 1280;
 	display_height = 720;
 
@@ -324,7 +337,6 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 
 	VC_DISPMANX_ALPHA_T alpha;
 	alpha.flags = (DISPMANX_FLAGS_ALPHA_T)( DISPMANX_FLAGS_ALPHA_FROM_SOURCE );
-// 	alpha.flags = (DISPMANX_FLAGS_ALPHA_T)( DISPMANX_FLAGS_ALPHA_FIXED_ALL_PIXELS | DISPMANX_FLAGS_ALPHA_PREMULT );
 	alpha.opacity = 0;
 
 	dispman_element = vc_dispmanx_element_add( dispman_update, mDisplay, layer, &dst_rect, 0, &src_rect, DISPMANX_PROTECTION_NONE, &alpha, 0, DISPMANX_NO_ROTATE );
@@ -333,9 +345,9 @@ EGL_DISPMANX_WINDOW_T Stream::CreateNativeWindow( int layer )
 	nativewindow.height = display_height;
 	vc_dispmanx_update_submit_sync( dispman_update );
 
-	mScreenshot.image = new uint8_t[ 1920 / 2 * 1080 * 3 ];
-	mScreenshot.resource = vc_dispmanx_resource_create( VC_IMAGE_RGB888, 1920 / 2, 1080, &mScreenshot.vc_image_ptr );
-	vc_dispmanx_rect_set( &mScreenshot.rect, 0, 0, 1920 / 2, 1080 );
+// 	mScreenshot.image = new uint8_t[ 1920 / 2 * 1080 * 3 ];
+// 	mScreenshot.resource = vc_dispmanx_resource_create( VC_IMAGE_RGB888, 1920 / 2, 1080, &mScreenshot.vc_image_ptr );
+// 	vc_dispmanx_rect_set( &mScreenshot.rect, 0, 0, 1920 / 2, 1080 );
 
 	return nativewindow;
 }

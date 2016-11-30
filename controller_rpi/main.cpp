@@ -67,8 +67,13 @@ int main( int ac, char** av )
 		return -1;
 	}
 
+	cpu_set_t mask;
+	CPU_ZERO( &mask );
+	CPU_SET( 0, &mask );
+	sched_setaffinity( getpid(), sizeof(mask), &mask );
+
 	bcm_host_init();
-	signal( SIGSEGV, segv_handler );
+// 	signal( SIGSEGV, segv_handler );
 
 	Instance* instance = Instance::Create( "flight::control", 1, true, "framebuffer" );
 	Font* font = new Font( "data/FreeMonoBold.ttf", 28 );
@@ -91,6 +96,7 @@ int main( int ac, char** av )
 		stream_link = new RawWifi( config->string( "stream.link.device", "wlan0" ), config->integer( "stream.link.output_port", 10 ), config->integer( "stream.link.input_port", 11 ) );
 		dynamic_cast< RawWifi* >( stream_link )->setBlocking( config->boolean( "stream.link.blocking", true ) );
 		dynamic_cast< RawWifi* >( stream_link )->setCECMode( config->string( "stream.link.cec_mode", "none" ) );
+		dynamic_cast< RawWifi* >( stream_link )->setBlockRecoverMode( config->string( "stream.link.block_recover", "contiguous" ) );
 	}
 
 	if ( controller_link ) {
@@ -107,7 +113,13 @@ int main( int ac, char** av )
 
 	if ( config->boolean( "touchscreen.enabled", true ) ) {
 		globals->setCurrentPage( "PageMain" );
-		globals->Run();
+		std::function< bool( ::Globals* ) > hook_fct = [](::Globals* g) { g->Run(); return false; };
+		HookThread<::Globals>* hook = new HookThread<::Globals>( "TouchUI", globals, hook_fct );
+		hook->Start();
+	}
+
+	if ( stream ) { 
+		stream->Run();
 	} else {
 		while ( 1 ) {
 			usleep( 1000 * 1000 );

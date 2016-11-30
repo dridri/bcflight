@@ -28,6 +28,9 @@
 #include "RendererHUDNeo.h"
 #include "Controller.h"
 
+// #define GL_FINISH glFlush()
+// #define GL_FINISH glFinish()
+#define GL_FINISH
 
 static const char hud_vertices_shader[] =
 R"(	#define in attribute
@@ -136,7 +139,9 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 			thrust = 0.0f;
 		}
 		float acceleration = controller->acceleration() / 9.7f;
-		RenderAttitude( controller->rpy() );
+		if ( controller->mode() != Controller::Rate ) {
+			RenderAttitude( controller->rpy() );
+		}
 		RenderThrustAcceleration( thrust, std::min( 1.0f, acceleration / 10.0f ) );
 
 		Controller::Mode mode = controller->mode();
@@ -165,6 +170,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 			RenderText( (float)window->width() * ( 1.0f / 4.0f + 0.47f * 1.0f / 4.0f ), window->height() - 168, "disarmed", color, 0.6f, true );
 		}
 	}
+	GL_FINISH;
 
 	// Battery
 	{
@@ -189,6 +195,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		svolt = svolt.substr( 0, svolt.find( "." ) + 3 );
 		RenderText( (float)window->width() * 0.5f * 0.12f, window->height() * 0.67f, svolt + "V", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f, 1.0f ), 0.75 );
 	}
+	GL_FINISH;
 
 	// Static elements
 	{
@@ -208,9 +215,11 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 			glVertexAttribPointer( mColorShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertexColor ), (void*)( sizeof( float ) * 2 + sizeof( uint32_t ) ) );
 
 			glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
-			glDrawArrays( GL_LINES, 0, mStaticLinesCount );
+			glDrawArrays( GL_LINES, 0, ( controller->mode() == Controller::Rate ) ? mStaticLinesCountNoAttitude : mStaticLinesCount );
+			GL_FINISH;
 			glUniform2f( mColorShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
-			glDrawArrays( GL_LINES, 0, mStaticLinesCount );
+			glDrawArrays( GL_LINES, 0, ( controller->mode() == Controller::Rate ) ? mStaticLinesCountNoAttitude : mStaticLinesCount );
+			GL_FINISH;
 		}
 		// Circle
 		{
@@ -222,15 +231,26 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 			glVertexAttribPointer( mColorShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertexColor ), (void*)( sizeof( float ) * 2 + sizeof( uint32_t ) ) );
 
 			glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
-			glDrawArrays( GL_LINE_STRIP, 0, 64 );
-			glDrawArrays( GL_LINE_STRIP, 64, 64 );
+			if ( controller->mode() != Controller::Rate ) {
+				glDrawArrays( GL_LINE_STRIP, 0, 64 );
+				GL_FINISH;
+				glDrawArrays( GL_LINE_STRIP, 64, 64 );
+				GL_FINISH;
+			}
 			glDrawArrays( GL_LINE_STRIP, 128, 65 );
+			GL_FINISH;
 			glUniform2f( mColorShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
-			glDrawArrays( GL_LINE_STRIP, 0, 64 );
-			glDrawArrays( GL_LINE_STRIP, 64, 64 );
+			if ( controller->mode() != Controller::Rate ) {
+				glDrawArrays( GL_LINE_STRIP, 0, 64 );
+				GL_FINISH;
+				glDrawArrays( GL_LINE_STRIP, 64, 64 );
+				GL_FINISH;
+			}
 			glDrawArrays( GL_LINE_STRIP, 128, 65 );
+			GL_FINISH;
 		}
 	}
+	GL_FINISH;
 
 	// Link status
 	{
@@ -239,6 +259,7 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		std::string link_quality_str = "Ch" + std::to_string( iwstats->channel ) + "  " + std::to_string( iwstats->level ) + "dBm  " + std::to_string( iwstats->qual ) + "% (" + iwstats->source + ")";
 		RenderText( (float)window->width() * 0.5f * 0.13f, 720.0f * 0.21f, link_quality_str, Vector4f( 0.5f + 0.5f * link_red, 1.0f - link_red * 0.25f, 0.5f - link_red * 0.5f, 1.0f ), 0.9f );
 	}
+	GL_FINISH;
 
 	// FPS + latency
 	{
@@ -253,11 +274,24 @@ void RendererHUDNeo::Render( GE::Window* window, Controller* controller, VideoSt
 		mFont->measureString( latency_str, &w, &h );
 		RenderText( (float)window->width() * ( 1.0f / 2.0f - 0.075f ) - w, 140, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ) );
 	}
+	GL_FINISH;
 }
 
 
 void RendererHUDNeo::RenderThrustAcceleration( float thrust, float acceleration )
 {
+	if ( thrust < 0.0f ) {
+		thrust = 0.0f;
+	}
+	if ( thrust > 1.0f ) {
+		thrust = 1.0f;
+	}
+	if ( acceleration < 0.0f ) {
+		acceleration = 0.0f;
+	}
+	if ( acceleration > 1.0f ) {
+		acceleration = 1.0f;
+	}
 	glUseProgram( mShader.mShader );
 	{
 		if ( mNightMode ) {
@@ -274,8 +308,10 @@ void RendererHUDNeo::RenderThrustAcceleration( float thrust, float acceleration 
 
 		glUniform2f( mShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 * std::min( 64, (int)( thrust * 64.0f ) ) );
+		GL_FINISH;
 		glUniform2f( mShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 * std::min( 64, (int)( thrust * 64.0f ) ) );
+		GL_FINISH;
 	}
 	{
 		if ( mNightMode ) {
@@ -292,14 +328,29 @@ void RendererHUDNeo::RenderThrustAcceleration( float thrust, float acceleration 
 
 		glUniform2f( mShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 * std::min( 32, (int)( acceleration * 32.0f ) ) );
+		GL_FINISH;
 		glUniform2f( mShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
 		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 * std::min( 32, (int)( acceleration * 32.0f ) ) );
+		GL_FINISH;
 	}
 }
 
 
 void RendererHUDNeo::RenderLink( float quality, float level )
 {
+	if ( quality > 1.0f ) {
+		quality = 1.0f;
+	}
+	if ( quality < 0.0f ) {
+		quality = 0.0f;
+	}
+	if ( level > 1.0f ) {
+		level = 1.0f;
+	}
+	if ( level < 0.0f ) {
+		level = 0.0f;
+	}
+
 	glUseProgram( mColorShader.mShader );
 	glUniform4f( mColorShader.mColorID, 1.0f, 1.0f, 1.0f, 1.0f );
 	glBindBuffer( GL_ARRAY_BUFFER, mLinkVBO );
@@ -339,17 +390,29 @@ void RendererHUDNeo::RenderLink( float quality, float level )
 		}
 	}
 	glBindBuffer( GL_ARRAY_BUFFER, mLinkVBO );
+	::Thread::EnterCritical();
+// 	printf( "glBufferSubData...\n" ); fflush(stdout);
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(linkBuffer), linkBuffer );
+// 	printf( "glBufferSubData Ok\n" ); fflush(stdout);
+	::Thread::ExitCritical();
+	GL_FINISH;
 
 	glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 	glDrawArrays( GL_TRIANGLES, 0, 6 * std::min( 16, (int)( quality * 16.0f ) ) );
 	glUniform2f( mColorShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
 	glDrawArrays( GL_TRIANGLES, 0, 6 * std::min( 16, (int)( quality * 16.0f ) ) );
+	GL_FINISH;
 }
 
 
 void RendererHUDNeo::RenderBattery( float level )
 {
+	if ( level < 0.0f ) {
+		level = 0.0f;
+	}
+	if ( level > 1.0f ) {
+		level = 1.0f;
+	}
 	glUseProgram( mShader.mShader );
 	glUniform4f( mShader.mColorID, 1.0f - level * 0.5f, level, level * 0.5f, 1.0f );
 
@@ -378,15 +441,20 @@ void RendererHUDNeo::RenderBattery( float level )
 		}
 	}
 	glBindBuffer( GL_ARRAY_BUFFER, mBatteryVBO );
+	::Thread::EnterCritical();
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(batteryBuffer), batteryBuffer );
+	GL_FINISH;
+	::Thread::ExitCritical();
 
 	glVertexAttribPointer( mShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( 0 ) );
 	glVertexAttribPointer( mShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( sizeof( float ) * 2 ) );
 
 	glUniform2f( mShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, sizeof(batteryBuffer)/sizeof(FastVertex) );
+	GL_FINISH;
 	glUniform2f( mShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, sizeof(batteryBuffer)/sizeof(FastVertex) );
+	GL_FINISH;
 }
 
 
@@ -442,12 +510,21 @@ void RendererHUDNeo::RenderAttitude( const vec3& rpy )
 			linesBuffer[j].color = color;
 		}
 
+		::Thread::EnterCritical();
+// 		printf( "glBufferSubData...\n" ); fflush(stdout);
 		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(linesBuffer), linesBuffer );
+		GL_FINISH;
+		printf( "glBufferSubData oK\n" ); fflush(stdout);
+		::Thread::ExitCritical();
+
 		glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 		glDrawArrays( GL_LINE_STRIP, 0, sizeof(linesBuffer)/sizeof(FastVertexColor) );
+		GL_FINISH;
 		glUniform2f( mColorShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
 		glDrawArrays( GL_LINE_STRIP, 0, sizeof(linesBuffer)/sizeof(FastVertexColor) );
+		GL_FINISH;
 	}
+	GL_FINISH;
 
 	// Degres lines
 	{
@@ -497,13 +574,21 @@ void RendererHUDNeo::RenderAttitude( const vec3& rpy )
 			linesBuffer[i++].color = color;
 		}
 
+		::Thread::EnterCritical();
+// 		printf( "glBufferSubData %d / %d\n", i, 2*4*64 ); fflush(stdout);
 		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor)*i, linesBuffer );
+		GL_FINISH;
+// 		printf( "glBufferSubData oK\n" ); fflush(stdout);
+		::Thread::ExitCritical();
 
 		glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
 		glDrawArrays( GL_LINES, 0, i );
+		GL_FINISH;
 		glUniform2f( mColorShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
 		glDrawArrays( GL_LINES, 0, i );
+		GL_FINISH;
 	}
+	GL_FINISH;
 }
 
 
@@ -517,7 +602,7 @@ void RendererHUDNeo::Compute()
 	float thrust_in = 35.0f;
 	{
 		const uint32_t steps_count = 64;
-		FastVertex thrustBuffer[4 * steps_count];
+		FastVertex thrustBuffer[4 * steps_count * 4];
 		memset( thrustBuffer, 0, sizeof( thrustBuffer ) );
 		Vector2f offset = Vector2f( 640.0f - 170.0f, 720.0f - 145.0f );
 		for ( uint32_t i = 0; i < steps_count; i++ ) {
@@ -551,7 +636,7 @@ void RendererHUDNeo::Compute()
 
 	{
 		const uint32_t steps_count = 32;
-		FastVertex accelerationBuffer[4 * steps_count];
+		FastVertex accelerationBuffer[4 * steps_count * 8];
 		memset( accelerationBuffer, 0, sizeof( accelerationBuffer ) );
 		Vector2f offset = Vector2f( 640.0f - 170.0f, 720.0f - 145.0f );
 		for ( uint32_t i = 0; i < steps_count; i++ ) {
@@ -584,7 +669,7 @@ void RendererHUDNeo::Compute()
 	}
 
 	{
-		FastVertexColor linkBuffer[6 * 16];
+		FastVertexColor linkBuffer[6 * 16 * 4];
 		memset( linkBuffer, 0, sizeof( linkBuffer ) );
 		for ( uint32_t i = 0; i < 16; i++ ) {
 			float height = std::exp( i * 0.1f );
@@ -617,23 +702,23 @@ void RendererHUDNeo::Compute()
 		}
 		glGenBuffers( 1, &mLinkVBO );
 		glBindBuffer( GL_ARRAY_BUFFER, mLinkVBO );
-		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertexColor) * 6 * 16, linkBuffer, GL_STATIC_DRAW );
+		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertexColor) * 6 * 16 * 4, linkBuffer, GL_STATIC_DRAW );
 	}
 
 	{
 		glGenBuffers( 1, &mBatteryVBO );
 		glBindBuffer( GL_ARRAY_BUFFER, mBatteryVBO );
-		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertex) * 64, nullptr, GL_DYNAMIC_DRAW );
+		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertex) * 2048, nullptr, GL_DYNAMIC_DRAW );
 	}
 
 	{
 		glGenBuffers( 1, &mLineVBO );
 		glBindBuffer( GL_ARRAY_BUFFER, mLineVBO );
-		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertexColor) * 2 * 128, nullptr, GL_DYNAMIC_DRAW );
+		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertexColor) * 2048, nullptr, GL_DYNAMIC_DRAW );
 	}
 
 	{
-		FastVertexColor circleBuffer[512];
+		FastVertexColor circleBuffer[2048];
 		for ( uint32_t i = 0; i < 64; i++ ) {
 			float angle = ( 0.1f + 0.8f * ( (float)i / 64.0f ) ) * M_PI;
 			Vector2f pos = Vector2f( 150.0f * std::cos( angle ), 150.0f * std::sin( angle ) );
@@ -680,7 +765,7 @@ void RendererHUDNeo::Compute()
 	}
 
 	{
-		FastVertexColor staticLinesBuffer[512];
+		FastVertexColor staticLinesBuffer[2048];
 		uint32_t i = 0;
 		// G-force container
 		{
@@ -744,6 +829,8 @@ void RendererHUDNeo::Compute()
 			staticLinesBuffer[++i].x = p1.x;
 			staticLinesBuffer[i].y = p1.y;
 		}
+		mStaticLinesCountNoAttitude = i;
+
 		// Left lines
 		{
 			for ( uint32_t j = 0; j <= 12; j++ ) {

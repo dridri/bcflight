@@ -19,6 +19,12 @@
 #ifndef STREAM_H
 #define STREAM_H
 
+//TEST
+#define VID_INTF_ID 1 // IL=0, MMAL=1
+#define VID_INTF MMAL
+// #define VID_INTF IL
+//ENDTEST
+
 #include <vc_dispmanx_types.h>
 #include <bcm_host.h>
 #include <EGL/egl.h>
@@ -34,20 +40,23 @@
 
 #include <Link.h>
 #include <Thread.h>
-// #include "decode.h"
+#if ( VID_INTF_ID == 0 )
 #include "../../external/OpenMaxIL++/include/VideoDecode.h"
 #include "../../external/OpenMaxIL++/include/VideoSplitter.h"
 #include "../../external/OpenMaxIL++/include/VideoRender.h"
+#elif ( VID_INTF_ID == 1 )
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoDecode.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoSplitter.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoRender.h"
+#endif
 #include "DecodedImage.h"
 #include "RendererHUD.h"
-
-// #include <wifibroadcast.h>
 
 using namespace GE;
 
 class Controller;
 
-class Stream : GE::Thread
+class Stream : ::Thread
 {
 public:
 	Stream( Controller* controller, Font* font, Link* link, uint32_t width, uint32_t height, bool stereo );
@@ -60,6 +69,7 @@ public:
 	int linkQuality() const { return mIwStats.qual; }
 
 	EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
+	void Run() { while( run() ); }
 
 protected:
 	virtual bool run();
@@ -82,10 +92,10 @@ private:
 	HookThread<Stream>* mDecodeThread;
 	void* mDecodeInput;
 	uint32_t mDecodeLen;
-	IL::VideoDecode* mDecoder;
-	IL::VideoSplitter* mDecoderSplitter;
-	IL::VideoRender* mDecoderRender1;
-	IL::VideoRender* mDecoderRender2;
+	VID_INTF::VideoDecode* mDecoder;
+	VID_INTF::VideoSplitter* mDecoderSplitter;
+	VID_INTF::VideoRender* mDecoderRender1;
+	VID_INTF::VideoRender* mDecoderRender2;
 
 	int mIwSocket;
 	IwStats mIwStats;
@@ -99,7 +109,6 @@ private:
 	EGL_DISPMANX_WINDOW_T mLayerDisplay;
 	EGLImageKHR mEGLVideoImage;
 	GLuint mVideoTexture;
-// 	video_context* mDecodeContext;
 
 	DISPMANX_DISPLAY_HANDLE_T mDisplay;
 	struct {
