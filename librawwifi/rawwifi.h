@@ -25,9 +25,16 @@
 extern "C" {
 #endif
 
-#define RAWWIFI_RX_FAST 0
-#define RAWWIFI_RX_FEC_WEIGHTED 1
-#define RAWWIFI_RX_FEC_CEC 2
+typedef enum {
+	RAWWIFI_RX_FAST = 0,
+	RAWWIFI_RX_FEC_WEIGHTED = 1,
+	RAWWIFI_RX_FEC_CEC = 2
+} RAWWIFI_RX_FEC_MODE;
+
+typedef enum {
+	RAWWIFI_FILL_WITH_ZEROS = 0, // default : fill missing parts of blocks with zeros
+	RAWWIFI_CONTIGUOUS = 1,  // put all the packets one behind the other
+} RAWWIFI_BLOCK_RECOVER_MODE;
 
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
 #define MAX_PACKET_PER_BLOCK 64
@@ -91,7 +98,8 @@ typedef struct rawwifi_t {
 	rawwifi_pcap_t* in;
 	rawwifi_block_t* recv_block;
 	rawwifi_link_t recv_link;
-	uint32_t recv_mode;
+	RAWWIFI_RX_FEC_MODE recv_mode;
+	RAWWIFI_BLOCK_RECOVER_MODE recv_recover;
 	void* recv_private;
 	int32_t recv_timeout_ms;
 	uint32_t recv_last_returned;
@@ -107,7 +115,8 @@ int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpowe
 
 rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking, int read_timeout_ms );
 int32_t rawwifi_recv_quality( rawwifi_t* rwifi );
-void rawwifi_set_recv_mode( rawwifi_t* rwifi, int mode );
+void rawwifi_set_recv_mode( rawwifi_t* rwifi, RAWWIFI_RX_FEC_MODE mode );
+void rawwifi_set_recv_block_recover_mode( rawwifi_t* rwifi, RAWWIFI_BLOCK_RECOVER_MODE mode );
 
 int rawwifi_send( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen );
 int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries );

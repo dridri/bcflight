@@ -34,8 +34,10 @@ typedef u32 __le32;
 #define CONTINUE -2
 
 // #define DEBUG
+//#define DEBUG_PORT -1
+#define DEBUG_PORT 11
 #ifdef DEBUG
-#define dprintf(...) fprintf( stderr, __VA_ARGS__ )
+#define dprintf(...) if(DEBUG_PORT==-1||rpcap->port==DEBUG_PORT){fprintf( stderr, __VA_ARGS__ );}
 #else
 #define dprintf(...) ;
 #endif
@@ -89,7 +91,7 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 		return -3;
 	}
 
-	if ( retval < 0 || pu8Payload == 0 ) {
+	if ( retval < 0 && errno != 0 && errno != 11 ) {
 		fprintf( stderr, "pcap_next_ex ERROR : %s (%d - %s)\n", pcap_geterr( rpcap->pcap ), errno, strerror(errno) );
 // 		char str[1024] = "";
 // 		sprintf( str, "ifconfig %s up", rwifi->device );
@@ -99,28 +101,33 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* payloadBuff
 	}
 
 	if ( retval != 1 ) {
+		fprintf( stderr, "pcap_next_ex ERROR : %s (%d - %s) [continue..]\n", pcap_geterr( rpcap->pcap ), errno, strerror(errno) );
 		if ( rpcap->blocking == 1 ) {
 			dprintf( "retval = %d !!\n", retval );
 		}
-		return 0;
+		return CONTINUE;
+	}
+
+	if ( pu8Payload == 0 ) {
+		return CONTINUE;
 	}
 
 	u16HeaderLen = (pu8Payload[2] + (pu8Payload[3] << 8));
 
 	if ( ppcapPacketHeader->len < ( u16HeaderLen + rwifi->n80211HeaderLength ) ) {
 		dprintf( "ppcapPacketHeader->len < ( u16HeaderLen + rwifi->n80211HeaderLength )\n" );
-		return 0;
+		return CONTINUE;
 	}
 
 	bytes = ppcapPacketHeader->len - ( u16HeaderLen + rwifi->n80211HeaderLength );
 	if ( bytes < 0 ) {
 		dprintf( "bytes < 0\n" );
-		return 0;
+		return CONTINUE;
 	}
 
 	if ( ieee80211_radiotap_iterator_init( &rti, (struct ieee80211_radiotap_header *)pu8Payload, ppcapPacketHeader->len ) < 0 ) {
 		dprintf( "ieee80211_radiotap_iterator_init( &rti, (struct ieee80211_radiotap_header *)pu8Payload, ppcapPacketHeader->len ) < 0\n" );
-		return 0;
+		return CONTINUE;
 	}
 
 // 	int link_update = 0;
@@ -191,7 +198,12 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 	pu8Payload += sizeof( wifi_packet_header_t );
 	bytes -= sizeof( wifi_packet_header_t );
 
-	if ( bytes <= 0 || bytes > MAX_USER_PACKET_LENGTH - sizeof( wifi_packet_header_t ) || header->packet_id >= header->packets_count || header->packet_id > MAX_PACKET_PER_BLOCK || header->packets_count > MAX_PACKET_PER_BLOCK ) {
+	if ( header->header_crc != rawwifi_crc16( (uint8_t*)header, sizeof(wifi_packet_header_t) - sizeof(uint16_t) ) ) {
+		dprintf( "Invalid header CRC, dropping ! [%d:%d]\n", header->block_id, header->packet_id );
+		return CONTINUE;
+	}
+
+	if ( bytes <= 0 || bytes > ( MAX_USER_PACKET_LENGTH + 128 ) || header->packet_id >= header->packets_count || header->packet_id > MAX_PACKET_PER_BLOCK || header->packets_count > MAX_PACKET_PER_BLOCK ) {
 		*valid = 0;
 		return CONTINUE;
 	}
@@ -200,11 +212,6 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 		rwifi->recv_last_returned = 0;
 		free( rwifi->recv_block );
 		rwifi->recv_block = NULL;
-	}
-
-	if ( header->header_crc != rawwifi_crc16( (uint8_t*)header, sizeof(wifi_packet_header_t) - sizeof(uint16_t) ) ) {
-		dprintf( "Invalid header CRC, dropping ! [%d:%d]\n", header->block_id, header->packet_id );
-		return CONTINUE;
 	}
 
 	uint32_t calculated_crc = rawwifi_crc32( pu8Payload, bytes );
@@ -256,11 +263,12 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		rwifi->recv_perf_invalid = 0;
 	}
 
+
 	wifi_packet_header_t* header = 0;
 	uint8_t* payload = 0;
 	uint32_t is_valid = 0;
 	int32_t bytes = analyze_packet( rwifi, rpcap, &header, &payload, &is_valid );
-	if ( bytes < 0 ) {
+	if ( bytes <= 0 || payload == 0 || header == 0 ) {
 		*valid = is_valid;
 		return bytes;
 	}
@@ -272,6 +280,10 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 	}
 
 	if ( header->packets_count == 1 && ( is_valid || header->retry_id >= header->retries_count - 1 ) ) {
+		dprintf( "small block\n" );
+		if ( bytes > retmax ) {
+			bytes = retmax;
+		}
 		memcpy( pret, payload, bytes );
 		*valid = is_valid;
 		rwifi->recv_last_returned = header->block_id;
@@ -322,9 +334,13 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 				all_valid += ( block->packets[i].valid != 0 );
 			} else {
 				dprintf( "leak (%d)\n", block->packets[i].size );
-				if ( i < header->packets_count - 1 ) {
+				if ( i < header->packets_count - 1 && rwifi->recv_recover == RAWWIFI_FILL_WITH_ZEROS ) {
+					memset( pret + offset, 0, MAX_USER_PACKET_LENGTH - _rawwifi_headers_length );
 					offset += MAX_USER_PACKET_LENGTH - _rawwifi_headers_length;
 				}
+			}
+			if ( offset >= retmax - 1 ) {
+				break;
 			}
 		}
 		block->valid = ( all_valid == header->packets_count );

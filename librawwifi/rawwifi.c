@@ -139,6 +139,8 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 	rwifi->out = setup_tx( rwifi, rx_port, blocking );
 	rwifi->in = setup_rx( rwifi, tx_port, blocking, read_timeout_ms );
 	rwifi->recv_timeout_ms = read_timeout_ms;
+	rwifi->recv_mode = RAWWIFI_RX_FAST;
+	rwifi->recv_recover = RAWWIFI_FILL_WITH_ZEROS;
 
 	if ( !rwifi->out || !rwifi->in ) {
 		pthread_mutex_unlock( &compile_mutex );
@@ -151,9 +153,15 @@ rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int block
 }
 
 
-void rawwifi_set_recv_mode( rawwifi_t* rwifi, int mode )
+void rawwifi_set_recv_mode( rawwifi_t* rwifi, RAWWIFI_RX_FEC_MODE mode )
 {
 	rwifi->recv_mode = mode;
+}
+
+
+void rawwifi_set_recv_block_recover_mode( rawwifi_t* rwifi, RAWWIFI_BLOCK_RECOVER_MODE mode )
+{
+	rwifi->recv_recover = mode;
 }
 
 
