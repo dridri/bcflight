@@ -75,7 +75,7 @@ end
 
 
 --- Setup controller link
--- controller.link = Socket{ type = "TCP", port = 2020 }
+-- controller.link = Socket{ type = "TCP", port = 2020, read_timeout = 2000 }
 controller.link = RawWifi {
 	device = "wlan0",
 	channel = 9,
@@ -84,7 +84,7 @@ controller.link = RawWifi {
 	retries = 2,
 	blocking = true,
 	drop = true,
-	read_timeout = 2000, -- If nothing is received withing 2seconds, the drone will disarm and falls
+	read_timeout = 2000, -- If nothing is received withing 2seconds, the drone will disarm and fall
 }
 
 
