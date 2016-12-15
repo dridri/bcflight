@@ -57,9 +57,15 @@ public:
 	static uint64_t GetTicks();
 	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias = -500 );
 
+	static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
-	static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" );
+
+	static void EnableTunDevice();
+	static void DisableTunDevice();
+	static void UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t size );
+	static void UpdateFirmwareProcess( uint32_t crc );
+	static void Reset();
 
 private:
 	static uint64_t mTicksBase;

@@ -348,12 +348,14 @@ bool Controller::run()
 							usleep( 1000 * 10 );
 						}
 						response.WriteU32( 0 );
+						mMain->frame()->Disarm(); // Activate motors
 					}
 					do_response = true;
 				}
 				break;
 			}
 			case CALIBRATE_ESCS : {
+				// TODO : Abort ESC calibration if already done once, or if drone has been armed before
 				if ( not mArmed ) {
 					mMain->stabilizer()->CalibrateESCs();
 				}
@@ -395,12 +397,12 @@ bool Controller::run()
 			}
 			case DISARM : {
 				gDebug() << "Disarming\n";
-				mMain->frame()->Disarm();
+				mArmed = false;
 				mThrust = 0.0f;
 				mMain->stabilizer()->Reset( 0.0f );
 				mRPY = Vector3f();
 				mSmoothRPY = Vector3f();
-				mArmed = false;
+				mMain->frame()->Disarm();
 				response.WriteU32( mArmed );
 				do_response = true;
 				break;

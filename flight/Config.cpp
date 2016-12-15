@@ -29,7 +29,7 @@ Config::Config( const std::string& filename )
 	, L( nullptr )
 {
 	L = luaL_newstate();
-// 	luaL_openlibs( L );
+	luaL_openlibs( L );
 
 	Reload();
 }
@@ -166,13 +166,30 @@ int Config::LocateValue( const std::string& _name )
 	} else {
 		char tmp[128];
 		int i, j, k;
+		bool in_table = false;
 		for ( i = 0, j = 0, k = 0; name[i]; i++ ) {
-			if ( name[i] == '.' ) {
+			if ( name[i] == '.' or name[i] == '[' or name[i] == ']' ) {
 				tmp[j] = 0;
-				if ( k == 0 ) {
-					lua_getfield( L, LUA_GLOBALSINDEX, tmp );
+				if ( strlen(tmp) == 0 ) {
+					j = 0;
+					k++;
+					continue;
+				}
+				if ( name[i] == '[' ) {
+					in_table = true;
+				}
+				if ( in_table and name[i] == ']' and lua_istable( L, -1 ) ) {
+					if ( tmp[0] >= '0' and tmp[0] <= '9' ) {
+						lua_rawgeti( L, -1, std::atoi(tmp) );
+					} else {
+						lua_getfield( L, -1, tmp );
+					}
 				} else {
-					lua_getfield( L, -1, tmp );
+					if ( k == 0 ) {
+						lua_getfield( L, LUA_GLOBALSINDEX, tmp );
+					} else {
+						lua_getfield( L, -1, tmp );
+					}
 				}
 				if ( lua_type( L, -1 ) == LUA_TNIL ) {
 					return -1;
@@ -193,6 +210,31 @@ int Config::LocateValue( const std::string& _name )
 	}
 
 	return 0;
+}
+
+
+int Config::ArrayLength( const std::string& name )
+{
+	if ( LocateValue( name ) < 0 ) {
+		return -1;
+	}
+
+	int ret = -1;
+
+	if ( lua_istable( L, -1 ) ) {
+		ret = 0;
+		size_t len = lua_objlen( L, -1 );
+		if ( len > 0 ) {
+			ret = len;
+		} else {
+			lua_pushnil( L );
+			while( lua_next( L, -2 ) != 0 ) {
+				ret++;
+			}
+		}
+	}
+
+	return ret;
 }
 
 
@@ -265,7 +307,7 @@ void Config::Reload()
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
 	luaL_dostring( L, "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" );
 	luaL_dostring( L, ( "board = { type = \"" + std::string( BOARD ) + "\" }" ).c_str() );
-	luaL_dostring( L, "frame = { motors = { front_left = {}, front_right = {}, rear_left = {}, rear_right = {} } }" );
+	luaL_dostring( L, "frame = { motors = {} }" );
 	luaL_dostring( L, "battery = {}" );
 	luaL_dostring( L, "camera = {}" );
 	luaL_dostring( L, "controller = {}" );

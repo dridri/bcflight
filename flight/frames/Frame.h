@@ -45,12 +45,17 @@ public:
 	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust ) = 0;
 	void CalibrateESCs();
 
+	bool armed() const;
+	bool airMode() const;
+
 	static Frame* Instanciate( const std::string& name, Config* config );
 	static void RegisterFrame( const std::string& name, std::function< Frame* ( Config* ) > instanciate );
 	static const std::map< std::string, std::function< Frame* ( Config* ) > > knownFrames() { return mKnownFrames; }
 
 protected:
 	std::vector< Motor* > mMotors;
+	bool mArmed;
+	bool mAirMode;
 
 private:
 	static std::map< std::string, std::function< Frame* ( Config* ) > > mKnownFrames;

@@ -25,7 +25,7 @@
 class PWM
 {
 public:
-	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us );
+	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop = true );
 	~PWM();
 
 	void SetPWMus( uint32_t width_us );
@@ -41,7 +41,7 @@ private:
 			MODE_BUFFER = 2,
 		} PinMode;
 
-		Channel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us );
+		Channel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop = true );
 		~Channel();
 
 		void SetPWMus( uint32_t pin, uint32_t width_us );
@@ -49,9 +49,11 @@ private:
 		void Update();
 
 		uint8_t mChannel;
+		bool mLoop;
 		uint8_t mPinsCount;
 		uint8_t mPins[32];
-		float mPinsPWM[32];
+		float mPinsPWMf[32];
+		uint32_t mPinsPWM[32];
 		PinMode mPinsMode[32];
 		uint8_t* mPinsBuffer[32];
 		uint32_t mPinsBufferLength[32];
@@ -88,14 +90,18 @@ private:
 			unsigned bus_addr;	/* From mem_lock() */
 			uint8_t *virt_addr;	/* From mapmem() */
 		} mMbox;
-		struct {
+		typedef struct dma_ctl_s {
 			uint32_t* sample;
 			dma_cb_t* cb;
-		} mCtl;
+		} dma_ctl_t;
+
+		dma_ctl_t mCtls[2];
+		uint32_t mCurrentCtl;
 
 		void update_pwm();
 		int mbox_open();
 		void init_ctrl_data();
+		void init_dma_ctl( dma_ctl_t* ctl );
 		void init_hardware( uint32_t time_base );
 		uint32_t mem_virt_to_phys( void* virt );
 

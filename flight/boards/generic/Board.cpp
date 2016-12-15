@@ -133,6 +133,27 @@ Board::Date Board::localDate()
 }
 
 
+
+const uint32_t Board::LoadRegisterU32( const std::string& name, uint32_t def )
+{
+	std::string str = LoadRegister( name );
+	if ( str != "" and str.length() > 0 ) {
+		return std::strtoul( str.c_str(), nullptr, 10 );
+	}
+	return def;
+}
+
+
+const float Board::LoadRegisterFloat( const std::string& name, float def )
+{
+	std::string str = LoadRegister( name );
+	if ( str != "" and str.length() > 0 ) {
+		return std::atof( str.c_str() );
+	}
+	return def;
+}
+
+
 const std::string Board::LoadRegister( const std::string& name )
 {
 	if ( mRegisters.find( name ) != mRegisters.end() ) {
@@ -227,3 +248,27 @@ uint32_t Board::CPUTemp()
 	return 0;
 }
 
+
+void Board::EnableTunDevice()
+{
+}
+
+
+void Board::DisableTunDevice()
+{
+}
+
+
+void Board::UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t size )
+{
+}
+
+
+void Board::UpdateFirmwareProcess( uint32_t crc )
+{
+}
+
+
+void Board::Reset()
+{
+}

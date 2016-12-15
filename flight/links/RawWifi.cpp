@@ -18,6 +18,7 @@
 
 #if ( BUILD_RAWWIFI == 1 )
 
+#include <unistd.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <Debug.h>

@@ -41,7 +41,8 @@ IMU::IMU( Main* main )
 	, mdRPY( Vector3f() )
 	, mRate( Vector3f() )
 	, mRPYOffset( Vector3f() )
-	, mCalibrationAccum( 0 )
+	, mCalibrationStep( 0 )
+	, mCalibrationTimer( 0 )
 	, mRPYAccum( Vector4f() )
 	, mGravity( Vector3f() )
 	, mRates( 3, 3 )
@@ -265,38 +266,66 @@ void IMU::Loop( float dt )
 
 void IMU::Calibrate( float dt, bool all )
 {
-	if ( mCalibrationAccum < 3000 ) {
-		if ( mCalibrationAccum == 0 ) {
+	switch ( mCalibrationStep ) {
+		case 0 : {
 			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors\n";
+			mCalibrationStep++;
+			mCalibrationTimer = Board::GetTicks();
+			break;
 		}
-		bool last_pass = ( mCalibrationAccum >= 2999 );
-		if ( last_pass ) {
-			gDebug() << "Calibration last pass\n";
-		}
-		for ( auto dev : Sensor::Devices() ) {
-			if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
-				dev->Calibrate( dt, last_pass );
+		case 1 : {
+			for ( auto dev : Sensor::Devices() ) {
+				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
+					dev->Calibrate( dt, false );
+				}
 			}
+			if ( Board::GetTicks() - mCalibrationTimer >= 1000 * 1000 * 2 ) {
+				mCalibrationStep++;
+			}
+			break;
 		}
-	} else if ( all and mCalibrationAccum < 4000 ) {
-		if ( mCalibrationAccum == 3000 ) {
+		case 2 : {
+			gDebug() << "Calibration last pass\n";
+			for ( auto dev : Sensor::Devices() ) {
+				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
+					dev->Calibrate( dt, true );
+				}
+			}
+			mCalibrationStep++;
+			if ( all == false ) {
+				mCalibrationStep = 5;
+			}
+			break;
+		}
+		case 3 : {
 			gDebug() << "Calibrating gravity\n";
+			mGravity = Vector3f();
+			mCalibrationStep++;
+			mCalibrationTimer = Board::GetTicks();
+			break;
 		}
-		UpdateSensors( dt );
-		mGravity += mAcceleration / 1000.0f;
-	} else {
-		gDebug() << "Calibration almost done...\n";
-		mState = CalibrationDone;
-		mAcceleration = Vector3f();
-		mGyroscope = Vector3f();
-		mMagnetometer = Vector3f();
-		mRPY = Vector3f();
-		mdRPY = Vector3f();
-		mRate = Vector3f();
-		gDebug() << "Calibration done !\n";
+		case 4 : {
+			UpdateSensors( dt );
+			mGravity = ( mGravity * 0.5f ) + ( mAcceleration * 0.5f );
+			if ( Board::GetTicks() - mCalibrationTimer >= 1000 * 1000 * 1 ) {
+				mCalibrationStep++;
+			}
+			break;
+		}
+		case 5 : {
+			gDebug() << "Calibration almost done...\n";
+			mState = CalibrationDone;
+			mAcceleration = Vector3f();
+			mGyroscope = Vector3f();
+			mMagnetometer = Vector3f();
+			mRPY = Vector3f();
+			mdRPY = Vector3f();
+			mRate = Vector3f();
+			gDebug() << "Calibration done !\n";
+			break;
+		}
+		default: break;
 	}
-
-	mCalibrationAccum++;
 }
 
 
@@ -314,16 +343,16 @@ void IMU::Recalibrate()
 		return;
 	}
 
-	mCalibrationAccum = 0;
+	mCalibrationStep = 0;
 	mState = Calibrating;
 	mRPYOffset = Vector3f();
-	gDebug() << "Calibrating...\n";
+	gDebug() << "Calibrating gyroscope...\n";
 }
 
 
 void IMU::RecalibrateAll()
 {
-	mCalibrationAccum = 0;
+	mCalibrationStep = 0;
 	mState = CalibratingAll;
 	mRPYOffset = Vector3f();
 	gDebug() << "Calibrating all sensors...\n";

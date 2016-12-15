@@ -23,6 +23,7 @@
 #include "XFrame.h"
 #include "IMU.h"
 #include <motors/BrushlessPWM.h>
+#include <motors/OneShot125.h>
 #include <Servo.h>
 #include <Board.h>
 
@@ -54,6 +55,12 @@ XFrame::XFrame( Config* config )
 	if ( maxspeed > 0.0f and maxspeed <= 1.0f ) {
 		mMaxSpeed = maxspeed;
 	}
+/*
+	mMotors[0] = new OneShot125( config->integer( "frame.motors.front_left.pin" ) );
+	mMotors[1] = new OneShot125( config->integer( "frame.motors.front_right.pin" ) );
+	mMotors[2] = new OneShot125( config->integer( "frame.motors.rear_left.pin" ) );
+	mMotors[3] = new OneShot125( config->integer( "frame.motors.rear_right.pin" ) );
+*/
 
 	int fl_pin = config->integer( "frame.motors.front_left.pin" );
 	int fl_min = config->integer( "frame.motors.front_left.minimum_us", 1020 );
@@ -74,7 +81,6 @@ XFrame::XFrame( Config* config )
 	int rr_min = config->integer( "frame.motors.rear_right.minimum_us", 1020 );
 	int rr_max = config->integer( "frame.motors.rear_right.maximum_us", 1860 );
 	mMotors[3] = new BrushlessPWM( rr_pin, rr_min, rr_max );
-
 
 	mPIDMultipliers[0].x = config->number( "frame.motors.front_left.pid_vector.x" );
 	mPIDMultipliers[0].y = config->number( "frame.motors.front_left.pid_vector.y" );
@@ -148,12 +154,16 @@ void XFrame::WarmUp()
 
 bool XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 {
-// 	if ( not mArmed ) {
-// 		return false;
-// 	}
+	if ( not mArmed ) {
+		return false;
+	}
+	// Automatically enable air-mode after lift-off
 	if ( thrust >= 0.4f ) {
 		mAirMode = true;
 	}
+
+	// TODO : instead of clamping between min and max, calculate the wider difference between motors' power
+	// If the value is >1.0, reduce everything to become in range 0.0-1.0
 
 	if ( mAirMode or thrust >= 0.075f ) {
 		mStabSpeeds[0] = mPIDMultipliers[0] * pid_output + thrust; // Front L
@@ -171,22 +181,30 @@ bool XFrame::Stabilize( const Vector3f& pid_output, const float& thrust )
 			mStabSpeeds[3] -= diff;
 		}
 
-
 		if ( mAirMode ) {
-			mStabSpeeds[0] = std::max( mStabSpeeds[0], mAirModeSpeed ); // TODO : Use config-defined value
-			mStabSpeeds[1] = std::max( mStabSpeeds[1], mAirModeSpeed );
-			mStabSpeeds[2] = std::max( mStabSpeeds[2], mAirModeSpeed );
-			mStabSpeeds[3] = std::max( mStabSpeeds[3], mAirModeSpeed );
+			if ( thrust <= mAirModeSpeed ) {
+				float min = std::min( std::min( std::min( mStabSpeeds[0], mStabSpeeds[1] ), mStabSpeeds[2] ), mStabSpeeds[3] );
+				if ( min < mAirModeSpeed ) {
+					float diff = mAirModeSpeed - min;
+					mStabSpeeds[0] += diff;
+					mStabSpeeds[1] += diff;
+					mStabSpeeds[2] += diff;
+					mStabSpeeds[3] += diff;
+				}
+			} else {
+				mStabSpeeds[0] = std::max( mStabSpeeds[0], mAirModeSpeed );
+				mStabSpeeds[1] = std::max( mStabSpeeds[1], mAirModeSpeed );
+				mStabSpeeds[2] = std::max( mStabSpeeds[2], mAirModeSpeed );
+				mStabSpeeds[3] = std::max( mStabSpeeds[3], mAirModeSpeed );
+			}
 		} else if ( thrust <= 0.15f ) {
+			// Set all motors to thrust value, disabling PID effects which prevent drone to flip over at lift-off
+			// TODO : Remove this, expose air-mode to Stabilizer, set the Stabilizer to not calculate PIDs and call Stabilize( {0,0,0}, thrust ) when air-mode is false and thrust <= 0.15
 			mStabSpeeds[0] = thrust;
 			mStabSpeeds[1] = thrust;
 			mStabSpeeds[2] = thrust;
 			mStabSpeeds[3] = thrust;
 		}
-
-// 		if ( ( Board::GetTicks() / ( 10 * 1000 ) ) % 5 == 0 ) {
-// 			gDebug() << "mStabSpeeds[0] = " << mStabSpeeds[0] << "\n";
-// 		}
 
 		mMotors[0]->setSpeed( mStabSpeeds[0] );
 		mMotors[1]->setSpeed( mStabSpeeds[1] );

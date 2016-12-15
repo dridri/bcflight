@@ -58,7 +58,6 @@ uint64_t Board::mLastWorkJiffies = 0;
 uint64_t Board::mLastTotalJiffies = 0;
 bool Board::mUpdating = false;
 decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
-PWM* Board::mMotorsPWM = nullptr;
 
 VCHI_INSTANCE_T Board::global_initialise_instance = nullptr;
 VCHI_CONNECTION_T* Board::global_connection = nullptr;
@@ -71,10 +70,6 @@ Board::Board( Main* main )
 // 	VCOSInit();
 
 	wiringPiSetupGpio();
-
-	//TODO : load later, using pins specified in config file
-// 	uint8_t motors_pins[] = { 18, 23, 24, 25 };
-// 	mMotorsPWM = new PWM( 14, 1000000, 2000, 2, motors_pins, 4 );
 
 	system( "mount -o remount,rw /var" );
 	system( "mkdir -p /var/VIDEO" );
@@ -103,12 +98,6 @@ Board::~Board()
 
 void Board::AtExit()
 {
-}
-
-
-PWM* Board::motorsPWM()
-{
-	return mMotorsPWM;
 }
 
 
@@ -267,8 +256,9 @@ std::string Board::readcmd( const std::string& cmd, const std::string& entry, co
 	}
 
 	if ( entry.length() == 0 or entry == "" ) {
-		fread( buf, 1, sizeof( buf ), fp );
-		res = buf;
+		while ( fgets( buf, sizeof(buf), fp ) ) {
+			res += buf;
+		}
 	} else {
 		while ( fgets( buf, sizeof(buf), fp ) ) {
 			if ( strstr( buf, entry.c_str() ) ) {
@@ -321,7 +311,6 @@ void Board::InformLoading( int force_led )
 		if ( force_led == 0 or force_led == 1 ) {
 			led_state = force_led;
 		}
-// 		sprintf( cmd, "echo %d > /sys/class/leds/led1/brightness", led_state );
 		sprintf( cmd, "echo %d > /sys/class/leds/led0/brightness", led_state );
 		system( cmd );
 	}
@@ -330,7 +319,7 @@ void Board::InformLoading( int force_led )
 
 void Board::LoadingDone()
 {
-	InformLoading( true );
+	InformLoading( 1 );
 }
 
 

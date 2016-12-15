@@ -87,7 +87,8 @@ protected:
 	Vector4f mAccelerometerOffset;
 
 	// Calibration states
-	int mCalibrationAccum;
+	uint32_t mCalibrationStep;
+	uint64_t mCalibrationTimer;
 	Vector4f mRPYAccum;
 	Vector4f mdRPYAccum;
 	Vector3f mGravity;

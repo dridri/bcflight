@@ -47,6 +47,7 @@ public:
 	std::vector<int> integerArray( const std::string& name );
 
 	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
+	int ArrayLength( const std::string& name );
 
 	std::string ReadFile();
 	void WriteFile( const std::string& content );

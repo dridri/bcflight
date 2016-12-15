@@ -166,7 +166,7 @@ static void fatal( const char *fmt, ... )
 }
 
 
-PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time )
+PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time, bool loop )
 	: mChannel( nullptr )
 	, mPin( pin )
 {
@@ -182,16 +182,16 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 		}
 	}
 
-	uint8_t channel = 14;
+	uint8_t channel = 12;
 	for ( Channel* chan : mChannels ) {
-		if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time ) {
+		if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time and chan->mLoop == loop ) {
 			mChannel = chan;
 			break;
 		}
 		channel = chan->mChannel - 1;
 	}
 	if ( not mChannel ) {
-		mChannel = new Channel( channel, time_base, period_time, sample_time );
+		mChannel = new Channel( channel, time_base, period_time, sample_time, loop );
 		mChannels.emplace_back( mChannel );
 	}
 }
@@ -213,17 +213,20 @@ void PWM::Update()
 }
 
 
-PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time, uint32_t sample_time )
+PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time, uint32_t sample_time, bool loop )
 	: mChannel( channel )
+	, mLoop( loop )
 	, mPinsCount( 0 )
 	, mTimeBase( time_base )
 	, mCycleTime( period_time )
 	, mSampleTime( sample_time )
 	, mNumSamples( mCycleTime / mSampleTime )
 	, mNumCBs( mNumSamples * 2 )
-	, mNumPages( ( mNumCBs * sizeof(dma_cb_t) + mNumSamples * 4 + PAGE_SIZE - 1 ) >> PAGE_SHIFT )
+	, mNumPages( ( mNumCBs * sizeof(dma_cb_t) + mNumSamples * sizeof(uint32_t) + PAGE_SIZE - 1 ) >> PAGE_SHIFT )
+	, mCurrentCtl( 0 )
 {
 	memset( mPins, 0, sizeof(mPins) );
+	memset( mPinsPWMf, 0, sizeof(mPinsPWMf) );
 	memset( mPinsPWM, 0, sizeof(mPinsPWM) );
 	memset( mPinsMode, 0, sizeof(mPinsMode) );
 	memset( mPinsBuffer, 0, sizeof(mPinsBuffer) );
@@ -259,14 +262,16 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 	gpio_reg = (uint32_t*)map_peripheral( GPIO_BASE, GPIO_LEN );
 
 	/* Use the mailbox interface to the VC to ask for physical memory */
-	mMbox.mem_ref = mem_alloc( mMbox.handle, mNumPages * PAGE_SIZE, PAGE_SIZE, mem_flag );
+	mMbox.mem_ref = mem_alloc( mMbox.handle, mNumPages * PAGE_SIZE * 2, PAGE_SIZE, mem_flag );
 	dprintf( "mem_ref %u\n", mMbox.mem_ref );
 	mMbox.bus_addr = mem_lock( mMbox.handle, mMbox.mem_ref );
 	dprintf( "bus_addr = %#x\n", mMbox.bus_addr );
-	mMbox.virt_addr = (uint8_t*)mapmem( BUS_TO_PHYS(mMbox.bus_addr), mNumPages * PAGE_SIZE );
+	mMbox.virt_addr = (uint8_t*)mapmem( BUS_TO_PHYS(mMbox.bus_addr), mNumPages * PAGE_SIZE * 2 );
 	dprintf( "virt_addr %p\n", mMbox.virt_addr );
-	mCtl.sample = (uint32_t*)mMbox.virt_addr;
-	mCtl.cb = (dma_cb_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples ];
+	mCtls[0].sample = (uint32_t*)mMbox.virt_addr;
+	mCtls[0].cb = (dma_cb_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples ];
+	mCtls[1].sample = (uint32_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples + sizeof(dma_cb_t) * mNumSamples ];
+	mCtls[1].cb = (dma_cb_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples * 2 + sizeof(dma_cb_t) * mNumSamples ];
 
 	if ( (unsigned long)mMbox.virt_addr & ( PAGE_SIZE - 1 ) ) {
 		fatal("pi-blaster: Virtual address is not page aligned\n");
@@ -354,7 +359,8 @@ void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
 		fsel |= GPIO_MODE_OUT << ((pin % 10) * 3);
 		gpio_reg[GPIO_FSEL0 + pin/10] = fsel;
 	}
-	mPinsPWM[i] = fwidth;
+	mPinsPWMf[i] = fwidth;
+	mPinsPWM[i] = (uint32_t)( fwidth * mNumSamples );
 }
 
 
@@ -397,11 +403,19 @@ void PWM::Channel::update_pwm()
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
 	uint32_t mask;
+	dma_ctl_t ctl = mCtls[0];
+	if ( mLoop ) {
+// 		ctl = mCtls[ ( mCurrentCtl + 1 ) % 2 ];
+	}
+
+	while ( mLoop == false and ( dma_reg[DMA_CS] & 1 ) ) { // Wait until CMA_ACTIVE bit is false to prevent overlapping writes
+		usleep(0);
+	}
 
 	uint32_t i, j;
 	/* First we turn on the channels that need to be on */
 	/*   Take the first PWM Packet and set it's target to start pulse */
-	mCtl.cb[0].dst = phys_gpset0;
+	ctl.cb[0].dst = phys_gpset0;
 
 	/*   Now create a mask of all the pins that should be on */
 	mask = 0;
@@ -409,34 +423,26 @@ void PWM::Channel::update_pwm()
 		mask |= 1 << mPins[i];
 	}
 	/*   And give that to the PWM controller to write */
-	mCtl.sample[0] = mask;
+	ctl.sample[0] = mask;
 
 	/* Now we go through all the samples and turn the pins off when needed */
 	for ( j = 1; j < mNumSamples; j++ ) {
-		mCtl.cb[j*2].dst = phys_gpclr0;
+		ctl.cb[j*2].dst = phys_gpclr0;
 		mask = 0;
 		for ( i = 0; i <= mPinsCount; i++ ) {
-			if ( mPins[i] and j > (uint32_t)( mPinsPWM[i] * mNumSamples ) ) {
+			if ( mPins[i] and j > mPinsPWM[i] ) {
 				mask |= 1 << mPins[i];
 			}
-			/*
-			if ( mPins[i] ) {
-				if ( mPinsMode[i] == MODE_PWM and j > (uint32_t)( mPinsPWM[i] * mNumSamples ) ) {
-					mask |= 1 << mPins[i];
-				} else if ( mPinsMode[i] == MODE_BUFFER ) {
-					if ( ( j - 1 ) < mPinsBufferLength[i] and mPinsBuffer[i] and mPinsBuffer[i][j-1] == 0 ) {
-						mCtl.cb[j*2].dst = phys_gpclr0;
-						mask |= 1 << mPins[i];
-					} else {
-						mCtl.cb[j*2].dst = phys_gpset0;
-						mask |= 1 << mPins[i];
-					}
-				} else {
-				}
-			}
-			*/
 		}
-		mCtl.sample[j] = mask;
+		ctl.sample[j] = mask;
+	}
+
+	if ( mLoop == false ) {
+// 		mCurrentCtl = ( mCurrentCtl + 1 ) % 2;
+		dma_reg[DMA_CS] = DMA_INT | DMA_END;
+		dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
+		dma_reg[DMA_DEBUG] = 7; // clear debug error flags
+		dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
 	}
 }
 
@@ -444,14 +450,22 @@ void PWM::Channel::update_pwm()
 void PWM::Channel::init_ctrl_data()
 {
 	dprintf( "Initializing PWM ...\n" );
-	dma_cb_t *cbp = mCtl.cb;
+	init_dma_ctl( &mCtls[0] );
+// 	init_dma_ctl( &mCtls[1] );
+	dprintf( "Ok\n" );
+}
+
+
+void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
+{
+	dma_cb_t* cbp = ctl->cb;
 	uint32_t phys_fifo_addr;
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
 	uint32_t mask;
 	uint32_t i;
 
 	phys_fifo_addr = PWM_PHYS_BASE + 0x18;
-	memset( mCtl.sample, 0, sizeof(uint32_t)*mNumSamples );
+	memset( ctl->sample, 0, sizeof(uint32_t)*mNumSamples );
 
 	// Calculate a mask to turn off all the servos
 	mask = 0;
@@ -459,7 +473,7 @@ void PWM::Channel::init_ctrl_data()
 		mask |= 1 << mPins[i];
 	}
 	for ( i = 0; i < mNumSamples; i++ ) {
-		mCtl.sample[i] = mask;
+		ctl->sample[i] = mask;
 	}
 
 	/* Initialize all the PWM commands. They come in pairs.
@@ -470,7 +484,7 @@ void PWM::Channel::init_ctrl_data()
 	for (i = 0; i < mNumSamples; i++) {
 		/* First PWM command */
 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
-		cbp->src = mem_virt_to_phys(mCtl.sample + i);
+		cbp->src = mem_virt_to_phys(ctl->sample + i);
 		cbp->dst = phys_gpclr0;
 		cbp->length = 4;
 		cbp->stride = 0;
@@ -478,7 +492,7 @@ void PWM::Channel::init_ctrl_data()
 		cbp++;
 		/* Second PWM command */
 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5);
-		cbp->src = mem_virt_to_phys(mCtl.sample);	// Any data will do
+		cbp->src = mem_virt_to_phys(ctl->sample);	// Any data will do
 		cbp->dst = phys_fifo_addr;
 		cbp->length = 4;
 		cbp->stride = 0;
@@ -486,7 +500,11 @@ void PWM::Channel::init_ctrl_data()
 		cbp++;
 	}
 	cbp--;
-	cbp->next = mem_virt_to_phys(mCtl.cb);
+	if ( mLoop ) {
+		cbp->next = mem_virt_to_phys(ctl->cb);
+	} else {
+		cbp->next = 0;
+	}
 	dprintf( "Ok\n" );
 }
 
@@ -518,9 +536,9 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	dma_reg[DMA_CS] = DMA_RESET;
 	usleep(10);
 	dma_reg[DMA_CS] = DMA_INT | DMA_END;
-	dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtl.cb);
+	dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
 	dma_reg[DMA_DEBUG] = 7; // clear debug error flags
-	dma_reg[DMA_CS] = 0x10880001;	// go, mid priority, wait for outstanding writes
+	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
 	dprintf( "Ok\n" );
 }
 

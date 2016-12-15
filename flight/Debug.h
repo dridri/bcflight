@@ -59,7 +59,7 @@ public:
 	}
 	~Debug() {
 		std::string s = mSS.str();// + "\n"; TODO : uncomment this, and remove <<"\n" everywhere..
-		printf( s.c_str() );
+		printf( "%s", s.c_str() );
 		fflush( stdout );
 		SendControllerOutput( s );
 	}

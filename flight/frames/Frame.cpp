@@ -25,6 +25,8 @@ std::map< std::string, std::function< Frame* ( Config* ) > > Frame::mKnownFrames
 
 Frame::Frame()
 	: mMotors( std::vector< Motor* >() )
+	, mArmed( false )
+	, mAirMode( false )
 {
 }
 
@@ -51,21 +53,33 @@ void Frame::CalibrateESCs()
 		m->setSpeed( 1.0f, true );
 	}
 
-	gDebug() << "Waiting 10 seconds...\n";
-	usleep( 10 * 1000 * 1000 );
+	gDebug() << "Waiting 8 seconds...\n";
+	usleep( 8 * 1000 * 1000 );
 
 	gDebug() << "Setting minimal speed\n";
 	for ( Motor* m : mMotors ) {
 		m->setSpeed( 0.0f, true );
 	}
 
-	gDebug() << "Waiting 2 seconds...\n";
-	usleep( 2 * 1000 * 1000 );
+	gDebug() << "Waiting 8 seconds...\n";
+	usleep( 8 * 1000 * 1000 );
 
 	gDebug() << "Disarm all ESCs\n";
 	for ( Motor* m : mMotors ) {
 		m->Disarm();
 	}
+}
+
+
+bool Frame::armed() const
+{
+	return mArmed;
+}
+
+
+bool Frame::airMode() const
+{
+	return mAirMode;
 }
 
 

@@ -11,7 +11,7 @@ battery = {
 	voltage = Voltmeter{ device = "ADS1015", channel = 0, multiplier = 3.0 }, -- Battery voltage
 	current = Voltmeter{ device = "ADS1015", channel = 1, shift = -2.5, multiplier = 1.0 / 0.028 }, -- Battery current draw, in amperes.
 	-- ^ For current sensor, in this particular example a Pololu ACS709 is connected to ADS1015 channel 1, which is centered around VCC/2 (=> 2.5V) and outputs 0.028V per Amp
-	low_voltage = 3.3,
+	low_voltage = 3.3, -- 3.3V per cell, cell count is automatically detected when battery status is resetted
 	low_voltage_trigger = Buzzer{ pin = 4, pattern = { 100, 100, 100, 100, 100, 750 } },
 }
 
@@ -29,48 +29,25 @@ controller.expo = {
 }
 
 
---- Choose your frame type by uncommenting it and commenting the others
---frame.type = "PlusFrame"
-frame.type = "XFrame"
--- frame.type = "XFrameVTail"
+-- This is the typical configuration for an X-Frame quadcopter, motors 1-2-3-4 are { front-left, front-right, rear-left, rear-right }
+frame.type = "Multicopter"
+-- Set PID multipliers for each motor ( input vector is : { Roll, Pitch, Yaw } )
+frame.motors = {
+	{ pid_vector = Vector( -1.0,  1.0, -1.0 ) },
+	{ pid_vector = Vector(  1.0,  1.0,  1.0 ) },
+	{ pid_vector = Vector( -1.0, -1.0,  1.0 ) },
+	{ pid_vector = Vector(  1.0, -1.0, -1.0 ) },
+}
 
-if frame.type == "PlusFrame" then
-	-- TODO
-elseif frame.type == "XFrame" or frame.type == "XFrameVTail" then
-	-- Set motors PWM pins
-	-- The pins numbers are the hardware PWM output pins of the board being used
-	if board.type == "rpi" then
-		-- See http://pinout.xyz/ or http://elinux.org/RPi_Low-level_peripherals#P1_Header
-		-- Available pins are : BCM 4, 17, 18, 27, 22, 23, 24, 25
-		frame.motors = {
-			front_left = {
-				pin = 18,
-			},
-			front_right = {
-				pin = 23,
-			},
-			rear_left = {
-				pin = 24,
-			},
-			rear_right = {
-				pin = 25,
-			},
-		}
-	end
-	-- Set PID multipliers for each motor ( input vector is : { Roll, Pitch, Yaw } )
-	if frame.type == "XFrame" then
-		frame.motors.front_left.pid_vector  = Vector( -1.0,  1.0, -1.0 )
-		frame.motors.front_right.pid_vector = Vector(  1.0,  1.0,  1.0 )
-		frame.motors.rear_left.pid_vector   = Vector( -1.0, -1.0,  1.0 )
-		frame.motors.rear_right.pid_vector  = Vector(  1.0, -1.0, -1.0 )
-	elseif frame.type == "XFrameVTail" then
-		frame.motors.front_left.pid_vector  = Vector( -1.0,      2.0/3.0,  0.0 )
-		frame.motors.front_right.pid_vector = Vector(  1.0,      2.0/3.0,  0.0 )
-		frame.motors.rear_left.pid_vector   = Vector( -1.0/5.0, -4.0/3.0, -1.0 )
-		frame.motors.rear_right.pid_vector  = Vector(  1.0/5.0, -4.0/3.0,  1.0 )
-		-- use XFrame as type, since V-Tail only differs by its PID multipliers
-		frame.type = "XFrame"
-	end
+-- Set motors PWM pins
+-- The pins numbers are the hardware PWM output pins of the board being used
+if board.type == "rpi" then
+	-- See http://pinout.xyz/ or http://elinux.org/RPi_Low-level_peripherals#P1_Header
+	-- Available pins are : BCM 4, 17, 18, 27, 22, 23, 24, 25
+	frame.motors[1].pin = 18
+	frame.motors[2].pin = 23
+	frame.motors[3].pin = 24
+	frame.motors[4].pin = 25
 end
 
 
