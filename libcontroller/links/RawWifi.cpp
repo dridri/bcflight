@@ -31,12 +31,13 @@ std::mutex RawWifi::mInitializingMutex;
 bool RawWifi::mInitializing = false;
 bool RawWifi::mInitialized = false;
 
-RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
+RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, int read_timeout_ms )
 	: Link()
 	, mRawWifi( nullptr )
 	, mDevice( device )
 	, mChannel( 11 )
 	, mTxPower( 33 )
+	, mReadTimeout( read_timeout_ms )
 	, mCECMode( RAWWIFI_RX_FAST )
 	, mRecoverMode( RAWWIFI_FILL_WITH_ZEROS )
 	, mOutputPort( out_port )
@@ -182,7 +183,7 @@ int RawWifi::Connect()
 {
 	Initialize( mDevice, mChannel, mTxPower );
 
-	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1, -1 );
+	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1, mReadTimeout );
 	if ( !mRawWifi ) {
 		return -1;
 	}
@@ -222,9 +223,13 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 // 	}
 
 	if ( ret == -3 ) {
-		std::cout << "WARNING : Read timeout\n";
-		mConnected = false;
-		return LINK_ERROR_TIMEOUT;
+		if ( mReadTimeout > 1 ) {
+			std::cout << "WARNING : Read timeout\n";
+			mConnected = false;
+			return LINK_ERROR_TIMEOUT;
+		} else {
+			return 0;
+		}
 	}
 
 	if ( ret < 0 ) {

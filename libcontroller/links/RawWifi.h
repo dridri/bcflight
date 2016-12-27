@@ -29,7 +29,7 @@
 class RawWifi : public Link
 {
 public:
-	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1 );
+	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1, int read_timeout_ms = -1 );
 	~RawWifi();
 
 	int Connect();
@@ -56,6 +56,7 @@ protected:
 	std::string mDevice;
 	int mChannel;
 	int mTxPower;
+	uint32_t mReadTimeout;
 	RAWWIFI_RX_FEC_MODE mCECMode;
 	RAWWIFI_BLOCK_RECOVER_MODE mRecoverMode;
 	int16_t mOutputPort;
