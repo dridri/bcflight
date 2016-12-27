@@ -1,0 +1,8 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>data/icon_home.png</file>
+    <file>data/icon_network.png</file>
+    <file>data/icon_pid.png</file>
+    <file>data/icon_settings.png</file>
+  </qresource>
+</RCC>
