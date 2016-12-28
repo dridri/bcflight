@@ -21,8 +21,10 @@
 
 #include <QtCore/QTimer>
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QThread>
 #include <QtWidgets/QMainWindow>
 #include "Config.h"
+#include "Thread.h"
 
 namespace Ui {
 	class MainWindow;
@@ -31,6 +33,7 @@ namespace Ui {
 class Link;
 class ControllerPC;
 class ControllerMonitor;
+class FirmwareUpdateThread;
 
 class MainWindow : public QMainWindow
 {
@@ -39,6 +42,9 @@ class MainWindow : public QMainWindow
 public:
 	MainWindow();
 	~MainWindow();
+
+	bool RunFirmwareUpdate();
+	Ui::MainWindow* getUi() const { return ui; }
 
 public slots:
 	void connected();
@@ -71,14 +77,31 @@ public slots:
 	void VideoSaturationDecrease();
 	void VideoRecord();
 	void RecordingsRefresh();
+	void setFirmwareUpdateProgress( int val );
+	void appendDebugOutput( const QString& str );
+
+signals:
+	void firmwareUpdateProgress( int val );
+	void debugOutput( const QString& str );
 
 private:
+	class FirmwareUpdateThread : public QThread {
+	public:
+		FirmwareUpdateThread( MainWindow* instance ) : QThread(), mInstance( instance ) {}
+	protected:
+		void run() {
+			mInstance->RunFirmwareUpdate();
+		}
+		MainWindow* mInstance;
+	};
+
 	Ui::MainWindow* ui;
 	Config* mConfig;
 	ControllerPC* mController;
 	ControllerMonitor* mControllerMonitor;
 	Link* mStreamLink;
 	QTimer* mUpdateTimer;
+	FirmwareUpdateThread* mFirmwareUpdateThread;
 
 	QElapsedTimer mTicks;
 	QVector< double > mDataT;

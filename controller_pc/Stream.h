@@ -31,6 +31,8 @@
 #include <Link.h>
 #include <codec_api.h>
 
+class MainWindow;
+
 class Stream : public QGLWidget
 {
 	Q_OBJECT
@@ -38,11 +40,14 @@ class Stream : public QGLWidget
 public:
 	Stream( QWidget* parent );
 	virtual ~Stream();
+	void setMainWindow( MainWindow* win );
 	void setLink( Link* l );
 	int32_t fps();
 
 protected:
 	virtual void paintGL();
+	virtual void mouseDoubleClickEvent( QMouseEvent * e );
+	virtual void closeEvent( QCloseEvent* e );
 	bool run();
 	void DecodeFrame( const uint8_t* src, size_t sliceSize );
 
@@ -70,6 +75,7 @@ private:
 	};
 
 	StreamThread* mStreamThread;
+	MainWindow* mMainWindow;
 	Link* mLink;
 	ISVCDecoder* mDecoder;
 	Plane mY;
@@ -81,6 +87,7 @@ private:
 	uint32_t mFpsCounter;
 	uint32_t mFps;
 	QElapsedTimer mFpsTimer;
+	QWidget* mParentWidget;
 };
 
 #endif // STREAM_H

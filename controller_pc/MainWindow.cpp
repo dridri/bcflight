@@ -50,6 +50,7 @@ MainWindow::MainWindow()
 	, mController( nullptr )
 	, mControllerMonitor( nullptr )
 	, mStreamLink( nullptr )
+	, mFirmwareUpdateThread( nullptr )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
@@ -154,6 +155,7 @@ MainWindow::MainWindow()
 
 	mTicks.start();
 
+	ui->video->setMainWindow( this );
 	ui->video->setLink( mStreamLink );
 }
 
@@ -214,6 +216,15 @@ static void Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int in
 }
 
 
+void MainWindow::appendDebugOutput( const QString& str )
+{
+	QTextCursor cursor( ui->terminal->textCursor() );
+	ui->terminal->setPlainText( ui->terminal->toPlainText() + str );
+	cursor.movePosition( QTextCursor::End );
+	ui->terminal->setTextCursor( cursor );
+}
+
+
 void MainWindow::connected()
 {
 	qDebug() << "Fetching board data";
@@ -255,7 +266,9 @@ void MainWindow::updateData()
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
 		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % )    |    %7 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
-		ui->latency->setText( QString::number( mController->ping() ) + " ms" );
+		if ( mController->ping() < 10000 ) {
+			ui->latency->setText( QString::number( mController->ping() ) + " ms" );
+		}
 		ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );
 		ui->current->setText( QString::number( mController->currentDraw(), 'f', 2 ) + " A" );
 		ui->current_total->setText( QString::number( mController->totalCurrent() ) + " mAh" );
@@ -273,12 +286,21 @@ void MainWindow::updateData()
 			}
 		}
 
-		const std::list< vec4 > rpy;// = mController->rpyHistory();
+		const std::list< vec4 > rpy = mController->rpyHistory();
 		mDataT.clear();
 		mDataR.clear();
 		mDataP.clear();
 		mDataY.clear();
 		for ( vec4 v : rpy ) {
+			if ( fabsf( v.x ) > 1000.0f ) {
+				v.x = 0.0f;
+			}
+			if ( fabsf( v.y ) > 1000.0f ) {
+				v.y = 0.0f;
+			}
+			if ( fabsf( v.z ) > 1000.0f ) {
+				v.z = 0.0f;
+			}
 			mDataT.append( v.w );
 			mDataR.append( v.x );
 			mDataP.append( v.y );
@@ -435,12 +457,33 @@ void MainWindow::firmwareFileSelected( QString path )
 
 void MainWindow::FirmwareUpload()
 {
+	if ( mFirmwareUpdateThread ) {
+		if ( mFirmwareUpdateThread->isRunning() ) {
+			return;
+		}
+		delete mFirmwareUpdateThread;
+	}
+	mFirmwareUpdateThread = new FirmwareUpdateThread( this );
+	connect( this, SIGNAL( firmwareUpdateProgress(int) ), this, SLOT( setFirmwareUpdateProgress(int) ) );
+	connect( this, SIGNAL( debugOutput(QString) ), this, SLOT( appendDebugOutput(QString) ) );
+	mFirmwareUpdateThread->start();
+}
+
+
+void MainWindow::setFirmwareUpdateProgress( int val )
+{
+	ui->firmware_progress->setValue( val );
+}
+
+
+bool MainWindow::RunFirmwareUpdate()
+{
 	if ( mController and not mController->isSpectate() ) {
-		ui->firmware_progress->setValue( 0 );
+		emit firmwareUpdateProgress( 0 );
 
 		if ( ui->firmware_path->text().length() > 0 and QFile::exists( ui->firmware_path->text() ) and mController->isConnected() ) {
 			QFile f( ui->firmware_path->text() );
-			if ( !f.open( QFile::ReadOnly ) ) return;
+			if ( !f.open( QFile::ReadOnly ) ) return false;
 			QByteArray ba = f.readAll();
 
 			mController->UploadUpdateInit();
@@ -451,29 +494,30 @@ void MainWindow::FirmwareUpload()
 					sz = ba.size() - offset;
 				}
 				mController->UploadUpdateData( (const uint8_t*)&ba.constData()[offset], offset, sz );
-				ui->firmware_progress->setValue( offset * 100 / ba.size() + 1 );
+				emit firmwareUpdateProgress( offset * 100 / ba.size() + 1 );
 				QApplication::processEvents();
 			}
 
-			QTextCursor cursor( ui->terminal->textCursor() );
-			ui->terminal->setPlainText( ui->terminal->toPlainText() + "====> Applying firmware update and restarting service, please wait... <====" );
-			cursor.movePosition( QTextCursor::End );
-			ui->terminal->setTextCursor( cursor );
+			emit debugOutput( "\n====> Applying firmware update and restarting service, please wait... <====\n" );
 
 			mController->UploadUpdateProcess( (const uint8_t*)ba.constData(), ba.size() );
 		}
 
-		ui->firmware_progress->setValue( 0 );
+		emit firmwareUpdateProgress( 0 );
 	}
+
+	return false;
 }
 
 
 void MainWindow::tunDevice()
 {
-	if ( ui->tundev->text().startsWith( "Enable" ) ) {
+	if ( ui->tundev->text().contains( "nable" ) ) {
+		qDebug() << "Enabling tun dev...";
 		ui->tundev->setText( "Disable Tun Device" );
 		mController->EnableTunDevice();
 	} else {
+		qDebug() << "Disabling tun dev...";
 		ui->tundev->setText( "Enable Tun Device" );
 		mController->DisableTunDevice();
 	}

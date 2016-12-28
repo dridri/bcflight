@@ -36,7 +36,7 @@ HStatusBar::~HStatusBar()
 void HStatusBar::setValue( int32_t v )
 {
 	mValue = v;
-	repaint();
+// 	repaint();
 }
 
 

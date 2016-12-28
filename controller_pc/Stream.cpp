@@ -21,16 +21,20 @@
 #include <QtCore/QDebug>
 #include <QtGui/QPainter>
 #include "Stream.h"
+#include "MainWindow.h"
+#include "ui_mainWindow.h"
 
 
 Stream::Stream( QWidget* parent )
 	: QGLWidget( parent )
 	, mStreamThread( new StreamThread( this ) )
+	, mMainWindow( nullptr )
 	, mLink( nullptr )
 	, mShader( nullptr )
 	, mFpsCounter( 0 )
 	, mFps( 0 )
 	, mFpsTimer( QElapsedTimer() )
+	, mParentWidget( parent )
 {
 	memset( &mY, 0, sizeof(mY) );
 	memset( &mU, 0, sizeof(mU) );
@@ -58,6 +62,12 @@ Stream::~Stream()
 }
 
 
+void Stream::setMainWindow( MainWindow* win )
+{
+	mMainWindow = win;
+}
+
+
 void Stream::setLink( Link* l )
 {
 	mLink = l;
@@ -67,6 +77,33 @@ void Stream::setLink( Link* l )
 int32_t Stream::fps()
 {
 	return mFps;
+}
+
+
+void Stream::mouseDoubleClickEvent( QMouseEvent * e )
+{
+	if ( e->button() == Qt::LeftButton ) {
+		if ( !isFullScreen() ) {
+			setParent( nullptr );
+			showFullScreen();
+			mMainWindow->getUi()->tab->repaint();
+		} else {
+			if ( mMainWindow ) {
+				showNormal();
+				mMainWindow->getUi()->video_container->layout()->addWidget( this );
+			}
+		}
+	}
+}
+
+
+void Stream::closeEvent( QCloseEvent* e )
+{
+	if ( isFullScreen() and mMainWindow ) {
+		showNormal();
+		mMainWindow->getUi()->video_container->layout()->addWidget( this );
+	}
+	e->ignore();
 }
 
 /*
