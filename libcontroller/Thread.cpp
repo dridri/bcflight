@@ -24,6 +24,7 @@
 #include "Thread.h"
 
 std::mutex Thread::mCriticalMutex;
+uint64_t Thread::mBaseTick = 0;
 
 Thread::Thread( const std::string& name )
 	: mName( name )
@@ -131,15 +132,21 @@ void Thread::ThreadEntry()
 
 uint64_t Thread::GetTick()
 {
+	uint64_t ret = 0;
 #ifdef WIN32
-	return timeGetTime();
+	ret = timeGetTime();
 #elif __APPLE__
 	struct timeval cTime;
 	gettimeofday( &cTime, 0 );
-	return ( cTime.tv_sec * 1000 ) + ( cTime.tv_usec / 1000 );
+	ret = ( cTime.tv_sec * 1000 ) + ( cTime.tv_usec / 1000 );
 #else
 	struct timespec now;
 	clock_gettime( CLOCK_MONOTONIC, &now );
-	return now.tv_sec * 1000 + now.tv_nsec / 1000000;
+	ret = now.tv_sec * 1000 + now.tv_nsec / 1000000;
 #endif
+
+	if ( mBaseTick == 0 ) {
+		mBaseTick = ret;
+	}
+	return ret - mBaseTick;
 }

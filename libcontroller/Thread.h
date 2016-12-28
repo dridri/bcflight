@@ -36,8 +36,8 @@ public:
 	bool running();
 
 	static uint64_t GetTick();
-	static void EnterCritical() { mCriticalMutex.lock(); }
-	static void ExitCritical() { mCriticalMutex.unlock(); }
+	static void EnterCritical() {/* mCriticalMutex.lock();*/ }
+	static void ExitCritical() {/* mCriticalMutex.unlock();*/ }
 
 protected:
 	virtual bool run() = 0;
@@ -56,6 +56,7 @@ private:
 	bool mTerminate;
 
 	static std::mutex mCriticalMutex;
+	static uint64_t mBaseTick;
 };
 
 
