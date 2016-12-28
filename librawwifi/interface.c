@@ -78,6 +78,11 @@ int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpowe
 	state->devidx = if_nametoindex( name );
 	state->phyidx = phymactoindex( hwaddr );
 
+	if ( state->phyidx < 0 ) {
+		printf( "Error : interface '%s' not found !\n", name );
+		return -1;
+	}
+
 	printf( "Interface %s :\n"
 			"    HWaddr = %s\n"
 			"    devidx = %d\n"
@@ -299,7 +304,7 @@ int phymactoindex( const char* hwaddr )
 	struct dirent* ent;
 	DIR* dir = opendir( "/sys/class/ieee80211" );
 
-	while ( ( ent = readdir( dir ) ) != NULL ) {
+	while ( dir && ( ent = readdir( dir ) ) != NULL ) {
 		if ( ent->d_name[0] != '.' ) {
 			sprintf( path, "/sys/class/ieee80211/%s/macaddress", ent->d_name );
 			int fd = open( path, O_RDONLY );
