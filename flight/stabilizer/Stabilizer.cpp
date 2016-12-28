@@ -252,6 +252,12 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		return;
 	}
 
+	// We didn't take off yet (or really close to ground just after take-off), so we bypass stabilization, and just return
+	if ( mFrame->airMode() == false and ctrl->thrust() <= 0.15f ) {
+		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), ctrl->thrust() );
+		return;
+	}
+
 	switch ( mMode ) {
 		case Rate : {
 			rate_control = ctrl->RPY() * mRateFactor;
@@ -285,7 +291,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		} else if ( thrust < 0.0f ) {
 			thrust = ( thrust + 0.1f ) * ( 1.0f / 0.9f );
 		}
-		thrust *= 0.01f; // Reduce to 1m/s (assuming controller is sending at 100Hz update rate)
+		thrust *= 0.01f; // Reduce to 1m/s
 		mAltitudeControl += thrust;
 		mAltitudePID.Process( mAltitudeControl, imu->altitude(), dt );
 		thrust = mAltitudePID.state();

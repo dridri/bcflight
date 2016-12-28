@@ -118,16 +118,8 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 			stab_multiplier = 1.0f / ( overall_max - overall_min );
 		}
 
-		if ( mAirMode ) {
-			for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-				mStabSpeeds[i] = stab_shift + ( mStabSpeeds[i] - overall_min ) * stab_multiplier;
-			}
-		} else if ( thrust <= 0.15f ) {
-			// Set all motors to thrust value, disabling PID effects which prevent drone to flip over at lift-off
-			// TODO : Remove this, expose air-mode to Stabilizer, set the Stabilizer to not calculate PIDs and call Stabilize( {0,0,0}, thrust ) when air-mode is false and thrust <= 0.15
-			for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-				mStabSpeeds[i] = thrust;
-			}
+		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
+			mStabSpeeds[i] = stab_shift + ( mStabSpeeds[i] - overall_min ) * stab_multiplier;
 		}
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
