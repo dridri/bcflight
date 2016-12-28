@@ -208,11 +208,6 @@ bool Controller::run()
 	if ( mLockState >= 1 ) {
 		mLockState = 2;
 		usleep( 1000 * 10 );
-		// Keep reading values for other threads
-		ReadThrust();
-		ReadYaw();
-		ReadPitch();
-		ReadRoll();
 		return true;
 	}
 
@@ -239,11 +234,9 @@ bool Controller::run()
 	}
 
 	// Send controls at 10Hz, allowing to be sure that TRPY are well received by the drone
-	if ( Thread::GetTick() - mDataTimer >= 100 ) {
-		setThrust( mThrust );
-		setRoll( mControlRPY.x );
-		setPitch( mControlRPY.y );
-		setYaw( mControlRPY.z );
+	bool force_update_controls = false;
+	if ( Thread::GetTick() - mDataTimer >= 1000 / 10 ) {
+		force_update_controls = true;
 		mDataTimer = Thread::GetTick();
 	}
 
@@ -283,14 +276,14 @@ bool Controller::run()
 	float r_yaw = ReadYaw();
 	float r_pitch = ReadPitch();
 	float r_roll = ReadRoll();
-	if ( fabsf( r_thrust - mThrust ) >= 0.01f and r_thrust >= 0.0f and r_thrust <= 1.0f ) {
+	if ( ( force_update_controls or fabsf( r_thrust - mThrust ) >= 0.01f ) and r_thrust >= 0.0f and r_thrust <= 1.0f ) {
 		setThrust( r_thrust );
 	}
 	if ( r_yaw >= -1.0f and r_yaw <= 1.0f ) {
 		if ( fabsf( r_yaw ) <= 0.05f ) {
 			r_yaw = 0.0f;
 		}
-		if ( fabsf( r_yaw - mControlRPY.z ) >= 0.01f ) {
+		if ( ( force_update_controls or fabsf( r_yaw - mControlRPY.z ) >= 0.01f ) ) {
 			setYaw( r_yaw );
 		}
 	}
@@ -303,7 +296,7 @@ bool Controller::run()
 		} else if ( r_pitch > 0.0f ) {
 			r_pitch -= 0.05f;
 		}
-		if ( fabsf( r_pitch - mControlRPY.y ) >= 0.01f ) {
+		if ( ( force_update_controls or fabsf( r_pitch - mControlRPY.y ) >= 0.01f ) ) {
 			setPitch( r_pitch );
 		}
 	}
@@ -316,13 +309,10 @@ bool Controller::run()
 		} else if ( r_roll > 0.0f ) {
 			r_roll -= 0.05f;
 		}
-		if ( fabsf( r_roll - mControlRPY.x ) >= 0.01f ) {
+		if ( ( force_update_controls or fabsf( r_roll - mControlRPY.x ) >= 0.01f ) ) {
 			setRoll( r_roll );
 		}
 	}
-
-
-
 
 	mXferMutex.lock();
 	if ( mTxFrame.data().size() > 0 ) {
