@@ -27,9 +27,6 @@
 
 #include <vc_dispmanx_types.h>
 #include <bcm_host.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES2/gl2.h>
 
 #include <Link.h>
 #include <Thread.h>
@@ -43,81 +40,43 @@
 #include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoSplitter.h"
 #include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoRender.h"
 #endif
-#include "RendererHUD.h"
-#include "DecodedImage.h"
 
 class Controller;
 
 class Stream : Thread
 {
 public:
-	Stream( Controller* controller, Link* link, uint32_t width, uint32_t height, bool stereo );
+	Stream( Link* link, uint32_t width, uint32_t height, bool stereo );
 	~Stream();
-	void setRenderHUD( bool en ) { mRenderHUD = en; }
 	void setStereo( bool en );
 
 	Link* link() const { return mLink; }
-	int linkLevel() const { return mIwStats.level; }
-	int linkQuality() const { return mIwStats.qual; }
+	int linkLevel() const { return mLink->RxLevel(); }
+	int linkQuality() const { return mLink->RxQuality(); }
+	int fps() const { return mFPS; }
 
-	EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
 	void Run() { while( run() ); }
 
 protected:
 	virtual bool run();
-	bool DecodeThreadRun();
-	bool SignalThreadRun();
 
 private:
-	Controller* mController;
-	RendererHUD* mRendererHUD;
-	bool mRenderHUD;
 	bool mStereo;
 	uint32_t mWidth;
 	uint32_t mHeight;
-	uint32_t mEGLWidth;
-	uint32_t mEGLHeight;
 
 	Link* mLink;
-	typedef struct Packet {
-		uint8_t data[32768];
-		uint32_t size;
-	} Packet;
-	std::list< Packet* > mPacketsQueue;
 
-	HookThread<Stream>* mDecodeThread;
-	void* mDecodeInput;
-	uint32_t mDecodeLen;
 	VID_INTF::VideoDecode* mDecoder;
 	VID_INTF::VideoSplitter* mDecoderSplitter;
 	VID_INTF::VideoRender* mDecoderRender1;
 	VID_INTF::VideoRender* mDecoderRender2;
 	VID_INTF::EGLRender* mEGLRender;
 
-	int mIwSocket;
-	IwStats mIwStats;
-	HookThread<Stream>* mSignalThread;
-
 	int mFPS;
 	int mFrameCounter;
 	int mBitrateCounter;
 	uint64_t mFPSTick;
-
-	EGL_DISPMANX_WINDOW_T mLayerDisplay;
-	EGLImageKHR mEGLVideoImage;
-	DecodedImage* mVideoImage;
-
-	EGLDisplay mEGLDisplay;
-	EGLConfig mEGLConfig;
-	EGLContext mEGLContext;
-	EGLSurface mEGLSurface;
-	DISPMANX_DISPLAY_HANDLE_T mDisplay;
-	struct {
-		DISPMANX_RESOURCE_HANDLE_T resource;
-		VC_RECT_T rect;
-		void *image;
-		uint32_t vc_image_ptr;
-	} mScreenshot;
 };
 
 #endif // STREAM_H

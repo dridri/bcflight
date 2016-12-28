@@ -67,7 +67,9 @@ public:
 
 	virtual int Connect() = 0;
 	virtual int setBlocking( bool blocking ) = 0;
+	virtual int32_t Channel() { return 0; }
 	virtual int32_t RxQuality() { return 100; }
+	virtual int32_t RxLevel() { return -1; }
 	int32_t Read( Packet* p, int32_t timeout = 0 );
 	int32_t Write( const Packet* p, int32_t timeout = 0 );
 

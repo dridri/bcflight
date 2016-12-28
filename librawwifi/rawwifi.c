@@ -174,6 +174,15 @@ int32_t rawwifi_recv_quality( rawwifi_t* rwifi )
 }
 
 
+int32_t rawwifi_recv_level( rawwifi_t* rwifi )
+{
+	if ( rwifi == 0 ) {
+		return 0;
+	}
+	return rwifi->recv_link.signal;
+}
+
+
 uint32_t rawwifi_crc32( const uint8_t* buf, uint32_t len )
 {
 	uint32_t k = 0;

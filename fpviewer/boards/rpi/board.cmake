@@ -1,12 +1,5 @@
 execute_process( COMMAND uname -p OUTPUT_VARIABLE BUILD_ARCH )
 
-if ( ${BUILD_ARCH} MATCHES "x86*" )
-# 	message( "Cross compilation detected, setting compiler prefix to arm-linux-gnueabihf-" )
-# 	set( CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc" )
-# 	set( CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++" )
-# 	set( CMAKE_AR "arm-linux-gnueabihf-ar" )
-endif()
-
 set( TARGET_CPU_BITS 32 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_BSD_SOURCE -D_GNU_SOURCE -DSTANDALONE -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -DTARGET_POSIX -D_LINUX -fPIC -DPIC -D_REENTRANT -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -U_FORTIFY_SOURCE")
@@ -25,9 +18,3 @@ add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++ ${CMAKE_CUR
 set( BOARD_DEPENDENCIES "OpenMaxIL++" )
 set( BOARD_DEPENDENCIES "MMAL++" )
 set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
-
-# set( BOARD_LIBS ${BOARD_LIBS} -lqlinuxfb Qt5PlatformSupport -lqlinuxfb Qt5Widgets Qt5UiTools Qt5Gui Qt5PrintSupport Qt5EglDeviceIntegration Qt5Core -lqtpcre -lqtpng -lqtfreetype -lqtharfbuzzng )
-get_filename_component( GCC_FULL_PATH ${CMAKE_C_COMPILER} ABSOLUTE )
-get_filename_component( BINARY_FULL_PATH ${GCC_FULL_PATH} DIRECTORY )
-set( UIC ${BINARY_FULL_PATH}/uic )
-set( RCC ${BINARY_FULL_PATH}/rcc )

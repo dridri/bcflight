@@ -542,6 +542,13 @@ bool Controller::RxRun()
 				break;
 			}
 
+			case SET_THRUST : {
+				if ( mSpectate ) {
+					mThrust = telemetry.ReadFloat();
+				}
+				break;
+			}
+
 			case ROLL_PITCH_YAW : {
 				mRPY.x = telemetry.ReadFloat();
 				mRPY.y = telemetry.ReadFloat();

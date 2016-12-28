@@ -115,6 +115,7 @@ int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpowe
 
 rawwifi_t* rawwifi_init( const char* device, int rx_port, int tx_port, int blocking, int read_timeout_ms );
 int32_t rawwifi_recv_quality( rawwifi_t* rwifi );
+int32_t rawwifi_recv_level( rawwifi_t* rwifi );
 void rawwifi_set_recv_mode( rawwifi_t* rwifi, RAWWIFI_RX_FEC_MODE mode );
 void rawwifi_set_recv_block_recover_mode( rawwifi_t* rwifi, RAWWIFI_BLOCK_RECOVER_MODE mode );
 

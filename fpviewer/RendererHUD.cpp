@@ -20,7 +20,7 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <string.h>
-#include <libpng16/png.h>
+#include <png.h>
 
 #include <iostream>
 #include <fstream>

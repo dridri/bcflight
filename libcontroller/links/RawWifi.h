@@ -33,7 +33,9 @@ public:
 	~RawWifi();
 
 	int Connect();
+	int32_t Channel();
 	int32_t RxQuality();
+	int32_t RxLevel();
 
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
