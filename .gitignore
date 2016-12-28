@@ -30,3 +30,6 @@
 # Other
 *.kdev4
 build
+
+# Old artifacts
+controller_rpi
