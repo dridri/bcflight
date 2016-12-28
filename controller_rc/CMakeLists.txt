@@ -51,7 +51,9 @@ include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 
 add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip "-m32" )
 add_custom_target( ui_headers COMMAND ${UIC} ${CMAKE_SOURCE_DIR}/ui/main.ui > ${CMAKE_BINARY_DIR}/ui_main.h )
-add_custom_target( rcc_datas COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc> ${CMAKE_BINARY_DIR}/rc_data.cpp )
+# add_custom_target( rcc_datas COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp )
+
+add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/rc_data.cpp COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 
 file( GLOB_RECURSE BOARD_SOURCES boards/${board}/*.cpp boards/${board}/*.c )
 file( GLOB_RECURSE ADCS_SOURCES ADCs/*.cpp ADCs/*.c )
@@ -59,11 +61,6 @@ file( GLOB_RECURSE ADCS_SOURCES ADCs/*.cpp ADCs/*.c )
 add_executable( controller_rc
 				main.cpp
 				Config.cpp
-				Stream.cpp
-				RendererHUD.cpp
-				RendererHUDNeo.cpp
-				DecodedImage.cpp
-				Matrix.cpp
 				ui/GlobalUI.cpp
 				ui/MainWindow.cpp
 				${CMAKE_BINARY_DIR}/rc_data.cpp
@@ -74,7 +71,6 @@ add_executable( controller_rc
 add_dependencies( controller_rc controller )
 add_dependencies( controller_rc libluajit_static )
 add_dependencies( controller_rc ui_headers )
-add_dependencies( controller_rc rcc_datas )
 
 target_link_libraries( controller_rc -L./ controller libluajit_static.a rawwifi -lrt -ldl -lpcap -lz pthread ${BOARD_LIBS} )
 

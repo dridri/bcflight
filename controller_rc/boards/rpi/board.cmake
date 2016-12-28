@@ -26,7 +26,7 @@ set( BOARD_DEPENDENCIES "OpenMaxIL++" )
 set( BOARD_DEPENDENCIES "MMAL++" )
 set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
 
-set( BOARD_LIBS ${BOARD_LIBS} -lqlinuxfb Qt5PlatformSupport -lqlinuxfb Qt5Widgets Qt5UiTools Qt5Gui Qt5PrintSupport Qt5EglDeviceIntegration Qt5Core -lqtpcre -lqtpng -lqtfreetype -lqtharfbuzzng )
+# set( BOARD_LIBS ${BOARD_LIBS} -lqlinuxfb Qt5PlatformSupport -lqlinuxfb Qt5Widgets Qt5UiTools Qt5Gui Qt5PrintSupport Qt5EglDeviceIntegration Qt5Core -lqtpcre -lqtpng -lqtfreetype -lqtharfbuzzng )
 get_filename_component( GCC_FULL_PATH ${CMAKE_C_COMPILER} ABSOLUTE )
 get_filename_component( BINARY_FULL_PATH ${GCC_FULL_PATH} DIRECTORY )
 set( UIC ${BINARY_FULL_PATH}/uic )
