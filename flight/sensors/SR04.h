@@ -39,6 +39,7 @@ public:
 protected:
 	uint32_t mTriggerPin;
 	uint32_t mEchoPin;
+	uint64_t mRiseTick;
 	float mAltitude;
 };
 

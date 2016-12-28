@@ -65,3 +65,9 @@ void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode )
 	sprintf( command, "gpio edge %d %s", pin, smode.c_str() );
 	system( command );
 }
+
+
+int GPIO::WaitForInterrupt( int pin, int timeout_ms )
+{
+	return waitForInterrupt( pin, timeout_ms );
+}

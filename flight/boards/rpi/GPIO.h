@@ -42,7 +42,7 @@ public:
 	static void Write( int pin, bool en );
 	static bool Read( int pin );
 	static void SetupInterrupt( int pin, GPIO::ISRMode mode );
-// 	static void WaitForInterrupt( int pin
+	static int WaitForInterrupt( int pin, int timeout_ms );
 
 private:
 };

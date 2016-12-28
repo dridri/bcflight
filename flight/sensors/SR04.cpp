@@ -45,6 +45,7 @@ SR04::SR04( uint32_t gpio_trigger, uint32_t gpio_echo )
 	: Altimeter()
 	, mTriggerPin( gpio_trigger )
 	, mEchoPin( gpio_echo )
+	, mRiseTick( 0 )
 	, mAltitude( 0.0f )
 {
 	mNames.emplace_back( "SR04" );
@@ -52,6 +53,7 @@ SR04::SR04( uint32_t gpio_trigger, uint32_t gpio_echo )
 
 	GPIO::setMode( mTriggerPin, GPIO::Output );
 	GPIO::setMode( mEchoPin, GPIO::Input );
+	GPIO::SetupInterrupt( mEchoPin, GPIO::Both );
 }
 
 
@@ -67,15 +69,12 @@ void SR04::Calibrate( float dt, bool last_pass )
 
 void SR04::Read( float* altitude )
 {
-	uint64_t timeout_base = 0;
-	uint64_t timeout = 0;
-
 	GPIO::Write( mTriggerPin, true );
 	usleep( 10 );
 	GPIO::Write( mTriggerPin, false );
-
-	timeout_base = Board::GetTicks();
-	timeout = 0;
+/*
+	uint64_t timeout_base = Board::GetTicks();
+	uint64_t timeout = 0;
 	while ( GPIO::Read( mEchoPin ) == false and ( timeout = Board::GetTicks() ) - timeout_base < 40000 );
 	if ( timeout - timeout_base >= 40000 ) {
 		*altitude = 0.0f;
@@ -88,11 +87,22 @@ void SR04::Read( float* altitude )
 	timeout = 0;
 	while ( GPIO::Read( mEchoPin ) == true and ( timeout = Board::GetTicks() ) - timeout_base < 40000 );
 	uint64_t time = Board::GetTicks() - base_time;
-
-	if ( timeout - timeout_base >= 40000 ) {
+*/
+	// Wait for it to rise
+	int ret = GPIO::WaitForInterrupt( mEchoPin, 40 );
+	if ( ret <= 0 ) {
 		*altitude = 0.0f;
 		return;
 	}
+	uint64_t base_time = Board::GetTicks();
+
+	// Wait for it to fall
+	ret = GPIO::WaitForInterrupt( mEchoPin, 40 );
+	if ( ret <= 0 ) {
+		*altitude = 0.0f;
+		return;
+	}
+	uint64_t time = Board::GetTicks() - base_time;
 
 	*altitude = ( (float)time / 58.0f - 1.0f ) / 100.0f;
 }
