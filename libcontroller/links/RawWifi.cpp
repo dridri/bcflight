@@ -114,10 +114,7 @@ void RawWifi::setRetriesCount( int retries )
 
 int RawWifi::level() const
 {
-	if ( not mRawWifi ) {
-		return 0;
-	}
-	return mRawWifi->recv_link.signal;
+	return rawwifi_recv_level( mRawWifi );
 }
 
 
@@ -139,9 +136,21 @@ bool RawWifi::lastIsCorrupt() const
 }
 
 
+int32_t RawWifi::Channel()
+{
+	return mChannel;
+}
+
+
 int32_t RawWifi::RxQuality()
 {
 	return rawwifi_recv_quality( mRawWifi );
+}
+
+
+int32_t RawWifi::RxLevel()
+{
+	return rawwifi_recv_level( mRawWifi );
 }
 
 

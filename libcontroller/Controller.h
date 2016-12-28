@@ -211,11 +211,11 @@ protected:
 		RECORD_DOWNLOAD_PROCESS = 0xB5,
 	} Cmd;
 
-	virtual float ReadThrust() = 0;
-	virtual float ReadRoll() = 0;
-	virtual float ReadPitch() = 0;
-	virtual float ReadYaw() = 0;
-	virtual int8_t ReadSwitch( uint32_t id ) = 0;
+	virtual float ReadThrust() { return 0.0f; }
+	virtual float ReadRoll() { return 0.0f; }
+	virtual float ReadPitch() { return 0.0f; }
+	virtual float ReadYaw() { return 0.0f; }
+	virtual int8_t ReadSwitch( uint32_t id ) { return 0; }
 	virtual bool run();
 	bool RxRun();
 	uint32_t crc32( const uint8_t* buf, uint32_t len );
