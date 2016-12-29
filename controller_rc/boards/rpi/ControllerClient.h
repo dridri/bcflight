@@ -26,7 +26,7 @@
 class ControllerClient : public Controller
 {
 public:
-	ControllerClient( Link* link, bool spectate = false );
+	ControllerClient( Config* config, Link* link, bool spectate = false );
 	~ControllerClient();
 
 	class Joystick {
@@ -64,6 +64,7 @@ protected:
 	float ReadYaw();
 	int8_t ReadSwitch( uint32_t id );
 
+	Config* mConfig;
 	MCP320x* mADC;
 	Joystick mJoysticks[4];
 };

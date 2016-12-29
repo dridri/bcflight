@@ -39,18 +39,17 @@ int main( int ac, char** av )
 
 	Config* config = new Config( av[1] );
 	config->Reload();
+	config->LoadSettings();
 
 	if ( config->string( "controller.link.link_type" ) == "Socket" ) {
 		controller_link = new ::Socket( config->string( "controller.link.address", "192.168.32.1" ), config->integer( "controller.link.port", 2020 ) );
-	} else if ( config->string( "controller.link.link_type" ) == "RawWifi" ) {
+	} else {
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ), -1 );
 	}
 
-	if ( controller_link ) {
-		controller = new ControllerClient( controller_link, config->boolean( "controller.spectate", false ) );
-	}
+	controller = new ControllerClient( controller_link, config->boolean( "controller.spectate", false ) );
 
-	GlobalUI* ui = new GlobalUI();
+	GlobalUI* ui = new GlobalUI( controller );
 	ui->Start();
 
 	while ( 1 ) {

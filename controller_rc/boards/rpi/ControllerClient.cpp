@@ -21,11 +21,15 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <wiringPi.h>
+#include <iostream>
+#include <fstream>
 #include <cmath>
+#include <Config.h>
 #include "ControllerClient.h"
 
-ControllerClient::ControllerClient( Link* link, bool spectate )
+ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 	: Controller( link, spectate )
+	, mConfig( config )
 	, mADC( nullptr )
 {
 	wiringPiSetupGpio();
@@ -120,10 +124,9 @@ ControllerClient::Joystick::Joystick( MCP320x* adc, int id, int adc_channel, boo
 	, mCenter( 32767 )
 	, mMax( 65535 )
 {
-	// TODO
-// 	mMin = getGlobals()->setting( "Joystick:" + std::to_string( mId ) + ":min", 0 );
-// 	mCenter = getGlobals()->setting( "Joystick:" + std::to_string( mId ) + ":cen", 32767 );
-// 	mMax = getGlobals()->setting( "Joystick:" + std::to_string( mId ) + ":max", 65535 );
+	mMin = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":min", 0 );
+	mCenter = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":cen", 32767 );
+	mMax = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":max", 65535 );
 	if ( mMin != 0 and mCenter != 32767 and mMax != 65535 ) {
 		mCalibrated = true;
 	}

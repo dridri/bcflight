@@ -109,6 +109,9 @@ uint16_t MCP320x::Read( uint8_t channel )
 		mXFer[0].len = 3;
 		mXFer[0].rx_buf = (uintptr_t)bx[i];
 		int ret = ioctl( mFD, SPI_IOC_MESSAGE(1), mXFer );
+		if ( ret < 0 ) {
+			return 0;
+		}
 	}
 
 	for ( int j = 0; j < nbx; j++ ) {

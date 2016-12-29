@@ -4,10 +4,14 @@
 #include <QtWidgets/QApplication>
 #include <Thread.h>
 
+class MainWindow;
+
+class Controller;
+
 class GlobalUI : public Thread
 {
 public:
-	GlobalUI();
+	GlobalUI( Controller* controller );
 	~GlobalUI();
 
 	void Run() { while( run() ); }
@@ -17,6 +21,8 @@ protected:
 
 private:
 	QApplication* mApplication;
+	Controller* mController;
+	MainWindow* mMainWindow;
 };
 
 #endif // GLOBALUI_H

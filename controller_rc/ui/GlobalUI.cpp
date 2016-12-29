@@ -1,13 +1,18 @@
 #include <unistd.h>
+#include <linux/input.h>
 #include <QtCore/QtPlugin>
 #include "GlobalUI.h"
 #include "MainWindow.h"
+#include "Controller.h"
 
+#ifndef BOARD_generic
 Q_IMPORT_PLUGIN( QLinuxFbIntegrationPlugin );
+#endif
 
-GlobalUI::GlobalUI()
+GlobalUI::GlobalUI( Controller* controller )
 	: Thread( "GlobalUI" )
 	, mApplication( nullptr )
+	, mController( controller )
 {
 }
 
@@ -20,8 +25,14 @@ GlobalUI::~GlobalUI()
 bool GlobalUI::run()
 {
 	if ( mApplication == nullptr ) {
+		putenv( (char*)"QT_QPA_FB_TSLIB=1" );
+		putenv( (char*)"QT_LOGGING_RULES=qt.qpa.input=true" );
+
 		int ac = 3;
 		const char* av[4] = { "controller", "-platform", "linuxfb:fb=/dev/fb1", nullptr };
+#ifdef BOARD_generic
+		ac = 1;
+#endif
 		mApplication = new QApplication( ac, (char**)av );
 
 		QPalette palette;
@@ -41,14 +52,17 @@ bool GlobalUI::run()
 		palette.setColor( QPalette::Disabled, QPalette::ButtonText, Qt::darkGray );
 		mApplication->setPalette( palette );
 
-		MainWindow* test = new MainWindow();
-		test->setGeometry( 0, 0, 480, 320 );
-		test->setMinimumSize( 480, 320 );
-		test->setMaximumSize( 480, 320 );
-		test->show();
+		mMainWindow = new MainWindow( mController );
+		mMainWindow->setGeometry( 0, 0, 480, 320 );
+		mMainWindow->setMinimumSize( 480, 320 );
+		mMainWindow->setMaximumSize( 480, 320 );
+		mMainWindow->show();
 	}
 
+	mMainWindow->Update();
 	mApplication->processEvents();
+#ifndef BOARD_generic
 	usleep( 1000 * 1000 / 10 );
+#endif
 	return true;
 }

@@ -18,6 +18,7 @@
 #include <list>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string.h>
 #include "Config.h"
 
@@ -278,4 +279,102 @@ void Config::Reload()
 void Config::Save()
 {
 	// TODO
+}
+
+
+const bool Config::setting( const std::string& name, const bool def ) const
+{
+	if ( mSettings.count( name ) > 0 ) {
+		return ( mSettings.at( name ) == "true" );
+	}
+	return def;
+}
+
+
+const int Config::setting( const std::string& name, const int def ) const
+{
+	if ( mSettings.count( name ) > 0 ) {
+		return atoi( mSettings.at( name ).c_str() );
+	}
+	return def;
+}
+
+
+const float Config::setting( const std::string& name, const float def ) const
+{
+	if ( mSettings.count( name ) > 0 ) {
+		return atof( mSettings.at( name ).c_str() );
+	}
+	return def;
+}
+
+
+const std::string& Config::setting( const std::string& name, const std::string& def ) const
+{
+	if ( mSettings.count( name ) > 0 ) {
+		return mSettings.at( name );
+	}
+	return def;
+}
+
+
+void Config::setSetting( const std::string& name, const bool v )
+{
+	mSettings[ name ] = ( v ? "true" : "false" );
+}
+
+
+void Config::setSetting( const std::string& name, const int v )
+{
+	std::stringstream ss;
+	ss << v;
+	mSettings[ name ] = ss.str();
+}
+
+
+void Config::setSetting( const std::string& name, const float v )
+{
+	std::stringstream ss;
+	ss << v;
+	mSettings[ name ] = ss.str();
+}
+
+
+void Config::setSetting( const std::string& name, const std::string& v )
+{
+	mSettings[ name ] = v;
+}
+
+
+void Config::LoadSettings( const std::string& filename )
+{
+	std::string line;
+	std::string key;
+	std::string value;
+	std::ifstream file( filename, std::ios_base::in );
+
+	if ( file.is_open() ) {
+		while ( std::getline( file, line ) ) {
+			key = line.substr( 0, line.find( "=" ) );
+			value = line.substr( line.find( "=" ) + 1 );
+			mSettings[ key ] = value;
+			std::cout << "mSettings[ " << key << " ] = '" << mSettings[ key ] << "'\n";
+		}
+	}
+}
+
+
+void Config::SaveSettings( const std::string& filename )
+{
+	std::stringstream ss;
+	std::ofstream file( filename, std::ios_base::out );
+
+	if ( file.is_open() ) {
+		for ( auto it : mSettings ) {
+			ss.str( "" );
+			ss << it.first << "=" << it.second << "\n";
+			std::cout << "Write : " << ss.str();
+			file.write( ss.str().c_str(), ss.str().length() );
+		}
+	}
 }
