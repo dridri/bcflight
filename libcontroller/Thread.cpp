@@ -98,6 +98,9 @@ void Thread::ThreadEntry()
 {
 	do {
 		while ( !mRunning ) {
+			if ( mTerminate ) {
+				return;
+			}
 			mIsRunning = false;
 			usleep( 1000 * 100 );
 		}
