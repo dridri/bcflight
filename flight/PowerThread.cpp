@@ -198,7 +198,11 @@ bool PowerThread::run()
 
 	mCapacityMutex.lock();
 	mCurrentTotal += current * dt / 3600.0f;
-	mBatteryLevel = std::max( 0.0f, std::min( 1.0f, 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity ) );
+	mBatteryLevel = 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity;
+	if ( mCurrentSensor.sensor == nullptr ) { // No current sensor
+		mBatteryLevel = ( mVBat / (float)mCellsCount - 3.7f ) / ( 4.2f - 3.7f );
+	}
+	mBatteryLevel = std::max( 0.0f, std::min( 1.0f, mBatteryLevel ) );
 
 	if ( Board::GetTicks() - mSaveTicks >= 5 * 1000 * 1000 ) {
 		Board::SaveRegister( "VBat", std::to_string( mVBat ) );
