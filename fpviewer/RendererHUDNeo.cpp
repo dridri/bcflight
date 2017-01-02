@@ -26,9 +26,9 @@
 #include "RendererHUDNeo.h"
 #include "Controller.h"
 
-#define GL_FINISH glFlush()
+// #define GL_FINISH glFlush()
 // #define GL_FINISH glFinish()
-// #define GL_FINISH
+#define GL_FINISH
 
 static const char hud_vertices_shader[] =
 R"(	#define in attribute
@@ -128,7 +128,7 @@ RendererHUDNeo::~RendererHUDNeo()
 }
 
 
-void RendererHUDNeo::Render( Controller* controller, VideoStats* videostats, IwStats* iwstats )
+void RendererHUDNeo::Render( Controller* controller, float localVoltage, VideoStats* videostats, IwStats* iwstats )
 {
 	// Controls
 	if ( controller ) {
@@ -152,18 +152,18 @@ void RendererHUDNeo::Render( Controller* controller, VideoStats* videostats, IwS
 		}
 		int w = 0, h = 0;
 		FontMeasureString( "ACRO/HRZN", &w, &h );
-		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w*0.45f - 8, mHeight - 130, "ACRO", color_acro, 0.45f );
+		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w*0.45f - 8, mHeight - 125, "ACRO", color_acro, 0.45f );
 		FontMeasureString( "/HRZN", &w, &h );
-		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w*0.45f - 8, mHeight - 130, "/", Vector4f( 0.65f, 0.65f, 0.65f, 1.0f ), 0.45f );
+		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w*0.45f - 8, mHeight - 125, "/", Vector4f( 0.65f, 0.65f, 0.65f, 1.0f ), 0.45f );
 		FontMeasureString( "HRZN", &w, &h );
-		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w*0.45f - 8, mHeight - 130, "HRZN", color_hrzn, 0.45f );
+		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.6f * 1.0f / 4.0f ) - w*0.45f - 8, mHeight - 125, "HRZN", color_hrzn, 0.45f );
 
 		Vector4f color = Vector4f( 1.0f, 1.0f, 1.0f, 1.0f );
 		std::string saccel = std::to_string( acceleration );
 		saccel = saccel.substr( 0, saccel.find( "." ) + 2 );
 		RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.4665f * 1.0f / 4.0f ), mHeight - 145, saccel + "g", color, 0.55f, true );
 		if ( controller->armed() ) {
-			RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.47f * 1.0f / 4.0f ), mHeight - 165, std::to_string( (int)( thrust * 100.0f ) ) + "%", color, 1.0f, true );
+			RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.47f * 1.0f / 4.0f ), mHeight - 175, std::to_string( (int)( thrust * 100.0f ) ) + "%", color, 1.0f, true );
 		} else {
 			RenderText( (float)mWidth * ( 1.0f / 4.0f + 0.47f * 1.0f / 4.0f ), mHeight - 168, "disarmed", color, 0.6f, true );
 		}
@@ -180,13 +180,12 @@ void RendererHUDNeo::Render( Controller* controller, VideoStats* videostats, IwS
 		float battery_red = 1.0f - level;
 		RenderText( (float)mWidth * 0.5f * 0.30f, mHeight * 0.79f, std::to_string( (int)( level * 100.0f ) ) + "%", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f - battery_red * 0.5f, 1.0f ), 0.9 );
 		std::string svolt = std::to_string( controller->batteryVoltage() );
-		svolt = svolt.substr( 0, svolt.find( "." ) + 2 );
+		svolt = svolt.substr( 0, svolt.find( "." ) + 3 );
 		RenderText( (float)mWidth * 0.5f * 0.12f, mHeight * 0.71f, svolt + "V", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75 );
 		RenderText( (float)mWidth * 0.5f * 0.13f, mHeight * 0.75f, std::to_string( controller->totalCurrent() ) + "mAh", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.9 );
 
-		float localVoltage = controller->localBatteryVoltage();
 		if ( localVoltage <= 11.0f and mBlinkingViews ) {
-			RenderText( (float)mWidth * 1.0f / 4.0f, mHeight - 175, "Low Controller Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( (float)mWidth * 1.0f / 4.0f, mHeight - 175, "Low Goggles Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}
 		battery_red = 1.0f - ( ( localVoltage - 11.0f ) / 1.6f );
 		svolt = std::to_string( localVoltage );
@@ -254,23 +253,27 @@ void RendererHUDNeo::Render( Controller* controller, VideoStats* videostats, IwS
 	if ( iwstats ) {
 		RenderLink( (float)iwstats->qual / 100.0f, ( (float)( 100 + iwstats->level ) * 100.0f / 60.0f ) / 100.0f );
 		float link_red = 1.0f - ((float)iwstats->qual) / 100.0f;
-		std::string link_quality_str = "Ch" + std::to_string( iwstats->channel ) + "  " + std::to_string( iwstats->level ) + "dBm  " + std::to_string( iwstats->qual ) + "% (" + iwstats->source + ")";
+		std::string link_quality_str = "Ch" + std::to_string( iwstats->channel ) + "  " + std::to_string( iwstats->level ) + "dBm  " + std::to_string( iwstats->qual ) + "%";// + " (" + iwstats->source + ")";
 		RenderText( (float)mWidth * 0.5f * 0.13f, 720.0f * 0.21f, link_quality_str, Vector4f( 0.5f + 0.5f * link_red, 1.0f - link_red * 0.25f, 0.5f - link_red * 0.5f, 1.0f ), 0.9f );
 	}
 	GL_FINISH;
 
-	// FPS + latency
+	// video-infos + FPS + latency
 	if ( controller ) {
 		int w = 0, h = 0;
+		std::string res_str = std::to_string( videostats->width ) + "x" + std::to_string( videostats->height );
+		FontMeasureString( res_str, &w, &h );
+		RenderText( (float)mWidth * ( 1.0f / 2.0f - 0.075f ) - w*0.8f, 120, res_str, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+
 		float fps_red = std::max( 0.0f, std::min( 1.0f, ((float)( 50 - videostats->fps ) ) / 50.0f ) );
 		std::string fps_str = std::to_string( videostats->fps ) + "fps";
 		FontMeasureString( fps_str, &w, &h );
-		RenderText( (float)mWidth * ( 1.0f / 2.0f - 0.075f ) - w*0.8f, 120, fps_str, Vector4f( 0.5f + 0.5f * fps_red, 1.0f - fps_red * 0.25f, 0.5f - fps_red * 0.5f, 1.0f ), 0.8f );
+		RenderText( (float)mWidth * ( 1.0f / 2.0f - 0.075f ) - w*0.8f, 140, fps_str, Vector4f( 0.5f + 0.5f * fps_red, 1.0f - fps_red * 0.25f, 0.5f - fps_red * 0.5f, 1.0f ), 0.8f );
 
 		float latency_red = std::min( 1.0f, ((float)controller->ping()) / 50.0f );
 		std::string latency_str = std::to_string( controller->ping() ) + "ms";
 		FontMeasureString( latency_str, &w, &h );
-		RenderText( (float)mWidth * ( 1.0f / 2.0f - 0.075f ) - w, 140, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ) );
+		RenderText( (float)mWidth * ( 1.0f / 2.0f - 0.075f ) - w, 160, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ) );
 	}
 	GL_FINISH;
 }
@@ -389,9 +392,7 @@ void RendererHUDNeo::RenderLink( float quality, float level )
 	}
 	glBindBuffer( GL_ARRAY_BUFFER, mLinkVBO );
 	::Thread::EnterCritical();
-// 	printf( "glBufferSubData...\n" ); fflush(stdout);
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(linkBuffer), linkBuffer );
-// 	printf( "glBufferSubData Ok\n" ); fflush(stdout);
 	::Thread::ExitCritical();
 	GL_FINISH;
 
@@ -488,8 +489,8 @@ void RendererHUDNeo::RenderAttitude( const vec3& rpy )
 		color = 0xFF40FF40;
 	}
 
-	float xrot = M_PI * ( -mSmoothRPY.x / 180.0f );
-	float yofs = ( 720.0f / 2.0f ) * ( -mSmoothRPY.y / 180.0f ) * M_PI * 2.75f;
+	float xrot = M_PI * ( mSmoothRPY.x / 180.0f );
+	float yofs = ( 720.0f / 2.0f ) * ( mSmoothRPY.y / 180.0f ) * M_PI * 2.75f;
 	float s = std::sin( xrot );
 	float c = std::cos( xrot );
 
@@ -509,10 +510,8 @@ void RendererHUDNeo::RenderAttitude( const vec3& rpy )
 		}
 
 		::Thread::EnterCritical();
-// 		printf( "glBufferSubData...\n" ); fflush(stdout);
 		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(linesBuffer), linesBuffer );
 		GL_FINISH;
-		printf( "glBufferSubData oK\n" ); fflush(stdout);
 		::Thread::ExitCritical();
 
 		glUniform2f( mColorShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
@@ -602,7 +601,7 @@ void RendererHUDNeo::Compute()
 		const uint32_t steps_count = 64;
 		FastVertex thrustBuffer[4 * steps_count * 4];
 		memset( thrustBuffer, 0, sizeof( thrustBuffer ) );
-		Vector2f offset = Vector2f( 640.0f - 170.0f, 720.0f - 145.0f );
+		Vector2f offset = Vector2f( 640.0f - 170.0f, 720.0f - 155.0f );
 		for ( uint32_t i = 0; i < steps_count; i++ ) {
 			float angle0 = ( 0.1f + 0.775f * ( (float)i / (float)steps_count ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
 			float angle1 = ( 0.1f + 0.775f * ( (float)( i + 1 ) / (float)steps_count ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
@@ -636,7 +635,7 @@ void RendererHUDNeo::Compute()
 		const uint32_t steps_count = 32;
 		FastVertex accelerationBuffer[4 * steps_count * 8];
 		memset( accelerationBuffer, 0, sizeof( accelerationBuffer ) );
-		Vector2f offset = Vector2f( 640.0f - 170.0f, 720.0f - 145.0f );
+		Vector2f offset = Vector2f( 640.0f - 170.0f, 720.0f - 155.0f );
 		for ( uint32_t i = 0; i < steps_count; i++ ) {
 			float angle0 = ( 0.1f + 0.265f * ( (float)i / (float)steps_count ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
 			float angle1 = ( 0.1f + 0.265f * ( (float)( i + 1 ) / (float)steps_count ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
@@ -737,12 +736,12 @@ void RendererHUDNeo::Compute()
 		for ( uint32_t j = 0; j < 32; j++ ) {
 			float angle = ( 0.1f + 0.8f * ( (float)j / 32.0f ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
 			if ( j == 0 ) {
-				Vector2f pos = VR_Distort( Vector2f( ( 640.0f - 170.0f ) + thrust_outer * std::cos( angle ), ( 720.0f - 145.0f ) + thrust_outer * std::sin( angle ) ) );
+				Vector2f pos = VR_Distort( Vector2f( ( 640.0f - 170.0f ) + thrust_outer * std::cos( angle ), ( 720.0f - 155.0f ) + thrust_outer * std::sin( angle ) ) );
 				circleBuffer[i].x = pos.x;
 				circleBuffer[i].y = pos.y;
 				circleBuffer[i].color = 0xFFFFFFFF;
 			}
-			Vector2f pos = Vector2f( ( 640.0f - 170.0f ) + thrust_in * std::cos( angle ), ( 720.0f - 145.0f ) + thrust_in * std::sin( angle ) );
+			Vector2f pos = Vector2f( ( 640.0f - 170.0f ) + thrust_in * std::cos( angle ), ( 720.0f - 155.0f ) + thrust_in * std::sin( angle ) );
 			pos = VR_Distort( pos );
 			circleBuffer[++i].x = pos.x;
 			circleBuffer[i].y = pos.y;
@@ -750,7 +749,7 @@ void RendererHUDNeo::Compute()
 		}
 		for ( uint32_t j = 0; j < 32; j++ ) {
 			float angle = ( 0.1f + 0.8f * ( (float)( 31 - j ) / 32.0f ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
-			Vector2f pos = Vector2f( ( 640.0f - 170.0f ) + thrust_out * std::cos( angle ), ( 720.0f - 145.0f ) + thrust_out * std::sin( angle ) );
+			Vector2f pos = Vector2f( ( 640.0f - 170.0f ) + thrust_out * std::cos( angle ), ( 720.0f - 155.0f ) + thrust_out * std::sin( angle ) );
 			pos = VR_Distort( pos );
 			circleBuffer[++i].x = pos.x;
 			circleBuffer[i].y = pos.y;
@@ -767,8 +766,8 @@ void RendererHUDNeo::Compute()
 		uint32_t i = 0;
 		// G-force container
 		{
-			Vector2f p0 = Vector2f( ( 1280.0f / 2.0f ) * 0.705f, 720.0f - 113.0f );
-			Vector2f p1 = Vector2f( ( 1280.0f / 2.0f ) * 0.765f, 720.0f - 130.0f );
+			Vector2f p0 = Vector2f( ( 1280.0f / 2.0f ) * 0.705f, 720.0f - 123.0f );
+			Vector2f p1 = Vector2f( ( 1280.0f / 2.0f ) * 0.765f, 720.0f - 140.0f );
 			staticLinesBuffer[i].x = p0.x;
 			staticLinesBuffer[i].y = p0.y;
 			staticLinesBuffer[++i].x = p1.x;
@@ -793,10 +792,10 @@ void RendererHUDNeo::Compute()
 		{
 			Vector2f pos;
 			float angle = M_PI * 1.25f;
-			pos = Vector2f( ( 640.0f - 170.0f ) + thrust_out * std::cos( angle ), ( 720.0f - 145.0f ) + thrust_out * std::sin( angle ) );
+			pos = Vector2f( ( 640.0f - 170.0f ) + thrust_out * std::cos( angle ), ( 720.0f - 155.0f ) + thrust_out * std::sin( angle ) );
 			staticLinesBuffer[++i].x = pos.x;
 			staticLinesBuffer[i].y = pos.y;
-			pos = Vector2f( ( 640.0f - 170.0f ) + thrust_outer * std::cos( angle ), ( 720.0f - 145.0f ) + thrust_outer * std::sin( angle ) );
+			pos = Vector2f( ( 640.0f - 170.0f ) + thrust_outer * std::cos( angle ), ( 720.0f - 155.0f ) + thrust_outer * std::sin( angle ) );
 			staticLinesBuffer[++i].x = pos.x;
 			staticLinesBuffer[i].y = pos.y;
 		}

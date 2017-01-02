@@ -26,6 +26,8 @@
 class Controller;
 
 typedef struct VideoStats {
+	int width;
+	int height;
 	int fps;
 } VideoStats;
 
@@ -44,7 +46,7 @@ public:
 	virtual ~RendererHUD();
 
 	virtual void Compute() = 0;
-	virtual void Render( Controller* controller, VideoStats* videostats, IwStats* iwstats ) = 0;
+	virtual void Render( Controller* controller, float localVoltage, VideoStats* videostats, IwStats* iwstats ) = 0;
 
 	void RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror = false, bool vmirror = false );
 	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, bool hcenter = false );

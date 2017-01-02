@@ -30,7 +30,7 @@ public:
 	~RendererHUDNeo();
 
 	void Compute();
-	void Render( Controller* controller, VideoStats* videostats, IwStats* iwstats );
+	void Render( Controller* controller, float localVoltage, VideoStats* videostats, IwStats* iwstats );
 
 	void RenderThrustAcceleration( float thrust, float acceleration );
 	void RenderLink( float quality, float level );

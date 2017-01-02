@@ -31,10 +31,10 @@
 #define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
 
 Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo )
-	: Thread( "HUD" )
+	: Thread( "Stream" )
 	, mStereo( stereo )
-	, mWidth( width_ )
-	, mHeight( height_ )
+	, mWidth( 0 )
+	, mHeight( 0 )
 	, mLink( link )
 {
 	srand( time( nullptr ) );
@@ -45,10 +45,10 @@ Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo )
 	mDecoder = new VID_INTF::VideoDecode( 0, VID_INTF::VideoDecode::CodingAVC, true );
 
 	float reduce = 0.25f;
-	int y_offset = mStereo * 56 + ( reduce * mHeight * 0.1 );
-	int width = mWidth / ( 1 + mStereo ) - ( reduce * mWidth * 0.1 );
-	int height = mHeight - ( mStereo * 112 ) - ( reduce * mHeight * 0.2 );
-	mDecoderRender1 = new VID_INTF::VideoRender( reduce * mWidth * 0.05, y_offset, width, height, true );
+	int y_offset = mStereo * 56 + ( reduce * height_ * 0.1 );
+	int width = width_ / ( 1 + mStereo ) - ( reduce * width_ * 0.1 );
+	int height = height_ - ( mStereo * 112 ) - ( reduce * height_ * 0.2 );
+	mDecoderRender1 = new VID_INTF::VideoRender( reduce * width_ * 0.05, y_offset, width, height, true );
 	mDecoderRender1->setMirror( false, true );
 	if ( mStereo ) {
 		mDecoderRender1->setStereo( true );
@@ -56,6 +56,8 @@ Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo )
 	mDecoder->SetupTunnel( mDecoderRender1 );
 	mDecoder->SetState( VID_INTF::Component::StateExecuting );
 	mDecoderRender1->SetState( VID_INTF::Component::StateExecuting );
+
+	setPriority( 99 );
 }
 
 
@@ -66,6 +68,24 @@ Stream::~Stream()
 void Stream::setStereo( bool en )
 {
 	// TODO
+}
+
+
+uint32_t Stream::width()
+{
+	if ( mWidth == 0 and mDecoder->valid() ) {
+		mWidth = mDecoder->width();
+	}
+	return mWidth;
+}
+
+
+uint32_t Stream::height()
+{
+	if ( mHeight == 0 and mDecoder->valid() ) {
+		mHeight = mDecoder->height();
+	}
+	return mHeight;
 }
 
 
@@ -88,9 +108,33 @@ bool Stream::run()
 	uint8_t buffer[bufsize] = { 0 };
 
 	frameSize = mLink->Read( buffer, bufsize, 0 );
+
+	bool corrupted = false;
+	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
+		corrupted = dynamic_cast< RawWifi* >( mLink )->lastIsCorrupt();
+	}
+
 	if ( frameSize > 0 ) {
-		mDecoder->fillInput( buffer, frameSize );
-		if ( frameSize > 41 ) {
+		// h264 headers
+		if ( frameSize <= 42 and buffer[0] == 0x00 and not mDecoder->valid() ) {
+			if ( not corrupted ) {
+				bool already_received = false;
+				if ( mHeadersReceived.size() > 0 ) {
+					for ( auto hdr : mHeadersReceived ) {
+						if ( hdr == frameSize ) {
+							already_received = true;
+							break;
+						}
+					}
+				}
+				if ( not already_received ) {
+					printf( "Processing header (%d)\n", frameSize );
+					mDecoder->fillInput( buffer, frameSize, corrupted );
+					mHeadersReceived.emplace_back( frameSize );
+				}
+			}
+		} else if ( frameSize > 42 ) {
+			mDecoder->fillInput( buffer, frameSize, corrupted );
 			mFrameCounter++;
 		}
 		mBitrateCounter += frameSize;

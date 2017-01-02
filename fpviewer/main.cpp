@@ -28,6 +28,7 @@
 #include <RawWifi.h>
 #include <Socket.h>
 #include "Config.h"
+#include "Board.h"
 #include "Stream.h"
 #include "GLContext.h"
 #include "RendererHUD.h"
@@ -35,6 +36,8 @@
 
 int main( int ac, char** av )
 {
+	pthread_setname_np( pthread_self(), "main" );
+
 	Stream* stream = nullptr;
 	Link* stream_link = nullptr;
 	Controller* controller = nullptr;
@@ -44,6 +47,8 @@ int main( int ac, char** av )
 		std::cout << "FATAL ERROR : No config file specified !\n";
 		return -1;
 	}
+
+	Board* board = new Board();
 
 #ifdef BOARD_rpi
 	bcm_host_init();
@@ -72,7 +77,8 @@ int main( int ac, char** av )
 	}
 
 	stream = new Stream( stream_link, config->integer( "stream.width", 1920 ), config->integer( "stream.height", 1080 ), config->boolean( "stream.stereo", true ) );
-	stream->Run();
+// 	stream->Stop(); stream->Run();
+	stream->Start();
 
 	GLContext* glContext = new GLContext();
 	glContext->Initialize( 1280, 720 );
@@ -82,6 +88,8 @@ int main( int ac, char** av )
 		glClear( GL_COLOR_BUFFER_BIT );
 
 		VideoStats video_stats = {
+			.width = stream->width(),
+			.height = stream->height(),
 			.fps = stream->fps(),
 		};
 		IwStats iwstats = {
@@ -92,7 +100,7 @@ int main( int ac, char** av )
 			.source = 0,
 		};
 		mRendererHUD->PreRender( &video_stats );
-		mRendererHUD->Render( controller, &video_stats, &iwstats );
+		mRendererHUD->Render( controller, board->localBatteryVoltage(), &video_stats, &iwstats );
 
 		uint64_t t = Thread::GetTick();
 		uint32_t minuts = t / ( 1000 * 60 );

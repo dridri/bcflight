@@ -58,6 +58,8 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 	glEnable( GL_BLEND );
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
+	glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+
 	return 0;
 }
 

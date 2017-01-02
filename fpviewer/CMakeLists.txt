@@ -59,6 +59,7 @@ add_executable( fpviewer
 				RendererHUD.cpp
 				RendererHUDNeo.cpp
 				Matrix.cpp
+				ADCs/MCP320x.cpp
 				${BOARD_SOURCES}
 				)
 

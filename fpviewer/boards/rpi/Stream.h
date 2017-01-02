@@ -43,7 +43,7 @@
 
 class Controller;
 
-class Stream : Thread
+class Stream : public Thread
 {
 public:
 	Stream( Link* link, uint32_t width, uint32_t height, bool stereo );
@@ -54,6 +54,8 @@ public:
 	int linkLevel() const { return mLink->RxLevel(); }
 	int linkQuality() const { return mLink->RxQuality(); }
 	int fps() const { return mFPS; }
+	uint32_t width();
+	uint32_t height();
 
 	void Run() { while( run() ); }
 
@@ -64,6 +66,7 @@ private:
 	bool mStereo;
 	uint32_t mWidth;
 	uint32_t mHeight;
+	std::list< uint32_t > mHeadersReceived;
 
 	Link* mLink;
 
