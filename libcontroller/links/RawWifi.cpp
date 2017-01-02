@@ -162,26 +162,13 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 	}
 
 	if ( not mInitialized ) {
-		mInitialized = true;
 		mInitializing = true;
 
-		rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
-/*
-		std::stringstream ss;
-
-// 		if ( readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
-			ss << "ifconfig " << device << " down";
-			ss << " && sleep 0.5 && iw dev " << device << " set monitor otherbss fcsfail";
-			ss << " && sleep 0.5 && ifconfig " << device << " up && sleep 0.5 && ";
-// 		}
-		ss << "iwconfig " << device << " channel " << ( channel - 1 ) << " && sleep 0.5 && iwconfig " << device << " channel " << channel << " && sleep 0.5";
-		if ( txpower > 0 ) {
-			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 ) << " && sleep 0.5";
+		while ( rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 ) < 0 ) {
+			usleep( 1000 * 500 );
 		}
 
-		std::cout << "executing : " << ss.str().c_str() << "\n";
-		(void)system( ss.str().c_str() );
-*/
+		mInitialized = true;
 		mInitializing = false;
 	}
 	mInitializingMutex.unlock();
