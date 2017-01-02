@@ -62,6 +62,7 @@ protected:
 	uint64_t mLiveTicks;
 	uint64_t mRecordTicks;
 	uint64_t mLedTick;
+	uint64_t mHeadersTick;
 	bool mLedState;
 
 	// Record

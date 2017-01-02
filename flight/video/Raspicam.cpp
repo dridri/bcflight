@@ -35,6 +35,7 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	, mConfigObject( conf_obj )
 	, mLiveFrameCounter( 0 )
 	, mLedTick( 0 )
+	, mHeadersTick( 0 )
 	, mLedState( true )
 	, mRecording( false )
 	, mRecordStream( nullptr )
@@ -155,6 +156,17 @@ bool Raspicam::LiveThreadRun()
 		LiveSend( (char*)data, datalen );
 		if ( mRecording ) {
 			RecordWrite( (char*)data, datalen );
+		}
+	}
+
+	// Send video headers every 10 seconds
+	if ( Board::GetTicks() - mHeadersTick >= 1000 * 1000 * 10 ) {
+		mHeadersTick = Board::GetTicks();
+		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
+		if ( headers.size() > 0 ) {
+			for ( auto hdr : headers ) {
+				LiveSend( (char*)hdr.second, hdr.first );
+			}
 		}
 	}
 
