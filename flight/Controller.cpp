@@ -231,6 +231,7 @@ bool Controller::run()
 				uint32_t ticks = 0;
 				if ( command.ReadU32( &ticks ) == sizeof(uint32_t) ) {
 					response.WriteU32( ticks );
+					response.WriteU32( command.ReadU32() ); // Copy-back reported ping
 					do_response = true;
 				}
 				break;
@@ -484,6 +485,8 @@ bool Controller::run()
 					value = std::log( value * ( mExpo.z - 1.0f ) + 1.0f ) / std::log( mExpo.z );
 				}
 				mThrust = value;
+				response.WriteFloat( mThrust );
+				do_response = true;
 				break;
 			}
 

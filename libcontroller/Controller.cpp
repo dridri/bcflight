@@ -153,6 +153,7 @@ Controller::Controller( Link* link, bool spectate )
 	mRxThread->setPriority( 98, 1 );
 
 	if ( spectate ) {
+		Stop();
 		mRxThread->Start();
 	} else {
 		Start();
@@ -216,6 +217,7 @@ bool Controller::run()
 		mXferMutex.lock();
 		mTxFrame.WriteU32( PING );
 		mTxFrame.WriteU32( (uint32_t)( ticks & 0xFFFFFFFFL ) );
+		mTxFrame.WriteU32( mPing ); // Report current ping
 		mLink->Write( &mTxFrame );
 		mXferMutex.unlock();
 
@@ -360,8 +362,12 @@ bool Controller::RxRun()
 			}
 			case PING : {
 				uint32_t ret = telemetry.ReadU32();
+				uint32_t reported_ping = telemetry.ReadU32();
 				uint32_t curr = (uint32_t)( Thread::GetTick() & 0xFFFFFFFFL );
 				mPing = curr - ret;
+				if ( mSpectate ) {
+					mPing = reported_ping;
+				}
 				mConnectionEstablished = true;
 				break;
 			}
