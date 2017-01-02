@@ -14,9 +14,8 @@
 #define CONTINUE -2
 
 // #define DEBUG
-#define DEBUG_PORT -1
 #ifdef DEBUG
-#define dprintf(...) if(DEBUG_PORT==-1||rpcap->port==DEBUG_PORT){fprintf( stderr, __VA_ARGS__ );}
+#define dprintf(...) fprintf( stderr, __VA_ARGS__ );
 #else
 #define dprintf(...) ;
 #endif
@@ -120,6 +119,7 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 			rwifi->recv_private = 0;
 		}
 		rwifi->recv_last_returned = header->block_id;
+		free( header ); // Actually frees header+payload
 		return bytes;
 	}
 
@@ -145,9 +145,11 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 		rwifi->recv_last_returned = block->id;
 		free( block );
 		rwifi->recv_private = NULL;
+		free( header ); // Actually frees header+payload
 		return ret;
 	}
 
+	free( header ); // Actually frees header+payload
 	return CONTINUE;
 }
 
