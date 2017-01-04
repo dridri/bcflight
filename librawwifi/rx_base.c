@@ -34,8 +34,8 @@ typedef u32 __le32;
 #define CONTINUE -2
 
 // #define DEBUG
-//#define DEBUG_PORT -1
-#define DEBUG_PORT 11
+#define DEBUG_PORT -1
+// #define DEBUG_PORT 11
 #ifdef DEBUG
 #define dprintf(...) if(DEBUG_PORT==-1||rpcap->port==DEBUG_PORT){fprintf( stderr, __VA_ARGS__ );}
 #else
@@ -75,7 +75,7 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 
 static pthread_mutex_t pcap_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
-int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payload )
+int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payload, uint32_t* valid )
 {
 	struct pcap_pkthdr* ppcapPacketHeader = NULL;
 	struct ieee80211_radiotap_iterator rti;
@@ -176,13 +176,10 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payloa
 		}
 	}
 
+	*valid = -1;
 	if ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS ) {
 		bytes -= 4;
-	}
-
-	int checksum_correct = ( prd.m_nRadiotapFlags & 0x40 ) == 0;
-	if ( !checksum_correct ) {
-		// TODO/TBD
+		*valid = ( ( prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_BADFCS ) == 0 );
 	}
 
 	*ppu8Payload = (uint8_t*)malloc( bytes * 2 ); // Double the buffer size to avoid any leaks
@@ -198,7 +195,7 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 {
 	uint8_t* pu8PayloadBase = 0;
 
-	int32_t bytes = process_frame( rwifi, rpcap, &pu8PayloadBase );
+	int32_t bytes = process_frame( rwifi, rpcap, &pu8PayloadBase, valid );
 	if ( pu8PayloadBase == 0 ) {
 		return bytes;
 	}
@@ -218,6 +215,7 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 	}
 
 	if ( bytes <= 0 || bytes > ( MAX_USER_PACKET_LENGTH + 128 ) || header->packet_id >= header->packets_count || header->packet_id > MAX_PACKET_PER_BLOCK || header->packets_count > MAX_PACKET_PER_BLOCK ) {
+		dprintf( "Header seams broken, dropping !\n" );
 		*valid = 0;
 		free( pu8PayloadBase );
 		return CONTINUE;
@@ -229,10 +227,18 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 		rwifi->recv_block = NULL;
 	}
 
-	uint32_t calculated_crc = rawwifi_crc32( pu8Payload, bytes );
-	int is_valid = ( header->crc == calculated_crc );
-	if ( is_valid == 0 ) {
-		dprintf( "Invalid CRC ! (%08X != %08X)\n", header->crc, calculated_crc );
+	int is_valid = 0;
+	if ( *valid == 0 ) {
+		dprintf( "pcap says frame's CRC is invalid\n" );
+	} else if ( *valid == 1 ) {
+		dprintf( "pcap says frame's CRC is valid\n" );
+		is_valid = 1;
+	} else if ( (int32_t)*valid < 0 ) { // pcap doesn't know if frame is valid, so check it
+		uint32_t calculated_crc = rawwifi_crc32( pu8Payload, bytes );
+		is_valid = ( header->crc == calculated_crc );
+		if ( is_valid == 0 ) {
+			dprintf( "Invalid CRC ! (%08X != %08X)\n", header->crc, calculated_crc );
+		}
 	}
 
 	if ( header->block_id <= rwifi->recv_last_returned ) {
@@ -247,7 +253,7 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 			"    packets_count = %d\n"
 			"    retry_id = %d\n"
 			"    retries_count = %d\n"
-			"}\n", header->block_id, header->packet_id, header->packets_count, header->retry_id, header->retries_count );
+			"}, valid = %d\n", header->block_id, header->packet_id, header->packets_count, header->retry_id, header->retries_count, is_valid );
 
 	*pHeader = header;
 	*pPayload = pu8Payload;

@@ -39,16 +39,18 @@ typedef enum {
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
 #define MAX_PACKET_PER_BLOCK 64
 
+// TODO : remove _align0 and _align1, and use 16-bits bitfield to store data size
 typedef struct __attribute__((packed)) {
 	uint32_t block_id;
 	uint8_t packet_id;
 	uint8_t packets_count;
-	uint8_t retry_id;
-	uint8_t retries_count;
+	uint8_t retry_id:4;
+	uint8_t _align0:4;
+	uint8_t retries_count:4;
+	uint8_t _align1:4;
 	uint32_t crc;
 	uint16_t header_crc;
 } wifi_packet_header_t;
-
 
 typedef struct rawwifi_packet_t {
 	uint8_t data[2048];
