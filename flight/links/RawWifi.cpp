@@ -25,10 +25,11 @@
 #include "RawWifi.h"
 #include "../Config.h"
 #include <Board.h>
+#include <algorithm>
 
 std::mutex RawWifi::mInitializingMutex;
 bool RawWifi::mInitializing = false;
-bool RawWifi::mInitialized = false;
+std::list< std::string> RawWifi::mInitialized;
 
 
 int RawWifi::flight_register( Main* main )
@@ -132,9 +133,9 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 	while ( mInitializing ) {
 		usleep( 1000 * 100 );
 	}
-	if ( not mInitialized ) {
+	if ( std::find( std::begin(mInitialized), std::end(mInitialized), device) == std::end(mInitialized) ) {
 		mInitializing = true;
-		mInitialized = true;
+		mInitialized.emplace_back( device );
 
 		rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
 /*

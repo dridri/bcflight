@@ -23,6 +23,7 @@
 
 #if ( BUILD_RAWWIFI == 1 )
 
+#include <list>
 #include <rawwifi.h>
 
 class Main;
@@ -63,7 +64,7 @@ protected:
 
 	static std::mutex mInitializingMutex;
 	static bool mInitializing;
-	static bool mInitialized;
+	static std::list<std::string> mInitialized;
 };
 
 #else
