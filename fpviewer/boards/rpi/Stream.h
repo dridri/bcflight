@@ -30,6 +30,7 @@
 
 #include <Link.h>
 #include <Thread.h>
+#include "GLImage.h"
 #if ( VID_INTF_ID == 0 )
 #include "../../external/OpenMaxIL++/include/VideoDecode.h"
 #include "../../external/OpenMaxIL++/include/VideoSplitter.h"
@@ -46,7 +47,7 @@ class Controller;
 class Stream : public Thread
 {
 public:
-	Stream( Link* link, uint32_t width, uint32_t height, bool stereo );
+	Stream( Link* link, uint32_t width, uint32_t height, bool stereo, bool direct_render );
 	~Stream();
 	void setStereo( bool en );
 
@@ -58,12 +59,14 @@ public:
 	uint32_t height();
 
 	void Run() { while( run() ); }
+	void Render( RendererHUD* renderer );
 
 protected:
 	virtual bool run();
 
 private:
 	bool mStereo;
+	bool mDirectRender;
 	uint32_t mWidth;
 	uint32_t mHeight;
 	std::list< uint32_t > mHeadersReceived;
@@ -72,9 +75,11 @@ private:
 
 	VID_INTF::VideoDecode* mDecoder;
 	VID_INTF::VideoSplitter* mDecoderSplitter;
-	VID_INTF::VideoRender* mDecoderRender1;
-	VID_INTF::VideoRender* mDecoderRender2;
+	VID_INTF::VideoRender* mDecoderRender;
 	VID_INTF::EGLRender* mEGLRender;
+
+	EGLImageKHR mEGLVideoImage;
+	GLImage* mGLImage;
 
 	int mFPS;
 	int mFrameCounter;

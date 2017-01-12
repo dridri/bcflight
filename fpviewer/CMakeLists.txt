@@ -41,6 +41,7 @@ endif()
 include( boards/${board}/board.cmake )
 include_directories( boards/${board} )
 include_directories( ${CMAKE_BINARY_DIR} )
+include_directories( ${CMAKE_SOURCE_DIR} )
 add_definitions( -DBOARD="${board}" -DBOARD_${board} )
 
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )

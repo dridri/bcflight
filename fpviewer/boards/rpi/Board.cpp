@@ -20,7 +20,7 @@ float Board::localBatteryVoltage()
 	if ( mADC ) {
 		uint16_t battery_voltage = mADC->Read( 0 );
 		if ( battery_voltage != 0 ) {
-			return (float)battery_voltage * 4.80f * 4.0f / 4096.0f;
+			return (float)battery_voltage * 3.72f * 4.0f / 4096.0f;
 		}
 	}
 

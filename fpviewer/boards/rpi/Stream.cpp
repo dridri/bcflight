@@ -30,32 +30,43 @@
 #define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
 #define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
 
-Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo )
+Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo, bool direct_render )
 	: Thread( "Stream" )
 	, mStereo( stereo )
+	, mDirectRender( direct_render )
 	, mWidth( 0 )
 	, mHeight( 0 )
 	, mLink( link )
+	, mDecoder( nullptr )
+	, mDecoderRender( nullptr )
+	, mEGLRender( nullptr )
+	, mEGLVideoImage( nullptr )
+	, mGLImage( nullptr )
 {
 	srand( time( nullptr ) );
 
 	mFPS = 0;
 	mFrameCounter = 0;
 
-	mDecoder = new VID_INTF::VideoDecode( 0, VID_INTF::VideoDecode::CodingAVC, true );
-
-	float reduce = 0.25f;
-	int y_offset = mStereo * 56 + ( reduce * height_ * 0.1 );
-	int width = width_ / ( 1 + mStereo ) - ( reduce * width_ * 0.1 );
-	int height = height_ - ( mStereo * 112 ) - ( reduce * height_ * 0.2 );
-	mDecoderRender1 = new VID_INTF::VideoRender( reduce * width_ * 0.05, y_offset, width, height, true );
-	mDecoderRender1->setMirror( false, true );
-	if ( mStereo ) {
-		mDecoderRender1->setStereo( true );
+	mDecoder = new VID_INTF::VideoDecode( 0, VID_INTF::VideoDecode::CodingAVC, false );
+	if ( direct_render ) {
+		float reduce = 0.25f;
+		int y_offset = mStereo * 56 + ( reduce * height_ * 0.1 );
+		int width = width_ / ( 1 + mStereo ) - ( reduce * width_ * 0.1 );
+		int height = height_ - ( mStereo * 112 ) - ( reduce * height_ * 0.2 );
+		mDecoderRender = new VID_INTF::VideoRender( reduce * width_ * 0.05, y_offset, width, height, false );
+		mDecoderRender->setMirror( false, true );
+		if ( mStereo ) {
+			mDecoderRender->setStereo( true );
+		}
+		mDecoder->SetupTunnel( mDecoderRender );
+		mDecoder->SetState( VID_INTF::Component::StateExecuting );
+		mDecoderRender->SetState( VID_INTF::Component::StateExecuting );
+	} else {
+		mEGLRender = new VID_INTF::EGLRender( true );
+		mDecoder->SetupTunnel( mEGLRender );
+		mDecoder->SetState( VID_INTF::Component::StateExecuting );
 	}
-	mDecoder->SetupTunnel( mDecoderRender1 );
-	mDecoder->SetState( VID_INTF::Component::StateExecuting );
-	mDecoderRender1->SetState( VID_INTF::Component::StateExecuting );
 
 	setPriority( 99 );
 }
@@ -116,12 +127,13 @@ bool Stream::run()
 
 	if ( frameSize > 0 ) {
 		// h264 headers
-		if ( frameSize <= 42 and buffer[0] == 0x00 and not mDecoder->valid() ) {
-			if ( not corrupted ) {
+		if ( frameSize <= 128 ) {
+// 			printf( "Header received (size: %d)\n", frameSize );
+			if ( buffer[0] == 0x00 and not mDecoder->valid() and not corrupted ) {
 				bool already_received = false;
 				if ( mHeadersReceived.size() > 0 ) {
 					for ( auto hdr : mHeadersReceived ) {
-						if ( hdr == frameSize ) {
+						if ( hdr == (uint32_t)frameSize ) {
 							already_received = true;
 							break;
 						}
@@ -133,7 +145,7 @@ bool Stream::run()
 					mHeadersReceived.emplace_back( frameSize );
 				}
 			}
-		} else if ( frameSize > 42 ) {
+		} else {
 			mDecoder->fillInput( buffer, frameSize, corrupted );
 			mFrameCounter++;
 		}
@@ -154,4 +166,35 @@ bool Stream::run()
 	}
 
 	return true;
+}
+
+
+void Stream::Render( RendererHUD* renderer )
+{
+	if ( mDirectRender ) {
+		// Nothing to do
+	} else {
+		if ( mGLImage == nullptr and width() > 0 and height() > 0 ) {
+			float reduce = 0.25f;
+			int y_offset = mStereo * 56 + ( reduce * 720 * 0.1 );
+			int width = 1280 / ( 1 + mStereo ) - ( reduce * 1280 * 0.1 );
+			int height = 720 - ( mStereo * 112 ) - ( reduce * 720 * 0.2 );
+			mGLImage = new GLImage( Stream::width(), Stream::height() );
+			mGLImage->setDrawCoordinates( reduce * 1280 * 0.05, y_offset, width, height );
+			mEGLVideoImage = eglCreateImageKHR( eglGetCurrentDisplay(), eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)mGLImage->texture(), nullptr );
+			if ( mEGLVideoImage == EGL_NO_IMAGE_KHR ) {
+				printf("eglCreateImageKHR failed.\n");
+				exit(1);
+			}
+			OMX_ERRORTYPE err = mEGLRender->setEGLImage( mEGLVideoImage );
+			mEGLRender->SetState( VID_INTF::Component::StateExecuting );
+			printf( "Video should be OK (%d x %d)\n", mDecoder->width(), mDecoder->height() );
+		}
+		if ( mEGLRender and mEGLRender->state() == VID_INTF::Component::StateExecuting ) {
+			OMX_ERRORTYPE err = mEGLRender->sinkToEGL();
+		}
+		if ( mGLImage ) {
+			mGLImage->Draw( renderer );
+		}
+	}
 }

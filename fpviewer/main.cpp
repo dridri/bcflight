@@ -76,7 +76,9 @@ int main( int ac, char** av )
 		controller = new Controller( controller_link, true );
 	}
 
-	stream = new Stream( stream_link, config->integer( "stream.width", 1920 ), config->integer( "stream.height", 1080 ), config->boolean( "stream.stereo", true ) );
+	bool stereo = config->boolean( "stream.stereo", true );
+	bool direct_render = config->boolean( "stream.direct_render", true );
+	stream = new Stream( stream_link, config->integer( "stream.width", 1920 ), config->integer( "stream.height", 1080 ), stereo, direct_render );
 // 	stream->Stop(); stream->Run();
 	stream->Start();
 
@@ -84,12 +86,17 @@ int main( int ac, char** av )
 	glContext->Initialize( 1280, 720 );
 	RendererHUD* mRendererHUD = new RendererHUDNeo( 1280, 720 );
 
+	uint64_t time_base = Thread::GetTick();
+	uint64_t time = 0;
+	bool last_armed = false;
+
 	while ( 1 ) {
 		glClear( GL_COLOR_BUFFER_BIT );
+		stream->Render( mRendererHUD );
 
 		VideoStats video_stats = {
-			.width = stream->width(),
-			.height = stream->height(),
+			.width = (int)stream->width(),
+			.height = (int)stream->height(),
 			.fps = stream->fps(),
 		};
 		IwStats iwstats = {
@@ -102,11 +109,21 @@ int main( int ac, char** av )
 		mRendererHUD->PreRender( &video_stats );
 		mRendererHUD->Render( controller, board->localBatteryVoltage(), &video_stats, &iwstats );
 
-		uint64_t t = Thread::GetTick();
-		uint32_t minuts = t / ( 1000 * 60 );
-		uint32_t seconds = ( t / 1000 ) % 60;
-		uint32_t ms = t % 1000;
-		mRendererHUD->RenderText( 200, 400, std::to_string(minuts) + ":" + std::to_string(seconds) + ":" + std::to_string(ms), 0xFFFFFFFF );
+		if ( controller->armed() ) {
+			if ( last_armed == false ) {
+				time_base = Thread::GetTick();
+				last_armed = true;
+			}
+			time = Thread::GetTick() - time_base;
+		} else {
+			last_armed = false;
+		}
+		uint32_t minuts = time / ( 1000 * 60 );
+		uint32_t seconds = ( time / 1000 ) % 60;
+		uint32_t ms = time % 1000;
+		char txt[256];
+		sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
+		mRendererHUD->RenderText( 1280 * 0.365f, 720 - 240, txt, 0xFFFFFFFF, 1.0f, true );
 
 		glContext->SwapBuffers();
 	}

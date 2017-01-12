@@ -50,6 +50,7 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 	eglMakeCurrent( mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext );
 
 	std::cout << "OpenGL version : " << glGetString( GL_VERSION ) << "\n";
+	std::cout << "Framebuffer resolution : " << mWidth << " x " << mHeight << "\n";
 	glViewport( 0, 0, mWidth, mHeight );
 	glEnable( GL_CULL_FACE );
 	glFrontFace( GL_CCW );
@@ -90,8 +91,8 @@ EGL_DISPMANX_WINDOW_T GLContext::CreateNativeWindow( int layer )
 	dst_rect.height = display_height;
 
 	// Force this layer to 720p for better performances (automatically upscaled by dispman)
-	display_width = 1280;
-	display_height = 720;
+// 	display_width = 1280;
+// 	display_height = 720;
 
 	src_rect.x = 0;
 	src_rect.y = 0;

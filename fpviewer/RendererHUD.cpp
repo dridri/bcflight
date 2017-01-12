@@ -59,7 +59,15 @@ R"(	#define in varying
 
 	void main()
 	{
-		ge_FragColor = color * texture2D( ge_Texture0, ge_TextureCoord.xy );
+// 		uniform float kernel[9] = float[]( 0, -1, 0, -1, 5, -1, 0, -1, 0 );
+		ge_FragColor = vec4(0.0);
+		ge_FragColor += 5.0 * texture2D( ge_Texture0, ge_TextureCoord.xy );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2(-0.001, 0.0 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.001, 0.0 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.0,-0.001 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.0, 0.001 ) );
+
+		ge_FragColor *= color;
 		ge_FragColor.a = 1.0;
 	})"
 ;
@@ -341,7 +349,7 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, const Vecto
 			
 			w += mTextAdv[ (uint8_t)( (int)text.data()[i] ) ] * size;
 		}
-		x -= w / 2;
+		x -= w / 2.0f;
 	}
 
 	for ( uint32_t i = 0; i < text.length(); i++ ) {
