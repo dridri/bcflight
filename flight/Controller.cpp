@@ -785,7 +785,9 @@ bool Controller::run()
 				break;
 			}
 			case GET_RECORDINGS_LIST : {
-				response.WriteString( mMain->getRecordingsList() );
+				std::string rec = mMain->getRecordingsList();
+				response.WriteU32( crc32( (uint8_t*)rec.c_str(), rec.length() ) );
+				response.WriteString( rec );
 				do_response = true;
 				break;
 			}
@@ -822,6 +824,14 @@ bool Controller::TelemetryRun()
 	Packet telemetry;
 
 	if ( mTelemetryCounter % 3 == 0 ) {
+		if ( mArmed ) {
+			telemetry.WriteU32( ARM );
+			telemetry.WriteU32( mArmed );
+		} else {
+			telemetry.WriteU32( DISARM );
+			telemetry.WriteU32( mArmed );
+		}
+
 		telemetry.WriteU32( VBAT );
 		telemetry.WriteFloat( mMain->powerThread()->VBat() );
 

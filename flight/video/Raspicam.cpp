@@ -27,6 +27,7 @@
 #include <GPIO.h>
 #include "Raspicam.h"
 #include <Board.h>
+#include "../../external/OpenMaxIL++/include/VideoDecode.h"
 
 Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	: ::Camera()
@@ -166,6 +167,9 @@ bool Raspicam::LiveThreadRun()
 		if ( headers.size() > 0 ) {
 			for ( auto hdr : headers ) {
 				LiveSend( (char*)hdr.second, hdr.first );
+				if ( mRecording ) {
+					RecordWrite( (char*)hdr.second, hdr.first );
+				}
 			}
 		}
 	}
@@ -195,6 +199,7 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 	int ret = 0;
 
 	if ( !mRecordStream ) {
+		mEncoder->RequestIFrame();
 		char filename[256];
 		uint32_t fileid = 0;
 		DIR* dir;
@@ -211,6 +216,12 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 		}
 		sprintf( filename, "/var/VIDEO/video_%06u.h264", fileid );
 		mRecordStream = new std::ofstream( filename );
+		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
+		if ( headers.size() > 0 ) {
+			for ( auto hdr : headers ) {
+				mRecordStream->write( (char*)hdr.second, hdr.first );
+			}
+		}
 	}
 
 	auto pos = mRecordStream->tellp();
@@ -219,6 +230,38 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 	mRecordStream->flush();
 
 	return ret;
+}
+
+
+uint32_t* Raspicam::getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp )
+{
+	uint32_t* data = nullptr;
+	*width = 0;
+	*height = 0;
+	*bpp = 0;
+
+	std::ifstream file( filename, std::ios_base::in | std::ios_base::binary );
+	if ( file.is_open() ) {
+		IL::VideoDecode* decoder = new IL::VideoDecode( 60, IL::VideoDecode::CodingAVC, true );
+		decoder->setRGB565Mode( true );
+		uint32_t buf[2048];
+		uint32_t frame = 0;
+		while ( not file.eof() and ( not decoder->valid() or frame < 32 ) ) {
+			std::streamsize sz = file.readsome( (char*)buf, sizeof(buf) );
+			decoder->fillInput( (uint8_t*)buf, sz );
+			if ( decoder->valid() ) {
+				frame++;
+			}
+		}
+		*width = decoder->width();
+		*height = decoder->height();
+		*bpp = 16;
+		data = (uint32_t*)malloc( 16 * decoder->width() * decoder->height() );
+		decoder->getOutputData( (uint8_t*)data, false );
+		delete decoder;
+	}
+
+	return data;
 }
 
 #endif // BOARD_rpi

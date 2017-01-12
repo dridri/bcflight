@@ -65,6 +65,43 @@ int Main::flight_entry( int ac, char** av )
 }
 
 
+#include <OneShot125.h>
+#include <BrushlessPWM.h>
+#include "video/Camera.h"
+void Test()
+{
+	Motor* os125 = new OneShot125( 23 );
+// 	Motor* os125 = new BrushlessPWM( 18 );
+	float s = 0.0f;
+	const float v = 0.005f;
+	float w = v;
+
+	printf( "s = 1.0\n" ); fflush(stdout);
+	os125->setSpeed( 1.0f, true );
+	usleep( 1000 * 1000 * 10 );
+
+	printf( "s = 0.0\n" ); fflush(stdout);
+	os125->setSpeed( 0.0f, true );
+	usleep( 1000 * 1000 * 10 );
+
+	while ( 1 ) {
+		printf( "s = %.4f\n", s ); fflush(stdout);
+		os125->setSpeed( s, true );
+		usleep( 1000 * 25 );
+		s += w;
+		if ( s >= 1.0f ) {
+			w = -v;
+			s = 1.0f;
+		} else if ( s <= 0.1f ) {
+			w = v;
+			s = 0.1f;
+			os125->Disarm();
+			usleep(1000*1000);
+		}
+	}
+}
+
+
 Main::Main()
 	: mController( nullptr )
 {
@@ -79,6 +116,7 @@ Main::Main()
 	flight_register();
 	Board::InformLoading();
 
+// 	Test();
 
 #ifdef BOARD_generic
 	mConfig = new Config( "config.lua" );
@@ -106,9 +144,9 @@ Main::Main()
 	Board::InformLoading();
 
 	std::string frameName = mConfig->string( "frame.type" );
-	if ( Frame::knownFrames().find( frameName ) == Frame::knownFrames().end() ) {
-		gDebug() << "FATAL ERROR : unknown frame \"" << frameName << "\" !\n";
-		return;
+	auto knownFrames = Frame::knownFrames();
+	if ( knownFrames.find( frameName ) == knownFrames.end() ) {
+		gDebug() << "ERROR : unknown frame \"" << frameName << "\" !\n";
 	}
 
 	Board::InformLoading();
@@ -204,7 +242,16 @@ std::string Main::getRecordingsList() const
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
 			struct stat st;
 			stat( ( "/var/VIDEO/" + std::string( ent->d_name ) ).c_str(), &st );
-			ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ";";
+			if ( mCamera ) {
+				uint32_t width = 0;
+				uint32_t height = 0;
+				uint32_t bpp = 0;
+				uint32_t* data = mCamera->getFileSnapshot( "/var/VIDEO/" + std::string( ent->d_name ), &width, &height, &bpp );
+				std::string b64_data = base64_encode( (uint8_t*)data, width * height * ( bpp / 8 ) );
+				ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ":" + std::to_string( width ) + ":" + std::to_string( height ) + ":" + std::to_string( bpp ) + ":" + b64_data + ";";
+			} else {
+				ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ":::;";
+			}
 		}
 		closedir( dir );
 	}
@@ -354,4 +401,51 @@ void Main::DetectDevices()
 			gDebug() << "    " << s->names().front() << "\n";
 		}
 	}
+}
+
+static const std::string base64_chars = 
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			"abcdefghijklmnopqrstuvwxyz"
+			"0123456789+/";
+std::string Main::base64_encode( const uint8_t* buf, uint32_t size )
+{
+	std::string ret;
+	int i = 0;
+	int j = 0;
+	unsigned char char_array_3[3];
+	unsigned char char_array_4[4];
+
+	while ( size-- ) {
+		char_array_3[i++] = *(buf++);
+		if ( i == 3 ) {
+			char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+			char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+			char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+			char_array_4[3] = char_array_3[2] & 0x3f;
+			for ( i = 0; i < 4; i++ ) {
+				ret += base64_chars[char_array_4[i]];
+			}
+			i = 0;
+		}
+	}
+
+	if ( i ) {
+		for(j = i; j < 3; j++)
+		char_array_3[j] = '\0';
+
+		char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+		char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+		char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+		char_array_4[3] = char_array_3[2] & 0x3f;
+
+		for ( j = 0; j < (i + 1); j++ ) {
+			ret += base64_chars[char_array_4[j]];
+		}
+
+		while ( i++ < 3 ) {
+			ret += '=';
+		}
+	}
+
+	return ret;
 }

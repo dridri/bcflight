@@ -50,6 +50,7 @@ public:
 	Controller* controller() const;
 	Camera* camera() const;
 
+	static std::string base64_encode( const uint8_t* buf, uint32_t size );
 	static Main* instance();
 
 private:

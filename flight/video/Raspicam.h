@@ -47,6 +47,8 @@ public:
 	virtual void setContrast( int32_t value );
 	virtual void setSaturation( int32_t value );
 
+	virtual uint32_t* getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
+
 protected:
 	bool LiveThreadRun();
 
