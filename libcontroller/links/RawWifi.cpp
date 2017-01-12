@@ -27,6 +27,8 @@
 #include <netinet/in.h>
 #endif
 
+#ifndef NO_RAWWIFI
+
 // static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim );
 
 std::mutex RawWifi::mInitializingMutex;

@@ -27,7 +27,11 @@ else()
 endif()
 
 if ( RAWWIFI_ON )
-	set( OTHER_LIBS ${OTHER_LIBS} rawwifi ) 
+	set( OTHER_LIBS ${OTHER_LIBS} rawwifi )
+	if ( WIN32 OR MINGW )
+		#TODO
+		set( OTHER_LIBS ${NLGENL_LIBRARY} ${NLROUTE_LIBRARY} ${NL_LIBRARY} -ldl )
+	endif()
 endif()
 
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
