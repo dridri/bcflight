@@ -22,6 +22,15 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#ifdef WIN32
+#include <winsock2.h>
+#define socklen_t int
+#define DATATYPE char*
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+#endif
+#else
+#define DATATYPE void*
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -35,7 +44,7 @@ typedef int SOCKET;
 typedef struct sockaddr_in SOCKADDR_IN;
 typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
-
+#endif
 #include <iostream>
 #include "Socket.h"
 
@@ -86,13 +95,13 @@ int Socket::Connect()
 		int option = 1;
 		setsockopt( mSocket, SOL_SOCKET, ( 15/*SO_REUSEPORT*/ | SO_REUSEADDR ), (char*)&option, sizeof( option ) );
 		if ( mPortType == TCP ) {
-			int flag = 1; 
+			int flag = 1;
 			setsockopt( mSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) );
 		}
 		if ( mPortType == UDPLite ) {
 			uint16_t checksum_coverage = 8;
-			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
-			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
+			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, (DATATYPE)&checksum_coverage, sizeof(checksum_coverage) );
+			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, (DATATYPE)&checksum_coverage, sizeof(checksum_coverage) );
 		}
 		if ( connect( mSocket, (SOCKADDR*)&mSin, sizeof(mSin) ) < 0 ) {
 			std::cout << "Socket ( " << mPort << " ) connect error : " << strerror(errno) << "\n";
@@ -110,9 +119,14 @@ int Socket::Connect()
 
 int Socket::setBlocking( bool blocking )
 {
+#ifdef WIN32
+	unsigned long nonblock = !blocking;
+	return ( ioctlsocket( mSocket, FIONBIO, &nonblock ) == 0 );
+#else
 	int flags = fcntl( mSocket, F_GETFL, 0 );
 	flags = blocking ? ( flags & ~O_NONBLOCK) : ( flags | O_NONBLOCK );
 	return ( fcntl( mSocket, F_SETFL, flags ) == 0 );
+#endif
 }
 
 
@@ -135,7 +149,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 
 	if ( mPortType == UDP or mPortType == UDPLite ) {
 		socklen_t fromsize = sizeof( mSin );
-		ret = recvfrom( mSocket, buf, len, 0, (SOCKADDR *)&mSin, &fromsize );
+		ret = recvfrom( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)&mSin, &fromsize );
 		if ( ret <= 0 and errno != EAGAIN ) {
 			std::cout << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
 			mConnected = false;
@@ -143,7 +157,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 		}
 // 		return -1;
 	} else {
-		ret = recv( mSocket, buf, len, MSG_NOSIGNAL );
+		ret = recv( mSocket, (DATATYPE)buf, len, MSG_NOSIGNAL );
 // 		if ( ( ret <= 0 and errno != EAGAIN ) or ( errno == EAGAIN and timeout > 0 ) ) {
 		if ( ret <= 0 ) {
 			std::cout << "TCP disconnected ( " << strerror( errno ) << " )\n";
@@ -176,9 +190,9 @@ int Socket::Write( const void* buf, uint32_t len, int timeout )
 
 	if ( mPortType == UDP or mPortType == UDPLite ) {
 		uint32_t sendsize = sizeof( mSin );
-		ret = sendto( mSocket, buf, len, 0, (SOCKADDR *)&mSin, sendsize );
+		ret = sendto( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)&mSin, sendsize );
 	} else {
-		ret = send( mSocket, buf, len, 0 );
+		ret = send( mSocket, (DATATYPE)buf, len, 0 );
 	}
 
 	if ( ret <= 0 and ( errno == EAGAIN or errno == -EAGAIN ) ) {

@@ -37,8 +37,14 @@
 
 #pragma once
 
+#ifdef WIN32
+#define u8 unsigned char
+#define __le16 unsigned short
+#define __le32 unsigned int
+#else
 #include <linux/if_ether.h>
 #include <linux/kernel.h>
+#endif
 
 /* Radiotap header version (from official NetBSD feed) */
 #define IEEE80211RADIOTAP_VERSION	"1.5"

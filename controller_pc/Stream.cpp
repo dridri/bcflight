@@ -25,6 +25,10 @@
 #include "ui_mainWindow.h"
 
 
+#if ( defined(WIN32) && !defined(glActiveTexture) )
+PFNGLACTIVETEXTUREPROC glActiveTexture = 0;
+#endif
+
 Stream::Stream( QWidget* parent )
 	: QGLWidget( parent )
 	, mStreamThread( new StreamThread( this ) )
@@ -40,18 +44,20 @@ Stream::Stream( QWidget* parent )
 	memset( &mU, 0, sizeof(mU) );
 	memset( &mV, 0, sizeof(mV) );
 
+#ifdef WIN32
+	if ( glActiveTexture == 0 ) {
+		glActiveTexture = (PFNGLACTIVETEXTUREPROC)GetProcAddress( LoadLibrary("opengl32.dll"), "glActiveTexture" );
+	}
+#endif
+
 	mStreamThread->start();
 	connect( this, SIGNAL( repaintEmitter() ), this, SLOT( repaintReceiver() ) );
-
-	qDebug() << "WelsCreateDecoder :" << WelsCreateDecoder( &mDecoder );
 
 	SDecodingParam decParam;
 	memset( &decParam, 0, sizeof (SDecodingParam) );
 	decParam.uiTargetDqLayer = UCHAR_MAX;
 	decParam.eEcActiveIdc = ERROR_CON_SLICE_MV_COPY_CROSS_IDR;//ERROR_CON_SLICE_COPY;
 	decParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_AVC;
-
-	qDebug() << "mDecoder->Initialize :" << mDecoder->Initialize( &decParam );
 }
 
 
@@ -230,18 +236,12 @@ void Stream::paintGL()
 	glActiveTexture( GL_TEXTURE1 );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, mU.tex );
-// 	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mU.stride, mU.height, GL_RED, GL_UNSIGNED_BYTE, mU.data );
-// 	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, mU.height, mV.stride, mV.height, GL_RED, GL_UNSIGNED_BYTE, mV.data );
-	uint8_t d[1024*2048];
+	uint8_t* d = new uint8_t[ ( mU.stride * mU.height + mU.stride * mV.height ) * 2 ];
 	memcpy( d, mU.data, mU.stride * mU.height );
 	memcpy( d + mU.stride * mU.height, mV.data, mU.stride * mV.height );
 	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mU.stride, mU.height + mV.height, GL_RED, GL_UNSIGNED_BYTE, d );
-/*
-	glActiveTexture( GL_TEXTURE2 );
-	glEnable( GL_TEXTURE_2D );
-	glBindTexture( GL_TEXTURE_2D, mV.tex );
-	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, mV.stride, mV.height, GL_RED, GL_UNSIGNED_BYTE, mV.data );
-*/
+	delete d;
+
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 	mShader->disableAttributeArray( vertexLocation );
 	mShader->disableAttributeArray( texLocation );

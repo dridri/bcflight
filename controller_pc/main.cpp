@@ -16,17 +16,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#include <iostream>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyleFactory>
+#include <QDebug>
 
+#include <stdio.h>
 #include <RawWifi.h>
 #include <Socket.h>
 #include "ControllerPC.h"
 
 #include "MainWindow.h"
 
+void msgHandler( QtMsgType type, const QMessageLogContext& ctx, const QString& msg )
+{
+	printf( "%s\n", msg.toStdString().c_str() );
+	fflush( stdout );
+}
+
 int main( int ac, char** av )
 {
+#ifdef WIN32
+	WSADATA WSAData;
+	WSAStartup( MAKEWORD(2,0), &WSAData );
+#endif
+
+	qInstallMessageHandler( msgHandler );
 	QApplication app( ac, av );
 
 	MainWindow win;

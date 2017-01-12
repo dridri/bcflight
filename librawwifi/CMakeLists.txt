@@ -4,14 +4,15 @@ project( rawwifi )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -std=gnu11 -Wno-unused-result" )
 
-# find_package( Libiw REQUIRED )
 find_package( LibPCAP REQUIRED )
-find_package( LibNL REQUIRED )
+if ( WIN32 )
+else()
+	find_package( LibNL REQUIRED )
+endif()
 
 include_directories( ${NL_INCLUDE_DIR} )
 
-add_library(rawwifi
-			interface.c
+set( SRCS
 			rx_base.c
 			rx_weighted.c
 			tx.c
@@ -20,4 +21,15 @@ add_library(rawwifi
 			blocks.c
 			)
 
-target_link_libraries( rawwifi ${NL_LIBRARIES} -lrt )
+if ( WIN32 )
+	set( SRCS ${SRCS} interface_win.c )
+	set( NL_LIBRARIES -lversion -liphlpapi -lws2_32 -pthread )
+	set( PCAP_LIBRARY -lpacket -lwpcap -lpacket )
+else()
+	set( SRCS ${SRCS} interface_linux.c )
+	set( NL_LIBRARIES ${NL_LIBRARIES} -lrt )
+endif()
+
+add_library( rawwifi STATIC ${SRCS} )
+
+target_link_libraries( rawwifi ${PCAP_LIBRARY} ${NL_LIBRARIES} )

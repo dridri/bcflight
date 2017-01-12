@@ -21,6 +21,9 @@
 #include <sched.h>
 #include <string.h>
 #include <signal.h>
+#ifdef WIN32
+#include <windows.h>
+#endif
 #include "Thread.h"
 
 std::mutex Thread::mCriticalMutex;
@@ -41,7 +44,9 @@ Thread::Thread( const std::string& name )
 	pthread_attr_init( &attr );
 	pthread_attr_setstacksize( &attr, 16 * 1024 * 1024 );
 	pthread_create( &mThread, &attr, (void*(*)(void*))&Thread::ThreadEntry, this );
+#ifndef WIN32
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
+#endif
 }
 
 
@@ -91,6 +96,12 @@ void Thread::setPriority( int32_t p, int affinity )
 	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
 		mSetAffinity = affinity;
 	}
+}
+
+
+void Thread::sThreadEntry( void* argp )
+{
+	static_cast< Thread* >( argp )->ThreadEntry();
 }
 
 
