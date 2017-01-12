@@ -25,7 +25,7 @@
 class ControllerClient : public Controller
 {
 public:
-	ControllerClient( Link* link, bool spectate = false );
+	ControllerClient(  Config* config, Link* link, bool spectate = false );
 	~ControllerClient();
 
 protected:

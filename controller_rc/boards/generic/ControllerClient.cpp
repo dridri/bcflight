@@ -23,7 +23,7 @@
 #include <cmath>
 #include "ControllerClient.h"
 
-ControllerClient::ControllerClient( Link* link, bool spectate )
+ControllerClient::ControllerClient(  Config* config, Link* link, bool spectate )
 	: Controller( link, spectate )
 {
 }

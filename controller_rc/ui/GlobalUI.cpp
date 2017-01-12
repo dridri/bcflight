@@ -27,6 +27,7 @@ bool GlobalUI::run()
 	if ( mApplication == nullptr ) {
 		putenv( (char*)"QT_QPA_FB_TSLIB=1" );
 		putenv( (char*)"QT_LOGGING_RULES=qt.qpa.input=true" );
+		putenv( (char*)"QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=270" );
 
 		int ac = 3;
 		const char* av[4] = { "controller", "-platform", "linuxfb:fb=/dev/fb1", nullptr };
@@ -58,6 +59,8 @@ bool GlobalUI::run()
 		mMainWindow->setMaximumSize( 480, 320 );
 		mMainWindow->show();
 	}
+
+	return mApplication->exec();
 
 	mMainWindow->Update();
 	mApplication->processEvents();

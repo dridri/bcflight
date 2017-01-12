@@ -27,11 +27,14 @@
 #include <Config.h>
 #include "ControllerClient.h"
 
+Config* ControllerClient::mConfig = nullptr;
+
 ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 	: Controller( link, spectate )
-	, mConfig( config )
 	, mADC( nullptr )
 {
+	mConfig = config;
+
 	wiringPiSetupGpio();
 // 	pullUpDnControl( 20, PUD_DOWN );
 	pullUpDnControl( 21, PUD_DOWN );
@@ -180,4 +183,52 @@ float ControllerClient::Joystick::Read()
 	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
 	ret = 0.01f * std::round( ret * 100.0f );
 	return ret;
+}
+
+
+void ControllerClient::SaveThrustCalibration( uint16_t min, uint16_t center, uint16_t max )
+{
+	mJoysticks[0].SetCalibratedValues( min, center, max );
+	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":min", min );
+	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":cen", center );
+	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":max", max );
+	system( "mount -o remount,rw /" );
+	mConfig->SaveSettings( "/root/settings" );
+	system( "mount -o remount,ro /" );
+}
+
+
+void ControllerClient::SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max )
+{
+	mJoysticks[1].SetCalibratedValues( min, center, max );
+	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":min", min );
+	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":cen", center );
+	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":max", max );
+	system( "mount -o remount,rw /" );
+	mConfig->SaveSettings( "/root/settings" );
+	system( "mount -o remount,ro /" );
+}
+
+
+void ControllerClient::SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max )
+{
+	mJoysticks[2].SetCalibratedValues( min, center, max );
+	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":min", min );
+	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":cen", center );
+	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":max", max );
+	system( "mount -o remount,rw /" );
+	mConfig->SaveSettings( "/root/settings" );
+	system( "mount -o remount,ro /" );
+}
+
+
+void ControllerClient::SaveRollCalibration( uint16_t min, uint16_t center, uint16_t max )
+{
+	mJoysticks[3].SetCalibratedValues( min, center, max );
+	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":min", min );
+	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":cen", center );
+	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":max", max );
+	system( "mount -o remount,rw /" );
+	mConfig->SaveSettings( "/root/settings" );
+	system( "mount -o remount,ro /" );
 }

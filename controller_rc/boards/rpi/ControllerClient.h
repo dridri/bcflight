@@ -54,6 +54,14 @@ public:
 	};
 
 	Joystick* joystick( int x ) { return &mJoysticks[x]; }
+	uint16_t rawThrust() { return mJoysticks[0].ReadRaw(); }
+	uint16_t rawYaw() { return mJoysticks[1].ReadRaw(); }
+	uint16_t rawRoll() { return mJoysticks[3].ReadRaw(); }
+	uint16_t rawPitch() { return mJoysticks[2].ReadRaw(); }
+	void SaveThrustCalibration( uint16_t min, uint16_t center, uint16_t max );
+	void SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max );
+	void SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max );
+	void SaveRollCalibration( uint16_t min, uint16_t center, uint16_t max );
 
 protected:
 	virtual bool run();
@@ -64,7 +72,7 @@ protected:
 	float ReadYaw();
 	int8_t ReadSwitch( uint32_t id );
 
-	Config* mConfig;
+	static Config* mConfig;
 	MCP320x* mADC;
 	Joystick mJoysticks[4];
 };

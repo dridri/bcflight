@@ -47,7 +47,7 @@ int main( int ac, char** av )
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ), -1 );
 	}
 
-	controller = new ControllerClient( controller_link, config->boolean( "controller.spectate", false ) );
+	controller = new ControllerClient( config, controller_link, config->boolean( "controller.spectate", false ) );
 
 	GlobalUI* ui = new GlobalUI( controller );
 	ui->Start();
