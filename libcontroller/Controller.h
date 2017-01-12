@@ -123,6 +123,14 @@ public:
 	const std::list< float >& altitudeHistory() const;
 
 	float localBatteryVoltage() const;
+	virtual uint16_t rawThrust() { return 0; }
+	virtual uint16_t rawYaw() { return 0; }
+	virtual uint16_t rawRoll() { return 0; }
+	virtual uint16_t rawPitch() { return 0; }
+	virtual void SaveThrustCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
+	virtual void SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
+	virtual void SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
+	virtual void SaveRollCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
 
 protected:
 	typedef enum {

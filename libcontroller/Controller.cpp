@@ -190,7 +190,7 @@ bool Controller::run()
 		return true;
 	}
 
-	if ( /*not mConnected or*/ not mLink->isConnected() ) {
+	if ( not mLink->isConnected() ) {
 		std::cout << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
@@ -549,8 +549,9 @@ bool Controller::RxRun()
 			}
 
 			case SET_THRUST : {
+				float value = telemetry.ReadFloat();
 				if ( mSpectate ) {
-					mThrust = telemetry.ReadFloat();
+					mThrust = value;
 				}
 				break;
 			}
@@ -596,7 +597,14 @@ bool Controller::RxRun()
 				break;
 			}
 			case GET_RECORDINGS_LIST : {
-				mRecordingsList = telemetry.ReadString();
+				uint32_t crc = telemetry.ReadU32();
+				std::string content = telemetry.ReadString();
+				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
+					mRecordingsList = content;
+				} else {
+					std::cout << "Received broken recordings list, retrying...\n";
+					mRecordingsList = "broken";
+				}
 				break;
 			}
 
@@ -1054,12 +1062,14 @@ std::vector< std::string > Controller::recordingsList()
 	mRecordingsList = "";
 
 	// Wait for data to be filled by RX Thread (RxRun())
-	while ( mRecordingsList.length() == 0 ) {
+	do {
 		mXferMutex.lock();
 		mTxFrame.WriteU32( GET_RECORDINGS_LIST );
 		mXferMutex.unlock();
-		usleep( 1000 * 250 );
-	}
+		while ( mRecordingsList.length() == 0 ) {
+			usleep( 1000 * 250 );
+		}
+	} while ( mRecordingsList == "broken" );
 
 	std::vector< std::string > list;
 	std::string full = mRecordingsList;
