@@ -727,17 +727,29 @@ void MainWindow::RecordingsRefresh()
 
 	std::vector< std::string > list = mController->recordingsList();
 	for ( std::string input : list ) {
-		std::string filename = input.substr( 0, input.find( ":" ) );
-		std::string size = input.substr( input.find( ":" ) + 1 );
+		QStringList split = QString::fromStdString(input).split( ":" );
+		QString filename = split[0];
+		QString size = split[1];
+		int snap_width = split[2].toInt();
+		int snap_height = split[3].toInt();
+		int snap_bpp = split[4].toInt();
+		QByteArray snap_raw = QByteArray::fromBase64( split[5].toUtf8() );
+		uint32_t* snap_raw32 = ( snap_raw.size() > 0 ) ? (uint32_t*)snap_raw.constData() : nullptr;
 		if ( filename[0] != '.' ) {
-// 			std::string snapshot_b64 = input.substr( input.find( ":" ) + 1 );
-// 			QByteArray snapshot_raw = QByteArray::fromBase64( QString::fromStdString( snapshot_b64 ) );
-
+			QLabel* snapshot_label = new QLabel();
+			if ( snap_raw32 ) {
+				QImage snapshot( snap_width, snap_height, QImage::Format_RGB16 );
+				for ( int y = 0; y < snap_height; y++ ) {
+					for ( int x = 0; x < snap_width; x++ ) {
+						snapshot.setPixel( x, y, snap_raw32[ y * snap_width + x ] );
+					}
+				}
+				snapshot_label->setPixmap( QPixmap::fromImage( snapshot ) );
+			}
 			ui->recordings->insertRow( ui->recordings->rowCount() );
-// 			ui->recordings->item( ui->recordings->rowCount() - 1, 0 )->setText( "" );
-// 			ui->recordings->item( ui->recordings->rowCount() - 1, 1 )->setText( QString::fromStdString( filename ) );
-			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 1, new QLabel( QString::fromStdString( filename ) ) );
-			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 2, new QLabel( QString::fromStdString( size ) ) );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 0, snapshot_label );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 1, new QLabel( filename ) );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 2, new QLabel( size ) );
 
 			QWidget* tools = new QWidget();
 			QHBoxLayout* layout = new QHBoxLayout();
