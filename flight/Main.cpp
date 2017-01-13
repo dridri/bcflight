@@ -324,7 +324,8 @@ void Main::DetectDevices()
 
 	std::list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
-		Sensor::RegisterDevice( dev );
+		std::string name = mConfig->string( "sensors_map_i2c[" + std::to_string(dev) + "]", "" );
+		Sensor::RegisterDevice( dev, name );
 	}
 	// TODO : register SPI/1-wire/.. devices
 

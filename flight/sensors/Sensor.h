@@ -49,7 +49,7 @@ public:
 	virtual void Calibrate( float dt, bool last_pass = false ) = 0;
 
 	static void AddDevice( Sensor* sensor );
-	static void RegisterDevice( int I2Caddr );
+	static void RegisterDevice( int I2Caddr, const std::string& name = "" );
 	static void RegisterDevice( const std::string& name, Config* config, const std::string& object );
 	static std::list< Sensor* > Devices();
 	static std::list< Gyroscope* > Gyroscopes();

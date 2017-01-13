@@ -139,10 +139,10 @@ void Sensor::AddDevice( Sensor* sensor )
 }
 
 
-void Sensor::RegisterDevice( int I2Caddr )
+void Sensor::RegisterDevice( int I2Caddr, const std::string& name )
 {
 	for ( Device d : mKnownDevices ) {
-		if ( d.iI2CAddr == I2Caddr ) {
+		if ( d.iI2CAddr == I2Caddr and ( name == "" or !strcmp( d.name, name.c_str() ) ) ) {
 			Sensor* dev = d.fInstanciate( nullptr, "" );
 			if ( dev ) {
 				mDevices.push_back( dev );
