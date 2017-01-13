@@ -81,13 +81,11 @@ if board == "rpi" then
 end
 
 
---[[
+
 --- Setup explicit sensors map : this optionnal table helps the flight controller
 --- to correctly recognize detected sensors on I2C bus
-sensors_map_i2c = {
-	0x77 = "BMP180",
-}
-]]--
+sensors_map_i2c[0x77] = "BMP180"
+
 
 --- Setup sensors axis swap
 accelerometers["MPU9150"] = {

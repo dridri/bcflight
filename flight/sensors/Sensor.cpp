@@ -167,6 +167,12 @@ void Sensor::RegisterDevice( const std::string& name, Config* config, const std:
 }
 
 
+const std::list< Sensor::Device >& Sensor::KnownDevices()
+{
+	return mKnownDevices;
+}
+
+
 std::list< Sensor* > Sensor::Devices()
 {
 	return mDevices;

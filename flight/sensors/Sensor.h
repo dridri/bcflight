@@ -37,6 +37,14 @@ class CurrentSensor;
 class Sensor
 {
 public:
+	class Device {
+	public:
+		int iI2CAddr;
+		const char* name;
+		std::function< Sensor* ( Config*, const std::string& ) > fInstanciate;
+		Device() : iI2CAddr(0), name("") {}
+	};
+
 	Sensor();
 	virtual ~Sensor();
 
@@ -51,6 +59,7 @@ public:
 	static void AddDevice( Sensor* sensor );
 	static void RegisterDevice( int I2Caddr, const std::string& name = "" );
 	static void RegisterDevice( const std::string& name, Config* config, const std::string& object );
+	static const std::list< Device >& KnownDevices();
 	static std::list< Sensor* > Devices();
 	static std::list< Gyroscope* > Gyroscopes();
 	static std::list< Accelerometer* > Accelerometers();
@@ -76,21 +85,6 @@ protected:
 		SwapModeAxis,
 		SwapModeMatrix,
 	} SwapMode;
-/*
-	typedef struct {
-		int iI2CAddr;
-		const char* name;
-		std::function< Sensor* ( Config*, const std::string& ) > fInstanciate;
-		Device() : iI2CAddr(0), name("") {}
-	} Device;
-*/
-	class Device {
-	public:
-		int iI2CAddr;
-		const char* name;
-		std::function< Sensor* ( Config*, const std::string& ) > fInstanciate;
-		Device() : iI2CAddr(0), name("") {}
-	};
 
 	std::list< std::string > mNames;
 	Vector4f mLastValues;

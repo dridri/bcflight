@@ -161,11 +161,11 @@ int Config::LocateValue( const std::string& _name )
 {
 	const char* name = _name.c_str();
 
-	if ( strchr( name, '.' ) == nullptr ) {
+	if ( strchr( name, '.' ) == nullptr and strchr( name, '[' ) == nullptr ) {
 		lua_getfield( L, LUA_GLOBALSINDEX, name );
 	} else {
 		char tmp[128];
-		int i, j, k;
+		int i=0, j, k;
 		bool in_table = false;
 		for ( i = 0, j = 0, k = 0; name[i]; i++ ) {
 			if ( name[i] == '.' or name[i] == '[' or name[i] == ']' ) {
@@ -203,9 +203,11 @@ int Config::LocateValue( const std::string& _name )
 			}
 		}
 		tmp[j] = 0;
-		lua_getfield( L, -1, tmp );
-		if ( lua_type( L, -1 ) == LUA_TNIL ) {
-			return -1;
+		if ( tmp[0] != 0 ) {
+			lua_getfield( L, -1, tmp );
+			if ( lua_type( L, -1 ) == LUA_TNIL ) {
+				return -1;
+			}
 		}
 	}
 
@@ -312,6 +314,7 @@ void Config::Reload()
 	luaL_dostring( L, "camera = {}" );
 	luaL_dostring( L, "controller = {}" );
 	luaL_dostring( L, "stabilizer = { loop_time = 2000 }" );
+	luaL_dostring( L, "sensors_map_i2c = {}" );
 	luaL_dostring( L, "accelerometers = {}" );
 	luaL_dostring( L, "gyroscopes = {}" );
 	luaL_dostring( L, "magnetometers = {}" );

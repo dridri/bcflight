@@ -322,6 +322,21 @@ void Main::DetectDevices()
 	int countVolt = 0;
 	int countCurrent = 0;
 
+	{
+		std::list< Sensor::Device > knownDevices = Sensor::KnownDevices();
+		Debug sensors;
+		sensors << "Supported sensors :\n";
+		for ( Sensor::Device dev : knownDevices ) {
+			if ( dev.name != "" ) {
+				sensors << "    " << dev.name;
+				if ( dev.iI2CAddr != 0 ) {
+					sensors << " [I2C 0x" << std::hex << dev.iI2CAddr << "]";
+				}
+				sensors << "\n";
+			}
+		}
+	}
+
 	std::list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
 		std::string name = mConfig->string( "sensors_map_i2c[" + std::to_string(dev) + "]", "" );

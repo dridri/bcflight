@@ -41,6 +41,12 @@ bool GPIO::Read( int pin )
 }
 
 
-void GPIO::RegisterInterrupt( int pin, GPIO::ISRMode mode, void (*cb)(void*) )
+void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode )
 {
+}
+
+
+int GPIO::WaitForInterrupt( int pin, int timeout_ms )
+{
+	return 0;
 }

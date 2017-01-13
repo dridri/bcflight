@@ -40,7 +40,8 @@ public:
 	static void setPWM( int pin, int initialValue, int pwmRange );
 	static void Write( int pin, bool en );
 	static bool Read( int pin );
-	static void RegisterInterrupt( int pin, GPIO::ISRMode mode, void (*cb)(void*) );
+	static void SetupInterrupt( int pin, GPIO::ISRMode mode );
+	static int WaitForInterrupt( int pin, int timeout_ms );
 
 private:
 };
