@@ -174,6 +174,8 @@ std::list< int > I2C::ScanAll()
 				exit(0);
 			}
 		}
+		char buf[] = {1};
+		write( fd, buf, 1 );
 		res = read( fd, &byte_, 1 );
 		/*
 		if ( ( i >= 0x30 && i <= 0x37 ) || ( i >= 0x50 && i <= 0x5F ) ) {
