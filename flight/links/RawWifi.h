@@ -18,14 +18,13 @@
 
 #ifndef RAWWIFI_H
 #define RAWWIFI_H
-
+#include <mutex>
 #include "Link.h"
 
 #if ( BUILD_RAWWIFI == 1 )
 
 #include <list>
-#include <rawwifi.h>
-
+#include "../../librawwifi/rawwifi.h"
 class Main;
 
 class RawWifi : public Link

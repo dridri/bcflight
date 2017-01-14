@@ -804,10 +804,12 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 	mUpdateUploadValid = false;
 	mXferMutex.lock();
 	int retries = 1;
+#ifndef NO_RAWWIFI
 	if ( dynamic_cast< RawWifi* >( mLink ) != nullptr ) {
 		retries = dynamic_cast< RawWifi* >( mLink )->retriesCount();
 		dynamic_cast< RawWifi* >( mLink )->setRetriesCount( 1 );
 	}
+#endif
 	do {
 		mLink->Write( &packet );
 		usleep( 1000 * 50 );

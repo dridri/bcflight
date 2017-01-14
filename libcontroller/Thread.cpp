@@ -93,9 +93,11 @@ bool Thread::running()
 void Thread::setPriority( int32_t p, int affinity )
 {
 	mSetPriority = p;
+#ifdef __linux__
 	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
 		mSetAffinity = affinity;
 	}
+#endif
 }
 
 
@@ -132,11 +134,13 @@ void Thread::ThreadEntry()
 		}
 		if ( mSetAffinity != mAffinity ) {
 			mAffinity = mSetAffinity;
+#ifdef __linux__
 			printf( "Thread '%s' affinity set to %d\n", mName.c_str(), mAffinity );
 			cpu_set_t cpuset;
 			CPU_ZERO( &cpuset );
 			CPU_SET( mAffinity, &cpuset );
 			pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
+#endif
 		}
 	} while ( not mTerminate and run() );
 	mIsRunning = false;

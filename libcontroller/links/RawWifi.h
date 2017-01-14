@@ -25,6 +25,16 @@
 #include <mutex>
 #ifdef NO_RAWWIFI
 typedef void rawwifi_t;
+typedef enum {
+	RAWWIFI_RX_FAST = 0,
+	RAWWIFI_RX_FEC_WEIGHTED = 1,
+	RAWWIFI_RX_FEC_CEC = 2
+} RAWWIFI_RX_FEC_MODE;
+
+typedef enum {
+	RAWWIFI_FILL_WITH_ZEROS = 0, // default : fill missing parts of blocks with zeros
+	RAWWIFI_CONTIGUOUS = 1,  // put all the packets one behind the other
+} RAWWIFI_BLOCK_RECOVER_MODE;
 #else
 #include <rawwifi.h>
 #endif

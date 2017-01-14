@@ -317,12 +317,13 @@ static std::string readcmd( const std::string& cmd, const std::string& entry, co
 */
 #else // NO_RAWWIFI
 
-RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port )
+RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, int read_timeout_ms )
 	: Link()
 	, mRawWifi( nullptr )
 	, mDevice( device )
 	, mChannel( 11 )
 	, mTxPower( 33 )
+	, mReadTimeout( read_timeout_ms )
 	, mCECMode( 0 )
 	, mOutputPort( out_port )
 	, mInputPort( in_port )
@@ -373,6 +374,10 @@ int RawWifi::channel() const
 {
 	return -1;
 }
+int32_t RawWifi::Channel()
+{
+	return mChannel;
+}
 
 
 bool RawWifi::lastIsCorrupt() const
@@ -397,6 +402,10 @@ int RawWifi::Connect()
 	return -1;
 }
 
+int32_t RawWifi::RxLevel()
+{
+	return -1;
+}
 
 int RawWifi::Read( void* buf, uint32_t len, int timeout )
 {
