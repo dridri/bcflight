@@ -36,20 +36,20 @@ Contains buildroot configuration for both flight and ground targets.
 
 Racer :
 * ZMR250 frame
-* Raspberry Pi Zero v1.2
+* Raspberry Pi 3
 * Raspberry Pi official camera v2.1 (8MP, Sony IMX219 sensor) + wide-angle lens
-* Alfa Network AWUS036NH (pushed to 2000mW TX power)
+* Alfa Network AWUS036NH (maxed out to 2000mW TX power)
 * MPU9150 (gyroscope + accelerometer + magnetometer)
 * ADS1015 (ADC/Voltmeter)
 * ACS709 (current sensor)
-* 4x Afro 12A ESCs (flashed with BLHeli, DampedLight enabled)
+* 4x DYS XM20A ESCs (flashed with BLHeli, DampedLight enabled)
 * 4x Multistar Elite 2204-2300KV motors
 
-Home made WiFi controller :
-* Taranis X9D case
+RC controller :
+* Taranis X9D empty case
 * Taranis X9D gimballs
 * Raspberry Pi 2
 * Waveshare 3.5" touchscreen
-* Alfa Network AWUS036NH (pushed to 2000mW TX power)
+* Alfa Network AWUS036NH (maxed out to 2000mW TX power)
 * MCP3208 ADC (for gimballs input and battery voltage sensing)
 * 10x ON-ON switches
