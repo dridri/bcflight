@@ -2,29 +2,30 @@
 This project aims to create open-source flight controller and ground controller for Linux based drones.
 
 ## flight
-Current status : flying - beta
-
 The 'flight' subfolder contains the flight controller itself, currently supporting only Raspberry Pi board, but can be easily extended to any kind of board (including non-Linux ones, but it is not the purpose of this project).
 
-## controller_rpi
-Current status : ok
+## controller_pc
+Highly configurable GUI client that allow you to access any controls over flight controller, see livestream, and fly it.
 
-This subfolder contains a ground controller specifically designed for Raspberry Pi.
+## controller_rc
+This subfolder contains a ground controller designed to be used in an RC remote control. Currently only supporting RaspberryPi board.
+
+## fpviewer
+Livestream viewer supporting stereo mirroring and head-up display overlay. Designed to be used with any HDMI goggles (tested with OSVR).
+
+## libcontroller
+Contains everything needed to communicate with the drone from ground.
 
 ## librawwifi
-Current status : ok
-
 This is inspired from befinitiv's wifibroadcast, it allows to directly use WiFi in analog-like transmission.
 
 Alternatively, hostapd can be used on the drone and wpa_supplicant on the controller to allow TCP/UDP/UDPLite communication.
 
 ## tools
-Current status : ok
-
 Generation scripts for easier building
 
 ## buildroot
-Current status : in progress
+*in progress*
 
 Contains buildroot configuration for both flight and ground targets.
 
