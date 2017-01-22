@@ -242,14 +242,14 @@ std::string Main::getRecordingsList() const
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
 			struct stat st;
 			stat( ( "/var/VIDEO/" + std::string( ent->d_name ) ).c_str(), &st );
-			if ( mCamera ) {
+			/*if ( mCamera ) {
 				uint32_t width = 0;
 				uint32_t height = 0;
 				uint32_t bpp = 0;
 				uint32_t* data = mCamera->getFileSnapshot( "/var/VIDEO/" + std::string( ent->d_name ), &width, &height, &bpp );
 				std::string b64_data = base64_encode( (uint8_t*)data, width * height * ( bpp / 8 ) );
 				ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ":" + std::to_string( width ) + ":" + std::to_string( height ) + ":" + std::to_string( bpp ) + ":" + b64_data + ";";
-			} else {
+			} else */{
 				ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ":::;";
 			}
 		}
@@ -327,7 +327,7 @@ void Main::DetectDevices()
 		Debug sensors;
 		sensors << "Supported sensors :\n";
 		for ( Sensor::Device dev : knownDevices ) {
-			if ( dev.name != "" ) {
+			if ( std::string(dev.name) != "" ) {
 				sensors << "    " << dev.name;
 				if ( dev.iI2CAddr != 0 ) {
 					sensors << " [I2C 0x" << std::hex << dev.iI2CAddr << "]";
