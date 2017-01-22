@@ -22,6 +22,10 @@
 #include "GPIO.h"
 
 
+std::map< int, std::list<std::function<void()>> > GPIO::mInterrupts;
+std::map< int, bool > GPIO::mFirstCall;
+
+
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
 	if ( mode == Output ) {
@@ -51,23 +55,94 @@ bool GPIO::Read( int pin )
 }
 
 
-void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode )
+void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, std::function<void()> fct )
 {
-	char command[256] = "";
-	std::string smode = "falling";
-
-	if ( mode == GPIO::Rising ) {
-		smode = "rising";
-	} else if ( mode == GPIO::Both ) {
-		smode = "both";
+	if ( mInterrupts.find( pin ) != mInterrupts.end() ) {
+		mInterrupts.at( pin ).emplace_back( fct );
+	} else {
+#define LINK_ISR(PIN) if(pin == PIN) { wiringPiISR( PIN, (int)mode, &GPIO::ISR_##PIN ); }
+		LINK_ISR(1);
+		LINK_ISR(2);
+		LINK_ISR(3);
+		LINK_ISR(4);
+		LINK_ISR(5);
+		LINK_ISR(6);
+		LINK_ISR(7);
+		LINK_ISR(8);
+		LINK_ISR(9);
+		LINK_ISR(10);
+		LINK_ISR(11);
+		LINK_ISR(12);
+		LINK_ISR(13);
+		LINK_ISR(14);
+		LINK_ISR(15);
+		LINK_ISR(16);
+		LINK_ISR(17);
+		LINK_ISR(18);
+		LINK_ISR(19);
+		LINK_ISR(20);
+		LINK_ISR(21);
+		LINK_ISR(22);
+		LINK_ISR(23);
+		LINK_ISR(24);
+		LINK_ISR(25);
+		LINK_ISR(26);
+		LINK_ISR(27);
+		LINK_ISR(28);
+		LINK_ISR(29);
+		LINK_ISR(30);
+		LINK_ISR(31);
+		LINK_ISR(32);
+		std::list<std::function<void()>> lst;
+		lst.emplace_back( fct );
+		mInterrupts.emplace( std::make_pair( pin, lst ) );
 	}
-
-	sprintf( command, "gpio edge %d %s", pin, smode.c_str() );
-	system( command );
 }
 
 
-int GPIO::WaitForInterrupt( int pin, int timeout_ms )
-{
-	return waitForInterrupt( pin, timeout_ms );
+#define DECL_ISR(pin) \
+void GPIO::ISR_##pin() \
+{ \
+	if ( mFirstCall.find(pin) == mFirstCall.end() ) { \
+		mFirstCall.emplace( std::make_pair(pin, true) ); \
+		piHiPri(99); \
+	} \
+	if ( mInterrupts.find(pin) != mInterrupts.end() ) { \
+		for ( std::function<void()> fct : mInterrupts.at(pin) ) { \
+			fct(); \
+		} \
+	} \
 }
+
+DECL_ISR(1);
+DECL_ISR(2);
+DECL_ISR(3);
+DECL_ISR(4);
+DECL_ISR(5);
+DECL_ISR(6);
+DECL_ISR(7);
+DECL_ISR(8);
+DECL_ISR(9);
+DECL_ISR(10);
+DECL_ISR(11);
+DECL_ISR(12);
+DECL_ISR(13);
+DECL_ISR(14);
+DECL_ISR(15);
+DECL_ISR(16);
+DECL_ISR(17);
+DECL_ISR(18);
+DECL_ISR(19);
+DECL_ISR(20);
+DECL_ISR(21);
+DECL_ISR(22);
+DECL_ISR(23);
+DECL_ISR(24);
+DECL_ISR(25);
+DECL_ISR(26);
+DECL_ISR(27);
+DECL_ISR(28);
+DECL_ISR(29);
+DECL_ISR(30);
+DECL_ISR(31);
+DECL_ISR(32);

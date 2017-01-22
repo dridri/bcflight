@@ -37,10 +37,13 @@ public:
 	static int flight_register( Main* main );
 
 protected:
+	void Interrupt();
+
 	uint32_t mTriggerPin;
 	uint32_t mEchoPin;
 	uint64_t mRiseTick;
 	float mAltitude;
+	std::mutex mISRLock;
 };
 
 #endif // SR04_H

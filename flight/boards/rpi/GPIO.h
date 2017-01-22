@@ -32,19 +32,52 @@ public:
 		Output,
 	} Mode;
 	typedef enum {
-		Falling,
-		Rising,
-		Both,
+		Falling = 1,
+		Rising = 2,
+		Both = 3,
 	} ISRMode;
 
 	static void setMode( int pin, Mode mode );
 	static void setPWM( int pin, int initialValue, int pwmRange );
 	static void Write( int pin, bool en );
 	static bool Read( int pin );
-	static void SetupInterrupt( int pin, GPIO::ISRMode mode );
-	static int WaitForInterrupt( int pin, int timeout_ms );
+	static void SetupInterrupt( int pin, GPIO::ISRMode mode, std::function<void()> fct );
 
 private:
+	static std::map< int, bool > mFirstCall;
+	static std::map< int, std::list<std::function<void()>> > mInterrupts;
+	static void ISR_1();
+	static void ISR_2();
+	static void ISR_3();
+	static void ISR_4();
+	static void ISR_5();
+	static void ISR_6();
+	static void ISR_7();
+	static void ISR_8();
+	static void ISR_9();
+	static void ISR_10();
+	static void ISR_11();
+	static void ISR_12();
+	static void ISR_13();
+	static void ISR_14();
+	static void ISR_15();
+	static void ISR_16();
+	static void ISR_17();
+	static void ISR_18();
+	static void ISR_19();
+	static void ISR_20();
+	static void ISR_21();
+	static void ISR_22();
+	static void ISR_23();
+	static void ISR_24();
+	static void ISR_25();
+	static void ISR_26();
+	static void ISR_27();
+	static void ISR_28();
+	static void ISR_29();
+	static void ISR_30();
+	static void ISR_31();
+	static void ISR_32();
 };
 
 #endif // GPIO_H
