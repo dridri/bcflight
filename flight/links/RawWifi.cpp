@@ -51,6 +51,7 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
 	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries" ) );
 	static_cast< RawWifi* >( link )->setCECMode( config->string( lua_object + ".cec_mode" ) );
+	static_cast< RawWifi* >( link )->SetChannel( config->integer( lua_object + ".channel", 11 ) );
 	return link;
 }
 
