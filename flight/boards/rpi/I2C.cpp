@@ -171,7 +171,7 @@ std::list< int > I2C::ScanAll()
 				continue;
 			} else {
 				gDebug() << "Error: Could not set address to " << i << " : " << strerror(errno);
-				exit(0);
+				return ret;
 			}
 		}
 		char buf[] = {1};
