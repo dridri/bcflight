@@ -43,6 +43,14 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 {
 	fDebug( config, conf_obj );
 
+	if ( not IL::Component::mHandle ) {
+		return;
+	}
+
+	// TEST : record everytime
+	// TODO : remove this
+	mRecording = true;
+
 	IL::Camera::setMirror( true, false );
 // 	IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlAuto );
 	IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlHorizon );
