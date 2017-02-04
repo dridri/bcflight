@@ -306,7 +306,7 @@ void PWM::terminate( int dummy )
 	for ( j = 0; j < mChannels.size(); j++ ) {
 		if ( mChannels[j]->dma_reg && mChannels[j]->mMbox.virt_addr ) {
 			for ( i = 0; i < mChannels[j]->mPinsCount; i++ ) {
-				mChannels[j]->mPinsPWM[i] = 0.0f;
+				mChannels[j]->mPinsPWM[i] = 0.0;
 			}
 			mChannels[j]->update_pwm();
 			usleep( mChannels[j]->mCycleTime * 2 );
@@ -420,7 +420,9 @@ void PWM::Channel::update_pwm()
 	/*   Now create a mask of all the pins that should be on */
 	mask = 0;
 	for ( i = 0; i <= mPinsCount; i++ ) {
-		mask |= 1 << mPins[i];
+		if ( mPinsPWM[i] > 0 ) {
+			mask |= 1 << mPins[i];
+		}
 	}
 	/*   And give that to the PWM controller to write */
 	ctl.sample[0] = mask;
