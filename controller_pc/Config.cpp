@@ -77,7 +77,20 @@ Config::Config()
 		doc.Parse( data.toStdString().c_str() );
 		for ( tinyxml2::XMLNode* node = doc.FirstChildElement( "list" )->FirstChildElement( "node" ); node != nullptr; node = node->NextSiblingElement( "node" ) ) {
 			if ( QString(node->FirstChildElement("logicalname")->GetText()) == wlan ) {
-				wlan = wlan + " (" + QString( node->FirstChildElement("vendor")->GetText() ) + " " + node->FirstChildElement("product")->GetText() + ")";
+				tinyxml2::XMLElement* vendor = node->FirstChildElement("vendor");
+				tinyxml2::XMLElement* product = node->FirstChildElement("product");
+				bool par = false;
+				if ( vendor ) {
+					wlan = wlan + " (" + QString( vendor->GetText() );
+					par = true;
+				}
+				if ( product ) {
+					wlan = wlan + ( par ? "" : " (" ) + QString( product->GetText() );
+					par = true;
+				}
+				if ( par ) {
+					wlan = wlan + ")";
+				}
 				break;
 			}
 		}

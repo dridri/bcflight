@@ -86,6 +86,8 @@ MainWindow::MainWindow()
 		mControllerMonitor->start();
 	}
 
+	ui->groupBox_record->setVisible( false ); // FIXME
+
 	mUpdateTimer = new QTimer();
 	connect( mUpdateTimer, SIGNAL( timeout() ), this, SLOT( updateData() ) );
 	mUpdateTimer->setInterval( 20 );
@@ -114,8 +116,10 @@ MainWindow::MainWindow()
 	connect( ui->contrast_inc, SIGNAL( pressed() ), this, SLOT( VideoContrastIncrease() ) );
 	connect( ui->saturation_dec, SIGNAL( pressed() ), this, SLOT( VideoSaturationDecrease() ) );
 	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
+	connect( ui->video_pause, SIGNAL( pressed() ), this, SLOT( VideoPause() ) );
 	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
+	connect( ui->night_mode, SIGNAL( stateChanged(int) ), this, SLOT( SetNightMode(int) ) );
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -248,7 +252,7 @@ void MainWindow::connected()
 		QString sensors_infos = QString::fromStdString( mController->getSensorsInfos() );
 		qDebug() << "sensors_infos : " << sensors_infos;
 		lua_State* L = luaL_newstate();
-		luaL_dostring( L, sensors_infos.toLatin1().data() );
+		luaL_dostring( L, sensors_infos.toUtf8().data() );
 		Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Sensors" );
 		lua_close(L);
 	}
@@ -264,7 +268,7 @@ void MainWindow::updateData()
 		}
 	} else {
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % )    |    %7 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % | %7 dBm )    |    %8 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
 		if ( mController->ping() < 10000 ) {
 			ui->latency->setText( QString::number( mController->ping() ) + " ms" );
@@ -274,6 +278,7 @@ void MainWindow::updateData()
 		ui->current_total->setText( QString::number( mController->totalCurrent() ) + " mAh" );
 		ui->cpu_load->setValue( mController->CPULoad() );
 		ui->temperature->setValue( mController->CPUTemp() );
+		ui->stabilizer_frequency->setText( QString::number( mController->stabilizerFrequency() ) + " Hz" );
 
 		std::string dbg = mController->debugOutput();
 		if ( dbg != "" ) {
@@ -286,19 +291,19 @@ void MainWindow::updateData()
 			}
 		}
 
-		const std::list< vec4 > rpy = mController->rpyHistory();
+		const std::list< vec4 >& rpy = mController->rpyHistory();
 		mDataT.clear();
 		mDataR.clear();
 		mDataP.clear();
 		mDataY.clear();
 		for ( vec4 v : rpy ) {
-			if ( fabsf( v.x ) > 1000.0f ) {
+			if ( std::isnan( v.x ) or std::isinf( v.x ) or fabsf( v.x ) > 1000.0f ) {
 				v.x = 0.0f;
 			}
-			if ( fabsf( v.y ) > 1000.0f ) {
+			if ( std::isnan( v.y ) or std::isinf( v.y ) or fabsf( v.y ) > 1000.0f ) {
 				v.y = 0.0f;
 			}
-			if ( fabsf( v.z ) > 1000.0f ) {
+			if ( std::isnan( v.z ) or std::isinf( v.z ) or fabsf( v.z ) > 1000.0f ) {
 				v.z = 0.0f;
 			}
 			mDataT.append( v.w );
@@ -433,7 +438,7 @@ void MainWindow::LoadConfig()
 
 void MainWindow::SaveConfig()
 {
-	if ( mController and not mController->isSpectate() ) {
+	if ( mController and not mController->isSpectate() and ui->config->text().length() > 0 ) {
 		std::string conf = ui->config->text().toStdString();
 		mController->setConfigFile( conf );
 	}
@@ -696,6 +701,32 @@ void MainWindow::VideoSaturationIncrease()
 }
 
 
+void MainWindow::SetNightMode( int mode )
+{
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
+		mController->setNight( ( mode != 0 ) );
+	}
+}
+
+
+void MainWindow::VideoPause()
+{
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
+	qDebug() << "VideoPause()" << ui->video_pause->text();
+	if ( ui->video_pause->text().mid( ui->video_pause->text().indexOf( "P" ) ) == QString( "Pause" ) ) {
+		qDebug() << "VideoPause() Pause";
+		mController->VideoPause();
+		ui->video_pause->setText( "Resume" );
+	} else {
+		qDebug() << "VideoPause() Resume";
+		mController->VideoResume();
+		ui->video_pause->setText( "Pause" );
+	}
+}
+
+
 void MainWindow::VideoRecord()
 {
 	if ( not mController or mController->isSpectate() ) {
@@ -726,6 +757,7 @@ void MainWindow::RecordingsRefresh()
 	}
 
 	std::vector< std::string > list = mController->recordingsList();
+	std::sort( list.begin(), list.end() );
 	for ( std::string input : list ) {
 		QStringList split = QString::fromStdString(input).split( ":" );
 		QString filename = split[0];
@@ -733,7 +765,7 @@ void MainWindow::RecordingsRefresh()
 		int snap_width = split[2].toInt();
 		int snap_height = split[3].toInt();
 		int snap_bpp = split[4].toInt();
-		QByteArray snap_raw = QByteArray::fromBase64( split[5].toUtf8() );
+		QByteArray snap_raw = ( split.size() > 5 and split[5].length() > 0 ) ? QByteArray::fromBase64( split[5].toUtf8() ) : QByteArray();
 		uint32_t* snap_raw32 = ( snap_raw.size() > 0 ) ? (uint32_t*)snap_raw.constData() : nullptr;
 		if ( filename[0] != '.' ) {
 			QLabel* snapshot_label = new QLabel();
@@ -749,7 +781,10 @@ void MainWindow::RecordingsRefresh()
 			ui->recordings->insertRow( ui->recordings->rowCount() );
 			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 0, snapshot_label );
 			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 1, new QLabel( filename ) );
-			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 2, new QLabel( size ) );
+// 			QLabel* size_label = new QLabel( QString::number( size.toInt() / 1024 ) + " KB" );
+			QLabel* size_label = new QLabel( QLocale::system().toString( size.toInt() / 1024 ) + " KB" );
+			size_label->setAlignment( Qt::AlignRight );
+			ui->recordings->setCellWidget( ui->recordings->rowCount() - 1, 2, size_label );
 
 			QWidget* tools = new QWidget();
 			QHBoxLayout* layout = new QHBoxLayout();
@@ -764,4 +799,8 @@ void MainWindow::RecordingsRefresh()
 			ui->recordings->setRowHeight( ui->recordings->rowCount() - 1, 42 );
 		}
 	}
+
+	QStringList headers;
+	headers << "Snapshot" << "Filename" << "Size" << "Date" << "Actions";
+	ui->recordings->setHorizontalHeaderLabels( headers );
 }

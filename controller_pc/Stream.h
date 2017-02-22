@@ -90,6 +90,8 @@ private:
 	uint32_t mFps;
 	QElapsedTimer mFpsTimer;
 	QWidget* mParentWidget;
+	uint32_t mExposureID;
+	uint32_t mGammaID;
 };
 
 #endif // STREAM_H

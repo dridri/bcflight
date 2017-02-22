@@ -44,6 +44,7 @@ public:
 	~MainWindow();
 
 	bool RunFirmwareUpdate();
+	ControllerPC* controller() { return mController; }
 	Ui::MainWindow* getUi() const { return ui; }
 
 public slots:
@@ -75,7 +76,9 @@ public slots:
 	void VideoContrastDecrease();
 	void VideoSaturationIncrease();
 	void VideoSaturationDecrease();
+	void VideoPause();
 	void VideoRecord();
+	void SetNightMode( int state );
 	void RecordingsRefresh();
 	void setFirmwareUpdateProgress( int val );
 	void appendDebugOutput( const QString& str );

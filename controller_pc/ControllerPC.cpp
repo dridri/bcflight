@@ -25,6 +25,8 @@ ControllerPC::ControllerPC( Link* link, bool spectate )
 	: Controller( link, spectate )
 	, mThrust( 0.0f )
 	, mArmed( false )
+	, mMode( false )
+	, mNightMode( false )
 	, mRecording( false )
 {
 }
@@ -54,6 +56,12 @@ void ControllerPC::setModeSwitch( const Controller::Mode& mode )
 	} else if ( mode == Controller::Rate ) {
 		mMode = false;
 	}
+}
+
+
+void ControllerPC::setNight( const bool night )
+{
+	mNightMode = night;
 }
 
 
@@ -94,6 +102,9 @@ int8_t ControllerPC::ReadSwitch( uint32_t id )
 	}
 	if ( id == 3 ) {
 		return mMode;
+	}
+	if ( id == 4 ) {
+		return mNightMode;
 	}
 	if ( id == 5 ) {
 		return mRecording;

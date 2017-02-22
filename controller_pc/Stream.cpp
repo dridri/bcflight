@@ -22,6 +22,7 @@
 #include <QtGui/QPainter>
 #include "Stream.h"
 #include "MainWindow.h"
+#include "ControllerPC.h"
 #include "ui_mainWindow.h"
 
 
@@ -148,38 +149,69 @@ void Stream::paintGL()
 {
 	if ( not mShader ) {
 		mShader = new QGLShaderProgram();
-		mShader->addShaderFromSourceCode( QGLShader::Vertex,
-			"attribute highp vec2 vertex;\n"
-			"attribute highp vec2 tex;\n"
-			"varying vec2 texcoords;\n"
-			"void main(void) {\n"
-			"	texcoords = vec2( tex.s, 1.0 - tex.t );\n"
-			"	gl_Position = vec4( vertex, 0.0, 1.0 );\n"
-			"}" );
-		mShader->addShaderFromSourceCode( QGLShader::Fragment,
-			"uniform sampler2D texY;\n"
-			"uniform sampler2D texU;\n"
-// 			"uniform sampler2D texV;\n"
-			"varying vec2 texcoords;\n"
-			"vec4 fetch( vec2 coords ) {\n"
-			"	float y = texture2D( texY, coords ).r;\n"
-			"	float u = texture2D( texU, coords * vec2(1.0, 0.5) + vec2(0.0, 0.0) ).r - 0.5;\n"
-			"	float v = texture2D( texU, coords * vec2(1.0, 0.5) + vec2(0.0, 0.5) ).r - 0.5;\n"
-			"	float r = 2*(y/2 + 1.402/2 * v);\n"
-			"	float g = 2*(y/2 - 0.344136 * u/2 - 0.714136 * v/2);\n"
-			"	float b = 2*(y/2 + 1.773/2 * u);\n"
-			"	return clamp( vec4( r, g, b, 1.0 ), vec4(0.0), vec4(1.0) );\n"
-			"}\n"
-			"void main(void) {\n"
-			"	vec4 center = fetch( texcoords.st );\n"
-			"//	vec4 top = fetch( texcoords.st + vec2( 0.0, -0.00001 ) );\n"
-			"//	vec4 bottom = fetch( texcoords.st + vec2( 0.0, +0.00001 ) );\n"
-			"//	vec4 left = fetch( texcoords.st + vec2( -0.00001, 0.0 ) );\n"
-			"//	vec4 right = fetch( texcoords.st + vec2( +0.00001, 0.0 ) );\n"
-			"	gl_FragColor = center;// * 5.0 - top - left - bottom - right;\n"
-			"}" );
+		mShader->addShaderFromSourceCode( QGLShader::Vertex, R"(
+			attribute highp vec2 vertex;
+			attribute highp vec2 tex;
+			varying vec2 texcoords;
+			void main(void) {
+				texcoords = vec2( tex.s, 1.0 - tex.t );
+				gl_Position = vec4( vertex, 0.0, 1.0 );
+			})" );
+		mShader->addShaderFromSourceCode( QGLShader::Fragment, R"(
+			uniform sampler2D texY;
+			uniform sampler2D texU;
+// 			uniform sampler2D texV;
+			uniform float exposure_value;
+			uniform float gamma_compensation;
+			varying vec2 texcoords;
+			vec4 fetch( vec2 coords ) {
+				float y = 2.0 * texture2D( texY, coords ).r;
+				float u = 2.0 * (texture2D( texU, coords * vec2(1.0, 0.5) + vec2(0.0, 0.0) ).r - 0.5);
+				float v = 2.0 * (texture2D( texU, coords * vec2(1.0, 0.5) + vec2(0.0, 0.5) ).r - 0.5);
+				float r = (y/2.0 + 1.402/2.0 * v);
+				float g = (y/2.0 - 0.344136 * u/2.0 - 0.714136 * v/2.0);
+				float b = (y/2.0 + 1.773/2.0 * u);
+				return clamp( vec4( r, g, b, 1.0 ), vec4(0.0, 0.0, 0.0, 0.0), vec4(1.0, 1.0, 1.0, 1.0) );
+			}
+			void main(void) {
+				vec4 color = fetch( texcoords.st );
+// 				color.rgb = vec3(1.0) - exp( -color.rgb * vec3(exposure_value, exposure_value, exposure_value) );
+// 				color.rgb = pow( color.rgb, vec3( 1.0 / gamma_compensation, 1.0 / gamma_compensation, 1.0 / gamma_compensation ) );
+				gl_FragColor = color;
+				gl_FragColor.a = 1.0;
+			})" );
+		/*
+		mShader->addShaderFromSourceCode( QGLShader::Fragment, R"(
+			uniform sampler2D texY;
+			uniform sampler2D texU;
+// 			uniform sampler2D texV;
+			uniform float exposure_value;
+			uniform float gamma_compensation;
+			varying vec2 texcoords;
+			vec4 fetch( vec2 coords ) {
+				float y = 2*texture2D( texY, coords ).r;
+				float u = 2*(texture2D( texU, coords * vec2(1.0, 0.5) + vec2(0.0, 0.0) ).r - 0.5);
+				float v = 2*(texture2D( texU, coords * vec2(1.0, 0.5) + vec2(0.0, 0.5) ).r - 0.5);
+				float r = 2*(y/2 + 1.402/2 * v);
+				float g = 2*(y/2 - 0.344136 * u/2 - 0.714136 * v/2);
+				float b = 2*(y/2 + 1.773/2 * u);
+				return clamp( vec4( r, g, b, 1.0 ), vec4(0.0), vec4(1.0) );
+			}
+			void main(void) {
+				vec4 center = fetch( texcoords.st );
+			//	vec4 top = fetch( texcoords.st + vec2( 0.0, -0.00001 ) );
+			//	vec4 bottom = fetch( texcoords.st + vec2( 0.0, +0.00001 ) );
+			//	vec4 left = fetch( texcoords.st + vec2( -0.00001, 0.0 ) );
+			//	vec4 right = fetch( texcoords.st + vec2( +0.00001, 0.0 ) );
+				gl_FragColor = center;// * 5.0 - top - left - bottom - right;
+				gl_FragColor.rgb = vec3(1.0) - exp( -gl_FragColor.rgb * vec3(exposure_value) );
+				gl_FragColor.rgb = pow( gl_FragColor.rgb, vec3( 1.0 / gamma_compensation ) );
+			})" );
+		*/
 		mShader->link();
 		mShader->bind();
+		mExposureID = mShader->uniformLocation( "exposure_value" );
+		mGammaID = mShader->uniformLocation( "gamma_compensation" );
 	}
 	if ( mY.tex == 0 and mU.tex == 0 and mV.tex == 0 and mY.stride > 0 and mY.height > 0 ) {
 		glGenTextures( 1, &mY.tex );
@@ -230,6 +262,14 @@ void Stream::paintGL()
 	mShader->setUniformValue( loc_Y, 0 );
 	mShader->setUniformValue( loc_U, 1 );
 // 	mShader->setUniformValue( loc_V, 2 );
+
+	if ( mMainWindow and mMainWindow->controller() and mMainWindow->controller()->nightMode() ) {
+		mShader->setUniformValue( mExposureID, 4.0f );
+		mShader->setUniformValue( mGammaID, 2.5f );
+	} else {
+		mShader->setUniformValue( mExposureID, 1.0f );
+		mShader->setUniformValue( mGammaID, 1.0f );
+	}
 
 	glActiveTexture( GL_TEXTURE0 );
 	glEnable( GL_TEXTURE_2D );
