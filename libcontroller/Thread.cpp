@@ -21,6 +21,8 @@
 #include <sched.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
+#include <sys/time.h>
 #ifdef WIN32
 #include <windows.h>
 #endif
@@ -40,10 +42,11 @@ Thread::Thread( const std::string& name )
 	, mSetAffinity( 0 )
 	, mTerminate( false )
 {
-	pthread_attr_t attr;
-	pthread_attr_init( &attr );
-	pthread_attr_setstacksize( &attr, 16 * 1024 * 1024 );
-	pthread_create( &mThread, &attr, (void*(*)(void*))&Thread::sThreadEntry, this );
+// 	pthread_attr_t attr;
+// 	pthread_attr_init( &attr );
+// 	pthread_attr_setstacksize( &attr, 16 * 1024 * 1024 );
+// 	pthread_create( &mThread, &attr, (void*(*)(void*))&Thread::sThreadEntry, this );
+	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::sThreadEntry, this );
 #ifndef WIN32
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 #endif
