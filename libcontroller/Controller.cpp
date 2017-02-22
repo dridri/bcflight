@@ -106,6 +106,7 @@ std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
 	{ Controller::VIDEO_CONTRAST_DECR, "0xA7" },
 	{ Controller::VIDEO_SATURATION_INCR, "0xA8" },
 	{ Controller::VIDEO_SATURATION_DECR, "0xA9" },
+	{ Controller::VIDEO_NIGHT_MODE, "0xC0" },
 };
 
 Controller::Controller( Link* link, bool spectate )
@@ -123,6 +124,7 @@ Controller::Controller( Link* link, bool spectate )
 	, mThrust( 0.0f )
 	, mControlRPY{ 0.0f, 0.0f, 0.0f }
 	, mPIDsLoaded( false )
+	, mCameraMissing( false )
 	, mLink( link )
 	, mSpectate( spectate )
 	, mConnected( false )
@@ -238,7 +240,7 @@ bool Controller::run()
 
 	// Send controls at 10Hz, allowing to be sure that TRPY are well received by the drone
 	bool force_update_controls = false;
-	if ( Thread::GetTick() - mDataTimer >= 1000 / 10 ) {
+	if ( Thread::GetTick() - mDataTimer >= 1000 / 50 ) {
 		force_update_controls = true;
 		mDataTimer = Thread::GetTick();
 	}
@@ -264,6 +266,11 @@ bool Controller::run()
 		setMode( Stabilize );
 	} else if ( not mSwitches[3] and mMode != Rate ) {
 		setMode( Rate );
+	}
+	if ( mSwitches[4] and mNightMode == false ) {
+		setNightMode( true );
+	} else if ( not mSwitches[4] and mNightMode == true ) {
+		setNightMode( false );
 	}
 	if ( mSwitches[5] and not mVideoRecording ) {
 		mXferMutex.lock();
@@ -324,8 +331,8 @@ bool Controller::run()
 	mTxFrame = Packet();
 	mXferMutex.unlock();
 
-	if ( Thread::GetTick() - mTicks < 1000 / 200 ) {
-		usleep( 1000 * std::max( 0, 1000 / 200 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
+	if ( Thread::GetTick() - mTicks < 1000 / 500 ) {
+		usleep( 1000 * std::max( 0, 1000 / 500 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
 	}
 	mTicks = Thread::GetTick();
 	mMsCounter += ( mTicks - ticks0 );
@@ -381,9 +388,12 @@ bool Controller::RxRun()
 				break;
 			}
 			case CALIBRATE : {
-				if ( telemetry.ReadU32() == 0 ) {
+				uint32_t value = telemetry.ReadU32();
+				if ( value == 0 ) {
 					mCalibrated = true;
 					std::cout << "Calibration success\n" << std::flush;
+				} else if ( value == 2 ) {
+					// This value is regularily sent to tell that the drone is still calibrated
 				} else {
 					std::cout << "WARNING : Calibration failed !\n" << std::flush;
 				}
@@ -459,6 +469,10 @@ bool Controller::RxRun()
 			}
 			case RX_QUALITY : {
 				mDroneRxQuality = telemetry.ReadU32();
+				break;
+			}
+			case STABILIZER_FREQUENCY : {
+				mStabilizerFrequency = telemetry.ReadU32();
 				break;
 			}
 
@@ -566,10 +580,12 @@ bool Controller::RxRun()
 				rpy.y = mRPY.y;
 				rpy.z = mRPY.z;
 				rpy.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
 				mRPYHistory.emplace_back( rpy );
 				if ( mRPYHistory.size() > 256 ) {
 					mRPYHistory.pop_front();
 				}
+				mHistoryMutex.unlock();
 				break;
 			}
 			case CURRENT_ACCELERATION : {
@@ -577,11 +593,13 @@ bool Controller::RxRun()
 				break;
 			}
 			case ALTITUDE : {
+				mHistoryMutex.lock();
 				mAltitude = telemetry.ReadFloat();
 				mAltitudeHistory.emplace_back( mAltitude );
 				if ( mAltitudeHistory.size() > 256 ) {
 					mAltitudeHistory.pop_front();
 				}
+				mHistoryMutex.unlock();
 				break;
 			}
 			case SET_MODE : {
@@ -597,6 +615,14 @@ bool Controller::RxRun()
 				mVideoRecording = telemetry.ReadU32();
 				break;
 			}
+			case VIDEO_NIGHT_MODE : {
+				uint32_t night = telemetry.ReadU32();
+				if ( night != mNightMode ) {
+					mNightMode = night;
+					std::cout << "Video switched to " << ( mNightMode ? "night" : "day" ) << " mode\n";
+				}
+				break;
+			}
 			case GET_RECORDINGS_LIST : {
 				uint32_t crc = telemetry.ReadU32();
 				std::string content = telemetry.ReadString();
@@ -606,6 +632,12 @@ bool Controller::RxRun()
 					std::cout << "Received broken recordings list, retrying...\n";
 					mRecordingsList = "broken";
 				}
+				break;
+			}
+
+			// Errors
+			case CAMERA_MISSING : {
+				mCameraMissing = true;
 				break;
 			}
 
@@ -1012,6 +1044,22 @@ void Controller::setMode( const Controller::Mode& mode )
 }
 
 
+void Controller::VideoPause()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_PAUSE );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoResume()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_RESUME );
+	mXferMutex.unlock();
+}
+
+
 void Controller::VideoBrightnessIncrease()
 {
 	mXferMutex.lock();
@@ -1060,6 +1108,15 @@ void Controller::VideoSaturationDecrease()
 }
 
 
+void Controller::setNightMode( const bool& night )
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU32( VIDEO_NIGHT_MODE );
+	mTxFrame.WriteU32( night );
+	mXferMutex.unlock();
+}
+
+
 std::vector< std::string > Controller::recordingsList()
 {
 	mRecordingsList = "";
@@ -1069,11 +1126,13 @@ std::vector< std::string > Controller::recordingsList()
 		mXferMutex.lock();
 		mTxFrame.WriteU32( GET_RECORDINGS_LIST );
 		mXferMutex.unlock();
-		while ( mRecordingsList.length() == 0 ) {
+		uint32_t retry = 0;
+		while ( mRecordingsList.length() == 0 and retry++ < 1000 / 250 ) {
 			usleep( 1000 * 250 );
 		}
 	} while ( mRecordingsList == "broken" );
 
+	std::cout << "mRecordingsList : " << mRecordingsList << "\n";
 	std::vector< std::string > list;
 	std::string full = mRecordingsList;
 	while ( full.length() > 0 ) {
@@ -1090,21 +1149,30 @@ float Controller::acceleration() const
 }
 
 
-const std::list< vec4 >& Controller::rpyHistory() const
+std::list< vec4 > Controller::rpyHistory()
 {
-	return mRPYHistory;
+	mHistoryMutex.lock();
+	std::list< vec4 > ret = mRPYHistory;
+	mHistoryMutex.unlock();
+	return ret;
 }
 
 
-const std::list< vec3 >& Controller::outerPidHistory() const
+std::list< vec3 > Controller::outerPidHistory()
 {
-	return mOuterPIDHistory;
+	mHistoryMutex.lock();
+	std::list< vec3 > ret = mOuterPIDHistory;
+	mHistoryMutex.unlock();
+	return ret;
 }
 
 
-const std::list< float >& Controller::altitudeHistory() const
+std::list< float > Controller::altitudeHistory()
 {
-	return mAltitudeHistory;
+	mHistoryMutex.lock();
+	std::list< float > ret = mAltitudeHistory;
+	mHistoryMutex.unlock();
+	return ret;
 }
 
 

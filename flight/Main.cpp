@@ -103,7 +103,11 @@ void Test()
 
 
 Main::Main()
-	: mController( nullptr )
+	: mLPS( 0 )
+	, mLPSCounter( 0 )
+	, mController( nullptr )
+	, mCamera( nullptr )
+	, mCameraType( "" )
 {
 	mInstance = this;
 #ifdef BOARD_generic
@@ -134,7 +138,7 @@ Main::Main()
 	mConfig->DumpVariable( "magnetometers" );
 	mConfig->DumpVariable( "user_sensors" );
 
-	if ( mConfig->string( "board.type" ) != std::string( BOARD ) ) {
+	if ( mConfig->string( "board.type", BOARD ) != std::string( BOARD ) ) {
 		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->string( "board.type" ) << "\" ) differs from board currently in use ( \"" << BOARD << "\" ) !\n";
 		return;
 	}
@@ -167,9 +171,12 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
+	mCameraType = mConfig->string( "camera.type" );
 #ifdef CAMERA
-	mCamera = new CAMERA( mConfig, "camera" );
-	Board::InformLoading();
+	if ( mCameraType != "" ) {
+		mCamera = new CAMERA( mConfig, "camera" );
+		Board::InformLoading();
+	}
 #else
 	mCamera = nullptr;
 #endif
@@ -179,7 +186,7 @@ Main::Main()
 	mController->setPriority( 99 );
 	Board::InformLoading();
 
-	mLoopTime = mConfig->integer( "stabilizer.loop_time" );
+	mLoopTime = mConfig->integer( "stabilizer.loop_time", 2000 );
 	mTicks = 0;
 	mWaitTicks = 0;
 	mLPSTicks = 0;
@@ -217,10 +224,10 @@ bool Main::StabilizerThreadRun()
 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
 	}
 
-	mLPS++;
-	if ( mBoard->GetTicks() >= mLPSTicks + 4 * 1000 * 1000 ) {
-		gDebug() << "Update rate : " << ( mLPS / 4 ) << " Hz\n";
-		mLPS = 0;
+	mLPSCounter++;
+	if ( mBoard->GetTicks() >= mLPSTicks + 1000 * 1000 ) {
+		mLPS = mLPSCounter;
+		mLPSCounter = 0;
 		mLPSTicks = mBoard->GetTicks();
 	}
 	return true;
@@ -261,6 +268,12 @@ std::string Main::getRecordingsList() const
 	}
 	gDebug() << "Recordings : " << ret << "\n";
 	return ret;
+}
+
+
+uint32_t Main::loopFrequency() const
+{
+	return mLPS;
 }
 
 
@@ -309,6 +322,12 @@ Controller* Main::controller() const
 Camera* Main::camera() const
 {
 	return mCamera;
+}
+
+
+const std::string& Main::cameraType() const
+{
+	return mCameraType;
 }
 
 

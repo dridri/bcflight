@@ -41,6 +41,7 @@ public:
 
 	std::string getRecordingsList() const;
 
+	uint32_t loopFrequency() const;
 	Config* config() const;
 	Board* board() const;
 	PowerThread* powerThread() const;
@@ -49,6 +50,7 @@ public:
 	Frame* frame() const;
 	Controller* controller() const;
 	Camera* camera() const;
+	const std::string& cameraType() const;
 
 	static std::string base64_encode( const uint8_t* buf, uint32_t size );
 	static Main* instance();
@@ -65,6 +67,7 @@ private:
 	uint64_t mWaitTicks;
 	uint64_t mLPSTicks;
 	uint32_t mLPS;
+	uint32_t mLPSCounter;
 
 	Config* mConfig;
 	Board* mBoard;
@@ -74,6 +77,7 @@ private:
 	Frame* mFrame;
 	Controller* mController;
 	Camera* mCamera;
+	std::string mCameraType;
 };
 
 #endif

@@ -19,6 +19,7 @@
 #ifndef RASPICAM_H
 #define RASPICAM_H
 
+#include <stdio.h>
 #include <fstream>
 #include <functional>
 #include <Thread.h>
@@ -37,15 +38,19 @@ public:
 	Raspicam( Config* config, const std::string& conf_obj );
 	~Raspicam();
 
+	virtual void Pause();
+	virtual void Resume();
 	virtual void StartRecording();
 	virtual void StopRecording();
 
 	virtual const uint32_t brightness();
 	virtual const int32_t contrast();
 	virtual const int32_t saturation();
+	virtual const bool nightMode();
 	virtual void setBrightness( uint32_t value );
 	virtual void setContrast( int32_t value );
 	virtual void setSaturation( int32_t value );
+	virtual void setNightMode( bool night_mode );
 
 	virtual uint32_t* getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
@@ -66,14 +71,17 @@ protected:
 	uint64_t mLedTick;
 	uint64_t mHeadersTick;
 	bool mLedState;
+	bool mNightMode;
+	bool mPaused;
 
 	// Record
 	bool mRecording;
 	char* mRecordFrameData;
 	int mRecordFrameDataSize;
 	int mRecordFrameSize;
+	uint32_t mRecordSyncCounter;
 
-	std::ofstream* mRecordStream; // TODO : use board-specific file instead
+	FILE* mRecordStream; // TODO : use board-specific file instead
 };
 
 #endif // RASPICAM_H

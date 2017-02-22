@@ -29,6 +29,7 @@
 #include <Board.h>
 #include "../../external/OpenMaxIL++/include/VideoDecode.h"
 
+
 Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	: ::Camera()
 	, IL::Camera( config->integer( conf_obj + ".width", 1280 ), config->integer( conf_obj + ".height", 720 ), 0, true, true )
@@ -38,6 +39,8 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	, mLedTick( 0 )
 	, mHeadersTick( 0 )
 	, mLedState( true )
+	, mNightMode( false )
+	, mPaused( false )
 	, mRecording( false )
 	, mRecordStream( nullptr )
 {
@@ -54,7 +57,8 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	IL::Camera::setMirror( true, false );
 // 	IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlAuto );
 	IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlHorizon );
-	IL::Camera::setExposureControl( IL::Camera::ExposureControlLargeAperture );
+	IL::Camera::setExposureControl( IL::Camera::ExposureControlAuto );
+// 	IL::Camera::setExposureControl( IL::Camera::ExposureControlLargeAperture );
 	IL::Camera::setExposureValue( mConfig->integer( mConfigObject + ".exposure", 0 ), mConfig->integer( mConfigObject + ".aperture", 2.8f ), mConfig->integer( mConfigObject + ".iso", 0 ), mConfig->integer( mConfigObject + ".shutter_speed", 0 ) );
 	IL::Camera::setSharpness( mConfig->integer( mConfigObject + ".sharpness", 100 ) );
 	IL::Camera::setFramerate( mConfig->integer( mConfigObject + ".fps", 60 ) );
@@ -103,6 +107,12 @@ const int32_t Raspicam::saturation()
 }
 
 
+const bool Raspicam::nightMode()
+{
+	return mNightMode;
+}
+
+
 void Raspicam::setBrightness( uint32_t value )
 {
 	IL::Camera::setBrightness( value );
@@ -121,6 +131,41 @@ void Raspicam::setSaturation( int32_t value )
 }
 
 
+void Raspicam::setNightMode( bool night_mode )
+{
+	if ( mNightMode != night_mode ) {
+		mNightMode = night_mode;
+		if ( mNightMode ) {
+	// 		IL::Camera::setFramerate( 30 );
+	// 		IL::Camera::setExposureControl( IL::Camera::ExposureControlNight );
+			IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlAuto );
+			IL::Camera::setBrightness( mConfig->integer( mConfigObject + ".night_brightness", 80 ) );
+			IL::Camera::setContrast( mConfig->integer( mConfigObject + ".night_contrast", 100 ) );
+			IL::Camera::setSaturation( mConfig->integer( mConfigObject + ".night_saturation", -25 ) );
+		} else {
+	// 		IL::Camera::setFramerate( mConfig->integer( mConfigObject + ".fps", 60 ) );
+	// 		IL::Camera::setExposureControl( IL::Camera::ExposureControlAuto );
+			IL::Camera::setWhiteBalanceControl( IL::Camera::WhiteBalControlHorizon );
+			IL::Camera::setBrightness( mConfig->integer( mConfigObject + ".brightness", 55 ) );
+			IL::Camera::setContrast( mConfig->integer( mConfigObject + ".contrast", 0 ) );
+			IL::Camera::setSaturation( mConfig->integer( mConfigObject + ".saturation", 8 ) );
+		}
+	}
+}
+
+
+void Raspicam::Pause()
+{
+	mPaused = true;
+}
+
+
+void Raspicam::Resume()
+{
+	mPaused = false;
+}
+
+
 void Raspicam::StartRecording()
 {
 	if ( not mRecording ) {
@@ -134,7 +179,8 @@ void Raspicam::StopRecording()
 	if ( mRecording ) {
 		mRecording = false;
 		if ( mRecordStream ) {
-			delete mRecordStream;
+// 			delete mRecordStream;
+			fclose( mRecordStream );
 			mRecordStream = nullptr;
 		}
 	}
@@ -160,6 +206,11 @@ bool Raspicam::LiveThreadRun()
 
 	uint8_t data[65536] = { 0 };
 	uint32_t datalen = mEncoder->getOutputData( data );
+
+	if ( mPaused ) {
+		return true;
+	}
+
 	if ( (int32_t)datalen > 0 ) {
 		mLiveFrameCounter++;
 		LiveSend( (char*)data, datalen );
@@ -215,27 +266,37 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 		if ( ( dir = opendir( "/var/VIDEO" ) ) != nullptr ) {
 			while ( ( ent = readdir( dir ) ) != nullptr ) {
 				std::string file = std::string( ent->d_name );
-				uint32_t id = std::atoi( file.substr( file.find( "_" ) + 1 ).c_str() );
+				uint32_t id = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
 				if ( id >= fileid ) {
 					fileid = id + 1;
 				}
 			}
 			closedir( dir );
 		}
-		sprintf( filename, "/var/VIDEO/video_%06u.h264", fileid );
-		mRecordStream = new std::ofstream( filename );
+		sprintf( filename, "/var/VIDEO/video_%02dfps_%06u.h264", mConfig->integer( mConfigObject + ".fps", 60 ), fileid );
+// 		mRecordStream = new std::ofstream( filename );
+		mRecordStream = fopen( filename, "wb" );
 		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
 		if ( headers.size() > 0 ) {
 			for ( auto hdr : headers ) {
-				mRecordStream->write( (char*)hdr.second, hdr.first );
+// 				mRecordStream->write( (char*)hdr.second, hdr.first );
+				fwrite( hdr.second, 1, hdr.first, mRecordStream );
 			}
 		}
 	}
-
+/*
 	auto pos = mRecordStream->tellp();
 	mRecordStream->write( data, datalen );
 	ret = mRecordStream->tellp() - pos;
 	mRecordStream->flush();
+*/
+	ret = fwrite( data, 1, datalen, mRecordStream );
+	fflush( mRecordStream );
+
+	mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 2048;
+	if ( mRecordSyncCounter % 30 == 0 ) {
+		fsync( fileno( mRecordStream ) );
+	}
 
 	return ret;
 }

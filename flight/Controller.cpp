@@ -716,6 +716,26 @@ bool Controller::run()
 				break;
 			}
 
+			case VIDEO_PAUSE : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					cam->Pause();
+					gDebug() << "Video paused\n";
+				}
+				response.WriteU32( 1 );
+				do_response = true;
+				break;
+			}
+			case VIDEO_RESUME : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					cam->Resume();
+					gDebug() << "Video resumed\n";
+				}
+				response.WriteU32( 0 );
+				do_response = true;
+				break;
+			}
 			case VIDEO_START_RECORD : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
@@ -784,6 +804,17 @@ bool Controller::run()
 				}
 				break;
 			}
+			case VIDEO_NIGHT_MODE : {
+				Camera* cam = mMain->camera();
+				uint32_t night = command.ReadU32();
+				if ( cam ) {
+					gDebug() << "Setting camera to " << ( night ? "night" : "day" ) << " mode\n";
+					cam->setNightMode( night );
+				}
+				response.WriteU32( night );
+				do_response = true;
+				break;
+			}
 			case GET_RECORDINGS_LIST : {
 				std::string rec = mMain->getRecordingsList();
 				response.WriteU32( crc32( (uint8_t*)rec.c_str(), rec.length() ) );
@@ -816,14 +847,17 @@ bool Controller::run()
 
 bool Controller::TelemetryRun()
 {
-	if ( !mLink->isConnected() ) {
+	if ( !mLink or !mLink->isConnected() ) {
 		usleep( 1000 * 10 );
 		return true;
 	}
 
 	Packet telemetry;
 
-	if ( mTelemetryCounter % 3 == 0 ) {
+	if ( mTelemetryCounter % 10 == 0 ) {
+		telemetry.WriteU32( STABILIZER_FREQUENCY );
+		telemetry.WriteU32( mMain->loopFrequency() );
+
 		if ( mArmed ) {
 			telemetry.WriteU32( ARM );
 			telemetry.WriteU32( mArmed );
@@ -832,6 +866,22 @@ bool Controller::TelemetryRun()
 			telemetry.WriteU32( mArmed );
 		}
 
+		if ( mMain->imu()->state() == IMU::Running ) {
+			telemetry.WriteU32( CALIBRATE );
+			telemetry.WriteU32( 2 );
+		}
+
+#ifdef CAMERA
+		if ( mMain->camera() ) {
+			telemetry.WriteU32( VIDEO_NIGHT_MODE );
+			telemetry.WriteU32( mMain->camera()->nightMode() );
+		} else if ( mMain->cameraType() != "" ) {
+			telemetry.WriteU32( CAMERA_MISSING );
+		}
+#endif
+	}
+
+	if ( mTelemetryCounter % 3 == 0 ) {
 		telemetry.WriteU32( VBAT );
 		telemetry.WriteFloat( mMain->powerThread()->VBat() );
 
@@ -856,9 +906,9 @@ bool Controller::TelemetryRun()
 
 	telemetry.WriteU32( ROLL_PITCH_YAW );
 	if ( mMain->stabilizer()->mode() == Stabilizer::Rate ) {
-		telemetry.WriteFloat( mMain->imu()->gyroscope().x );
-		telemetry.WriteFloat( mMain->imu()->gyroscope().y );
-		telemetry.WriteFloat( mMain->imu()->gyroscope().z );
+		telemetry.WriteFloat( mMain->imu()->rate().x );
+		telemetry.WriteFloat( mMain->imu()->rate().y );
+		telemetry.WriteFloat( mMain->imu()->rate().z );
 	} else {
 		telemetry.WriteFloat( mMain->imu()->RPY().x );
 		telemetry.WriteFloat( mMain->imu()->RPY().y );

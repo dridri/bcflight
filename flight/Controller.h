@@ -91,6 +91,7 @@ protected:
 		CPU_LOAD = 0x35,
 		CPU_TEMP = 0x36,
 		RX_QUALITY = 0x37,
+		STABILIZER_FREQUENCY = 0x40,
 		// Setters
 		SET_ROLL = 0x40,
 		SET_PITCH = 0x41,
@@ -113,8 +114,10 @@ protected:
 		SET_OUTER_PID_D = 0x5B,
 		SET_HORIZON_OFFSET = 0x5C,
 		// Video
-		VIDEO_START_RECORD = 0xA0,
-		VIDEO_STOP_RECORD = 0xA1,
+		VIDEO_PAUSE = 0xA0,
+		VIDEO_RESUME = 0xA1,
+		VIDEO_START_RECORD = 0xA2,
+		VIDEO_STOP_RECORD = 0xA3,
 		VIDEO_BRIGHTNESS_INCR = 0xA4,
 		VIDEO_BRIGHTNESS_DECR = 0xA5,
 		VIDEO_CONTRAST_INCR = 0xA6,
@@ -126,6 +129,11 @@ protected:
 		RECORD_DOWNLOAD_INIT = 0xB3,
 		RECORD_DOWNLOAD_DATA = 0xB4,
 		RECORD_DOWNLOAD_PROCESS = 0xB5,
+		VIDEO_NIGHT_MODE = 0xC0,
+		// Errors - 0x7Fxxxxxx
+		// Host system errors - 0x7F001xxx
+		// Camera/video errors - 0x7F00Fxxx
+		CAMERA_MISSING = 0x7F00F000,
 	} Cmd;
 
 	virtual bool run();
