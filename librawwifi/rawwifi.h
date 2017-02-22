@@ -37,7 +37,7 @@ typedef enum {
 } RAWWIFI_BLOCK_RECOVER_MODE;
 
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
-#define MAX_PACKET_PER_BLOCK 64
+#define MAX_PACKET_PER_BLOCK 24
 
 // TODO : remove _align0 and _align1, and use 16-bits bitfield to store data size
 typedef struct __attribute__((packed)) {

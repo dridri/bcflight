@@ -71,9 +71,9 @@ static int rawwifi_send_frame( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen
 		header->retry_id = i;
 		header->header_crc = rawwifi_crc16( (uint8_t*)header, sizeof(wifi_packet_header_t) - sizeof(uint16_t) );
 // retry:
-		pthread_mutex_lock( &inject_mutex );
+// 		pthread_mutex_lock( &inject_mutex );
 		r = pcap_inject( rwifi->out->pcap, tx_buffer, plen );
-		pthread_mutex_unlock( &inject_mutex );
+// 		pthread_mutex_unlock( &inject_mutex );
 		if ( r != plen ) {
 			pcap_perror( rwifi->out->pcap, "Trouble injecting packet" );
 			printf( "[%d/%d] sent %d / %d\n", i + 1, retries, r, plen );

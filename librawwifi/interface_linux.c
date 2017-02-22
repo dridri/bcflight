@@ -319,12 +319,16 @@ int phymactoindex( const char* hwaddr )
 						if ( fd > 0 ) {
 							read( fd, buf, sizeof(buf) );
 							close( fd );
+							closedir( dir );
 							return atoi( buf );
 						}
 					}
 				}
 			}
 		}
+	}
+	if ( dir ) {
+		closedir( dir );
 	}
 	return -1;
 }

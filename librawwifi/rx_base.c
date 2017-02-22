@@ -77,7 +77,12 @@ const uint32_t _rawwifi_headers_length = sizeof( u8aRadiotapHeader ) + sizeof( u
 uint64_t _rawwifi_get_tick();
 int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint32_t retmax, uint32_t* valid );
 
-static pthread_mutex_t pcap_mutex = PTHREAD_MUTEX_INITIALIZER; 
+static pthread_mutex_t pcap_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// #define MUTEX_LOCK pthread_mutex_lock
+// #define MUTEX_UNLOCK pthread_mutex_unlock
+#define MUTEX_LOCK(x) ;
+#define MUTEX_UNLOCK(x) ;
 
 int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payload, uint32_t* valid )
 {
@@ -92,15 +97,15 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payloa
 
 	uint64_t read_ticks = _rawwifi_get_tick();
 	retval = pcap_next_ex( rpcap->pcap, &ppcapPacketHeader, (const uint8_t**)&payload );
-	pthread_mutex_lock( &pcap_mutex );
+	MUTEX_LOCK( &pcap_mutex );
 
 	if ( rwifi->recv_timeout_ms > 0 && retval == 0 && _rawwifi_get_tick() - read_ticks >= rwifi->recv_timeout_ms * 1000 ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		return -3;
 	}
 
 	if ( retval < 0 && errno != 0 && errno != 11 ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		fprintf( stderr, "pcap_next_ex ERROR : %s (%d - %s)\n", pcap_geterr( rpcap->pcap ), errno, strerror(errno) );
 // 		char str[1024] = "";
 // 		sprintf( str, "ifconfig %s up", rwifi->device );
@@ -110,7 +115,7 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payloa
 	}
 
 	if ( retval != 1 ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		fprintf( stderr, "pcap_next_ex ERROR : %s (%d - %s) [continue..]\n", pcap_geterr( rpcap->pcap ), errno, strerror(errno) );
 		if ( rpcap->blocking == 1 ) {
 			dprintf( "retval = %d !!\n", retval );
@@ -119,27 +124,27 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payloa
 	}
 
 	if ( payload == 0 ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		return CONTINUE;
 	}
 
 	u16HeaderLen = (payload[2] + (payload[3] << 8));
 
 	if ( ppcapPacketHeader->len < ( u16HeaderLen + rwifi->n80211HeaderLength ) ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		dprintf( "ppcapPacketHeader->len < ( u16HeaderLen + rwifi->n80211HeaderLength )\n" );
 		return CONTINUE;
 	}
 
 	bytes = ppcapPacketHeader->len - ( u16HeaderLen + rwifi->n80211HeaderLength );
 	if ( bytes < 0 ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		dprintf( "bytes < 0\n" );
 		return CONTINUE;
 	}
 
 	if ( ieee80211_radiotap_iterator_init( &rti, (struct ieee80211_radiotap_header *)payload, ppcapPacketHeader->len ) < 0 ) {
-		pthread_mutex_unlock( &pcap_mutex );
+		MUTEX_UNLOCK( &pcap_mutex );
 		dprintf( "ieee80211_radiotap_iterator_init( &rti, (struct ieee80211_radiotap_header *)payload, ppcapPacketHeader->len ) < 0\n" );
 		return CONTINUE;
 	}
@@ -189,7 +194,7 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payloa
 	*ppu8Payload = (uint8_t*)malloc( bytes * 2 ); // Double the buffer size to avoid any leaks
 	memcpy( *ppu8Payload, payload + u16HeaderLen + rwifi->n80211HeaderLength, bytes );
 
-	pthread_mutex_unlock( &pcap_mutex );
+	MUTEX_UNLOCK( &pcap_mutex );
 
 	return bytes;
 }
@@ -219,6 +224,13 @@ int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_
 	}
 
 	if ( bytes <= 0 || bytes > ( MAX_USER_PACKET_LENGTH + 128 ) || header->packet_id >= header->packets_count || header->packet_id > MAX_PACKET_PER_BLOCK || header->packets_count > MAX_PACKET_PER_BLOCK ) {
+		dprintf( "header = {\n"
+				"    block_id = %d\n"
+				"    packet_id = %d\n"
+				"    packets_count = %d\n"
+				"    retry_id = %d\n"
+				"    retries_count = %d\n"
+				"}\n", header->block_id, header->packet_id, header->packets_count, header->retry_id, header->retries_count );
 		dprintf( "Header seams broken, dropping !\n" );
 		*valid = 0;
 		free( pu8PayloadBase );
@@ -353,6 +365,9 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		uint32_t offset = 0;
 		for ( uint32_t i = 0; i < header->packets_count; i++ ) {
 			if ( block->packets[i].size > 0 ) {
+				if ( offset + block->packets[i].size >= retmax - 1 ) {
+					break;
+				}
 				dprintf( "[%d/%d]memcpy( %p, %p, %u ) [%s]\n", i+1, header->packets_count, pret + offset, block->packets[i].data, block->packets[i].size, block->packets[i].valid ? "valid" : "invalid" );
 				if ( block->packets[i].data ) {
 					memcpy( pret + offset, block->packets[i].data, block->packets[i].size );

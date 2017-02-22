@@ -168,6 +168,9 @@ static int32_t reconstruct( rawwifi_t* rwifi, block_t* block, uint8_t* pret, uin
 	uint32_t quality = 0;
 
 	for ( uint32_t i = 0; i < block->packets_count; i++ ) {
+		if ( offset + block->packets[i].retries[0].size >= retmax - 1 ) {
+			break;
+		}
 		is_valid = 0;
 		quality = 0;
 		uint32_t ret = fast_cec( &block->packets[i], pret + offset, &is_valid, &quality );
