@@ -146,8 +146,8 @@ void Sensor::RegisterDevice( int I2Caddr, const std::string& name )
 			Sensor* dev = d.fInstanciate( nullptr, "" );
 			if ( dev ) {
 				mDevices.push_back( dev );
+				UpdateDevices();
 			}
-			UpdateDevices();
 		}
 	}
 }
@@ -160,8 +160,8 @@ void Sensor::RegisterDevice( const std::string& name, Config* config, const std:
 			Sensor* dev = d.fInstanciate( config, object );
 			if ( dev ) {
 				mDevices.push_back( dev );
+				UpdateDevices();
 			}
-			UpdateDevices();
 		}
 	}
 }

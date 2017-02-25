@@ -27,7 +27,7 @@ public:
 	GPS();
 	~GPS();
 
-	virtual void Read( float lattitude, float longitude, float* altitude ) = 0;
+	virtual void Read( float* lattitude, float* longitude, float* altitude, float* speed ) = 0;
 };
 
 #endif // GPS_H

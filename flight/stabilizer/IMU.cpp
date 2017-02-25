@@ -25,6 +25,7 @@
 #include "Gyroscope.h"
 #include "Magnetometer.h"
 #include "Altimeter.h"
+#include "GPS.h"
 #include <Controller.h>
 
 IMU::IMU( Main* main )
@@ -47,9 +48,9 @@ IMU::IMU( Main* main )
 	, mGravity( Vector3f() )
 	, mRates( 3, 3 )
 	, mAccelerationSmoother( 3, 3 )
-// 	, mAttitude( 3, 3 )
 	, mAttitude( 6, 3 )
-	, mPosition( 1, 1 )
+	, mPosition( 3, 3 )
+	, mVelocity( 3, 3 )
 	, mLastAccelAttitude( Vector4f() )
 	, mLastAcceleration( Vector3f() )
 {
@@ -74,6 +75,7 @@ IMU::IMU( Main* main )
 	mRates.setOutputFilter( 1, main->config()->number( "stabilizer.filters.rates.output.y", 0.5f ) );
 	mRates.setOutputFilter( 2, main->config()->number( "stabilizer.filters.rates.output.z", 0.5f ) );
 
+
 	/** mAccelerationSmoother matrix :
 	 *   - Inputs :
 	 *     - acceleration 0 1 2
@@ -95,6 +97,7 @@ IMU::IMU( Main* main )
 	mAccelerationSmoother.setOutputFilter( 1, main->config()->number( "stabilizer.filters.accelerometer.output.y", 0.5f ) );
 	mAccelerationSmoother.setOutputFilter( 2, main->config()->number( "stabilizer.filters.accelerometer.output.z", 0.5f ) );
 
+
 	/** mAttitude matrix :
 	 *   - Inputs :
 	 *     - smoothed linear acceleration 0 1 2
@@ -103,12 +106,20 @@ IMU::IMU( Main* main )
 	 *     - roll-pitch-yaw 0 1 2
 	 **/
 	// Set Extended-Kalman-Filter mixing matrix (input, output, factor)
+/*
 	mAttitude.setSelector( 0, 0, 1.0f );
 	mAttitude.setSelector( 3, 0, 1.0f );
 	mAttitude.setSelector( 1, 1, 1.0f );
 	mAttitude.setSelector( 4, 1, 1.0f );
 	mAttitude.setSelector( 2, 2, 1.0f );
 	mAttitude.setSelector( 5, 2, 1.0f );
+*/
+	mAttitude.setSelector( 0, 0, std::max( 0.01f, std::min( 1000.0f, main->config()->number( "stabilizer.filters.attitude.accelerometer.factor.x", 1.0f ) ) ) );
+	mAttitude.setSelector( 3, 0, std::max( 0.01f, std::min( 1000.0f, main->config()->number( "stabilizer.filters.attitude.rates.factor.x", 1.0f ) ) ) );
+	mAttitude.setSelector( 1, 1, std::max( 0.01f, std::min( 1000.0f, main->config()->number( "stabilizer.filters.attitude.accelerometer.factor.y", 1.0f ) ) ) );
+	mAttitude.setSelector( 4, 1, std::max( 0.01f, std::min( 1000.0f, main->config()->number( "stabilizer.filters.attitude.rates.factor.y", 1.0f ) ) ) );
+	mAttitude.setSelector( 2, 2, std::max( 0.01f, std::min( 1000.0f, main->config()->number( "stabilizer.filters.attitude.accelerometer.factor.z", 1.0f ) ) ) );
+	mAttitude.setSelector( 5, 2, std::max( 0.01f, std::min( 1000.0f, main->config()->number( "stabilizer.filters.attitude.rates.factor.z", 1.0f ) ) ) );
 
 	// Set acceleration filtering factors
 	mAttitude.setInputFilter( 0, main->config()->number( "stabilizer.filters.attitude.input.accelerometer.x", 0.1f ) );
@@ -125,15 +136,45 @@ IMU::IMU( Main* main )
 	mAttitude.setOutputFilter( 1, main->config()->number( "stabilizer.filters.attitude.output.z", 0.25f ) );
 	mAttitude.setOutputFilter( 2, main->config()->number( "stabilizer.filters.attitude.output.z", 0.25f ) );
 
+
 	/** mPosition matrix :
 	 *   - Inputs :
-	 *     - altitude (either absolute or proximity) 0
+	 *     - XY velocity integrated over time 0 1
+	 *     - altitude (either absolute or proximity) 2
 	 *   - Outputs :
-	 *     - smoothed altitude 0
+	 *     - smoothed position 0 1
+	 *     - smoothed altitude 2
 	 **/
 	mPosition.setSelector( 0, 0, 1.0f );
-	mPosition.setInputFilter( 0, 10.0f );
-	mPosition.setOutputFilter( 0, 0.25f );
+	mPosition.setSelector( 1, 1, 1.0f );
+	mPosition.setSelector( 2, 2, 1.0f );
+	mPosition.setInputFilter( 0, main->config()->number( "stabilizer.filters.position.input.velocity.x", 1.0f ) );
+	mPosition.setInputFilter( 1, main->config()->number( "stabilizer.filters.position.input.velocity.y", 1.0f ) );
+	mPosition.setInputFilter( 2, main->config()->number( "stabilizer.filters.position.input.velocity.z", 10.0f ) );
+	mPosition.setOutputFilter( 0, main->config()->number( "stabilizer.filters.position.output.x", 0.99f ) );
+	mPosition.setOutputFilter( 1, main->config()->number( "stabilizer.filters.position.output.y", 0.99f ) );
+	mPosition.setOutputFilter( 2, main->config()->number( "stabilizer.filters.position.output.z", 0.99f ) );
+
+
+	/** mVelocity matrix :
+	 *   - Inputs :
+	 *     - smoothed linear acceleration 0 1 2
+	 *   - Outputs :
+	 *     - smoothed linear velocity 0 1 2
+	 **/
+	mVelocity.setSelector( 0, 0, 1.0f );
+	mVelocity.setSelector( 1, 1, 1.0f );
+	mVelocity.setSelector( 2, 2, 1.0f );
+
+	// Set input velocity filtering factors
+	mVelocity.setInputFilter( 0, main->config()->number( "stabilizer.filters.velocity.input.x", 1.0f ) );
+	mVelocity.setInputFilter( 1, main->config()->number( "stabilizer.filters.velocity.input.y", 1.0f ) );
+	mVelocity.setInputFilter( 2, main->config()->number( "stabilizer.filters.velocity.input.z", 1.0f ) );
+
+	// Set output velocity filtering factors
+	mVelocity.setOutputFilter( 0, main->config()->number( "stabilizer.filters.velocity.output.x", 0.99f ) );
+	mVelocity.setOutputFilter( 1, main->config()->number( "stabilizer.filters.velocity.output.y", 0.99f ) );
+	mVelocity.setOutputFilter( 2, main->config()->number( "stabilizer.filters.velocity.output.z", 0.99f ) );
 
 	mSensorsThreadTick = 0;
 	mSensorsThreadTickRate = 0;
@@ -175,6 +216,18 @@ const Vector3f IMU::rate() const
 const float IMU::altitude() const
 {
 	return mPosition.state( 0 ).x;
+}
+
+
+const Vector3f IMU::velocity() const
+{
+	return mVelocity.state( 0 );
+}
+
+
+const Vector3f IMU::position() const
+{
+	return mPosition.state( 0 );
 }
 
 
@@ -385,6 +438,7 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 	Vector4f total_magn;
 	Vector2f total_alti;
 	Vector2f total_proxi;
+	Vector3f total_lat_lon;
 	Vector3f vtmp;
 	float ftmp;
 
@@ -420,6 +474,19 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 					total_alti += Vector2f( ftmp, 1.0f );
 				}
 			}
+			for ( GPS* dev : Sensor::GPSes() ) {
+				float lattitude = 0.0f;
+				float longitude = 0.0f;
+				float altitude = 0.0f;
+				float speed = 0.0f;
+				dev->Read( &lattitude, &longitude, &altitude, &speed );
+				if ( lattitude != 0.0f and longitude != 0.0f ) {
+					total_lat_lon += Vector3f( lattitude, longitude, 1.0f );
+				}
+				if ( altitude != 0.0f ) {
+					total_alti += Vector2f( altitude, 1.0f );
+				}
+			}
 			if ( total_alti.y > 0.0f ) {
 				mAltitude = total_alti.x / total_alti.y;
 			} else {
@@ -430,14 +497,17 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 			} else {
 				mProximity = 0.0f;
 			}
+			if ( total_lat_lon.z > 0.0f ) {
+				mLattitudeLongitude = total_lat_lon.xy() * ( 1.0f / total_accel.z );
+			}
 
 			mPositionUpdateMutex.lock();
 			mPositionUpdate = true;
 			mPositionUpdateMutex.unlock();
 		}
-
-		mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 2048;
 	}
+
+	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 2048;
 }
 
 
@@ -483,29 +553,53 @@ void IMU::UpdateAttitude( float dt )
 
 	// Retrieve results
 	Vector4f rpy = mAttitude.state( 0 );
+
+	//TEST
+	rpy.x = 0.98f * ( mRPY.x + mRate.x * dt ) + 0.02f * accel_roll_pitch.x;
+	rpy.y = 0.98f * ( mRPY.y + mRate.y * dt ) + 0.02f * accel_roll_pitch.y;
+	rpy.z = mRPY.z + mRate.z * dt;
+
 	mdRPY = ( rpy - mRPY ) * dt;
 	mRPY = rpy;
 }
 
 
+void IMU::UpdateVelocity( float dt )
+{
+	Vector3f velo = mVelocity.state( 0 );
+	Vector3f accel = mAccelerationSmoother.state( 0 );
+
+	mVelocity.UpdateInput( 0, velo.x + accel.x * dt );
+	mVelocity.UpdateInput( 1, velo.y + accel.y * dt );
+	mVelocity.UpdateInput( 2, velo.z + accel.z * dt );
+
+	// TODO : mix with position, to avoid drifting
+	mVelocity.Process( dt );
+}
+
+
 void IMU::UpdatePosition( float dt )
 {
-	float altitude = 0.0f;
+	Vector3f position = mVelocity.state( 0 );
+	Vector3f velo = mVelocity.state( 0 );
 
+	mPosition.UpdateInput( 0, position.x + velo.x * dt );
+	mPosition.UpdateInput( 2, position.y + velo.y * dt );
+
+	float altitude = 0.0f;
 	if ( mProximity > 0.0f ) {
 		mAltitudeOffset = mAltitude - mProximity;
 		altitude = mProximity;
 	} else {
 		altitude = mAltitude - mAltitudeOffset;
 	}
-	mPosition.UpdateInput( 0, altitude );
-
+	mPosition.UpdateInput( 2, altitude );
 /*
 	// Calculate acceleration on Z-axis
 	float accel_z = std::cos( mRPY.x ) * std::cos( mRPY.y ) * ( mAcceleration.z - mGravity.z );
 	// Integrate position on Z-axis
-	float pos_z = mPosition.state( 0 ) + accel_z * dt * dt;
-	mPosition.UpdateInput( 1, pos_z );
+	float pos_z = mPosition.state( 2 ) + accel_z * dt * dt;
+	mPosition.UpdateInput( 2, pos_z );
 */
 
 	mPosition.Process( dt );

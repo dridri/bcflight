@@ -17,6 +17,7 @@ set(CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbols=
 set(CMAKE_LINKER_FLAGS "${CMAKE_LD_FLAGS}")
 set( BOARD_LIBS -lasound -lwiringPi -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lrt -lpthread -ldl -lz -liw )
 # set( BOARD_LIBS ${BOARD_LIBS} -lavformat -lavcodec -lavutil )
+set( BOARD_LIBS ${BOARD_LIBS} -lgps )
 include_directories( /opt/vc/include )
 
 include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/include )

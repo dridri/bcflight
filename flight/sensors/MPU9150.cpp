@@ -52,7 +52,7 @@ Sensor* MPU9150::Instanciate( Config* config, const std::string& object )
 	i2c->Write8( MPU_9150_FIFO_EN, 0b00000000 );
 	// 1 kHz sampling rate: 0b00000000
 	i2c->Write8( MPU_9150_SMPRT_DIV, 0b00000000 );
-	// No ext sync, DLPF at 94Hz for the accel and 98Hz -0b00000010) for the gyro: 0b00000010 (~200Hz: 0b00000001)
+	// No ext sync, DLPF at 94Hz for the accel and 98Hz for the gyro: 0b00000010) (~200Hz: 0b00000001)
 	i2c->Write8( MPU_9150_DEFINE, 0b00000000 );
 	// Gyro range at +/-2000 °/s
 	i2c->Write8( MPU_9150_GYRO_CONFIG, 0b00011000 );
@@ -72,9 +72,8 @@ Sensor* MPU9150::Instanciate( Config* config, const std::string& object )
 	Sensor* accel = new MPU9150Accel( i2c_addr );
 	mDevices.push_back( accel );
 	mDevices.push_back( gyro );
-	mDevices.push_back( mag );
 
-	return nullptr;
+	return mag;
 }
 
 

@@ -49,6 +49,8 @@ public:
 	const Vector3f RPY() const;
 	const Vector3f dRPY() const;
 	const Vector3f rate() const;
+	const Vector3f velocity() const;
+	const Vector3f position() const;
 	const float altitude() const;
 
 	void Recalibrate();
@@ -62,6 +64,7 @@ protected:
 	void Calibrate( float dt, bool all = false );
 	void UpdateSensors( float dt, bool gyro_only = false );
 	void UpdateAttitude( float dt );
+	void UpdateVelocity( float dt );
 	void UpdatePosition( float dt );
 
 	Main* mMain;
@@ -77,6 +80,7 @@ protected:
 	Vector3f mAcceleration;
 	Vector3f mGyroscope;
 	Vector3f mMagnetometer;
+	Vector2f mLattitudeLongitude;
 	float mAltitude;
 	float mAltitudeOffset;
 	float mProximity;
@@ -97,6 +101,7 @@ protected:
 	EKF mAccelerationSmoother;
 	EKF mAttitude;
 	EKF mPosition;
+	EKF mVelocity;
 	Vector4f mLastAccelAttitude;
 	Vector3f mVirtualNorth;
 
