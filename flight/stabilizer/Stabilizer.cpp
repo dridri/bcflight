@@ -71,6 +71,10 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	if ( mRateFactor <= 0.0f ) {
 		mRateFactor = 200.0f;
 	}
+
+	mHorizonMaxRate.x = main->config()->number( "stabilizer.horizon_max_rate.x", 300.0f );
+	mHorizonMaxRate.y = main->config()->number( "stabilizer.horizon_max_rate.y", 300.0f );
+	mHorizonMaxRate.z = main->config()->number( "stabilizer.horizon_max_rate.z", 300.0f );
 }
 
 
@@ -270,8 +274,11 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 			Vector3f control_angles = ctrl->RPY();
 			control_angles.x = mHorizonMultiplier.x * std::min( std::max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * std::min( std::max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
+			// TODO : when user-input is 0, increase control_angles by using imu->velocity() to overcompensate position drifting
 			mHorizonPID.Process( control_angles, imu->RPY(), dt );
 			rate_control = mHorizonPID.state();
+			rate_control.x = std::max( -mHorizonMaxRate.x, std::min( mHorizonMaxRate.x, rate_control.x ) );
+			rate_control.y = std::max( -mHorizonMaxRate.y, std::min( mHorizonMaxRate.y, rate_control.y ) );
 			rate_control.z = control_angles.z * mRateFactor; // TEST : Bypass heading for now
 			break;
 		}

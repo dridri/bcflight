@@ -85,6 +85,7 @@ private:
 	int mLockState;
 	Vector3f mHorizonMultiplier;
 	Vector3f mHorizonOffset;
+	Vector3f mHorizonMaxRate;
 };
 
 #endif // STABILIZER_H
