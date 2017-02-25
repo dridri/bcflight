@@ -65,7 +65,7 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 		return ret;
 	}
 
-	if ( _rawwifi_get_tick() - rwifi->recv_perf_last_tick >= 1000 * 1000 ) {
+	if ( _rawwifi_get_tick() - rwifi->recv_perf_last_tick >= 1000 * 500 ) {
 		uint32_t den = rwifi->recv_last_returned - rwifi->recv_perf_last_index;
 		if ( den == 0 ) {
 			rwifi->recv_quality = 0;
@@ -79,6 +79,8 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 		rwifi->recv_perf_last_index = rwifi->recv_last_returned;
 		rwifi->recv_perf_valid = 0;
 		rwifi->recv_perf_invalid = 0;
+		rwifi->recv_perf_speed = rwifi->recv_perf_speed_accum * 2;
+		rwifi->recv_perf_speed_accum = 0;
 	}
 
 

@@ -194,6 +194,8 @@ int process_frame( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t** ppu8Payloa
 	*ppu8Payload = (uint8_t*)malloc( bytes * 2 ); // Double the buffer size to avoid any leaks
 	memcpy( *ppu8Payload, payload + u16HeaderLen + rwifi->n80211HeaderLength, bytes );
 
+	rwifi->recv_perf_speed_accum += bytes;
+
 	MUTEX_UNLOCK( &pcap_mutex );
 
 	return bytes;
@@ -299,6 +301,8 @@ int process_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* pret, uint
 		rwifi->recv_perf_last_index = rwifi->recv_last_returned;
 		rwifi->recv_perf_valid = 0;
 		rwifi->recv_perf_invalid = 0;
+		rwifi->recv_perf_speed = rwifi->recv_perf_speed_accum * 2;
+		rwifi->recv_perf_speed_accum = 0;
 	}
 
 

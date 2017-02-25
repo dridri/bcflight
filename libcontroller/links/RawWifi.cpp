@@ -158,6 +158,12 @@ int32_t RawWifi::RxLevel()
 }
 
 
+uint32_t RawWifi::fullReadSpeed()
+{
+	return rawwifi_recv_speed( mRawWifi );
+}
+
+
 void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
 {
 	mInitializingMutex.lock();

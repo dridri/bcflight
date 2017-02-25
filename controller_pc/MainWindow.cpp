@@ -268,7 +268,7 @@ void MainWindow::updateData()
 		}
 	} else {
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 % | %7 dBm )    |    %8 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 KB/s | %7 % | %8 dBm )    |    %9 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
 		if ( mController->ping() < 10000 ) {
 			ui->latency->setText( QString::number( mController->ping() ) + " ms" );

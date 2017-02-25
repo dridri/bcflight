@@ -62,6 +62,8 @@ public:
 	bool lastIsCorrupt() const;
 	int retriesCount() const;
 
+	virtual uint32_t fullReadSpeed();
+
 protected:
 	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
 	int Read( void* buf, uint32_t len, int32_t timeout );

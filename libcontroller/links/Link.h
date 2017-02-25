@@ -83,6 +83,7 @@ public:
 
 	uint32_t writeSpeed() const { return mWriteSpeed; }
 	uint32_t readSpeed() const { return mReadSpeed; }
+	virtual uint32_t fullReadSpeed() = 0;
 
 protected:
 	bool mConnected;

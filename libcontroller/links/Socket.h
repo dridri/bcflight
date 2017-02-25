@@ -44,6 +44,8 @@ public:
 	int Connect();
 	int setBlocking( bool blocking );
 
+	virtual uint32_t fullReadSpeed() { return mReadSpeed; }
+
 protected:
 	int Read( void* buf, uint32_t len, int32_t timeout );
 	int Write( const void* buf, uint32_t len, int32_t timeout );
