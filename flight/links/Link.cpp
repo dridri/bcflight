@@ -147,7 +147,7 @@ bool Link::isConnected() const
 
 Link* Link::Create( Config* config, const std::string& lua_object )
 {
-	std::string type = config->string( lua_object + ".link_type" );
+	std::string type = config->string( lua_object + ".link_type", "RawWifi" );
 
 	if ( mKnownLinks.find( type ) != mKnownLinks.end() ) {
 		return mKnownLinks[ type ]( config, lua_object );

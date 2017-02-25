@@ -30,6 +30,7 @@
 std::mutex RawWifi::mInitializingMutex;
 bool RawWifi::mInitializing = false;
 std::list< std::string> RawWifi::mInitialized;
+std::map<std::string, std::list<int16_t> > RawWifi::mUsedPorts;
 
 
 int RawWifi::flight_register( Main* main )
@@ -42,15 +43,34 @@ int RawWifi::flight_register( Main* main )
 Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 {
 	std::string device = config->string( lua_object + ".device", "wlan0" );
-	int output_port = config->integer( lua_object + ".output_port" );
-	int input_port = config->integer( lua_object + ".input_port" );
-	int timeout = config->integer( lua_object + ".read_timeout" );
+	int output_port = config->integer( lua_object + ".output_port", 1 );
+	int input_port = config->integer( lua_object + ".input_port", 0 );
+	int timeout = config->integer( lua_object + ".read_timeout", 2000 );
 	bool blocking = config->boolean( lua_object + ".blocking", true );
-	bool drop = config->boolean( lua_object + ".drop", false );
+	bool drop = config->boolean( lua_object + ".drop", true );
+
+	if ( mUsedPorts.find( device ) != mUsedPorts.end() ) {
+		if ( output_port >= 0 and std::find( mUsedPorts[device].begin(), mUsedPorts[device].end(), output_port ) != mUsedPorts[device].end() ) {
+			gDebug() << "ERROR : Port " << output_port << " already used on interface \"" << device << "\" !\n";
+			return nullptr;
+		}
+		if ( input_port >= 0 and std::find( mUsedPorts[device].begin(), mUsedPorts[device].end(), input_port ) != mUsedPorts[device].end() ) {
+			gDebug() << "ERROR : Port " << input_port << " already used on interface \"" << device << "\" !\n";
+			return nullptr;
+		}
+	} else {
+		mUsedPorts.insert( std::make_pair( device, std::list<int16_t>() ) );
+	}
+	if ( output_port >= 0 ) {
+		mUsedPorts[device].emplace_back( output_port );
+	}
+	if ( input_port >= 0 ) {
+		mUsedPorts[device].emplace_back( input_port );
+	}
 
 	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
-	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries" ) );
-	static_cast< RawWifi* >( link )->setCECMode( config->string( lua_object + ".cec_mode" ) );
+	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries", 1 ) );
+	static_cast< RawWifi* >( link )->setCECMode( config->string( lua_object + ".cec_mode", "none" ) );
 	static_cast< RawWifi* >( link )->SetChannel( config->integer( lua_object + ".channel", 11 ) );
 	return link;
 }

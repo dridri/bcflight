@@ -64,6 +64,7 @@ protected:
 	static std::mutex mInitializingMutex;
 	static bool mInitializing;
 	static std::list<std::string> mInitialized;
+	static std::map<std::string, std::list<int16_t> > mUsedPorts;
 };
 
 #else
