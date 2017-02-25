@@ -69,6 +69,7 @@
 
 #define DMA_NO_WIDE_BURSTS	(1<<26)
 #define DMA_WAIT_RESP		(1<<3)
+#define DMA_TDMODE		(1<<1)
 #define DMA_D_DREQ		(1<<6)
 #define DMA_PER_MAP(x)		((x)<<16)
 #define DMA_END			(1<<1)
@@ -486,6 +487,7 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 	for (i = 0; i < mNumSamples; i++) {
 		/* First PWM command */
 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+// 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_TDMODE;
 		cbp->src = mem_virt_to_phys(ctl->sample + i);
 		cbp->dst = phys_gpclr0;
 		cbp->length = 4;
@@ -494,6 +496,7 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 		cbp++;
 		/* Second PWM command */
 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5);
+// 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_TDMODE;
 		cbp->src = mem_virt_to_phys(ctl->sample);	// Any data will do
 		cbp->dst = phys_fifo_addr;
 		cbp->length = 4;
