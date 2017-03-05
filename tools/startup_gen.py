@@ -5,6 +5,7 @@ import subprocess
 
 root = sys.argv[1]
 output = sys.argv[2]
+final = "#include <Debug.h>\n"
 final = "#include <Main.h>\n"
 target = open( output, 'wb' )
 fcts = []
@@ -48,7 +49,7 @@ for f in fcts:
 final_fcts = set( final_fcts )
 
 for f in final_fcts:
-		final += "\tif ( ( ret = " + f + "( this ) ) < 0 ) {\n\t\treturn ret;\n\t}\n";
+		final += "\tif ( ( ret = " + f + "( this ) ) < 0 ) {\n\t\tgDebug() << \"Module \\\"" + f[:f.find("::")] + "\\\" failed to initialize (\" << ret << \")\\n\";\n\t}\n";
 
 final += "\treturn ret;\n}\n";
 target.write( final )
