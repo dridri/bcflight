@@ -11,6 +11,7 @@ find_package( Nasm )
 find_package( Qt5Widgets )
 find_package( Qt5OpenGL )
 find_package( Qt5PrintSupport )
+find_package( Qt5Multimedia )
 find_package( QScintilla2 )
 
 if ( WIN32 OR MINGW )
@@ -26,15 +27,13 @@ else()
 	set( OTHER_LIBS -ldl )
 endif()
 
-if ( RAWWIFI_ON )
+add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
+if ( ${RAWWIFI_ON} MATCHES 1 )
 	set( OTHER_LIBS ${OTHER_LIBS} rawwifi )
 	if ( WIN32 OR MINGW )
-		#TODO
 		set( OTHER_LIBS ${NLGENL_LIBRARY} ${NLROUTE_LIBRARY} ${NL_LIBRARY} -ldl )
 	endif()
 endif()
-
-add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
 if ( RAWWIFI_ON MATCHES 0 )
 	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNO_RAWWIFI" )
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_RAWWIFI" )
@@ -78,6 +77,6 @@ add_dependencies( controller_pc libopenh264_static )
 add_dependencies( controller_pc libluajit_static )
 add_dependencies( controller_pc controller )
 
-target_link_libraries( controller_pc -L./ controller -lluajit_static -ldecoder_static -lopenh264_static ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
+target_link_libraries( controller_pc -L./ controller -lluajit_static -ldecoder_static -lopenh264_static ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
 
 install( TARGETS controller_pc RUNTIME DESTINATION bin )

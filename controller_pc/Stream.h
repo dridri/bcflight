@@ -27,6 +27,8 @@
 #include <QtOpenGL/QGLShaderProgram>
 #include <QtGui/QPaintEvent>
 #include <QtGui/QImage>
+#include <QtMultimedia/QAudioOutput>
+#include <QtMultimedia/QAudioFormat>
 
 #include <Link.h>
 extern "C" {
@@ -44,6 +46,7 @@ public:
 	virtual ~Stream();
 	void setMainWindow( MainWindow* win );
 	void setLink( Link* l );
+	void setAudioLink( Link* l );
 	int32_t fps();
 
 protected:
@@ -51,6 +54,7 @@ protected:
 	virtual void mouseDoubleClickEvent( QMouseEvent * e );
 	virtual void closeEvent( QCloseEvent* e );
 	bool run();
+	bool runAudio();
 	void DecodeFrame( const uint8_t* src, size_t sliceSize );
 
 signals:
@@ -75,10 +79,20 @@ private:
 		uint8_t* data;
 		GLuint tex;
 	};
+	class AudioThread : public QThread
+	{
+	public:
+		AudioThread( Stream* s ) : mStream( s ) {}
+	protected:
+		virtual void run() { while ( mStream->runAudio() ); }
+		Stream* mStream;
+	};
 
 	StreamThread* mStreamThread;
+	AudioThread* mAudioThread;
 	MainWindow* mMainWindow;
 	Link* mLink;
+	Link* mAudioLink;
 	ISVCDecoder* mDecoder;
 	Plane mY;
 	Plane mU;
@@ -92,6 +106,10 @@ private:
 	QWidget* mParentWidget;
 	uint32_t mExposureID;
 	uint32_t mGammaID;
+	QAudioOutput* mAudioOutput;
+	QIODevice* mAudioStream;
+	QAudioFormat mAudioFormat;
+	QAudioDeviceInfo mAudioDevice;
 };
 
 #endif // STREAM_H

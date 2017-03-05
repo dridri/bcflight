@@ -33,8 +33,10 @@ PFNGLACTIVETEXTUREPROC glActiveTexture = 0;
 Stream::Stream( QWidget* parent )
 	: QGLWidget( parent )
 	, mStreamThread( new StreamThread( this ) )
+	, mAudioThread( new AudioThread( this ) )
 	, mMainWindow( nullptr )
 	, mLink( nullptr )
+	, mAudioLink( nullptr )
 	, mShader( nullptr )
 	, mFpsCounter( 0 )
 	, mFps( 0 )
@@ -51,7 +53,18 @@ Stream::Stream( QWidget* parent )
 	}
 #endif
 
+	mAudioDevice = QAudioDeviceInfo::defaultOutputDevice();
+	mAudioFormat.setChannelCount( 1 );
+	mAudioFormat.setCodec( "audio/pcm" );
+	mAudioFormat.setSampleRate( 44100 );
+	mAudioFormat.setByteOrder( QAudioFormat::LittleEndian );
+	mAudioFormat.setSampleType( QAudioFormat::SignedInt );
+	mAudioFormat.setSampleSize( 16 );
+	mAudioOutput = new QAudioOutput( mAudioDevice, mAudioFormat );
+	mAudioStream = mAudioOutput->start();
+
 	mStreamThread->start();
+	mAudioThread->start();
 	connect( this, SIGNAL( repaintEmitter() ), this, SLOT( repaintReceiver() ) );
 
 	qDebug() << "WelsCreateDecoder :" << WelsCreateDecoder( &mDecoder );
@@ -80,6 +93,12 @@ void Stream::setMainWindow( MainWindow* win )
 void Stream::setLink( Link* l )
 {
 	mLink = l;
+}
+
+
+void Stream::setAudioLink( Link* l )
+{
+	mAudioLink = l;
 }
 
 
@@ -335,7 +354,36 @@ bool Stream::run()
 
 	return true;
 }
-// dsErrorFree;
+
+
+bool Stream::runAudio()
+{
+	if ( not mAudioLink ) {
+		usleep( 1000 * 10 );
+		return true;
+	}
+	if ( not mAudioLink->isConnected() ) {
+		mAudioLink->Connect();
+		if ( mAudioLink->isConnected() ) {
+			struct sched_param sched;
+			memset( &sched, 0, sizeof(sched) );
+			sched.sched_priority = sched_get_priority_max( SCHED_RR );
+			sched_setscheduler( 0, SCHED_RR, &sched );
+		} else {
+			usleep( 1000 * 500 );
+		}
+		return true;
+	}
+
+	uint8_t data[65536] = { 0 };
+	int32_t size = mAudioLink->Read( data, sizeof( data ), 0 );
+	if ( size > 0 and mAudioStream != nullptr ) {
+		mAudioStream->write( (const char*)data, size );
+	}
+
+	return true;
+}
+
 
 void Stream::DecodeFrame( const uint8_t* src, size_t sliceSize )
 {

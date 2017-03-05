@@ -59,8 +59,12 @@ MainWindow::MainWindow()
 
 	mConfig = new Config();
 	connect( ui->actionSettings, SIGNAL( triggered(bool) ), mConfig, SLOT( show() ) );
+
 	Link* mControllerLink = nullptr;
+	Link* mAudioLink = nullptr;
+
 	if ( mConfig->value( "link/rawwifi", true ).toBool() == true ) {
+#ifndef NO_RAWWIFI
 		std::string device = mConfig->value( "rawwifi/device", "" ).toString().toStdString();
 		if ( device != "" ) {
 			RawWifi* controllerLink = new RawWifi( device, mConfig->value( "rawwifi/controller/outport", 0 ).toInt(), mConfig->value( "rawwifi/controller/inport", 1 ).toInt() );
@@ -72,7 +76,12 @@ MainWindow::MainWindow()
 			static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
+			static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
+			static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
 		}
+#endif // NO_RAWWIFI
 	} else {
 		std::function<Socket::PortType(const QString&)> socket_type = [](const QString& type){ if ( type == "UDPLite" ) return Socket::UDPLite; else if ( type == "UDP" ) return Socket::UDP; else return Socket::TCP; };
 		mControllerLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/controller/port", 2020 ).toInt(), socket_type( mConfig->value( "tcpip/controller/type", "TCP" ).toString() ) );
@@ -161,6 +170,7 @@ MainWindow::MainWindow()
 
 	ui->video->setMainWindow( this );
 	ui->video->setLink( mStreamLink );
+	ui->video->setAudioLink( mAudioLink );
 }
 
 

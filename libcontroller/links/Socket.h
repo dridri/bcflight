@@ -43,6 +43,8 @@ public:
 
 	int Connect();
 	int setBlocking( bool blocking );
+	void setRetriesCount( int retries );
+	int retriesCount() const;
 
 	virtual uint32_t fullReadSpeed() { return mReadSpeed; }
 

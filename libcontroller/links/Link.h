@@ -72,6 +72,8 @@ public:
 
 	virtual int Connect() = 0;
 	virtual int setBlocking( bool blocking ) = 0;
+	virtual void setRetriesCount( int retries ) = 0;
+	virtual int retriesCount() const = 0;
 	virtual int32_t Channel() { return 0; }
 	virtual int32_t RxQuality() { return 100; }
 	virtual int32_t RxLevel() { return -1; }

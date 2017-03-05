@@ -123,6 +123,14 @@ Config::Config()
 	ui->tcpip_controller_port->setValue( value( "tcpip/controller/port", 2020 ).toInt() );
 	ui->tcpip_video_type->setCurrentText( value( "tcpip/video/type", "UDPLite" ).toString() );
 	ui->tcpip_video_port->setValue( value( "tcpip/video/port", 2021 ).toInt() );
+
+#ifdef NO_RAWWIFI
+	ui->rawwifi->setText( "Raw Wifi (not compiled in this build)" );
+	ui->rawwifi->setChecked( false );
+	ui->tcpip->setChecked( true );
+	ui->rawwifi->setEnabled( false );
+	ui->rawwifi_settings->setEnabled( false );
+#endif
 }
 
 

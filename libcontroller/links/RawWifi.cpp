@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#ifndef NO_RAWWIFI
+
 #include <unistd.h>
 #include <string.h>
 #include <sstream>
@@ -26,8 +28,6 @@
 #else
 #include <netinet/in.h>
 #endif
-
-#ifndef NO_RAWWIFI
 
 // static std::string readcmd( const std::string& cmd, const std::string& entry, const std::string& delim );
 
@@ -321,107 +321,5 @@ static std::string readcmd( const std::string& cmd, const std::string& entry, co
 	return res;
 }
 */
-#else // NO_RAWWIFI
-
-RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, int read_timeout_ms )
-	: Link()
-	, mRawWifi( nullptr )
-	, mDevice( device )
-	, mChannel( 11 )
-	, mTxPower( 33 )
-	, mReadTimeout( read_timeout_ms )
-	, mCECMode( 0 )
-	, mOutputPort( out_port )
-	, mInputPort( in_port )
-	, mRetriesCount( 2 )
-	, mLastIsCorrupt( false )
-{
-}
-
-
-RawWifi::~RawWifi()
-{
-}
-
-
-int RawWifi::setBlocking( bool blocking )
-{
-	return -1;
-}
-
-
-void RawWifi::setCECMode( const std::string& mode )
-{
-}
-
-
-void RawWifi::SetChannel( int chan )
-{
-}
-
-
-void RawWifi::SetTxPower( int mBm )
-{
-}
-
-
-void RawWifi::setRetriesCount( int retries )
-{
-}
-
-
-int RawWifi::level() const
-{
-	return -1;
-}
-
-
-int RawWifi::channel() const
-{
-	return -1;
-}
-int32_t RawWifi::Channel()
-{
-	return mChannel;
-}
-
-
-bool RawWifi::lastIsCorrupt() const
-{
-	return false;
-}
-
-
-int32_t RawWifi::RxQuality()
-{
-	return 0;
-}
-
-
-void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
-{
-}
-
-
-int RawWifi::Connect()
-{
-	return -1;
-}
-
-int32_t RawWifi::RxLevel()
-{
-	return -1;
-}
-
-int RawWifi::Read( void* buf, uint32_t len, int timeout )
-{
-	return -1;
-}
-
-
-int RawWifi::Write( const void* buf, uint32_t len, int timeout )
-{
-	return -1;
-}
 
 #endif // NO_RAWWIFI

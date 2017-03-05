@@ -130,6 +130,21 @@ int Socket::setBlocking( bool blocking )
 }
 
 
+int Socket::retriesCount() const
+{
+	// TODO
+	return 1;
+}
+
+
+void Socket::setRetriesCount( int retries )
+{
+	if ( mPortType == UDP or mPortType == UDPLite ) {
+		// TODO : set retries count
+	}
+}
+
+
 int Socket::Read( void* buf, uint32_t len, int timeout )
 {
 	if ( !mConnected ) {
