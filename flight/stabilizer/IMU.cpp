@@ -448,7 +448,8 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 	}
 	mGyroscope = total_gyro.xyz() / total_gyro.w;
 
-	if ( mState == Running and ( not gyro_only /*or mAcroRPYCounter == 0*/ ) )
+	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 16;
+	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
 	{
 		for ( Accelerometer* dev : Sensor::Accelerometers() ) {
 			dev->Read( &vtmp );
