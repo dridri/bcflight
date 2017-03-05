@@ -9,6 +9,8 @@ public:
 	Board();
 	~Board();
 
+	uint32_t displayWidth();
+	uint32_t displayHeight();
 	float localBatteryVoltage();
 
 private:

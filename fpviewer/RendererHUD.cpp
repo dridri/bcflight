@@ -53,6 +53,8 @@ static const char hud_flat_fragment_shader[] =
 R"(	#define in varying
 	#define ge_FragColor gl_FragColor
 	uniform sampler2D ge_Texture0;
+	uniform float exposure_value;
+	uniform float gamma_compensation;
 
 	uniform vec4 color;
 	in vec2 ge_TextureCoord;
@@ -61,14 +63,20 @@ R"(	#define in varying
 	{
 // 		uniform float kernel[9] = float[]( 0, -1, 0, -1, 5, -1, 0, -1, 0 );
 		ge_FragColor = vec4(0.0);
+
 		ge_FragColor += 5.0 * texture2D( ge_Texture0, ge_TextureCoord.xy );
-		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2(-0.001, 0.0 ) );
-		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.001, 0.0 ) );
-		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.0,-0.001 ) );
-		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.0, 0.001 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2(-0.000976, 0.0 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.001736, 0.0 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.0,-0.000976 ) );
+		ge_FragColor += -1.0 * texture2D( ge_Texture0, ge_TextureCoord.xy + vec2( 0.0, 0.001736 ) );
+
+// 		ge_FragColor += texture2D( ge_Texture0, ge_TextureCoord.xy );
 
 		ge_FragColor *= color;
 		ge_FragColor.a = 1.0;
+
+		ge_FragColor.rgb = vec3(1.0) - exp( -ge_FragColor.rgb * vec3(exposure_value) );
+		ge_FragColor.rgb = pow( ge_FragColor.rgb, vec3( 1.0 / gamma_compensation ) );
 	})"
 ;
 
@@ -82,6 +90,7 @@ R"(	#define in attribute
 	uniform mat4 ge_ProjectionMatrix;
 	uniform vec2 offset;
 	uniform float scale;
+	uniform float distort;
 	out vec2 ge_TextureCoord;
 
 	vec2 VR_Distort( vec2 coords )
@@ -107,9 +116,11 @@ R"(	#define in attribute
 	{
 		ge_TextureCoord = ge_VertexTexcoord.xy;
 		vec2 pos = offset + ge_VertexPosition.xy * scale;
-		pos = VR_Distort( pos );
+		if ( distort != 0.0 ) {
+			pos = VR_Distort( pos );
+		}
 		ge_Position = ge_ProjectionMatrix * vec4(pos, 0.0, 1.0);
-		ge_Position.y = ge_Position.y * ( 720.0 / ( 1280.0 / 2.0 ) );
+// 		ge_Position.y = ge_Position.y * ( 720.0 / ( 1280.0 / 2.0 ) );
 	})"
 ;
 
@@ -141,26 +152,55 @@ Vector2f RendererHUD::VR_Distort( const Vector2f& coords )
 	float k1 = 1.95304;
 	k1 = k1 / ( ( 1280.0 / 4.0 ) * ( 1280.0 / 4.0 ) * 16.0 );
 
-	ret = ofs + ( 1.0f - k1 * r * r ) * offset;
+	ret = ofs + ( mBarrelCorrection ? ( 1.0f - k1 * r * r ) : 1.0f ) * offset;
 
 	return ret;
 }
 
 
-RendererHUD::RendererHUD( int width, int height )
-	: mWidth( width )
-	, mHeight( height )
+void RendererHUD::DrawArrays( RendererHUD::Shader& shader, int mode, uint32_t ofs, uint32_t count, const Vector2f& offset )
+{
+	if ( mStereo ) {
+		glViewport( mDisplayWidth / 2, 0, mDisplayWidth / 2, mDisplayHeight );
+		glUniform2f( shader.mOffsetID, 1280.0f * -m3DStrength + offset.x, offset.y );
+		glDrawArrays( mode, ofs, count );
+		glViewport( 0, 0, mDisplayWidth / 2, mDisplayHeight );
+		glUniform2f( shader.mOffsetID, 1280.0f * +m3DStrength + offset.x, offset.y );
+		glDrawArrays( mode, ofs, count );
+	} else {
+		glViewport( 0, 0, mDisplayWidth, mDisplayHeight );
+		glUniform2f( shader.mOffsetID, offset.x, offset.y );
+		glDrawArrays( mode, ofs, count );
+	}
+}
+
+
+RendererHUD::RendererHUD( int width, int height, float ratio, uint32_t fontsize, bool barrel_correction )
+	: mDisplayWidth( width )
+	, mDisplayHeight( height )
+	, mWidth( 1280 )
+	, mHeight( 720 )
+	, mBorderTop( 10 ) //120
+	, mBorderBottom( 720 - 10 )//720-120
+	, mBorderLeft( 20 ) //150
+	, mBorderRight( 1280 - 20 ) //1280-95
 	, mStereo( true )
 	, mNightMode( false )
+	, mBarrelCorrection( barrel_correction )
 	, m3DStrength( 0.004f )
 	, mBlinkingViews( false )
 	, mMatrixProjection( new Matrix() )
 	, mQuadVBO( 0 )
 	, mFontTexture( nullptr )
-	, mFontSize( 28 )
+	, mFontSize( fontsize )
+	, mFontHeight( fontsize * 0.65f )
 	, mTextShader{ 0 }
 {
-	mMatrixProjection->Orthogonal( 0.0, 1280, 720, 0.0, -2049.0, 2049.0 );
+	mWidth *= ratio;
+	mBorderLeft *= ratio;
+	mBorderRight *= ratio;
+	mMatrixProjection->Orthogonal( 0.0, 1280 * ratio, 720, 0.0, -2049.0, 2049.0 );
+
 	glDisable( GL_DEPTH_TEST );
 	glActiveTexture( GL_TEXTURE0 );
 	glEnable( GL_TEXTURE_2D );
@@ -173,6 +213,11 @@ RendererHUD::RendererHUD( int width, int height )
 	glUseProgram( mFlatShader.mShader );
 	glEnableVertexAttribArray( mFlatShader.mVertexTexcoordID );
 	glEnableVertexAttribArray( mFlatShader.mVertexPositionID );
+	mExposureID = glGetUniformLocation( mFlatShader.mShader, "exposure_value" );
+	mGammaID = glGetUniformLocation( mFlatShader.mShader, "gamma_compensation" );
+	std::cout << "mExposureID : " << mExposureID << "\n";
+	std::cout << "mGammaID : " << mGammaID << "\n";
+	std::cout << "mOffsetID : " << mFlatShader.mOffsetID << "\n";
 	glUseProgram( 0 );
 
 	LoadVertexShader( &mTextShader, hud_text_vertices_shader, sizeof(hud_text_vertices_shader) + 1 );
@@ -188,7 +233,8 @@ RendererHUD::RendererHUD( int width, int height )
 	glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertex) * 6, nullptr, GL_STATIC_DRAW );
 
 	{
-		mFontTexture = LoadTexture( "data/font.png" );
+		std::cout << "mFontSize : " << mFontSize << "\n";
+		mFontTexture = LoadTexture( "data/font32.png" );
 		const float rx = 1.0f / (float)mFontTexture->width;
 		const float ry = 1.0f / (float)mFontTexture->height;
 		FastVertex charactersBuffer[6 * 256];
@@ -201,6 +247,8 @@ RendererHUD::RendererHUD( int width, int height )
 			float height = CharacterHeight( mFontTexture, i );
 			float texMaxX = width * rx;
 			float texMaxY = height * ry;
+			width *= mFontSize / 32.0f;
+			height *= mFontSize / 32.0f;
 			float fy = (float)0.0f;// - CharacterYOffset( mFontTexture, i );
 			mTextAdv[c] = (int)width + 1;
 
@@ -251,10 +299,14 @@ RendererHUD::~RendererHUD()
 void RendererHUD::PreRender( VideoStats* videostats )
 {
 	if ( Thread::GetTick() - mHUDTick >= 1000 ) {
-		setNightMode( false ); // TODO : detect night from framebuffer in videostats
 		mBlinkingViews = !mBlinkingViews;
 		mHUDTick = Thread::GetTick();
 	}
+	glUseProgram( mFlatShader.mShader );
+	glUniform1f( mFlatShader.mDistorID, (float)mBarrelCorrection );
+	glUseProgram( mTextShader.mShader );
+	glUniform1f( mTextShader.mDistorID, (float)mBarrelCorrection );
+	glUseProgram( 0 );
 }
 
 
@@ -268,7 +320,14 @@ void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, 
 	glActiveTexture( GL_TEXTURE0 );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, textureID );
-	glUniform1i( glGetUniformLocation( mFlatShader.mShader, "ge_Texture0" ), 0 );
+
+	if ( mNightMode ) {
+		glUniform1f( mExposureID, 2.5f );
+		glUniform1f( mGammaID, 1.5f );
+	} else {
+		glUniform1f( mExposureID, 1.0f );
+		glUniform1f( mGammaID, 1.0f );
+	}
 
 	glBindBuffer( GL_ARRAY_BUFFER, mQuadVBO );
 	glVertexAttribPointer( mFlatShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( 0 ) );
@@ -306,10 +365,7 @@ void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, 
 	vertices[5].y = y+height;
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertex) * 6, vertices );
 
-	glUniform2f( mTextShader.mOffsetID, 1280.0f * +m3DStrength, 0.0f );
-	glDrawArrays( GL_TRIANGLES, 0, 6 );
-	glUniform2f( mTextShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f, 0.0f );
-	glDrawArrays( GL_TRIANGLES, 0, 6 );
+	DrawArrays( mFlatShader, GL_TRIANGLES, 0, 6 );
 }
 
 
@@ -321,7 +377,7 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, uint32_t co
 
 void RendererHUD::RenderText( int x, int y, const std::string& text, const Vector4f& _color, float size, bool hcenter )
 {
-	y += mFontSize * size * 0.2f;
+// 	y += mFontSize * size * 0.2f;
 
 	glUseProgram( mTextShader.mShader );
 	Vector4f color = _color;
@@ -337,7 +393,6 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, const Vecto
 	glActiveTexture( GL_TEXTURE0 );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, mFontTexture->glID );
-	glUniform1i( glGetUniformLocation( mTextShader.mShader, "ge_Texture0" ), 0 );
 
 	glBindBuffer( GL_ARRAY_BUFFER, mTextVBO );
 	glVertexAttribPointer( mTextShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( 0 ) );
@@ -355,10 +410,7 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, const Vecto
 	for ( uint32_t i = 0; i < text.length(); i++ ) {
 		uint8_t c = (uint8_t)( (int)text.data()[i] );
 		if ( c > 0 and c < 128 ) {
-			glUniform2f( mTextShader.mOffsetID, 1280.0f * +m3DStrength + x, y );
-			glDrawArrays( GL_TRIANGLES, c * 6, 6 );
-			glUniform2f( mTextShader.mOffsetID, 1280.0f * -m3DStrength + 1280.0f / 2.0f + x, y );
-			glDrawArrays( GL_TRIANGLES, c * 6, 6 );
+			DrawArrays( mTextShader, GL_TRIANGLES, c * 6, 6, Vector2f( x, y ) );
 		}
 		x += mTextAdv[ c ] * size;
 	}
@@ -387,6 +439,7 @@ void RendererHUD::createPipeline( RendererHUD::Shader* target )
 
 	glUseProgram( target->mShader );
 	target->mMatrixProjectionID = glGetUniformLocation( target->mShader, "ge_ProjectionMatrix" );
+	target->mDistorID = glGetUniformLocation( target->mShader, "distort" );
 	target->mColorID = glGetUniformLocation( target->mShader, "color" );
 	target->mOffsetID = glGetUniformLocation( target->mShader, "offset" );
 	target->mScaleID = glGetUniformLocation( target->mShader, "scale" );

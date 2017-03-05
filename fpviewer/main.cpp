@@ -30,6 +30,7 @@
 #include "Config.h"
 #include "Board.h"
 #include "Stream.h"
+#include "AudioOutput.h"
 #include "GLContext.h"
 #include "RendererHUD.h"
 #include "RendererHUDNeo.h"
@@ -40,6 +41,7 @@ int main( int ac, char** av )
 
 	Stream* stream = nullptr;
 	Link* stream_link = nullptr;
+	Link* audio_link = nullptr;
 	Controller* controller = nullptr;
 	Link* controller_link = nullptr;
 
@@ -58,18 +60,26 @@ int main( int ac, char** av )
 	config->Reload();
 
 	if ( config->string( "stream.link.link_type" ) == "Socket" ) {
-		stream_link = new ::Socket( config->string( "stream.link.address", "192.168.32.1" ), config->integer( "stream.link.port", 2020 ) );
+		stream_link = new ::Socket( config->string( "stream.link.address", "192.168.32.1" ), config->integer( "stream.link.port", 2021 ) );
+		audio_link = new ::Socket( config->string( "audio.link.address", "192.168.32.1" ), config->integer( "audio.link.port", 2022 ) );
 	} else { // default to RawWifi
 		stream_link = new RawWifi( config->string( "stream.link.device", "wlan0" ), config->integer( "stream.link.output_port", 10 ), config->integer( "stream.link.input_port", 11 ), config->integer( "stream.link.read_timeout", 1 ) );
+		dynamic_cast< RawWifi* >( stream_link )->SetChannel( config->integer( "stream.link.channel", 11 ) );
 		dynamic_cast< RawWifi* >( stream_link )->setBlocking( config->boolean( "stream.link.blocking", true ) );
 		dynamic_cast< RawWifi* >( stream_link )->setCECMode( config->string( "stream.link.cec_mode", "none" ) );
 		dynamic_cast< RawWifi* >( stream_link )->setBlockRecoverMode( config->string( "stream.link.block_recover", "contiguous" ) );
+		audio_link = new RawWifi( config->string( "audio.link.device", "wlan0" ), config->integer( "audio.link.output_port", 20 ), config->integer( "audio.link.input_port", 21 ), config->integer( "audio.link.read_timeout", 1 ) );
+		dynamic_cast< RawWifi* >( audio_link )->SetChannel( config->integer( "audio.link.channel", 11 ) );
+		dynamic_cast< RawWifi* >( audio_link )->setBlocking( config->boolean( "audio.link.blocking", true ) );
+		dynamic_cast< RawWifi* >( audio_link )->setCECMode( config->string( "audio.link.cec_mode", "none" ) );
+		dynamic_cast< RawWifi* >( audio_link )->setBlockRecoverMode( config->string( "audio.link.block_recover", "none" ) );
 	}
 
 	if ( config->string( "controller.link.link_type" ) == "Socket" ) {
 		controller_link = new ::Socket( config->string( "controller.link.address", "192.168.32.1" ), config->integer( "controller.link.port", 2020 ) );
 	} else if ( config->string( "controller.link.link_type" ) == "RawWifi" ) {
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), -1, config->integer( "controller.link.input_port", 1 ), -1 );
+		dynamic_cast< RawWifi* >( controller_link )->SetChannel( config->integer( "controller.link.channel", 11 ) );
 	}
 	if ( controller_link ) {
 		// Create a controller in spectate mode
@@ -78,13 +88,17 @@ int main( int ac, char** av )
 
 	bool stereo = config->boolean( "stream.stereo", true );
 	bool direct_render = config->boolean( "stream.direct_render", true );
-	stream = new Stream( stream_link, config->integer( "stream.width", 1920 ), config->integer( "stream.height", 1080 ), stereo, direct_render );
-// 	stream->Stop(); stream->Run();
+	stream = new Stream( stream_link, board->displayWidth(), board->displayHeight(), config->number( "stream.zoom", 1.0f ), config->boolean( "stream.stretch", false ), stereo, direct_render );
 	stream->Start();
+
+	AudioOutput* audio = new AudioOutput( audio_link, config->integer( "audio.channels", 1 ), config->integer( "audio.sample_rate", 44100 ), config->string( "audio.device", "default" ) );
+	audio->Start();
 
 	GLContext* glContext = new GLContext();
 	glContext->Initialize( 1280, 720 );
-	RendererHUD* mRendererHUD = new RendererHUDNeo( 1280, 720 );
+	RendererHUD* mRendererHUD = new RendererHUDNeo( board->displayWidth(), board->displayHeight(), config->number( "hud.ratio", 1.0f ), config->integer( "hud.font_size", 28 ), config->boolean( "hud.correction", true ) );
+	mRendererHUD->setStereo( stereo );
+	mRendererHUD->set3DStrength( config->number( "hud.stereo_strength", 0.004f ) );
 
 	uint64_t time_base = Thread::GetTick();
 	uint64_t time = 0;
@@ -106,10 +120,13 @@ int main( int ac, char** av )
 			.channel = stream_link->Channel(),
 			.source = 0,
 		};
+		if ( controller ) {
+			mRendererHUD->setNightMode( controller->nightMode() );
+		}
 		mRendererHUD->PreRender( &video_stats );
 		mRendererHUD->Render( controller, board->localBatteryVoltage(), &video_stats, &iwstats );
-
-		if ( controller->armed() ) {
+/*
+		if ( controller and controller->armed() ) {
 			if ( last_armed == false ) {
 				time_base = Thread::GetTick();
 				last_armed = true;
@@ -118,13 +135,14 @@ int main( int ac, char** av )
 		} else {
 			last_armed = false;
 		}
+
 		uint32_t minuts = time / ( 1000 * 60 );
 		uint32_t seconds = ( time / 1000 ) % 60;
 		uint32_t ms = time % 1000;
 		char txt[256];
 		sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
 		mRendererHUD->RenderText( 1280 * 0.365f, 720 - 240, txt, 0xFFFFFFFF, 1.0f, true );
-
+*/
 		glContext->SwapBuffers();
 	}
 

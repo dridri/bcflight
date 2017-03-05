@@ -1,8 +1,13 @@
+#include <unistd.h>
+#include <vc_dispmanx_types.h>
+#include <bcm_host.h>
 #include "Board.h"
 
 Board::Board()
 	: mADC( nullptr )
 {
+	usleep( 1000 * 1000 * 2 );
+	system( "dd if=/dev/zero of=/dev/fb0" );
 }
 
 
@@ -25,4 +30,22 @@ float Board::localBatteryVoltage()
 	}
 
 	return 0.0f;
+}
+
+
+uint32_t Board::displayWidth()
+{
+	uint32_t display_width;
+	uint32_t display_height;
+	int ret = graphics_get_display_size( 5, &display_width, &display_height );
+	return display_width;
+}
+
+
+uint32_t Board::displayHeight()
+{
+	uint32_t display_width;
+	uint32_t display_height;
+	int ret = graphics_get_display_size( 5, &display_width, &display_height );
+	return display_height;
 }

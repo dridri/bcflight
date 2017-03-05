@@ -17,4 +17,4 @@ add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++ ${CMAKE_CURRENT_BI
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++ ${CMAKE_CURRENT_BINARY_DIR}/OpenMaxIL++/MMAL++ )
 set( BOARD_DEPENDENCIES "OpenMaxIL++" )
 set( BOARD_DEPENDENCIES "MMAL++" )
-set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
+set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" -lasound )

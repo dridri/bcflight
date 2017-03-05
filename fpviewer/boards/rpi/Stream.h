@@ -47,7 +47,7 @@ class Controller;
 class Stream : public Thread
 {
 public:
-	Stream( Link* link, uint32_t width, uint32_t height, bool stereo, bool direct_render );
+	Stream( Link* link, uint32_t width, uint32_t height, float zoom, bool stretch, bool stereo, bool direct_render );
 	~Stream();
 	void setStereo( bool en );
 
@@ -67,8 +67,12 @@ protected:
 private:
 	bool mStereo;
 	bool mDirectRender;
+	uint32_t mScreenWidth;
+	uint32_t mScreenHeight;
 	uint32_t mWidth;
 	uint32_t mHeight;
+	float mZoom;
+	bool mStretch;
 	std::list< uint32_t > mHeadersReceived;
 
 	Link* mLink;

@@ -27,15 +27,16 @@
 #include <links/Socket.h>
 #include "Stream.h"
 
-#define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
-#define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
-
-Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo, bool direct_render )
+Stream::Stream( Link* link, uint32_t width_, uint32_t height_, float zoom, bool stretch, bool stereo, bool direct_render )
 	: Thread( "Stream" )
 	, mStereo( stereo )
 	, mDirectRender( direct_render )
+	, mScreenWidth( width_ )
+	, mScreenHeight( height_ )
 	, mWidth( 0 )
 	, mHeight( 0 )
+	, mZoom( zoom )
+	, mStretch( stretch )
 	, mLink( link )
 	, mDecoder( nullptr )
 	, mDecoderRender( nullptr )
@@ -48,13 +49,25 @@ Stream::Stream( Link* link, uint32_t width_, uint32_t height_, bool stereo, bool
 	mFPS = 0;
 	mFrameCounter = 0;
 
-	mDecoder = new VID_INTF::VideoDecode( 0, VID_INTF::VideoDecode::CodingAVC, false );
+	mDecoder = new VID_INTF::VideoDecode( 0, VID_INTF::VideoDecode::CodingAVC, true );
 	if ( direct_render ) {
-		float reduce = 0.25f;
-		int y_offset = mStereo * 56 + ( reduce * height_ * 0.1 );
-		int width = width_ / ( 1 + mStereo ) - ( reduce * width_ * 0.1 );
-		int height = height_ - ( mStereo * 112 ) - ( reduce * height_ * 0.2 );
-		mDecoderRender = new VID_INTF::VideoRender( reduce * width_ * 0.05, y_offset, width, height, false );
+// 		float reduce = 1.0f - zoom;
+// 		int y_offset = mStereo * 56 + ( reduce * height_ * 0.1 );
+// 		int width = width_ / ( 1 + mStereo ) - ( reduce * width_ * 0.1 );
+// 		int height = height_ - ( mStereo * 112 ) - ( reduce * height_ * 0.2 );
+
+			int base_width = mScreenWidth;
+			int base_height = mScreenHeight;
+			if ( not mStretch ) {
+// 				base_width = mWidth;
+				base_height = base_height * mWidth / base_width;
+			}
+			int width = base_width * mZoom / ( mStereo + 1 );
+			int height = base_height * mZoom;
+			int x_offset = mScreenWidth / ( 2 * ( mStereo + 1 ) ) - width / 2;
+			int y_offset = mScreenHeight / 2 - height / 2;
+
+		mDecoderRender = new VID_INTF::VideoRender( x_offset, y_offset, width, height, false );
 		mDecoderRender->setMirror( false, true );
 		if ( mStereo ) {
 			mDecoderRender->setStereo( true );
@@ -139,11 +152,11 @@ bool Stream::run()
 						}
 					}
 				}
-				if ( not already_received ) {
+// 				if ( not already_received ) {
 					printf( "Processing header (%d)\n", frameSize );
 					mDecoder->fillInput( buffer, frameSize, corrupted );
 					mHeadersReceived.emplace_back( frameSize );
-				}
+// 				}
 			}
 		} else {
 			mDecoder->fillInput( buffer, frameSize, corrupted );
@@ -175,12 +188,19 @@ void Stream::Render( RendererHUD* renderer )
 		// Nothing to do
 	} else {
 		if ( mGLImage == nullptr and width() > 0 and height() > 0 ) {
-			float reduce = 0.25f;
-			int y_offset = mStereo * 56 + ( reduce * 720 * 0.1 );
-			int width = 1280 / ( 1 + mStereo ) - ( reduce * 1280 * 0.1 );
-			int height = 720 - ( mStereo * 112 ) - ( reduce * 720 * 0.2 );
+			int base_width = mScreenWidth;
+			int base_height = mScreenHeight;
+			if ( not mStretch ) {
+// 				base_width = mWidth;
+				base_height = base_height * mWidth / base_width;
+			}
+			int width = base_width * mZoom / ( mStereo + 1 );
+			int height = base_height * mZoom;
+			int x_offset = mScreenWidth / ( 2 * ( mStereo + 1 ) ) - width / 2;
+			int y_offset = mScreenHeight / 2 - height / 2;
+			printf( "GLImage coordinates : %d %d %d %d\n", x_offset, y_offset, width, height );
 			mGLImage = new GLImage( Stream::width(), Stream::height() );
-			mGLImage->setDrawCoordinates( reduce * 1280 * 0.05, y_offset, width, height );
+			mGLImage->setDrawCoordinates( x_offset * 1280.0f / mScreenWidth, y_offset * 720.0f / mScreenHeight, width * 1280.0f / mScreenWidth, height * 720.0f / mScreenHeight );
 			mEGLVideoImage = eglCreateImageKHR( eglGetCurrentDisplay(), eglGetCurrentContext(), EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)mGLImage->texture(), nullptr );
 			if ( mEGLVideoImage == EGL_NO_IMAGE_KHR ) {
 				printf("eglCreateImageKHR failed.\n");

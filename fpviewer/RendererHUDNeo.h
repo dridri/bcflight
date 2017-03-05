@@ -26,7 +26,7 @@
 class RendererHUDNeo : public RendererHUD
 {
 public:
-	RendererHUDNeo( int width, int height );
+	RendererHUDNeo( int width, int height, float ratio, uint32_t fontsize = 28, bool barrel_correction = true );
 	~RendererHUDNeo();
 
 	void Compute();
@@ -53,6 +53,8 @@ protected:
 
 	uint32_t mStaticLinesCount;
 	uint32_t mStaticLinesCountNoAttitude;
+
+	float mSpeedometerSize;
 };
 
 #endif // RENDERERHUDNEO_H

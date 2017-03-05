@@ -265,6 +265,7 @@ void Config::Reload()
 	luaL_dostring( L, "controller = {}" );
 	luaL_dostring( L, "stream = {}" );
 	luaL_dostring( L, "touchscreen = {}" );
+	luaL_dostring( L, "hud = {}" );
 	luaL_loadfile( L, mFilename.c_str() );
 	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
 

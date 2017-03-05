@@ -42,7 +42,7 @@ typedef struct IwStats {
 class RendererHUD
 {
 public:
-	RendererHUD( int width, int height );
+	RendererHUD( int width, int height, float ratio, uint32_t fontsize, bool barrel_correction = true );
 	virtual ~RendererHUD();
 
 	virtual void Compute() = 0;
@@ -55,7 +55,8 @@ public:
 
 	void PreRender( VideoStats* videostats );
 	void setNightMode( bool m ) { mNightMode = m; }
-	void setStereo( bool en ) { mStereo = en; }
+	void setStereo( bool en ) { mStereo = en; if ( not mStereo ) { m3DStrength = 0.0f; } }
+	void set3DStrength( float strength ) { m3DStrength = strength; }
 
 protected:
 	typedef struct {
@@ -77,6 +78,7 @@ protected:
 		uint32_t mVertexColorID;
 		uint32_t mVertexPositionID;
 		uint32_t mMatrixProjectionID;
+		uint32_t mDistorID;
 		uint32_t mOffsetID;
 		uint32_t mScaleID;
 		uint32_t mColorID;
@@ -100,10 +102,19 @@ protected:
 	int32_t CharacterHeight( Texture* tex, unsigned char c );
 	int32_t CharacterYOffset( Texture* tex, unsigned char c );
 
+	void DrawArrays( RendererHUD::Shader& shader, int mode, uint32_t ofs, uint32_t count, const Vector2f& offset = Vector2f() );
+
+	uint32_t mDisplayWidth;
+	uint32_t mDisplayHeight;
 	uint32_t mWidth;
 	uint32_t mHeight;
+	uint32_t mBorderTop;
+	uint32_t mBorderBottom;
+	uint32_t mBorderLeft;
+	uint32_t mBorderRight;
 	bool mStereo;
 	bool mNightMode;
+	bool mBarrelCorrection;
 	float m3DStrength;
 	bool mBlinkingViews;
 	uint64_t mHUDTick;
@@ -111,9 +122,12 @@ protected:
 	Matrix* mMatrixProjection;
 	uint32_t mQuadVBO;
 	Shader mFlatShader;
+	uint32_t mExposureID;
+	uint32_t mGammaID;
 
 	Texture* mFontTexture;
 	uint32_t mFontSize;
+	uint32_t mFontHeight;
 	Shader mTextShader;
 	uint32_t mTextVBO;
 	int mTextAdv[256];
