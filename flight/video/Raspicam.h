@@ -47,6 +47,8 @@ public:
 	virtual const int32_t contrast();
 	virtual const int32_t saturation();
 	virtual const bool nightMode();
+	virtual const bool recording();
+	virtual const std::string recordFilename();
 	virtual void setBrightness( uint32_t value );
 	virtual void setContrast( int32_t value );
 	virtual void setSaturation( int32_t value );
@@ -76,6 +78,7 @@ protected:
 
 	// Record
 	bool mRecording;
+	std::string mRecordFilename;
 	char* mRecordFrameData;
 	int mRecordFrameDataSize;
 	int mRecordFrameSize;

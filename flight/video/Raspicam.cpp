@@ -113,6 +113,18 @@ const bool Raspicam::nightMode()
 }
 
 
+const bool Raspicam::recording()
+{
+	return mRecording;
+}
+
+
+const std::string Raspicam::recordFilename()
+{
+	return mRecordFilename;
+}
+
+
 void Raspicam::setBrightness( uint32_t value )
 {
 	IL::Camera::setBrightness( value );
@@ -274,22 +286,16 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 			closedir( dir );
 		}
 		sprintf( filename, "/var/VIDEO/video_%02dfps_%06u.h264", mConfig->integer( mConfigObject + ".fps", 60 ), fileid );
-// 		mRecordStream = new std::ofstream( filename );
+		mRecordFilename = std::string( filename );
 		mRecordStream = fopen( filename, "wb" );
 		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
 		if ( headers.size() > 0 ) {
 			for ( auto hdr : headers ) {
-// 				mRecordStream->write( (char*)hdr.second, hdr.first );
 				fwrite( hdr.second, 1, hdr.first, mRecordStream );
 			}
 		}
 	}
-/*
-	auto pos = mRecordStream->tellp();
-	mRecordStream->write( data, datalen );
-	ret = mRecordStream->tellp() - pos;
-	mRecordStream->flush();
-*/
+
 	ret = fwrite( data, 1, datalen, mRecordStream );
 	fflush( mRecordStream );
 

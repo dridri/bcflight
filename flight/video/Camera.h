@@ -20,6 +20,7 @@
 #define CAMERA_H
 
 #include <stdint.h>
+#include <string>
 
 class Camera
 {
@@ -36,6 +37,8 @@ public:
 	virtual const int32_t contrast() = 0;
 	virtual const int32_t saturation() = 0;
 	virtual const bool nightMode() = 0;
+	virtual const bool recording() = 0;
+	virtual const std::string recordFilename() = 0;
 	virtual void setBrightness( uint32_t value ) = 0;
 	virtual void setContrast( int32_t value ) = 0;
 	virtual void setSaturation( int32_t value ) = 0;

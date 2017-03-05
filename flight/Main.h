@@ -31,6 +31,7 @@ class Stabilizer;
 class Frame;
 class Controller;
 class Camera;
+class Microphone;
 
 class Main
 {
@@ -77,6 +78,7 @@ private:
 	Frame* mFrame;
 	Controller* mController;
 	Camera* mCamera;
+	Microphone* mMicrophone;
 	std::string mCameraType;
 };
 

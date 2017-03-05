@@ -312,6 +312,7 @@ void Config::Reload()
 	luaL_dostring( L, "frame = { motors = {} }" );
 	luaL_dostring( L, "battery = {}" );
 	luaL_dostring( L, "camera = {}" );
+	luaL_dostring( L, "microphone = {}" );
 	luaL_dostring( L, "controller = {}" );
 	luaL_dostring( L, "stabilizer = { loop_time = 2000 }" );
 	luaL_dostring( L, "sensors_map_i2c = {}" );

@@ -36,6 +36,7 @@
 #include <Servo.h>
 #include <Stabilizer.h>
 #include <Frame.h>
+#include <Microphone.h>
 #ifdef CAMERA_INCLUDE
 	#include CAMERA_INCLUDE // defined in CMakeLists.txt
 #endif
@@ -68,6 +69,7 @@ int Main::flight_entry( int ac, char** av )
 #include <OneShot125.h>
 #include <BrushlessPWM.h>
 #include "video/Camera.h"
+
 void Test()
 {
 	Motor* os125 = new OneShot125( 23 );
@@ -107,6 +109,7 @@ Main::Main()
 	, mLPSCounter( 0 )
 	, mController( nullptr )
 	, mCamera( nullptr )
+	, mMicrophone( nullptr )
 	, mCameraType( "" )
 {
 	mInstance = this;
@@ -180,6 +183,10 @@ Main::Main()
 #else
 	mCamera = nullptr;
 #endif
+
+	if ( mConfig->string( "microphone.type" ) != "" ) {
+		mMicrophone = Microphone::Create( mConfig, "microphone" );
+	}
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
