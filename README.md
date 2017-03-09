@@ -29,6 +29,10 @@ Generation scripts for easier building
 
 Contains buildroot configuration for both flight and ground targets.
 
+# Results
+
+This video was recorded on 03-feb-2017 during an FPV session
+![FPV Video of drone](https://dl.dropboxusercontent.com/u/81758777/drone_2017_03_02.gif)
 
 # Current test setup
 
@@ -53,7 +57,3 @@ RC controller :
 * Alfa Network AWUS036NH (maxed out to 2000mW TX power)
 * MCP3208 ADC (for gimballs input and battery voltage sensing)
 * 10x ON-ON switches
-
-# Video
-This video was recorded on 03-feb-2017 during an FPV session
-![FPV Video of drone](https://dl.dropboxusercontent.com/u/81758777/drone_2017_03_02.gif)
