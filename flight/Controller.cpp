@@ -857,6 +857,12 @@ bool Controller::TelemetryRun()
 	if ( mTelemetryCounter % 10 == 0 ) {
 		telemetry.WriteU32( STABILIZER_FREQUENCY );
 		telemetry.WriteU32( mMain->loopFrequency() );
+		telemetry.WriteU32(MOTORS_SPEED);
+		std::vector< Motor* > motors = mMain->frame()->motors();
+		telemetry.WriteFloat(motors[0]->speed());
+		telemetry.WriteFloat(motors[1]->speed());
+		telemetry.WriteFloat(motors[2]->speed());
+		telemetry.WriteFloat(motors[3]->speed());
 
 		if ( mArmed ) {
 			telemetry.WriteU32( ARM );

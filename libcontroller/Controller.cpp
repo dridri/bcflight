@@ -475,6 +475,13 @@ bool Controller::RxRun()
 				mStabilizerFrequency = telemetry.ReadU32();
 				break;
 			}
+			case MOTORS_SPEED: {
+				mMoteur1Speed = telemetry.ReadFloat();
+				mMoteur2Speed = telemetry.ReadFloat();
+				mMoteur3Speed = telemetry.ReadFloat();
+				mMoteur4Speed = telemetry.ReadFloat();
+				break;
+			}
 
 			case ROLL_PID_FACTORS : {
 				mRollPID.x = telemetry.ReadFloat();
