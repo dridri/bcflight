@@ -289,10 +289,11 @@ void MainWindow::updateData()
 		ui->cpu_load->setValue( mController->CPULoad() );
 		ui->temperature->setValue( mController->CPUTemp() );
 		ui->stabilizer_frequency->setText( QString::number( mController->stabilizerFrequency() ) + " Hz" );
-		ui->motor1_speed->setText(QString::number(qRound(mController->moteur1Speed()*100)) + " %");
-		ui->motor2_speed->setText(QString::number(qRound(mController->moteur2Speed()*100)) + " %");
-		ui->motor3_speed->setText(QString::number(qRound(mController->moteur3Speed()*100)) + " %");
-		ui->motor4_speed->setText(QString::number(qRound(mController->moteur4Speed()*100)) + " %");
+		QStringList motorSpeedList;
+		for ( float speed : mController->motorsSpeed() ) {
+			motorSpeedList << QString::number(speed);
+		}
+		ui->listMotors->setText(motorSpeedList.join('\n'));
 
 		std::string dbg = mController->debugOutput();
 		if ( dbg != "" ) {

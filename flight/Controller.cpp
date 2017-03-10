@@ -859,10 +859,10 @@ bool Controller::TelemetryRun()
 		telemetry.WriteU32( mMain->loopFrequency() );
 		telemetry.WriteU32(MOTORS_SPEED);
 		std::vector< Motor* > motors = mMain->frame()->motors();
-		telemetry.WriteFloat(motors[0]->speed());
-		telemetry.WriteFloat(motors[1]->speed());
-		telemetry.WriteFloat(motors[2]->speed());
-		telemetry.WriteFloat(motors[3]->speed());
+		telemetry.WriteU32(motors.size());
+		for ( Motor* m : motors ) {
+			telemetry.WriteFloat(m->speed());
+		}
 
 		if ( mArmed ) {
 			telemetry.WriteU32( ARM );

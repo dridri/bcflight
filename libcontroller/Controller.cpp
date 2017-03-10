@@ -476,10 +476,11 @@ bool Controller::RxRun()
 				break;
 			}
 			case MOTORS_SPEED: {
-				mMoteur1Speed = telemetry.ReadFloat();
-				mMoteur2Speed = telemetry.ReadFloat();
-				mMoteur3Speed = telemetry.ReadFloat();
-				mMoteur4Speed = telemetry.ReadFloat();
+				uint32_t size = telemetry.ReadU32();
+				mMotorsSpeed.clear();
+				for(int i =0; i< size ;i++) {
+					mMotorsSpeed.push_back(telemetry.ReadFloat());
+				}
 				break;
 			}
 

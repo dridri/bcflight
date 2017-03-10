@@ -112,7 +112,7 @@ private:
 	QVector< double > mDataP;
 	QVector< double > mDataY;
 	QVector< double > mDataAltitude;
-
+	
 	bool mPIDsOk;
 	bool mPIDsReading;
 };

@@ -120,10 +120,8 @@ public:
 	DECL_RO_VAR( uint32_t, DroneRxQuality, droneRxQuality );
 	DECL_RW_VAR( bool, NightMode, nightMode );
 	DECL_RO_VAR( uint32_t, StabilizerFrequency, stabilizerFrequency );
-	DECL_RO_VAR(float, Moteur1Speed, moteur1Speed) ;
-	DECL_RO_VAR(float, Moteur2Speed, moteur2Speed) ;
-	DECL_RO_VAR(float, Moteur3Speed, moteur3Speed) ;
-	DECL_RO_VAR(float, Moteur4Speed, moteur4Speed) ;
+	DECL_RO_VAR( std::vector<float>, MotorsSpeed, motorsSpeed)
+
 
 	// Errors
 	DECL_RO_VAR( bool, CameraMissing, cameraMissing );
