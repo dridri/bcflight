@@ -189,7 +189,7 @@ protected:
 		CPU_LOAD = 0x35,
 		CPU_TEMP = 0x36,
 		RX_QUALITY = 0x37,
-		STABILIZER_FREQUENCY = 0x40,
+		STABILIZER_FREQUENCY = 0x38,
 		// Setters
 		SET_ROLL = 0x40,
 		SET_PITCH = 0x41,
