@@ -153,7 +153,7 @@ Controller::Controller( Link* link, bool spectate )
 	signal( SIGPIPE, SIG_IGN );
 #endif
 	mRxThread = new HookThread<Controller>( "controller-rx", this, &Controller::RxRun );
-	mRxThread->setPriority( 98, 1 );
+	mRxThread->setPriority( 99, 1 );
 
 	if ( spectate ) {
 		Stop();
@@ -215,7 +215,7 @@ bool Controller::run()
 		return true;
 	}
 
-	if ( Thread::GetTick() - mPingTimer >= 250 ) {
+	if ( Thread::GetTick() - mPingTimer >= 125 ) {
 		uint64_t ticks = Thread::GetTick();
 		mXferMutex.lock();
 		mTxFrame.WriteU32( PING );

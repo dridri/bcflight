@@ -75,11 +75,11 @@ MainWindow::MainWindow()
 			mStreamLink = new RawWifi( device, mConfig->value( "rawwifi/video/outport", 10 ).toInt(), mConfig->value( "rawwifi/video/inport", 11 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/video/cec", "" ).toString().toLower().toStdString() );
 			mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
 			static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
 			static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/audio/cec", "" ).toString().toLower().toStdString() );
 		}
 #endif // NO_RAWWIFI
 	} else {
