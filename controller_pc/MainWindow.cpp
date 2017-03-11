@@ -129,6 +129,7 @@ MainWindow::MainWindow()
 	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
 	connect( ui->night_mode, SIGNAL( stateChanged(int) ), this, SLOT( SetNightMode(int) ) );
+	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -818,4 +819,12 @@ void MainWindow::RecordingsRefresh()
 	QStringList headers;
 	headers << "Snapshot" << "Filename" << "Size" << "Date" << "Actions";
 	ui->recordings->setHorizontalHeaderLabels( headers );
+}
+
+void MainWindow::MotorTest() {
+	int id = ui->motorTestSpinBox->value();
+	
+	if ( mController and not mController->isSpectate() ) {
+		mController->MotorTest( id );
+	}
 }

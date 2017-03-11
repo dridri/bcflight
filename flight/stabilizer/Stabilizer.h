@@ -66,6 +66,7 @@ public:
 	bool altitudeHold() const;
 
 	void CalibrateESCs();
+	void MotorTest(uint32_t id);
 	void Reset( const float& yaw );
 	void Update( IMU* imu, Controller* ctrl, float dt );
 

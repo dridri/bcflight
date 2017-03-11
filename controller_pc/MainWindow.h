@@ -82,6 +82,7 @@ public slots:
 	void RecordingsRefresh();
 	void setFirmwareUpdateProgress( int val );
 	void appendDebugOutput( const QString& str );
+	void MotorTest();
 
 signals:
 	void firmwareUpdateProgress( int val );

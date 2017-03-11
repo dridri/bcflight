@@ -24,7 +24,7 @@
     <item row="0" column="0" rowspan="4">
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -419,6 +419,49 @@
         <string>Test Bench</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_16">
+        <item row="0" column="6" rowspan="2">
+         <widget class="QGroupBox" name="groupBox_13">
+          <property name="title">
+           <string>Update Firmware</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_19">
+           <item row="0" column="0">
+            <widget class="QLineEdit" name="firmware_path">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="firmware_browse">
+             <property name="text">
+              <string>Browse...</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QPushButton" name="firmware_upload">
+             <property name="text">
+              <string>Upload</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0" colspan="2">
+            <widget class="QProgressBar" name="firmware_progress">
+             <property name="value">
+              <number>0</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
         <item row="0" column="0" rowspan="2">
          <widget class="QGroupBox" name="groupBox_9">
           <property name="title">
@@ -672,6 +715,60 @@
           </layout>
          </widget>
         </item>
+        <item row="2" column="0" colspan="8">
+         <widget class="QGroupBox" name="groupBox_10">
+          <property name="title">
+           <string>Terminal</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_14">
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="command">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(0, 0, 0);</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_3">
+             <property name="text">
+              <string>Command :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QPushButton" name="pushButton">
+             <property name="text">
+              <string>Send</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0" colspan="3">
+            <widget class="QPlainTextEdit" name="terminal">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(0, 0, 0);
+font: 9pt &quot;Monospace&quot;;
+color: rgb(255, 255, 255);</string>
+             </property>
+             <property name="locale">
+              <locale language="English" country="UnitedStates"/>
+             </property>
+             <property name="verticalScrollBarPolicy">
+              <enum>Qt::ScrollBarAlwaysOn</enum>
+             </property>
+             <property name="tabChangesFocus">
+              <bool>true</bool>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="plainText">
+              <string/>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
         <item row="0" column="3">
          <widget class="QGroupBox" name="groupBox_12">
           <property name="title">
@@ -741,116 +838,6 @@
           </layout>
          </widget>
         </item>
-        <item row="0" column="4">
-         <spacer name="horizontalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>675</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item row="0" column="5" rowspan="2">
-         <widget class="QGroupBox" name="groupBox_13">
-          <property name="title">
-           <string>Update Firmware</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_19">
-           <item row="0" column="0">
-            <widget class="QLineEdit" name="firmware_path">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="firmware_browse">
-             <property name="text">
-              <string>Browse...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QPushButton" name="firmware_upload">
-             <property name="text">
-              <string>Upload</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0" colspan="2">
-            <widget class="QProgressBar" name="firmware_progress">
-             <property name="value">
-              <number>0</number>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item row="2" column="0" colspan="7">
-         <widget class="QGroupBox" name="groupBox_10">
-          <property name="title">
-           <string>Terminal</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_14">
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="command">
-             <property name="styleSheet">
-              <string notr="true">background-color: rgb(0, 0, 0);</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_3">
-             <property name="text">
-              <string>Command :</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="QPushButton" name="pushButton">
-             <property name="text">
-              <string>Send</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0" colspan="3">
-            <widget class="QPlainTextEdit" name="terminal">
-             <property name="styleSheet">
-              <string notr="true">background-color: rgb(0, 0, 0);
-font: 9pt &quot;Monospace&quot;;
-color: rgb(255, 255, 255);</string>
-             </property>
-             <property name="locale">
-              <locale language="English" country="UnitedStates"/>
-             </property>
-             <property name="verticalScrollBarPolicy">
-              <enum>Qt::ScrollBarAlwaysOn</enum>
-             </property>
-             <property name="tabChangesFocus">
-              <bool>true</bool>
-             </property>
-             <property name="readOnly">
-              <bool>true</bool>
-             </property>
-             <property name="plainText">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
         <item row="1" column="3">
          <widget class="QFrame" name="frame">
           <property name="frameShape">
@@ -868,6 +855,49 @@ color: rgb(255, 255, 255);</string>
             </widget>
            </item>
           </layout>
+         </widget>
+        </item>
+        <item row="0" column="5">
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>675</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="4" rowspan="2">
+         <widget class="QGroupBox" name="groupBox_22">
+          <property name="title">
+           <string>Test Motor</string>
+          </property>
+          <widget class="QSpinBox" name="motorTestSpinBox">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>30</y>
+             <width>51</width>
+             <height>22</height>
+            </rect>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="motorTestButton">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>60</y>
+             <width>51</width>
+             <height>23</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>Test</string>
+           </property>
+          </widget>
          </widget>
         </item>
        </layout>

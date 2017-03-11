@@ -1200,3 +1200,16 @@ uint32_t Controller::crc32( const uint8_t* buf, uint32_t len )
 
 	return ~crc;
 }
+
+void Controller::MotorTest(uint32_t id)
+{
+	if ( !mLink ) {
+		return;
+	}
+
+	mXferMutex.lock();
+	mTxFrame.WriteU32( MOTOR_TEST );
+	mTxFrame.WriteU32( id );
+	mXferMutex.unlock();
+}
+

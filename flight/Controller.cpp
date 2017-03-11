@@ -362,6 +362,13 @@ bool Controller::run()
 				}
 				break;
 			}
+			case MOTOR_TEST : {
+				// test motors
+				uint32_t id = command.ReadU32();
+				if ( not mArmed ) {
+					mMain->stabilizer()->MotorTest(id);
+				}
+			}
 			case SET_TIMESTAMP : {
 				uint32_t timestamp = 0;
 				if ( command.ReadU32( &timestamp ) == sizeof(timestamp) ) {
