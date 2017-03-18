@@ -1,17 +1,17 @@
 /*
  * BCFlight
  * Copyright (C) 2016 Adrien Aubry (drich)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
@@ -290,11 +290,32 @@ void MainWindow::updateData()
 		ui->cpu_load->setValue( mController->CPULoad() );
 		ui->temperature->setValue( mController->CPUTemp() );
 		ui->stabilizer_frequency->setText( QString::number( mController->stabilizerFrequency() ) + " Hz" );
-		QStringList motorSpeedList;
-		for ( float speed : mController->motorsSpeed() ) {
-			motorSpeedList << QString::number(speed);
+		std::vector<float> motorSpeed = mController->motorsSpeed();
+		if (motorSpeed.size() > 0) {
+			// init motor speed progress bar
+			if (motorSpeedLayout == NULL) {
+
+				motorSpeedLayout = new QVBoxLayout;
+				for ( float speed : motorSpeed ) {
+					QProgressBar *progress = new QProgressBar();
+					motorSpeedProgress.append(progress);
+					progress->setMaximum(100);
+					progress->setMinimum(0);
+					progress->setValue(speed);
+					motorSpeedLayout->addWidget(progress);
+				}
+				ui->listMotors->setLayout(motorSpeedLayout);
+			}
+			else {
+				// update
+				for (unsigned int i = 0; i< motorSpeedProgress.size() ;i++) {
+					motorSpeedProgress.at(i)->setValue(motorSpeed.at(i)*100);
+				}
+			}
 		}
-		ui->listMotors->setText(motorSpeedList.join('\n'));
+
+
+
 
 		std::string dbg = mController->debugOutput();
 		if ( dbg != "" ) {
@@ -823,7 +844,7 @@ void MainWindow::RecordingsRefresh()
 
 void MainWindow::MotorTest() {
 	int id = ui->motorTestSpinBox->value();
-	
+
 	if ( mController and not mController->isSpectate() ) {
 		mController->MotorTest( id );
 	}

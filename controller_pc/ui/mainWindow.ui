@@ -1281,10 +1281,8 @@ color: rgb(255, 255, 255);</string>
         </spacer>
        </item>
        <item row="1" column="2">
-        <widget class="QLabel" name="listMotors">
-         <property name="text">
-          <string>TextLabel</string>
-         </property>
+        <widget class="QGroupBox" name="listMotors">
+
         </widget>
        </item>
       </layout>
