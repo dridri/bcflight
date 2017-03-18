@@ -51,6 +51,7 @@ private:
 		uint8_t mChannel;
 		bool mLoop;
 		uint8_t mPinsCount;
+		uint32_t mPinsMask;
 		uint8_t mPins[32];
 		float mPinsPWMf[32];
 		uint32_t mPinsPWM[32];
