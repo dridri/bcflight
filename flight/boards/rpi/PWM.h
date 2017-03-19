@@ -25,7 +25,7 @@
 class PWM
 {
 public:
-	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop = true );
+	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, Channel::PWMMode mode = Channel::MODE_PWM, bool loop = true );
 	~PWM();
 
 	void SetPWMus( uint32_t width_us );
@@ -39,9 +39,9 @@ private:
 			MODE_NONE = 0,
 			MODE_PWM = 1,
 			MODE_BUFFER = 2,
-		} PinMode;
+		} PWMMode;
 
-		Channel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop = true );
+		Channel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
 		~Channel();
 
 		void SetPWMus( uint32_t pin, uint32_t width_us );
@@ -49,13 +49,13 @@ private:
 		void Update();
 
 		uint8_t mChannel;
+		PWMMode mMode;
 		bool mLoop;
 		uint8_t mPinsCount;
 		uint32_t mPinsMask;
 		uint8_t mPins[32];
 		float mPinsPWMf[32];
 		uint32_t mPinsPWM[32];
-		PinMode mPinsMode[32];
 		uint8_t* mPinsBuffer[32];
 		uint32_t mPinsBufferLength[32];
 		uint32_t mTimeBase;
@@ -100,6 +100,7 @@ private:
 		uint32_t mCurrentCtl;
 
 		void update_pwm();
+		void update_pwm_buffer();
 		int mbox_open();
 		void init_ctrl_data();
 		void init_dma_ctl( dma_ctl_t* ctl );
