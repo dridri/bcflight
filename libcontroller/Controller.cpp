@@ -124,6 +124,8 @@ Controller::Controller( Link* link, bool spectate )
 	, mThrust( 0.0f )
 	, mControlRPY{ 0.0f, 0.0f, 0.0f }
 	, mPIDsLoaded( false )
+	, mDroneRxQuality( 0 )
+	, mNightMode( false )
 	, mCameraMissing( false )
 	, mLink( link )
 	, mSpectate( spectate )
