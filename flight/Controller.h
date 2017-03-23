@@ -134,6 +134,7 @@ protected:
 		// Host system errors - 0x7F001xxx
 		// Camera/video errors - 0x7F00Fxxx
 		CAMERA_MISSING = 0x7F00F000,
+		MOTOR_TEST = 0xD0
 	} Cmd;
 
 	virtual bool run();

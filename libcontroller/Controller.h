@@ -120,11 +120,10 @@ public:
 	DECL_RO_VAR( uint32_t, DroneRxQuality, droneRxQuality );
 	DECL_RW_VAR( bool, NightMode, nightMode );
 	DECL_RO_VAR( uint32_t, StabilizerFrequency, stabilizerFrequency );
-	DECL_RO_VAR(float, Moteur1Speed, moteur1Speed) ;
-	DECL_RO_VAR(float, Moteur2Speed, moteur2Speed) ;
-	DECL_RO_VAR(float, Moteur3Speed, moteur3Speed) ;
-	DECL_RO_VAR(float, Moteur4Speed, moteur4Speed) ;
+	DECL_RO_VAR( std::vector<float>, MotorsSpeed, motorsSpeed)
 
+	void MotorTest(uint32_t id);
+	
 	// Errors
 	DECL_RO_VAR( bool, CameraMissing, cameraMissing );
 
@@ -236,6 +235,7 @@ protected:
 		// Host system errors - 0x7F001xxx
 		// Camera/video errors - 0x7F00Fxxx
 		CAMERA_MISSING = 0x7F00F000,
+		MOTOR_TEST = 0xD0
 	} Cmd;
 
 	virtual float ReadThrust() { return 0.0f; }

@@ -478,10 +478,11 @@ bool Controller::RxRun()
 				break;
 			}
 			case MOTORS_SPEED: {
-				mMoteur1Speed = telemetry.ReadFloat();
-				mMoteur2Speed = telemetry.ReadFloat();
-				mMoteur3Speed = telemetry.ReadFloat();
-				mMoteur4Speed = telemetry.ReadFloat();
+				uint32_t size = telemetry.ReadU32();
+				mMotorsSpeed.clear();
+				for(int i =0; i< size ;i++) {
+					mMotorsSpeed.push_back(telemetry.ReadFloat());
+				}
 				break;
 			}
 
@@ -1201,3 +1202,16 @@ uint32_t Controller::crc32( const uint8_t* buf, uint32_t len )
 
 	return ~crc;
 }
+
+void Controller::MotorTest(uint32_t id)
+{
+	if ( !mLink ) {
+		return;
+	}
+
+	mXferMutex.lock();
+	mTxFrame.WriteU32( MOTOR_TEST );
+	mTxFrame.WriteU32( id );
+	mXferMutex.unlock();
+}
+

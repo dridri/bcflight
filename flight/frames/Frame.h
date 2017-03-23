@@ -44,6 +44,7 @@ public:
 	virtual void WarmUp() = 0;
 	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust ) = 0;
 	void CalibrateESCs();
+	void MotorTest(uint32_t id);
 
 	bool armed() const;
 	bool airMode() const;

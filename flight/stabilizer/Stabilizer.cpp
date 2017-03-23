@@ -309,6 +309,16 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	}
 }
 
+void Stabilizer::MotorTest(uint32_t id) {
+	mLockState = 1;
+	while ( mLockState != 2 ) {
+		usleep( 1000 * 10 );
+	}
+
+	mFrame->MotorTest(id);
+
+	mLockState = 0;
+}
 
 void Stabilizer::CalibrateESCs()
 {

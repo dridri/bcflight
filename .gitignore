@@ -31,5 +31,9 @@
 *.kdev4
 build
 
+# lib
+external/openh264*/*
+external/*.gz
+external/*.zip
 # Old artifacts
 controller_rpi

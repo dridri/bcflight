@@ -34,7 +34,26 @@ Frame::Frame()
 Frame::~Frame()
 {
 }
-
+void Frame::MotorTest(uint32_t id) {
+	
+	gDebug() << "Test motor : " << id << "\n";
+	if (mMotors.size() <= id) {
+		gDebug() << "Out of range abort\n";
+	}
+	
+	Motor *m = mMotors[id];
+	m->setSpeed( 0.0f, true );
+	usleep(1 * 1000 * 1000);
+	m->Disarm();
+	usleep(1 * 1000 * 1000);
+	m->setSpeed( 0.0f, true );
+	usleep(1 * 1000 * 1000);
+	m->setSpeed(0.05f, true);
+	gDebug() << "Waiting for 5 seconds\n";
+	usleep(5 * 1000 * 1000);
+	m->Disarm();
+	gDebug() << "Disarm ESC\n";
+}
 
 void Frame::CalibrateESCs()
 {
