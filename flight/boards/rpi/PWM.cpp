@@ -167,7 +167,7 @@ static void fatal( const char *fmt, ... )
 }
 
 
-PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time, Channel::PWMMode mode, bool loop )
+PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time, PWMMode mode, bool loop )
 	: mChannel( nullptr )
 	, mPin( pin )
 {
@@ -207,6 +207,12 @@ PWM::~PWM()
 void PWM::SetPWMus( uint32_t width_us )
 {
 	mChannel->SetPWMus( mPin, width_us );
+}
+
+
+void PWM::SetPWMBuffer( uint8_t* buffer, uint32_t len )
+{
+	mChannel->SetPWMBuffer( mPin, buffer, len );
 }
 
 
@@ -296,6 +302,7 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 PWM::Channel::~Channel()
 {
 }
+
 
 void PWM::terminate( int dummy )
 {
@@ -416,6 +423,7 @@ void PWM::Channel::Update()
 
 void PWM::Channel::update_pwm()
 {
+	uint32_t i, j;
 	uint32_t cmd_count = 2;// + ( mLoop == false );
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
@@ -425,28 +433,20 @@ void PWM::Channel::update_pwm()
 // 		ctl = mCtls[ ( mCurrentCtl + 1 ) % 2 ];
 	}
 
-	while ( mLoop == false and ( dma_reg[DMA_CS] & 1 ) ) { // Wait until CMA_ACTIVE bit is false to prevent overlapping writes
+	// Wait until CMA_ACTIVE bit is false to prevent overlapping writes
+	while ( mLoop == false and ( dma_reg[DMA_CS] & 1 ) ) {
 		usleep(0);
 	}
 
-	uint32_t i, j;
-	/* First we turn on the channels that need to be on */
-	/*   Take the first PWM Packet and set it's target to start pulse */
-// 	ctl.cb[0].dst = phys_gpset0; // TEST : unneeded ?
-
-	/*   Now create a mask of all the pins that should be on */
 	mask = 0;
 	for ( i = 0; i <= mPinsCount; i++ ) {
 		if ( mPinsPWM[i] > 0 ) {
 			mask |= 1 << mPins[i];
 		}
 	}
-	/*   And give that to the PWM controller to write */
 	ctl.sample[0] = mask;
 
-	/* Now we go through all the samples and turn the pins off when needed */
 	for ( j = 1; j < mNumSamples; j++ ) {
-// 		ctl.cb[j*cmd_count].dst = phys_gpclr0;// TEST : unneeded ?
 		mask = 0;
 		for ( i = 0; i <= mPinsCount; i++ ) {
 			if ( mPins[i] and j > mPinsPWM[i] ) {
@@ -457,7 +457,6 @@ void PWM::Channel::update_pwm()
 	}
 
 	if ( mLoop == false ) {
-// 		mCurrentCtl = ( mCurrentCtl + 1 ) % 2;
 		dma_reg[DMA_CS] = DMA_INT | DMA_END;
 		dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
 		dma_reg[DMA_DEBUG] = 7; // clear debug error flags
@@ -547,7 +546,9 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 			}
 		}
 		// Set bits
-		ctl.sample[mNumSamples + j] = 0;
+		for ( i = 0; i < mNumSamples; i++ ) {
+			ctl->sample[mNumSamples + i] = 0;
+		}
 	} else if ( mMode == MODE_PWM ) {
 		for ( i = 0; i < mPinsCount; i++ ) {
 			mask |= 1 << mPins[i];

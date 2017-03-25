@@ -7,7 +7,7 @@
 class OneShot125 : public Motor
 {
 public:
-	OneShot125( uint32_t pin, int us_min = 125, int us_max = 250 );
+	OneShot125( uint32_t pin, int us_min = 125, int us_max = 240 );
 	~OneShot125();
 
 	virtual void Disarm();

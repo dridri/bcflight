@@ -3,7 +3,7 @@
 
 OneShot125::OneShot125( uint32_t pin, int us_min, int us_max )
 	: Motor()
-	, mPWM( new PWM( pin, 6400000, 800, 2, false ) )
+	, mPWM( new PWM( pin, 6400000, 800, 2, PWM::MODE_PWM, true ) )
 	, mMinUS( us_min )
 	, mMaxUS( us_max )
 {

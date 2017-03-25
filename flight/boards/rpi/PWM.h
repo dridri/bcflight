@@ -25,22 +25,22 @@
 class PWM
 {
 public:
-	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, Channel::PWMMode mode = Channel::MODE_PWM, bool loop = true );
+	typedef enum {
+		MODE_NONE = 0,
+		MODE_PWM = 1,
+		MODE_BUFFER = 2,
+	} PWMMode;
+
+	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
 	~PWM();
 
 	void SetPWMus( uint32_t width_us );
-// 	void SetPWMBuffer( uint8_t* buffer, uint32_t len );
+	void SetPWMBuffer( uint8_t* buffer, uint32_t len );
 	void Update();
 
 private:
 	class Channel {
 	public:
-		typedef enum {
-			MODE_NONE = 0,
-			MODE_PWM = 1,
-			MODE_BUFFER = 2,
-		} PWMMode;
-
 		Channel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
 		~Channel();
 
