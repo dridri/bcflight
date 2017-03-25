@@ -1,0 +1,23 @@
+DSHOT150 :
+T : 6670 ns
+
+T0H : 2496 ns => 2500
+T0L : 4170 ns => 4200
+
+T1H : 4992 ns => 5000
+T1L : 1678 ns => 1700
+
+==> Try with 50 steps of 100ns
+
+
+DSHOT600 :
+T : 1670 ns
+
+T0H : 625 ns
+T0L : 1045 ns
+
+T1H : 1250 ns
+T1L : 420 ns
+
+
+ONESHOT125:

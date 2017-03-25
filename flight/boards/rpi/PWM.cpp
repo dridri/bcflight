@@ -167,7 +167,7 @@ static void fatal( const char *fmt, ... )
 }
 
 
-PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time, bool loop )
+PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time, PWMMode mode, bool loop )
 	: mChannel( nullptr )
 	, mPin( pin )
 {
@@ -192,9 +192,11 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 		channel = chan->mChannel - 1;
 	}
 	if ( not mChannel ) {
-		mChannel = new Channel( channel, time_base, period_time, sample_time, loop );
+		mChannel = new Channel( channel, time_base, period_time, sample_time, mode, loop );
 		mChannels.emplace_back( mChannel );
 	}
+
+	// TODO, DANGER : set pin to zero signal NOW
 }
 
 
@@ -208,28 +210,35 @@ void PWM::SetPWMus( uint32_t width_us )
 }
 
 
+void PWM::SetPWMBuffer( uint8_t* buffer, uint32_t len )
+{
+	mChannel->SetPWMBuffer( mPin, buffer, len );
+}
+
+
 void PWM::Update()
 {
 	mChannel->Update();
 }
 
 
-PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time, uint32_t sample_time, bool loop )
+PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time, uint32_t sample_time, PWMMode mode, bool loop )
 	: mChannel( channel )
+	, mMode( mode )
 	, mLoop( loop )
 	, mPinsCount( 0 )
+	, mPinsMask( 0 )
 	, mTimeBase( time_base )
 	, mCycleTime( period_time )
 	, mSampleTime( sample_time )
 	, mNumSamples( mCycleTime / mSampleTime )
-	, mNumCBs( mNumSamples * 2 )
-	, mNumPages( ( mNumCBs * sizeof(dma_cb_t) + mNumSamples * sizeof(uint32_t) + PAGE_SIZE - 1 ) >> PAGE_SHIFT )
+	, mNumCBs( mNumSamples * ( 2 + ( mMode == MODE_BUFFER ) ) )
+	, mNumPages( ( mNumCBs * sizeof(dma_cb_t) + ( mNumSamples * 1 + ( mMode == MODE_BUFFER ) ) * sizeof(uint32_t) + PAGE_SIZE - 1 ) >> PAGE_SHIFT )
 	, mCurrentCtl( 0 )
 {
 	memset( mPins, 0, sizeof(mPins) );
 	memset( mPinsPWMf, 0, sizeof(mPinsPWMf) );
 	memset( mPinsPWM, 0, sizeof(mPinsPWM) );
-	memset( mPinsMode, 0, sizeof(mPinsMode) );
 	memset( mPinsBuffer, 0, sizeof(mPinsBuffer) );
 	memset( mPinsBufferLength, 0, sizeof(mPinsBufferLength) );
 
@@ -263,16 +272,18 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 	gpio_reg = (uint32_t*)map_peripheral( GPIO_BASE, GPIO_LEN );
 
 	/* Use the mailbox interface to the VC to ask for physical memory */
-	mMbox.mem_ref = mem_alloc( mMbox.handle, mNumPages * PAGE_SIZE * 2, PAGE_SIZE, mem_flag );
+	uint32_t cmd_count = 2 + ( mMode == MODE_BUFFER );// + ( mLoop == false );
+	mMbox.mem_ref = mem_alloc( mMbox.handle, mNumPages * PAGE_SIZE * cmd_count, PAGE_SIZE, mem_flag );
 	dprintf( "mem_ref %u\n", mMbox.mem_ref );
 	mMbox.bus_addr = mem_lock( mMbox.handle, mMbox.mem_ref );
 	dprintf( "bus_addr = %#x\n", mMbox.bus_addr );
-	mMbox.virt_addr = (uint8_t*)mapmem( BUS_TO_PHYS(mMbox.bus_addr), mNumPages * PAGE_SIZE * 2 );
+	mMbox.virt_addr = (uint8_t*)mapmem( BUS_TO_PHYS(mMbox.bus_addr), mNumPages * PAGE_SIZE * cmd_count );
 	dprintf( "virt_addr %p\n", mMbox.virt_addr );
-	mCtls[0].sample = (uint32_t*)mMbox.virt_addr;
-	mCtls[0].cb = (dma_cb_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples ];
-	mCtls[1].sample = (uint32_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples + sizeof(dma_cb_t) * mNumSamples ];
-	mCtls[1].cb = (dma_cb_t*)&mMbox.virt_addr[ sizeof(uint32_t) * mNumSamples * 2 + sizeof(dma_cb_t) * mNumSamples ];
+	uint32_t offset = 0;
+	mCtls[0].sample = (uint32_t*)( &mMbox.virt_addr[offset] );
+	offset += sizeof(uint32_t) * mNumSamples * ( 1 + ( mMode == MODE_BUFFER ) );
+	mCtls[0].cb = (dma_cb_t*)( &mMbox.virt_addr[offset] );
+	offset += sizeof(dma_cb_t) * mNumSamples * ( 2 + ( mMode == MODE_BUFFER ) );
 
 	if ( (unsigned long)mMbox.virt_addr & ( PAGE_SIZE - 1 ) ) {
 		fatal("pi-blaster: Virtual address is not page aligned\n");
@@ -291,6 +302,7 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 PWM::Channel::~Channel()
 {
 }
+
 
 void PWM::terminate( int dummy )
 {
@@ -350,16 +362,15 @@ void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
 		i = mPinsCount;
 		mPinsCount += 1;
 		mPins[i] = pin;
-	}
+		mPinsMask = mPinsMask | ( 1 << pin );
 
-	if ( mPinsMode[i] != MODE_PWM ) {
-		mPinsMode[i] = MODE_PWM;
 		gpio_reg[GPIO_CLR0] = 1 << pin;
 		uint32_t fsel = gpio_reg[GPIO_FSEL0 + pin/10];
 		fsel &= ~(7 << ((pin % 10) * 3));
 		fsel |= GPIO_MODE_OUT << ((pin % 10) * 3);
 		gpio_reg[GPIO_FSEL0 + pin/10] = fsel;
 	}
+
 	mPinsPWMf[i] = fwidth;
 	mPinsPWM[i] = (uint32_t)( fwidth * mNumSamples );
 }
@@ -378,9 +389,16 @@ void PWM::Channel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
 	if ( not found ) {
 		i = mPinsCount;
 		mPinsCount += 1;
+		mPins[i] = pin;
+		mPinsMask = mPinsMask | ( 1 << pin );
+
+		gpio_reg[GPIO_CLR0] = 1 << pin;
+		uint32_t fsel = gpio_reg[GPIO_FSEL0 + pin/10];
+		fsel &= ~(7 << ((pin % 10) * 3));
+		fsel |= GPIO_MODE_OUT << ((pin % 10) * 3);
+		gpio_reg[GPIO_FSEL0 + pin/10] = fsel;
 	}
 
-	mPinsMode[i] = MODE_BUFFER;
 	if ( mPinsBuffer[i] and mPinsBufferLength[i] < len ) {
 		delete mPinsBuffer[i];
 		mPinsBuffer[i] = nullptr;
@@ -395,12 +413,18 @@ void PWM::Channel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
 
 void PWM::Channel::Update()
 {
-	update_pwm();
+	if ( mMode == MODE_PWM ) {
+		update_pwm();
+	} else if ( mMode == MODE_BUFFER ) {
+		update_pwm_buffer();
+	}
 }
 
 
 void PWM::Channel::update_pwm()
 {
+	uint32_t i, j;
+	uint32_t cmd_count = 2;// + ( mLoop == false );
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
 	uint32_t mask;
@@ -409,28 +433,20 @@ void PWM::Channel::update_pwm()
 // 		ctl = mCtls[ ( mCurrentCtl + 1 ) % 2 ];
 	}
 
-	while ( mLoop == false and ( dma_reg[DMA_CS] & 1 ) ) { // Wait until CMA_ACTIVE bit is false to prevent overlapping writes
+	// Wait until CMA_ACTIVE bit is false to prevent overlapping writes
+	while ( mLoop == false and ( dma_reg[DMA_CS] & 1 ) ) {
 		usleep(0);
 	}
 
-	uint32_t i, j;
-	/* First we turn on the channels that need to be on */
-	/*   Take the first PWM Packet and set it's target to start pulse */
-	ctl.cb[0].dst = phys_gpset0;
-
-	/*   Now create a mask of all the pins that should be on */
 	mask = 0;
 	for ( i = 0; i <= mPinsCount; i++ ) {
 		if ( mPinsPWM[i] > 0 ) {
 			mask |= 1 << mPins[i];
 		}
 	}
-	/*   And give that to the PWM controller to write */
 	ctl.sample[0] = mask;
 
-	/* Now we go through all the samples and turn the pins off when needed */
 	for ( j = 1; j < mNumSamples; j++ ) {
-		ctl.cb[j*2].dst = phys_gpclr0;
 		mask = 0;
 		for ( i = 0; i <= mPinsCount; i++ ) {
 			if ( mPins[i] and j > mPinsPWM[i] ) {
@@ -438,6 +454,52 @@ void PWM::Channel::update_pwm()
 			}
 		}
 		ctl.sample[j] = mask;
+	}
+
+	if ( mLoop == false ) {
+		dma_reg[DMA_CS] = DMA_INT | DMA_END;
+		dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
+		dma_reg[DMA_DEBUG] = 7; // clear debug error flags
+		dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
+	}
+}
+
+
+void PWM::Channel::update_pwm_buffer()
+{
+	uint32_t cmd_count = 3;// + ( mLoop == false );
+	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
+	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+	uint32_t mask;
+	dma_ctl_t ctl = mCtls[0];
+
+	// Wait until CMA_ACTIVE bit is false to prevent overlapping writes
+	while ( mLoop == false and ( dma_reg[DMA_CS] & 1 ) ) {
+		usleep(0);
+	}
+
+	uint32_t i, j;
+	for ( j = 0; j < mNumSamples; j++ ) {
+		// Clear bits
+		{
+			mask = 0;
+			for ( i = 0; i <= mPinsCount; i++ ) {
+				if ( mPins[i] and mPinsBufferLength[i] < j and mPinsBuffer[i][j] == 0 ) {
+					mask |= 1 << mPins[i];
+				}
+			}
+			ctl.sample[j] = mask;
+		}
+		// Set bits
+		{
+			mask = 0;
+			for ( i = 0; i <= mPinsCount; i++ ) {
+				if ( mPins[i] and mPinsBufferLength[i] < j and mPinsBuffer[i][j] == 1 ) {
+					mask |= 1 << mPins[i];
+				}
+			}
+			ctl.sample[mNumSamples + j] = mask;
+		}
 	}
 
 	if ( mLoop == false ) {
@@ -464,29 +526,48 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 	dma_cb_t* cbp = ctl->cb;
 	uint32_t phys_fifo_addr;
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
+	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
 	uint32_t mask;
 	uint32_t i;
 
 	phys_fifo_addr = PWM_PHYS_BASE + 0x18;
 	memset( ctl->sample, 0, sizeof(uint32_t)*mNumSamples );
 
-	// Calculate a mask to turn off all the servos
 	mask = 0;
-	for ( i = 0; i < mPinsCount; i++ ) {
-		mask |= 1 << mPins[i];
-	}
-	for ( i = 0; i < mNumSamples; i++ ) {
-		ctl->sample[i] = mask;
+	// Calculate a mask to turn off everything
+	if ( mMode == MODE_BUFFER ) {
+		// Clear bits
+		{
+			for ( i = 0; i <= mPinsCount; i++ ) {
+				mask |= 1 << mPins[i];
+			}
+			for ( i = 0; i < mNumSamples; i++ ) {
+				ctl->sample[i] = mask;
+			}
+		}
+		// Set bits
+		for ( i = 0; i < mNumSamples; i++ ) {
+			ctl->sample[mNumSamples + i] = 0;
+		}
+	} else if ( mMode == MODE_PWM ) {
+		for ( i = 0; i < mPinsCount; i++ ) {
+			mask |= 1 << mPins[i];
+		}
+		for ( i = 0; i < mNumSamples; i++ ) {
+			ctl->sample[i] = mask;
+		}
 	}
 
 	/* Initialize all the PWM commands. They come in pairs.
 	 *  - 1st command copies a value from the sample memory to a destination
 	 *    address which can be either the gpclr0 register or the gpset0 register
 	 *  - 2nd command waits for a trigger from an PWM source
+	 *  - 3rd command (optional) resets pins to 0
 	 */
 	for (i = 0; i < mNumSamples; i++) {
-		/* First PWM command */
-		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+		// GPIO-Clear command
+		cbp->info = DMA_NO_WIDE_BURSTS;
+// 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
 // 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_TDMODE;
 		cbp->src = mem_virt_to_phys(ctl->sample + i);
 		cbp->dst = phys_gpclr0;
@@ -494,7 +575,18 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 		cbp->stride = 0;
 		cbp->next = mem_virt_to_phys(cbp + 1);
 		cbp++;
-		/* Second PWM command */
+		if ( mMode == MODE_BUFFER ) {
+			// GPIO-Set command
+			cbp->info = DMA_NO_WIDE_BURSTS;
+// 			cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+			cbp->src = mem_virt_to_phys(ctl->sample + mNumSamples + i);
+			cbp->dst = phys_gpset0;
+			cbp->length = 4;
+			cbp->stride = 0;
+			cbp->next = mem_virt_to_phys(cbp + 1);
+			cbp++;
+		}
+		// Timer trigger command
 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5);
 // 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_TDMODE;
 		cbp->src = mem_virt_to_phys(ctl->sample);	// Any data will do
@@ -503,13 +595,28 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 		cbp->stride = 0;
 		cbp->next = mem_virt_to_phys(cbp + 1);
 		cbp++;
+/*
+		if ( mLoop == false ) {
+			// Third PWM command
+			cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+			cbp->src = mem_virt_to_phys(mPinsMask);
+			cbp->dst = phys_gpclr0;
+			cbp->length = 4;
+			cbp->stride = 0;
+			cbp->next = mem_virt_to_phys(cbp + 1);
+			cbp++;
+		}
+*/
 	}
+
 	cbp--;
 	if ( mLoop ) {
 		cbp->next = mem_virt_to_phys(ctl->cb);
 	} else {
 		cbp->next = 0;
 	}
+
+	ctl->cb[0].dst = phys_gpset0;
 	dprintf( "Ok\n" );
 }
 
@@ -523,8 +630,8 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	usleep(10);
 	clk_reg[PWMCLK_CNTL] = 0x5A000006;		// Source=PLLD (500MHz)
 	usleep(100);
-// 	clk_reg[PWMCLK_DIV] = 0x5A000000 | ( 500 << 12 );	// set pwm div to 500, giving 1MHz
-	clk_reg[PWMCLK_DIV] = 0x5A000000 | ( ( 500000000 / time_base ) << 12 );
+	clk_reg[PWMCLK_DIV] = 0x5A000000 | ( ( 500000000 / time_base ) << 12 ); // // setting pwm div to 500 gives 1MHz
+
 	usleep(100);
 	clk_reg[PWMCLK_CNTL] = 0x5A000016;		// Source=PLLD and enable
 	usleep(100);
