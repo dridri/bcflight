@@ -32,11 +32,11 @@ Contains buildroot configuration for both flight and ground targets.
 # Results
 
 This video was recorded on 03-feb-2017 during an FPV session
-[![FPV Video of drone](https://dl.dropboxusercontent.com/u/81758777/drone_2017_03_02.gif)](https://drive.google.com/file/d/0Bwo1JutVEkplLV9DNU5hZEtFcnM/view?usp=sharing)
+[![FPV Video of drone](http://img4.hostingpics.net/pics/934968drone20170302.gif)](https://drive.google.com/file/d/0Bwo1JutVEkplLV9DNU5hZEtFcnM/view?usp=sharing)
 
 # Current test setup
 
-![Photo of drone and controller](https://dl.dropboxusercontent.com/u/81758777/drich-drone-zmr-controller-small.jpg)
+![Photo of drone and controller](http://img4.hostingpics.net/pics/982150drichdronezmrcontrollersmall.jpg)
 
 Racer :
 * ZMR250 frame
