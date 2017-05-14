@@ -36,8 +36,14 @@ typedef enum {
 	RAWWIFI_CONTIGUOUS = 1,  // put all the packets one behind the other
 } RAWWIFI_BLOCK_RECOVER_MODE;
 
+typedef enum {
+	RAWWIFI_BLOCK_FLAGS_NONE = 0,
+	RAWWIFI_BLOCK_FLAGS_HAMMING84 = 1,
+	RAWWIFI_BLOCK_FLAGS_EXTRA_HEADER_ROOM = 2,
+} RAWWIFI_BLOCK_FLAGS;
+
 #define MAX_USER_PACKET_LENGTH 1450 // wifi max : 1450
-#define MAX_PACKET_PER_BLOCK 24
+#define MAX_PACKET_PER_BLOCK 32
 
 // TODO : remove _align0 and _align1, and use 16-bits bitfield to store data size
 typedef struct __attribute__((packed)) {
@@ -47,7 +53,7 @@ typedef struct __attribute__((packed)) {
 	uint8_t retry_id:4;
 	uint8_t _align0:4;
 	uint8_t retries_count:4;
-	uint8_t _align1:4;
+	uint8_t block_flags:4;
 	uint32_t crc;
 	uint16_t header_crc;
 } wifi_packet_header_t;
@@ -94,7 +100,9 @@ typedef struct rawwifi_t {
 	rawwifi_pcap_t* out;
 	uint32_t send_block_id;
 	rawwifi_link_t send_link;
-	uint8_t tx_buffer[4096];
+	uint8_t tx_buffer[8192];
+	uint32_t max_block_size;
+	RAWWIFI_BLOCK_FLAGS send_block_flags;
 
 	// Receive
 	rawwifi_pcap_t* in;
@@ -123,6 +131,9 @@ int32_t rawwifi_recv_level( rawwifi_t* rwifi );
 uint32_t rawwifi_recv_speed( rawwifi_t* rwifi );
 void rawwifi_set_recv_mode( rawwifi_t* rwifi, RAWWIFI_RX_FEC_MODE mode );
 void rawwifi_set_recv_block_recover_mode( rawwifi_t* rwifi, RAWWIFI_BLOCK_RECOVER_MODE mode );
+uint32_t rawwifi_send_headers_length( rawwifi_t* rwifi );
+void rawwifi_set_send_max_block_size( rawwifi_t* rwifi, uint32_t max_block_size );
+void rawwifi_set_send_block_flags( rawwifi_t* rwifi, RAWWIFI_BLOCK_FLAGS flags );
 
 int rawwifi_send( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen );
 int rawwifi_send_retry( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t retries );
@@ -132,6 +143,9 @@ int rawwifi_recv( rawwifi_t* rwifi, uint8_t* data, uint32_t datalen, uint32_t* v
 void rawwifi_init_txbuf( uint8_t* buf );
 uint16_t rawwifi_crc16( const uint8_t* data, uint32_t len );
 uint32_t rawwifi_crc32( const uint8_t* data, uint32_t len );
+
+uint32_t rawwifi_hamming84_encode( uint8_t* dest, uint8_t* src, uint32_t len );
+uint32_t rawwifi_hamming84_decode( uint8_t* dest, uint8_t* src, uint32_t len );
 
 rawwifi_block_t* blocks_insert_front( rawwifi_block_t** list, uint16_t packets_count );
 void blocks_pop_front( rawwifi_block_t** list );

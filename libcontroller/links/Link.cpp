@@ -39,6 +39,7 @@ Link::~Link()
 
 void Packet::Write( const uint8_t* data, uint32_t bytes )
 {
+/*
 	mData.insert( mData.end(), (uint32_t*)data, (uint32_t*)( data + ( bytes & 0xFFFFFFFC ) ) );
 	if ( bytes & 0b11 ) {
 		uint32_t last = 0;
@@ -49,20 +50,57 @@ void Packet::Write( const uint8_t* data, uint32_t bytes )
 		mData.emplace_back( last );
 		mData.emplace_back( 0 );
 	}
+*/
+	mData.insert( mData.end(), data, data + bytes );
+}
+
+
+void Packet::WriteU16( uint16_t v )
+{
+	union {
+		uint16_t u;
+		uint8_t b[2];
+	} u;
+	u.u = htons( v );
+	mData.insert( mData.end(), u.b, u.b + sizeof(uint16_t) );
+}
+
+
+void Packet::WriteU32( uint32_t v )
+{
+	union {
+		uint32_t u;
+		uint8_t b[4];
+	} u;
+	u.u = htonl( v );
+	mData.insert( mData.end(), u.b, u.b + sizeof(uint32_t) );
 }
 
 
 void Packet::WriteString( const std::string& str )
 {
-	Write( (const uint8_t*)str.c_str(), str.length() );
+	Write( (const uint8_t*)str.c_str(), str.length()+1 );
 }
 
 
-int32_t Packet::Read( uint32_t* data, uint32_t words )
+int32_t Packet::Read( uint8_t* data, uint32_t bytes )
 {
-	if ( mReadOffset + words <= mData.size() ) {
-		memcpy( data, mData.data() + mReadOffset, words * sizeof(uint32_t) );
-		mReadOffset += words;
+	if ( mReadOffset + bytes <= mData.size() ) {
+		memcpy( data, mData.data() + mReadOffset, bytes );
+		mReadOffset += bytes;
+		return bytes;
+	}
+	return 0;
+}
+
+
+uint32_t Packet::ReadU16( uint16_t* u )
+{
+	if ( mReadOffset + sizeof(uint16_t) <= mData.size() ) {
+		*u = ((uint16_t*)(mData.data() + mReadOffset))[0];
+		*u = ntohs( *u );
+		mReadOffset += sizeof(uint16_t);
+		return sizeof(uint16_t);
 	}
 	return 0;
 }
@@ -70,9 +108,9 @@ int32_t Packet::Read( uint32_t* data, uint32_t words )
 
 uint32_t Packet::ReadU32( uint32_t* u )
 {
-	if ( mReadOffset + 1 <= mData.size() ) {
-		*u = ntohl( mData.at( mReadOffset ) );
-		mReadOffset++;
+	if ( mReadOffset + sizeof(uint32_t) <= mData.size() ) {
+		*u = ntohl( ((uint32_t*)(mData.data() + mReadOffset))[0] );
+		mReadOffset += sizeof(uint32_t);
 		return sizeof(uint32_t);
 	}
 	return 0;
@@ -97,6 +135,14 @@ uint32_t Packet::ReadU32()
 }
 
 
+uint16_t Packet::ReadU16()
+{
+	uint16_t ret = 0;
+	ReadU16( &ret );
+	return ret;
+}
+
+
 float Packet::ReadFloat()
 {
 	float ret = 0.0f;
@@ -111,15 +157,12 @@ std::string Packet::ReadString()
 	uint32_t i = 0;
 
 	for ( i = 0; mReadOffset + i < mData.size(); i++ ) {
-		uint32_t word = mData.at( mReadOffset + i );
-		char a = (char)( word & 0x000000FF );
-		char b = (char)( ( word & 0x0000FF00 ) >> 8 );
-		char c = (char)( ( word & 0x00FF0000 ) >> 16 );
-		char d = (char)( ( word & 0xFF000000 ) >> 24 );
-		if ( a ) res += a;
-		if ( b ) res += b;
-		if ( c ) res += c;
-		if ( d ) res += d;
+		uint8_t c = mData.at( mReadOffset + i );
+		if ( c ) {
+			res += (char)c;
+		} else {
+			break;
+		}
 	}
 
 	mReadOffset += i;
@@ -138,9 +181,9 @@ int32_t Link::Read( Packet* p, int32_t timeout )
 }
 
 
-int32_t Link::Write( const Packet* p, int32_t timeout )
+int32_t Link::Write( const Packet* p, bool ack, int32_t timeout )
 {
-	return Write( p->data().data(), p->data().size() * sizeof(uint32_t), timeout );
+	return Write( p->data().data(), p->data().size(), ack, timeout );
 }
 
 

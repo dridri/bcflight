@@ -38,8 +38,8 @@ Thread::Thread( const std::string& name )
 	, mFinished( false )
 	, mPriority( 0 )
 	, mSetPriority( 0 )
-	, mAffinity( 0 )
-	, mSetAffinity( 0 )
+	, mAffinity( -1 )
+	, mSetAffinity( -1 )
 	, mTerminate( false )
 {
 // 	pthread_attr_t attr;
@@ -135,7 +135,7 @@ void Thread::ThreadEntry()
 			sched_setscheduler( 0, SCHED_RR, &sched );
 #endif
 		}
-		if ( mSetAffinity != mAffinity ) {
+		if ( mSetAffinity >= 0 and mSetAffinity != mAffinity ) {
 			mAffinity = mSetAffinity;
 #ifdef __linux__
 			printf( "Thread '%s' affinity set to %d\n", mName.c_str(), mAffinity );
@@ -170,4 +170,10 @@ uint64_t Thread::GetTick()
 		mBaseTick = ret;
 	}
 	return ret - mBaseTick;
+}
+
+
+float Thread::GetSeconds()
+{
+	return (float)( GetTick() ) / 1000.0f;
 }

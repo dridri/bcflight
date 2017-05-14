@@ -20,7 +20,7 @@
 #define MCP320X_H
 
 #include <stdint.h>
-#include <linux/spi/spidev.h>
+#include <SPI.h>
 
 class MCP320x
 {
@@ -31,9 +31,7 @@ public:
 	uint16_t Read( uint8_t channel );
 
 private:
-	int mFD;
-	int mBits;
-	struct spi_ioc_transfer mXFer[10];
+	SPI* mSPI;
 };
 
 #endif // MCP320X_H

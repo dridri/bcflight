@@ -21,11 +21,12 @@
 
 #include <iostream>
 #include <Link.h>
-#include <RawWifi.h>
-#include <Socket.h>
-#include "Config.h"
 #include "ControllerClient.h"
 #include "ui/GlobalUI.h"
+#include "Config.h"
+#include <RawWifi.h>
+#include <Socket.h>
+#include <nRF24L01.h>
 
 int main( int ac, char** av )
 {
@@ -42,14 +43,39 @@ int main( int ac, char** av )
 	config->LoadSettings();
 
 	if ( config->string( "controller.link.link_type" ) == "Socket" ) {
-		controller_link = new ::Socket( config->string( "controller.link.address", "192.168.32.1" ), config->integer( "controller.link.port", 2020 ) );
+		::Socket::PortType type = ::Socket::TCP;
+		if ( config->string( "controller.link.type" ) == "UDP" ) {
+			type = ::Socket::UDP;
+		} else if ( config->string( "controller.link.type" ) == "UDPLite" ) {
+			type = ::Socket::UDPLite;
+		}
+		controller_link = new ::Socket( config->string( "controller.link.address", "192.168.32.1" ), config->integer( "controller.link.port", 2020 ), type );
+	} else if ( config->string( "controller.link.link_type" ) == "nRF24L01" ) {
+		std::string device = config->string( "controller.link.device", "spidev1." );
+		int cspin = config->integer( "controller.link.cspin", -1 );
+		int cepin = config->integer( "controller.link.cepin", -1 );
+		int irqpin = config->integer( "controller.link.irqpin", -1 );
+		int channel = config->integer( "controller.link.channel", 100 );
+		int input_port = config->integer( "controller.link.input_port", 1 );
+		int output_port = config->integer( "controller.link.output_port", 0 );
+		bool drop_invalid_packets = config->boolean( "controller.link.drop", true );
+		bool blocking = config->boolean( "controller.link.blocking", true );
+		if ( cspin < 0 ) {
+			std::cout << "WARNING : No CS-pin specified for nRF24L01, cannot create link !\n";
+		} else if ( cepin < 0 ) {
+			std::cout << "WARNING : No CE-pin specified for nRF24L01, cannot create link !\n";
+		} else {
+			controller_link = new nRF24L01( device, cspin, cepin, irqpin, channel, input_port, output_port, drop_invalid_packets );
+			controller_link->setBlocking( blocking );
+		}
 	} else {
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ), -1 );
+		static_cast< RawWifi* >( controller_link )->SetChannel( config->integer( "controller.link.channel", 11 ) );
 	}
 
 	controller = new ControllerClient( config, controller_link, config->boolean( "controller.spectate", false ) );
 
-	GlobalUI* ui = new GlobalUI( controller );
+	GlobalUI* ui = new GlobalUI( config, controller );
 	ui->Start();
 
 	while ( 1 ) {

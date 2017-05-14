@@ -47,7 +47,7 @@ typedef struct block_t {
 	packet_t packets[MAX_PACKET_PER_BLOCK];
 } block_t;
 
-extern const uint32_t _rawwifi_headers_length;
+extern const uint32_t rawwifi_headers_length;
 uint64_t _rawwifi_get_tick();
 int analyze_packet( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, wifi_packet_header_t** pHeader, uint8_t** pPayload, uint32_t* valid );
 static int32_t reconstruct( rawwifi_t* rwifi, block_t* block, uint8_t* pret, uint32_t retmax, uint32_t* valid );
@@ -119,7 +119,11 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 		if ( bytes > retmax ) {
 			bytes = retmax;
 		}
-		memcpy( pret, payload, bytes );
+		if ( header->block_flags & RAWWIFI_BLOCK_FLAGS_HAMMING84 ) {
+			bytes = rawwifi_hamming84_decode( pret, payload, bytes );
+		} else {
+			memcpy( pret, payload, bytes );
+		}
 		*valid = is_valid;
 		rwifi->recv_perf_valid += 100;
 		if ( rwifi->recv_private ) {
@@ -153,7 +157,11 @@ int process_packet_weighted( rawwifi_t* rwifi, rawwifi_pcap_t* rpcap, uint8_t* p
 		rwifi->recv_last_returned = block->id;
 		free( block );
 		rwifi->recv_private = NULL;
+		uint8_t block_flags = header->block_flags;
 		free( header ); // Actually frees header+payload
+		if ( block_flags & RAWWIFI_BLOCK_FLAGS_HAMMING84 ) {
+			return rawwifi_hamming84_decode( pret, pret, ret );
+		}
 		return ret;
 	}
 
@@ -182,13 +190,15 @@ static int32_t reconstruct( rawwifi_t* rwifi, block_t* block, uint8_t* pret, uin
 			dprintf( "packet %d:%d quality : %d%% [%d]\n", block->id, i, quality * 100 / ret, is_valid );
 		}
 		if ( ret > 0 ) {
-			offset += ret;
+			if ( is_valid != 0 ) {
+				offset += ret;
+			}
 			all_valid += ( is_valid != 0 );
 		} else {
 			dprintf( "leak (%d)\n", block->packets[i].retries[0].size );
 			if ( i < block->packets_count - 1 && rwifi->recv_recover == RAWWIFI_FILL_WITH_ZEROS ) {
-				memset( pret + offset, 0, MAX_USER_PACKET_LENGTH - _rawwifi_headers_length );
-				offset += MAX_USER_PACKET_LENGTH - _rawwifi_headers_length;
+				memset( pret + offset, 0, MAX_USER_PACKET_LENGTH - rawwifi_headers_length );
+				offset += MAX_USER_PACKET_LENGTH - rawwifi_headers_length;
 			}
 		}
 		if ( ret > 0 && block->packets_count > 0 ) {

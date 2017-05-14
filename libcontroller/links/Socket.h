@@ -45,18 +45,24 @@ public:
 	int setBlocking( bool blocking );
 	void setRetriesCount( int retries );
 	int retriesCount() const;
+	int32_t Channel();
+	int32_t RxQuality();
+	int32_t RxLevel();
 
 	virtual uint32_t fullReadSpeed() { return mReadSpeed; }
 
 protected:
 	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, int32_t timeout );
+	int Write( const void* buf, uint32_t len, bool ack, int32_t timeout );
 
 	std::string mHost;
 	uint16_t mPort;
 	PortType mPortType;
 	int mSocket;
 	struct sockaddr_in mSin;
+
+	// Stats
+	int32_t mChannel;
 };
 
 #endif // ( BUILD_SOCKET == 1 )

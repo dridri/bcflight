@@ -80,6 +80,7 @@ public slots:
 	void VideoSaturationDecrease();
 	void VideoPause();
 	void VideoRecord();
+	void VideoTakePicture();
 	void SetNightMode( int state );
 	void RecordingsRefresh();
 	void setFirmwareUpdateProgress( int val );
@@ -112,10 +113,14 @@ private:
 	QList<QProgressBar*> motorSpeedProgress;
 
 	QElapsedTimer mTicks;
-	QVector< double > mDataT;
+	QVector< double > mDataTrpy;
 	QVector< double > mDataR;
 	QVector< double > mDataP;
 	QVector< double > mDataY;
+	QVector< double > mDataTrates;
+	QVector< double > mDataRatesX;
+	QVector< double > mDataRatesY;
+	QVector< double > mDataRatesZ;
 	QVector< double > mDataAltitude;
 
 	bool mPIDsOk;

@@ -68,7 +68,7 @@ Stream::Stream( Link* link, uint32_t width_, uint32_t height_, float zoom, bool 
 			int y_offset = mScreenHeight / 2 - height / 2;
 
 		mDecoderRender = new VID_INTF::VideoRender( x_offset, y_offset, width, height, false );
-		mDecoderRender->setMirror( false, true );
+		mDecoderRender->setMirror( false, false );
 		if ( mStereo ) {
 			mDecoderRender->setStereo( true );
 		}

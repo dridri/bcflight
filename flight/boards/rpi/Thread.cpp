@@ -18,17 +18,24 @@
 
 #include <unistd.h>
 #include <wiringPi.h>
+#include <iostream>
 #include "Thread.h"
+#include "Board.h"
+
+std::list< Thread* > Thread::mThreads;
 
 Thread::Thread( const std::string& name )
-	: mRunning( false )
+	: mName( name )
+	, mRunning( false )
+	, mStopped( false )
 	, mIsRunning( false )
 	, mFinished( false )
 	, mPriority( 0 )
 	, mSetPriority( 0 )
-	, mAffinity( 0 )
-	, mSetAffinity( 0 )
+	, mAffinity( -1 )
+	, mSetAffinity( -1 )
 {
+	mThreads.emplace_back( this );
 	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 }
@@ -36,6 +43,30 @@ Thread::Thread( const std::string& name )
 
 Thread::~Thread()
 {
+}
+
+
+void Thread::StopAll()
+{
+	std::cerr << "Stopping all threads !\n";
+	for ( Thread* thread : mThreads ) {
+		std::cerr << "Stopping thread \"" << thread->mName << "\"\n";
+		thread->Stop();
+		thread->Join();
+	}
+	std::cerr << "Stopped all threads !\n";
+}
+
+
+uint64_t Thread::GetTick()
+{
+	return Board::GetTicks();
+}
+
+
+float Thread::GetSeconds()
+{
+	return (float)( GetTick() / 1000 ) / 1000.0f;
 }
 
 
@@ -48,6 +79,12 @@ void Thread::Start()
 void Thread::Pause()
 {
 	mRunning = false;
+}
+
+
+void Thread::Stop()
+{
+	mStopped = true;
 }
 
 
@@ -83,23 +120,25 @@ void Thread::setPriority( int p, int affinity )
 void Thread::ThreadEntry()
 {
 	do {
-		while ( !mRunning ) {
+		while ( not mRunning and not mStopped ) {
 			mIsRunning = false;
 			usleep( 1000 * 100 );
 		}
-		mIsRunning = true;
-		if ( mSetPriority != mPriority ) {
-			mPriority = mSetPriority;
-			piHiPri( mPriority );
+		if ( mRunning ) {
+			mIsRunning = true;
+			if ( mSetPriority != mPriority ) {
+				mPriority = mSetPriority;
+				piHiPri( mPriority );
+			}
+			if ( mSetAffinity >= 0 and mSetAffinity != mAffinity ) {
+				mAffinity = mSetAffinity;
+				cpu_set_t cpuset;
+				CPU_ZERO( &cpuset );
+				CPU_SET( mAffinity, &cpuset );
+				pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
+			}
 		}
-		if ( mSetAffinity != mAffinity ) {
-			mAffinity = mSetAffinity;
-			cpu_set_t cpuset;
-			CPU_ZERO( &cpuset );
-			CPU_SET( mAffinity, &cpuset );
-			pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
-		}
-	} while ( run() );
+	} while ( not mStopped and run() );
 	mIsRunning = false;
 	mFinished = true;
 }

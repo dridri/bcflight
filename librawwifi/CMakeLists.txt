@@ -18,6 +18,7 @@ set( SRCS
 			tx.c
 			rawwifi.c
 			radiotap.c
+			hamming.c
 			blocks.c
 			)
 

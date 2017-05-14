@@ -7,11 +7,12 @@
 class MainWindow;
 
 class Controller;
+class Config;
 
 class GlobalUI : public Thread
 {
 public:
-	GlobalUI( Controller* controller );
+	GlobalUI( Config* config, Controller* controller );
 	~GlobalUI();
 
 	void Run() { while( run() ); }
@@ -21,6 +22,7 @@ protected:
 
 private:
 	QApplication* mApplication;
+	Config* mConfig;
 	Controller* mController;
 	MainWindow* mMainWindow;
 };

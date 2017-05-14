@@ -37,6 +37,7 @@
 #include <arpa/inet.h>
 #include <unistd.h> /* close */
 #include <netdb.h> /* gethostbyname */
+#include <iwlib.h>
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket(s) close(s)
@@ -60,7 +61,21 @@ Socket::Socket( const std::string& host, uint16_t port, PortType type )
 	, mPort( port )
 	, mPortType( type )
 	, mSocket( -1 )
+	, mChannel( 0 )
 {
+	iwstats stats;
+	wireless_config info;
+	iwrange range;
+	int iwSocket = iw_sockets_open();
+
+	memset( &stats, 0, sizeof( stats ) );
+	if ( iw_get_basic_config( iwSocket, "wlan0", &info ) == 0 ) {
+		if ( iw_get_range_info( iwSocket, "wlan0", &range ) == 0 ) {
+			mChannel = iw_freq_to_channel( info.freq, &range );
+		}
+	}
+
+	iw_sockets_close( iwSocket );
 }
 
 
@@ -70,6 +85,47 @@ Socket::~Socket()
 		shutdown( mSocket, 2 );
 		closesocket( mSocket );
 	}
+}
+
+
+int32_t Socket::Channel()
+{
+	return mChannel;
+}
+
+
+int32_t Socket::RxQuality()
+{
+	iwstats stats;
+
+	int32_t ret = 0;
+	int iwSocket = iw_sockets_open();
+	memset( &stats, 0, sizeof( stats ) );
+
+	if ( iw_get_stats( iwSocket, "wlan0", &stats, nullptr, 0 ) == 0 ) {
+		ret = (int32_t)stats.qual.qual * 100 / 70;
+	}
+
+	iw_sockets_close( iwSocket );
+	return ret;
+}
+
+
+int32_t Socket::RxLevel()
+{
+	iwstats stats;
+
+	int32_t ret = 0;
+	int iwSocket = iw_sockets_open();
+	memset( &stats, 0, sizeof( stats ) );
+
+	if ( iw_get_stats( iwSocket, "wlan0", &stats, nullptr, 0 ) == 0 ) {
+		union { int8_t s; uint8_t u; } conv = { .u = stats.qual.level };
+		ret = conv.s;
+	}
+
+	iw_sockets_close( iwSocket );
+	return ret;
 }
 
 
@@ -165,7 +221,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 	if ( mPortType == UDP or mPortType == UDPLite ) {
 		socklen_t fromsize = sizeof( mSin );
 		ret = recvfrom( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)&mSin, &fromsize );
-		if ( ret <= 0 and errno != EAGAIN ) {
+		if ( ret <= 0 and errno != EAGAIN) {
 			std::cout << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
 			mConnected = false;
 			return -1;
@@ -195,7 +251,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 }
 
 
-int Socket::Write( const void* buf, uint32_t len, int timeout )
+int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 {
 	if ( !mConnected ) {
 		return -1;

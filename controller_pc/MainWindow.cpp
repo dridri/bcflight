@@ -51,6 +51,7 @@ MainWindow::MainWindow()
 	, mControllerMonitor( nullptr )
 	, mStreamLink( nullptr )
 	, mFirmwareUpdateThread( nullptr )
+	, motorSpeedLayout( nullptr )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
@@ -72,14 +73,17 @@ MainWindow::MainWindow()
 			controllerLink->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
 			controllerLink->setRetriesCount( mConfig->value( "rawwifi/controller/retries", 1 ).toInt() );
 			controllerLink->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			controllerLink->setDropBroken( not mConfig->value( "rawwifi/controller/nodrop", false ).toBool() );
 			mStreamLink = new RawWifi( device, mConfig->value( "rawwifi/video/outport", 10 ).toInt(), mConfig->value( "rawwifi/video/inport", 11 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
 			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/video/cec", "" ).toString().toLower().toStdString() );
+			static_cast<RawWifi*>(mStreamLink)->setDropBroken( not mConfig->value( "rawwifi/video/nodrop", false ).toBool() );
 			mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
 			static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
 			static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
 			static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/audio/cec", "" ).toString().toLower().toStdString() );
+			static_cast<RawWifi*>(mAudioLink)->setDropBroken( not mConfig->value( "rawwifi/audio/nodrop", false ).toBool() );
 		}
 #endif // NO_RAWWIFI
 	} else {
@@ -127,6 +131,7 @@ MainWindow::MainWindow()
 	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
 	connect( ui->video_pause, SIGNAL( pressed() ), this, SLOT( VideoPause() ) );
 	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
+	connect( ui->take_picture, SIGNAL( pressed() ), this, SLOT( VideoTakePicture() ) );
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
 	connect( ui->night_mode, SIGNAL( stateChanged(int) ), this, SLOT( SetNightMode(int) ) );
 	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
@@ -137,25 +142,29 @@ MainWindow::MainWindow()
 	ui->temperature->setSuffix( "°C" );
 	ui->temperature->setMaxValue( 80 );
 
-	// Setup Roll-Pitch-Yaw graph
-	ui->rpy->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
-	ui->rpy->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
-	ui->rpy->yAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
-	ui->rpy->yAxis->setNumberFormat( "f" );
-	ui->rpy->yAxis->setNumberPrecision( 2 );
-	ui->rpy->xAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );
-	ui->rpy->yAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );
-	ui->rpy->yAxis->grid()->setZeroLinePen( QPen( QBrush( QColor( 96, 96, 96 ) ), 2, Qt::DashLine ) );
-	ui->rpy->yAxis->setRange( -1.0f, 1.0f );
-	ui->rpy->addGraph();
-	ui->rpy->addGraph();
-	ui->rpy->addGraph();
-	ui->rpy->graph(0)->setPen( QPen( QBrush( QColor( 255, 128, 128 ) ), 2 ) );
-	ui->rpy->graph(1)->setPen( QPen( QBrush( QColor( 128, 255, 128 ) ), 2 ) );
-	ui->rpy->graph(2)->setPen( QPen( QBrush( QColor( 128, 128, 255 ) ), 2 ) );
-
-	ui->rates->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
-
+	// Setup graphs
+	std::list< QCustomPlot* > graphs;
+	graphs.emplace_back( ui->rpy );
+	graphs.emplace_back( ui->rates );
+	graphs.emplace_back( ui->altitude );
+	for ( QCustomPlot* graph : graphs ) {
+		graph->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
+		graph->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
+		graph->yAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
+		graph->yAxis->setNumberFormat( "f" );
+		graph->yAxis->setNumberPrecision( 2 );
+		graph->xAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );
+		graph->yAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );
+		graph->yAxis->grid()->setZeroLinePen( QPen( QBrush( QColor( 96, 96, 96 ) ), 2, Qt::DashLine ) );
+		graph->yAxis->setRange( -1.0f, 1.0f );
+		graph->addGraph();
+		graph->addGraph();
+		graph->addGraph();
+		graph->graph(0)->setPen( QPen( QBrush( QColor( 255, 128, 128 ) ), 2 ) );
+		graph->graph(1)->setPen( QPen( QBrush( QColor( 128, 255, 128 ) ), 2 ) );
+		graph->graph(2)->setPen( QPen( QBrush( QColor( 128, 128, 255 ) ), 2 ) );
+	}
+/*
 	ui->altitude->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
 	ui->altitude->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
 	ui->altitude->yAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
@@ -166,7 +175,7 @@ MainWindow::MainWindow()
 	ui->altitude->yAxis->grid()->setZeroLinePen( QPen( QBrush( QColor( 96, 96, 96 ) ), 2, Qt::DashLine ) );
 	ui->altitude->addGraph();
 	ui->altitude->graph(0)->setPen( QPen( QBrush( QColor( 255, 255, 255 ) ), 2 ) );
-
+*/
 	mTicks.start();
 
 	ui->video->setMainWindow( this );
@@ -279,7 +288,7 @@ void MainWindow::updateData()
 		}
 	} else {
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 %    |    TX Qual : %2 %    |    TX : %3 B/s    |    RX : %4 B/s    |    Camera : %5 KB/s ( %6 KB/s | %7 % | %8 dBm )    |    %9 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s    |    Camera :%6 KB/s (%7 KB/s |%8 % |%9 dBm )    |    %10 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
 
 		if ( mController->ping() < 10000 ) {
 			ui->latency->setText( QString::number( mController->ping() ) + " ms" );
@@ -292,9 +301,7 @@ void MainWindow::updateData()
 		ui->stabilizer_frequency->setText( QString::number( mController->stabilizerFrequency() ) + " Hz" );
 		std::vector<float> motorSpeed = mController->motorsSpeed();
 		if (motorSpeed.size() > 0) {
-			// init motor speed progress bar
-			if (motorSpeedLayout == NULL) {
-
+			if ( motorSpeedLayout == nullptr ) {
 				motorSpeedLayout = new QVBoxLayout;
 				for ( float speed : motorSpeed ) {
 					QProgressBar *progress = new QProgressBar();
@@ -305,16 +312,14 @@ void MainWindow::updateData()
 					motorSpeedLayout->addWidget(progress);
 				}
 				ui->listMotors->setLayout(motorSpeedLayout);
-			}
-			else {
-				// update
-				for (unsigned int i = 0; i< motorSpeedProgress.size() ;i++) {
-					motorSpeedProgress.at(i)->setValue(motorSpeed.at(i)*100);
+			} else {
+				for ( uint32_t i = 0; i < motorSpeed.size(); i++ ) {
+					if ( i < motorSpeedProgress.size() and motorSpeedProgress.at(i) != nullptr ) {
+						motorSpeedProgress.at(i)->setValue( motorSpeed.at(i) * 100 );
+					}
 				}
 			}
 		}
-
-
 
 
 		std::string dbg = mController->debugOutput();
@@ -328,8 +333,8 @@ void MainWindow::updateData()
 			}
 		}
 
-		const std::list< vec4 >& rpy = mController->rpyHistory();
-		mDataT.clear();
+		std::list< vec4 > rpy = mController->rpyHistory();
+		mDataTrpy.clear();
 		mDataR.clear();
 		mDataP.clear();
 		mDataY.clear();
@@ -343,36 +348,56 @@ void MainWindow::updateData()
 			if ( std::isnan( v.z ) or std::isinf( v.z ) or fabsf( v.z ) > 1000.0f ) {
 				v.z = 0.0f;
 			}
-			mDataT.append( v.w );
+			mDataTrpy.append( v.w );
 			mDataR.append( v.x );
 			mDataP.append( v.y );
 			mDataY.append( v.z );
 		}
+		std::list< vec4 > rates = mController->ratesHistory();
+		mDataTrates.clear();
+		mDataRatesX.clear();
+		mDataRatesY.clear();
+		mDataRatesZ.clear();
+		for ( vec4 v : rates ) {
+			if ( std::isnan( v.x ) or std::isinf( v.x ) or fabsf( v.x ) > 1000.0f ) {
+				v.x = 0.0f;
+			}
+			if ( std::isnan( v.y ) or std::isinf( v.y ) or fabsf( v.y ) > 1000.0f ) {
+				v.y = 0.0f;
+			}
+			if ( std::isnan( v.z ) or std::isinf( v.z ) or fabsf( v.z ) > 1000.0f ) {
+				v.z = 0.0f;
+			}
+			mDataTrates.append( v.w );
+			mDataRatesX.append( v.x );
+			mDataRatesY.append( v.y );
+			mDataRatesZ.append( v.z );
+		}
 
-		ui->rpy->graph(0)->setData( mDataT, mDataR );
-		ui->rpy->graph(1)->setData( mDataT, mDataP );
-		ui->rpy->graph(2)->setData( mDataT, mDataY );
+		ui->rpy->graph(0)->setData( mDataTrpy, mDataR );
+		ui->rpy->graph(1)->setData( mDataTrpy, mDataP );
+		ui->rpy->graph(2)->setData( mDataTrpy, mDataY );
 		ui->rpy->graph(0)->rescaleAxes();
 		ui->rpy->graph(1)->rescaleAxes( true );
 		ui->rpy->graph(2)->rescaleAxes( true );
 		ui->rpy->xAxis->rescale();
 		ui->rpy->replot();
-	/*
-		ui->rates->graph(0)->setData( mDataT, mDataR );
-		ui->rates->graph(1)->setData( mDataT, mDataP );
-		ui->rates->graph(2)->setData( mDataT, mDataY );
+
+		ui->rates->graph(0)->setData( mDataTrates, mDataRatesX );
+		ui->rates->graph(1)->setData( mDataTrates, mDataRatesY );
+		ui->rates->graph(2)->setData( mDataTrates, mDataRatesZ );
 		ui->rates->graph(0)->rescaleAxes();
 		ui->rates->graph(1)->rescaleAxes( true );
 		ui->rates->graph(2)->rescaleAxes( true );
 		ui->rates->xAxis->rescale();
 		ui->rates->replot();
-	*/
+/*
 		ui->altitude->graph(0)->setData( mDataT, mDataAltitude );
 		ui->altitude->graph(0)->rescaleAxes();
 		ui->altitude->xAxis->rescale();
 		ui->altitude->replot();
-
-		if ( mController->isConnected() and not mController->isSpectate() and ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
+*/
+		if ( mController->isConnected() and /*not mController->isSpectate() and*/ ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
 			mPIDsReading = true;
 			mController->ReloadPIDs();
 			ui->rateP->setValue( mController->rollPid().x );
@@ -466,7 +491,7 @@ void MainWindow::throttleChanged( int throttle )
 
 void MainWindow::LoadConfig()
 {
-	if ( mController and not mController->isSpectate() ) {
+	if ( mController/* and not mController->isSpectate()*/ ) {
 		std::string conf = mController->getConfigFile();
 		ui->config->setText( QString::fromStdString( conf ) );
 	}
@@ -475,7 +500,7 @@ void MainWindow::LoadConfig()
 
 void MainWindow::SaveConfig()
 {
-	if ( mController and not mController->isSpectate() and ui->config->text().length() > 0 ) {
+	if ( mController /*and not mController->isSpectate()*/ and ui->config->text().length() > 0 ) {
 		std::string conf = ui->config->text().toStdString();
 		mController->setConfigFile( conf );
 	}
@@ -584,7 +609,7 @@ void MainWindow::ModeStabilized()
 
 void MainWindow::setRatePIDRoll( double v )
 {
-	if ( not mController or mController->isSpectate() ) {
+	if ( not mController/* or mController->isSpectate()*/ ) {
 		return;
 	}
 	if ( mPIDsReading ) {
@@ -603,7 +628,7 @@ void MainWindow::setRatePIDRoll( double v )
 
 void MainWindow::setRatePIDPitch( double v )
 {
-	if ( not mController or mController->isSpectate() ) {
+	if ( not mController/* or mController->isSpectate()*/ ) {
 		return;
 	}
 	if ( mPIDsReading ) {
@@ -622,7 +647,7 @@ void MainWindow::setRatePIDPitch( double v )
 
 void MainWindow::setRatePIDYaw( double v )
 {
-	if ( not mController or mController->isSpectate() ) {
+	if ( not mController/* or mController->isSpectate()*/ ) {
 		return;
 	}
 	if ( mPIDsReading ) {
@@ -641,7 +666,7 @@ void MainWindow::setRatePIDYaw( double v )
 
 void MainWindow::setHorizonP( double v )
 {
-	if ( not mController or mController->isSpectate() ) {
+	if ( not mController/* or mController->isSpectate()*/ ) {
 		return;
 	}
 	if ( mPIDsReading ) {
@@ -658,7 +683,7 @@ void MainWindow::setHorizonP( double v )
 
 void MainWindow::setHorizonI( double v )
 {
-	if ( not mController or mController->isSpectate() ) {
+	if ( not mController/* or mController->isSpectate()*/ ) {
 		return;
 	}
 	if ( mPIDsReading ) {
@@ -675,7 +700,7 @@ void MainWindow::setHorizonI( double v )
 
 void MainWindow::setHorizonD( double v )
 {
-	if ( not mController or mController->isSpectate() ) {
+	if ( not mController/* or mController->isSpectate()*/ ) {
 		return;
 	}
 	if ( mPIDsReading ) {
@@ -760,6 +785,14 @@ void MainWindow::VideoPause()
 		qDebug() << "VideoPause() Resume";
 		mController->VideoResume();
 		ui->video_pause->setText( "Pause" );
+	}
+}
+
+
+void MainWindow::VideoTakePicture()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoTakePicture();
 	}
 }
 

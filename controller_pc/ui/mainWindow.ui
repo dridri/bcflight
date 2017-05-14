@@ -24,7 +24,7 @@
     <item row="0" column="0" rowspan="4">
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>3</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -37,7 +37,7 @@
            <string>Live stream</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_29">
-           <item row="1" column="0" colspan="8">
+           <item row="1" column="0" colspan="9">
             <widget class="QWidget" name="video_container" native="true">
              <layout class="QGridLayout" name="gridLayout_25">
               <item row="0" column="0">
@@ -91,7 +91,7 @@
              </layout>
             </widget>
            </item>
-           <item row="0" column="7">
+           <item row="0" column="8">
             <spacer name="horizontalSpacer_5">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -262,6 +262,22 @@
              </layout>
             </widget>
            </item>
+           <item row="0" column="7">
+            <widget class="QGroupBox" name="groupBox_23">
+             <property name="title">
+              <string>Still picture</string>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_34">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="take_picture">
+                <property name="text">
+                 <string>Take picture</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
           </layout>
           <zorder>groupBox_record</zorder>
           <zorder>groupBox_17</zorder>
@@ -270,6 +286,7 @@
           <zorder>video_container</zorder>
           <zorder>groupBox_21</zorder>
           <zorder>groupBox_20</zorder>
+          <zorder>groupBox_23</zorder>
          </widget>
         </item>
        </layout>
@@ -416,51 +433,21 @@
       </widget>
       <widget class="QWidget" name="tab_4">
        <attribute name="title">
-        <string>Test Bench</string>
+        <string>Controls</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_16">
-        <item row="0" column="6" rowspan="2">
-         <widget class="QGroupBox" name="groupBox_13">
-          <property name="title">
-           <string>Update Firmware</string>
+        <item row="0" column="4">
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
           </property>
-          <layout class="QGridLayout" name="gridLayout_19">
-           <item row="0" column="0">
-            <widget class="QLineEdit" name="firmware_path">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="firmware_browse">
-             <property name="text">
-              <string>Browse...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QPushButton" name="firmware_upload">
-             <property name="text">
-              <string>Upload</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0" colspan="2">
-            <widget class="QProgressBar" name="firmware_progress">
-             <property name="value">
-              <number>0</number>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>675</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
         </item>
         <item row="0" column="0" rowspan="2">
          <widget class="QGroupBox" name="groupBox_9">
@@ -561,7 +548,7 @@
               <item row="2" column="1">
                <widget class="QDoubleSpinBox" name="rateD">
                 <property name="decimals">
-                 <number>5</number>
+                 <number>6</number>
                 </property>
                 <property name="maximum">
                  <double>1.000000000000000</double>
@@ -630,7 +617,7 @@
               <item row="2" column="1">
                <widget class="QDoubleSpinBox" name="rateD_2">
                 <property name="decimals">
-                 <number>5</number>
+                 <number>6</number>
                 </property>
                 <property name="maximum">
                  <double>1.000000000000000</double>
@@ -699,7 +686,7 @@
               <item row="2" column="1">
                <widget class="QDoubleSpinBox" name="rateD_3">
                 <property name="decimals">
-                 <number>5</number>
+                 <number>6</number>
                 </property>
                 <property name="maximum">
                  <double>1.000000000000000</double>
@@ -715,7 +702,7 @@
           </layout>
          </widget>
         </item>
-        <item row="2" column="0" colspan="8">
+        <item row="2" column="0" colspan="6">
          <widget class="QGroupBox" name="groupBox_10">
           <property name="title">
            <string>Terminal</string>
@@ -857,48 +844,100 @@ color: rgb(255, 255, 255);</string>
           </layout>
          </widget>
         </item>
-        <item row="0" column="5">
-         <spacer name="horizontalSpacer_2">
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_7">
+       <attribute name="title">
+        <string>Test Bench</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_33">
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="groupBox_22">
+          <property name="title">
+           <string>Test Motor</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_32">
+           <item row="0" column="0">
+            <widget class="QSpinBox" name="motorTestSpinBox"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QPushButton" name="motorTestButton">
+             <property name="text">
+              <string>Test</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QGroupBox" name="groupBox_13">
+          <property name="title">
+           <string>Update Firmware</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_19">
+           <item row="0" column="0">
+            <widget class="QLineEdit" name="firmware_path">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="firmware_browse">
+             <property name="text">
+              <string>Browse...</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QPushButton" name="firmware_upload">
+             <property name="text">
+              <string>Upload</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0" colspan="2">
+            <widget class="QProgressBar" name="firmware_progress">
+             <property name="value">
+              <number>0</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <spacer name="horizontalSpacer_8">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>675</width>
+            <width>502</width>
             <height>20</height>
            </size>
           </property>
          </spacer>
         </item>
-        <item row="0" column="4" rowspan="2">
-         <widget class="QGroupBox" name="groupBox_22">
-          <property name="title">
-           <string>Test Motor</string>
+        <item row="1" column="0" colspan="3">
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
           </property>
-          <widget class="QSpinBox" name="motorTestSpinBox">
-           <property name="geometry">
-            <rect>
-             <x>10</x>
-             <y>30</y>
-             <width>51</width>
-             <height>22</height>
-            </rect>
-           </property>
-          </widget>
-          <widget class="QPushButton" name="motorTestButton">
-           <property name="geometry">
-            <rect>
-             <x>10</x>
-             <y>60</y>
-             <width>51</width>
-             <height>23</height>
-            </rect>
-           </property>
-           <property name="text">
-            <string>Test</string>
-           </property>
-          </widget>
-         </widget>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>718</width>
+            <height>578</height>
+           </size>
+          </property>
+         </spacer>
         </item>
        </layout>
       </widget>
@@ -1281,9 +1320,7 @@ color: rgb(255, 255, 255);</string>
         </spacer>
        </item>
        <item row="1" column="2">
-        <widget class="QGroupBox" name="listMotors">
-
-        </widget>
+        <widget class="QGroupBox" name="listMotors"/>
        </item>
       </layout>
      </widget>
@@ -1338,7 +1375,7 @@ color: rgb(255, 255, 255);</string>
      <x>0</x>
      <y>0</y>
      <width>1110</width>
-     <height>21</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

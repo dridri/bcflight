@@ -40,13 +40,19 @@ public:
 
 	int Connect();
 	int setBlocking( bool blocking );
+	void setRetriesCount( int retries );
+	int retriesCount() const;
+	int32_t Channel();
+	int32_t RxQuality();
+	int32_t RxLevel();
+
+	int Read( void* buf, uint32_t len, int32_t timeout );
+	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
 
 	static int flight_register( Main* main );
 
 protected:
 	static Link* Instanciate( Config* config, const std::string& lua_object );
-	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, int32_t timeout );
 
 	uint16_t mPort;
 	PortType mPortType;
@@ -56,6 +62,9 @@ protected:
 	struct sockaddr_in mSin;
 	int mClientSocket;
 	struct sockaddr_in mClientSin;
+
+	// Stats
+	int32_t mChannel;
 };
 
 #endif // ( BUILD_SOCKET == 1 )

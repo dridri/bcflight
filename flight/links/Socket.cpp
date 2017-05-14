@@ -30,6 +30,7 @@
 #include <arpa/inet.h>
 #include <unistd.h> /* close */
 #include <netdb.h> /* gethostbyname */
+#include <iwlib.h>
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket(s) close(s)
@@ -84,7 +85,21 @@ Socket::Socket( uint16_t port, PortType type, bool broadcast, uint32_t timeout )
 	, mTimeout( timeout )
 	, mSocket( -1 )
 	, mClientSocket( -1 )
+	, mChannel( 0 )
 {
+	iwstats stats;
+	wireless_config info;
+	iwrange range;
+	int iwSocket = iw_sockets_open();
+
+	memset( &stats, 0, sizeof( stats ) );
+	if ( iw_get_basic_config( iwSocket, "wlan0", &info ) == 0 ) {
+		if ( iw_get_range_info( iwSocket, "wlan0", &range ) == 0 ) {
+			mChannel = iw_freq_to_channel( info.freq, &range );
+		}
+	}
+
+	iw_sockets_close( iwSocket );
 }
 
 
@@ -97,9 +112,74 @@ Socket::~Socket()
 }
 
 
+int32_t Socket::Channel()
+{
+	return mChannel;
+}
+
+
+int32_t Socket::RxQuality()
+{
+	iwstats stats;
+
+	int32_t ret = 0;
+	int iwSocket = iw_sockets_open();
+	memset( &stats, 0, sizeof( stats ) );
+
+	if ( iw_get_stats( iwSocket, "wlan0", &stats, nullptr, 0 ) == 0 ) {
+		ret = (int32_t)stats.qual.qual * 100 / 70;
+	}
+
+	iw_sockets_close( iwSocket );
+	return ret;
+}
+
+
+int32_t Socket::RxLevel()
+{
+	iwstats stats;
+
+	int32_t ret = -200;
+	int iwSocket = iw_sockets_open();
+	memset( &stats, 0, sizeof( stats ) );
+
+	if ( iw_get_stats( iwSocket, "wlan0", &stats, nullptr, 0 ) == 0 ) {
+		union { int8_t s; uint8_t u; } conv = { .u = stats.qual.level };
+		ret = conv.s;
+	}
+
+	iw_sockets_close( iwSocket );
+	return ret;
+}
+
+
+int Socket::setBlocking( bool blocking )
+{
+	int flags = fcntl( mSocket, F_GETFL, 0 );
+	flags = blocking ? ( flags & ~O_NONBLOCK) : ( flags | O_NONBLOCK );
+	return ( fcntl( mSocket, F_SETFL, flags ) == 0 );
+}
+
+
+int Socket::retriesCount() const
+{
+	// TODO
+	return 1;
+}
+
+
+void Socket::setRetriesCount( int retries )
+{
+	if ( mPortType == UDP or mPortType == UDPLite ) {
+		// TODO : set retries count
+	}
+}
+
+
 int Socket::Connect()
 {
 	fDebug0();
+
 	if ( mConnected ) {
 		return 0;
 	}
@@ -154,6 +234,7 @@ int Socket::Connect()
 		}
 	} else if ( mPortType == UDP or mPortType == UDPLite ) {
 		if ( not mBroadcast ) {
+			/*
 			uint32_t flag = 0;
 			uint32_t fromsize = sizeof( mClientSin );
 			int ret = recvfrom( mSocket, &flag, sizeof( flag ), 0, (SOCKADDR*)&mClientSin, &fromsize );
@@ -169,19 +250,12 @@ int Socket::Connect()
 				mConnected = false;
 				return -1;
 			}
+			*/
 		}
 	}
 
 	mConnected = true;
 	return 0;
-}
-
-
-int Socket::setBlocking( bool blocking )
-{
-	int flags = fcntl( mSocket, F_GETFL, 0 );
-	flags = blocking ? ( flags & ~O_NONBLOCK) : ( flags | O_NONBLOCK );
-	return ( fcntl( mSocket, F_SETFL, flags ) == 0 );
 }
 
 
@@ -215,10 +289,10 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 	}
 
 	if ( ret <= 0 ) {
-		if ( Board::GetTicks() - timebase >= timeout * 1000ULL ) {
+		if ( ( Board::GetTicks() - timebase >= timeout * 1000ULL ) or errno == 11 ) {
 			return LINK_ERROR_TIMEOUT;
 		}
-		gDebug() << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
+		gDebug() << "UDP disconnected ( " << ret << " : " << errno << ", " << strerror( errno ) << " )\n";
 		mConnected = false;
 		return -1;
 	}
@@ -227,7 +301,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 }
 
 
-int Socket::Write( const void* buf, uint32_t len, int timeout )
+int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 {
 	if ( !mConnected ) {
 		return -1;

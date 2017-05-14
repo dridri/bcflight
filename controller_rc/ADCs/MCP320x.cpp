@@ -24,58 +24,8 @@
 #include "MCP320x.h"
 
 MCP320x::MCP320x( const std::string& devfile )
+	: mSPI( new SPI( devfile, 500000 ) )
 {
-	mFD = open( devfile.c_str(), O_RDWR );
-	if ( mFD < 0 ) {
-		fprintf( stderr, "Failed to open %s : %s (%d)\n", devfile.c_str(), strerror(errno), errno ); fflush(stderr);
-	}
-
-	uint8_t mode, lsb;
-	uint32_t speed = 500000;
-
-	mode = SPI_MODE_0;
-	mBits = 8;
-
-	if ( ioctl( mFD, SPI_IOC_WR_MODE, &mode ) < 0 )
-	{
-		std::cout << "SPI wr_mode\n";
-	}
-	if ( ioctl( mFD, SPI_IOC_RD_MODE, &mode ) < 0 )
-	{
-		std::cout << "SPI rd_mode\n";
-	}
-	if ( ioctl( mFD, SPI_IOC_WR_BITS_PER_WORD, &mBits ) < 0 ) 
-	{
-		std::cout << "SPI write bits_per_word\n";
-	}
-	if ( ioctl( mFD, SPI_IOC_RD_BITS_PER_WORD, &mBits ) < 0 ) 
-	{
-		std::cout << "SPI read bits_per_word\n";
-	}
-	if ( ioctl( mFD, SPI_IOC_WR_MAX_SPEED_HZ, &speed ) < 0 )  
-	{
-		std::cout << "can't set max speed hz\n";
-	}
-
-	if ( ioctl( mFD, SPI_IOC_RD_MAX_SPEED_HZ, &speed ) < 0 ) 
-	{
-		std::cout << "SPI max_speed_hz\n";
-	}
-	if ( ioctl( mFD, SPI_IOC_RD_LSB_FIRST, &lsb ) < 0 )
-	{
-		std::cout << "SPI rd_lsb_fist\n";
-	}
-
-    printf( "%s:%d: spi mode %d, %d bits %sper word, %d Hz max\n", devfile.c_str(), mFD, mode, mBits, lsb ? "(lsb first) " : "", speed );
-
-	memset( mXFer, 0, sizeof( mXFer ) );
-	for ( uint32_t i = 0; i < sizeof( mXFer ) /  sizeof( struct spi_ioc_transfer ); i++) {
-		mXFer[i].len = 0;
-		mXFer[i].cs_change = 0; // Keep CS activated
-		mXFer[i].delay_usecs = 0;
-		mXFer[i].speed_hz = 500000;
-		mXFer[i].bits_per_word = 8;
-	}
 }
 
 
@@ -89,7 +39,7 @@ uint16_t MCP320x::Read( uint8_t channel )
 	static const int nbx = 4;
 	uint32_t b[3] = { 0, 0, 0 };
 	uint8_t bx[nbx][3] = { { 0 } };
-	uint8_t buf[16];
+	uint8_t buf[12];
 
 	buf[0] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
 	buf[1] = ( ( channel & 0b11 ) << 6 );
@@ -105,11 +55,7 @@ uint16_t MCP320x::Read( uint8_t channel )
 	buf[11] = 0x00;
 
 	for ( int i = 0; i < nbx; i++ ) {
-		mXFer[0].tx_buf = (uintptr_t)buf;
-		mXFer[0].len = 3;
-		mXFer[0].rx_buf = (uintptr_t)bx[i];
-		int ret = ioctl( mFD, SPI_IOC_MESSAGE(1), mXFer );
-		if ( ret < 0 ) {
+		if ( mSPI->Transfer( buf, bx[i], 3 ) < 0 ) {
 			return 0;
 		}
 	}
@@ -117,6 +63,7 @@ uint16_t MCP320x::Read( uint8_t channel )
 	for ( int j = 0; j < nbx; j++ ) {
 		for ( int i = 0; i < nbx; i++ ) {
 			if ( i != j and bx[i][1] != bx[j][1] ) {
+// 				printf( "ADC too large (%X, %X)\n", bx[i][1], bx[j][1] );
 				return 0;
 			}
 		}
@@ -131,18 +78,7 @@ uint16_t MCP320x::Read( uint8_t channel )
 	b[2] /= nbx;
 
 	b[2] = b[2] & 0xF7;
-/*
-	if ( channel != 7 ) {
-		if ( b[1] < 0x05 ) {
-			return 1500;
-		}
-		if ( b[1] > 0x09 ) {
-			return 2500;
-		}
-	}
-*/
-// 	printf( "channel %d : { %02X %02X %02X %04X %d }\n", channel, b[0], b[1], b[2], ( ( b[1] & 0b1111 ) << 8 ) | b[2], ( ( b[1] & 0b1111 ) << 8 ) | b[2] );
-// 	printf( "channel %d => %d\n", channel, ( ( b[1] & 0b1111 ) << 8 ) | b[2] ); fflush(stdout);
+
 	return ( ( b[1] & 0b1111 ) << 8 ) | b[2];
 
 }

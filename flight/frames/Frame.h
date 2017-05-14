@@ -37,7 +37,7 @@ public:
 	Frame();
 	virtual ~Frame();
 
-	const std::vector< Motor* >& motors() const;
+	std::vector< Motor* >* motors();
 
 	virtual void Arm() = 0;
 	virtual void Disarm() = 0;

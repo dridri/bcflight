@@ -30,6 +30,8 @@
 # Other
 *.kdev4
 build
+*~
+shield.txt
 
 # lib
 external/openh264*/*

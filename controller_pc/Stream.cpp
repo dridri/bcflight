@@ -37,6 +37,8 @@ Stream::Stream( QWidget* parent )
 	, mMainWindow( nullptr )
 	, mLink( nullptr )
 	, mAudioLink( nullptr )
+	, mWidth( 0 )
+	, mHeight( 0 )
 	, mShader( nullptr )
 	, mFpsCounter( 0 )
 	, mFps( 0 )
@@ -65,6 +67,8 @@ Stream::Stream( QWidget* parent )
 
 	mStreamThread->start();
 	mAudioThread->start();
+	mStreamThread->setPriority( QThread::TimeCriticalPriority );
+	mAudioThread->setPriority( QThread::TimeCriticalPriority );
 	connect( this, SIGNAL( repaintEmitter() ), this, SLOT( repaintReceiver() ) );
 
 	qDebug() << "WelsCreateDecoder :" << WelsCreateDecoder( &mDecoder );
@@ -232,7 +236,17 @@ void Stream::paintGL()
 		mExposureID = mShader->uniformLocation( "exposure_value" );
 		mGammaID = mShader->uniformLocation( "gamma_compensation" );
 	}
-	if ( mY.tex == 0 and mU.tex == 0 and mV.tex == 0 and mY.stride > 0 and mY.height > 0 ) {
+// 	if ( mY.tex == 0 and mU.tex == 0 and mV.tex == 0 and mY.stride > 0 and mY.height > 0 ) {
+	if ( mY.tex == 0 or mU.tex == 0 or mY.stride != mWidth or mY.height != mHeight ) {
+		if ( mY.tex ) {
+			glDeleteTextures( 1, &mY.tex );
+		}
+		if ( mU.tex ) {
+			glDeleteTextures( 1, &mU.tex );
+		}
+		mWidth = mY.stride;
+		mHeight = mY.height;
+		printf( "====> SIZE : %d x %d\n", mY.stride, mY.height );
 		glGenTextures( 1, &mY.tex );
 		glBindTexture( GL_TEXTURE_2D, mY.tex );
 		glTexImage2D( GL_TEXTURE_2D, 0, GL_R8, mY.stride, mY.height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL );
@@ -254,10 +268,10 @@ void Stream::paintGL()
 	glClear( GL_COLOR_BUFFER_BIT );
 	static float quadVertices[] = {
 		// X, Y, U, V
-		 1.0f, -1.0f,  1.0f, 1.0f,
-		 1.0f,  1.0f,  1.0f, 0.0f,
-		-1.0f, -1.0f,  0.0f, 1.0f,
-		-1.0f,  1.0f,  0.0f, 0.0f,
+		 1.0f,  1.0f,  1.0f, 1.0f,
+		 1.0f, -1.0f,  1.0f, 0.0f,
+		-1.0f,  1.0f,  0.0f, 1.0f,
+		-1.0f, -1.0f,  0.0f, 0.0f,
 	};
 	quadVertices[2] = (float)mY.width / (float)mY.stride;
 	quadVertices[6] = (float)mY.width / (float)mY.stride;

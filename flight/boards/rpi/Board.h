@@ -23,6 +23,7 @@
 #include <list>
 #include <string>
 #include <map>
+#include "Thread.h"
 
 extern "C" {
 #include <interface/vchi/vchi.h>
@@ -72,6 +73,8 @@ public:
 	static void Reset();
 
 private:
+	bool StatsThreadRun();
+
 	static uint64_t mTicksBase;
 	static std::map< std::string, std::string > mRegisters;
 	static uint64_t mLastWorkJiffies;
@@ -83,6 +86,10 @@ private:
 	static void VCOSInit();
 	static VCHI_INSTANCE_T global_initialise_instance;
 	static VCHI_CONNECTION_T* global_connection;
+
+	static HookThread<Board>* mStatsThread;
+	static uint32_t mCPULoad;
+	static uint32_t mCPUTemp;
 };
 
 #endif // BOARD_H

@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/mount.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <wiringPi.h>
@@ -36,22 +37,24 @@ ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 	mConfig = config;
 
 	wiringPiSetupGpio();
-// 	pullUpDnControl( 20, PUD_DOWN );
-	pullUpDnControl( 21, PUD_DOWN );
-	pullUpDnControl( 0, PUD_DOWN );
+
+// 	pullUpDnControl( 4, PUD_DOWN );
 	pullUpDnControl( 5, PUD_DOWN );
 	pullUpDnControl( 6, PUD_DOWN );
-	pullUpDnControl( 13, PUD_DOWN );
-	pullUpDnControl( 19, PUD_DOWN );
+	pullUpDnControl( 22, PUD_DOWN );
+	pullUpDnControl( 23, PUD_DOWN );
+	pullUpDnControl( 24, PUD_DOWN );
 	pullUpDnControl( 26, PUD_DOWN );
-// 	pinMode( 20, INPUT );
-	pinMode( 21, INPUT );
-	pinMode( 0, INPUT );
+	pullUpDnControl( 27, PUD_DOWN );
+// 	pinMode( 4, INPUT );
 	pinMode( 5, INPUT );
 	pinMode( 6, INPUT );
-	pinMode( 13, INPUT );
-	pinMode( 19, INPUT );
+	pinMode( 22, INPUT );
+	pinMode( 23, INPUT );
+	pinMode( 24, INPUT );
 	pinMode( 26, INPUT );
+	pinMode( 27, INPUT );
+
 }
 
 
@@ -62,13 +65,19 @@ ControllerClient::~ControllerClient()
 
 int8_t ControllerClient::ReadSwitch( uint32_t id )
 {
-	static const uint32_t map[8] = { 20, 21, 0, 5, 6, 13, 19, 26 };
+	static const uint32_t map[8] = { 0, 5, 23, 24, 6, 26, 22, 27 };
 
-	if ( id >= 8 or id == 0 ) {
+	if ( id >= 8 ) {
+		return 0;
+	}
+	if ( map[id] == 0 ) {
 		return 0;
 	}
 
 	int8_t ret = !digitalRead( map[id] );
+	if ( id == 1 ) {
+		ret = !ret;
+	}
 	return ret;
 }
 
@@ -81,7 +90,7 @@ float ControllerClient::ReadThrust()
 
 float ControllerClient::ReadRoll()
 {
-	return -mJoysticks[3].Read();
+	return mJoysticks[3].Read();
 }
 
 
@@ -100,7 +109,7 @@ float ControllerClient::ReadYaw()
 bool ControllerClient::run()
 {
 	if ( mADC == nullptr ) {
-		mADC = new MCP320x( "/dev/spidev32766.0" );
+		mADC = new MCP320x( mConfig->string( "adc.device", "/dev/spidev1.0" ) );
 		mJoysticks[0] = Joystick( mADC, 0, 0, true );
 		mJoysticks[1] = Joystick( mADC, 1, 1 );
 		mJoysticks[2] = Joystick( mADC, 2, 2 );
@@ -109,7 +118,12 @@ bool ControllerClient::run()
 	if ( mADC ) {
 		uint16_t battery_voltage = mADC->Read( 7 );
 		if ( battery_voltage != 0 ) {
-			mLocalBatteryVoltage = (float)battery_voltage * 4.80f * 4.0f / 4096.0f;
+			float voltage = (float)battery_voltage * 5.3f * 4.0f / 4096.0f;
+			if ( mLocalBatteryVoltage == 0.0f ) {
+				mLocalBatteryVoltage = voltage;
+			} else {
+				mLocalBatteryVoltage = mLocalBatteryVoltage * 0.98f + voltage * 0.02f;
+			}
 		}
 	}
 
@@ -155,7 +169,10 @@ uint16_t ControllerClient::Joystick::ReadRaw()
 	if ( mADC == nullptr ) {
 		return 0;
 	}
-	mLastRaw = mADC->Read( mADCChannel );
+	uint32_t raw = mADC->Read( mADCChannel );
+	if ( raw != 0 ) {
+		mLastRaw = mLastRaw * 0.5f + raw * 0.5f;
+	}
 	return mLastRaw;
 }
 
@@ -192,9 +209,9 @@ void ControllerClient::SaveThrustCalibration( uint16_t min, uint16_t center, uin
 	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":min", min );
 	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":cen", center );
 	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":max", max );
-	system( "mount -o remount,rw /" );
+	mount( "", "/", "", MS_REMOUNT, nullptr );
 	mConfig->SaveSettings( "/root/settings" );
-	system( "mount -o remount,ro /" );
+	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
 
@@ -204,9 +221,9 @@ void ControllerClient::SaveYawCalibration( uint16_t min, uint16_t center, uint16
 	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":min", min );
 	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":cen", center );
 	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":max", max );
-	system( "mount -o remount,rw /" );
+	mount( "", "/", "", MS_REMOUNT, nullptr );
 	mConfig->SaveSettings( "/root/settings" );
-	system( "mount -o remount,ro /" );
+	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
 
@@ -216,9 +233,9 @@ void ControllerClient::SavePitchCalibration( uint16_t min, uint16_t center, uint
 	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":min", min );
 	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":cen", center );
 	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":max", max );
-	system( "mount -o remount,rw /" );
+	mount( "", "/", "", MS_REMOUNT, nullptr );
 	mConfig->SaveSettings( "/root/settings" );
-	system( "mount -o remount,ro /" );
+	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
 
@@ -228,7 +245,7 @@ void ControllerClient::SaveRollCalibration( uint16_t min, uint16_t center, uint1
 	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":min", min );
 	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":cen", center );
 	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":max", max );
-	system( "mount -o remount,rw /" );
+	mount( "", "/", "", MS_REMOUNT, nullptr );
 	mConfig->SaveSettings( "/root/settings" );
-	system( "mount -o remount,ro /" );
+	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }

@@ -168,18 +168,21 @@ bool PowerThread::run()
 
 	mCapacityMutex.lock();
 	if ( mCellsCount == 0 ) {
-		if ( mVBat >= 25.0f ) {
+		if ( mVBat >= 3.365f * 6.0f ) {
 			mCellsCount = 6;
-		} else if ( mVBat >= 20.0f ) {
+		} else if ( mVBat >= 3.365f * 5.0f ) {
 			mCellsCount = 5;
-		} else if ( mVBat >= 15.0f ) {
+		} else if ( mVBat >= 3.365f * 4.0f ) {
 			mCellsCount = 4;
-		} else if ( mVBat >= 10.0f ) {
+		} else if ( mVBat >= 3.365f * 3.0f ) {
 			mCellsCount = 3;
-		} else if ( mVBat >= 5.0f ) {
+		} else if ( mVBat >= 3.365f * 2.0f ) {
 			mCellsCount = 2;
-		} else {
+		} else if ( mVBat >= 3.365f * 1.0f ) {
 			mCellsCount = 1;
+		} else {
+			mCellsCount = 6;
+			gDebug() << "Critical : DANGEROUS BATTERY VOLTAGE\n";
 		}
 	}
 	mCapacityMutex.unlock();

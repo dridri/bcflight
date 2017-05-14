@@ -28,6 +28,8 @@ public:
 	Matrix( const Matrix& other );
 	virtual ~Matrix();
 
+	void Orthogonal( float left, float right, float bottom, float top, float zNear, float zFar );
+
 	float* data();
 	const float* constData() const;
 	const int width() const;

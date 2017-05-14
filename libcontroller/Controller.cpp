@@ -29,90 +29,12 @@
 #include "links/RawWifi.h"
 
 
-std::map< Controller::Cmd, std::string > Controller::mCommandsNames = {
-	{ Controller::UNKNOWN, "Unknown" },
-	// Configure
-	{ Controller::PING, "Ping" },
-	{ Controller::CALIBRATE, "Calibrate" },
-	{ Controller::SET_TIMESTAMP, "Set timestamp" },
-	{ Controller::ARM, "Arm" },
-	{ Controller::DISARM, "Disarm" },
-	{ Controller::RESET_BATTERY, "0x75" },
-	{ Controller::CALIBRATE_ESCS, "0x76" },
-	{ Controller::SET_FULL_TELEMETRY, "0x77" },
-	{ Controller::DEBUG_OUTPUT, "0x7A" },
-	{ Controller::GET_BOARD_INFOS, "0x80" },
-	{ Controller::GET_SENSORS_INFOS, "0x81" },
-	{ Controller::GET_CONFIG_FILE, "0x90" },
-	{ Controller::SET_CONFIG_FILE, "0x91" },
-	{ Controller::UPDATE_UPLOAD_INIT, "0x9A" },
-	{ Controller::UPDATE_UPLOAD_DATA, "0x9B" },
-	{ Controller::UPDATE_UPLOAD_PROCESS, "0x9C" },
-	// Getters
-	{ Controller::PRESSURE, "0x10" },
-	{ Controller::TEMPERATURE, "0x11" },
-	{ Controller::ALTITUDE, "Altitude" },
-	{ Controller::ROLL, "Roll" },
-	{ Controller::PITCH, "Pitch" },
-	{ Controller::YAW, "Yaw" },
-	{ Controller::ROLL_PITCH_YAW, "Roll-Pitch-Yaw" },
-	{ Controller::ACCEL, "Acceleration" },
-	{ Controller::GYRO, "Gyroscope" },
-	{ Controller::MAGN, "Magnetometer" },
-	{ Controller::MOTORS_SPEED, "0x1A" },
-	{ Controller::CURRENT_ACCELERATION, "Current acceleration" },
-	{ Controller::SENSORS_DATA, "0x20" },
-	{ Controller::PID_OUTPUT, "0x21" },
-	{ Controller::OUTER_PID_OUTPUT, "0x22" },
-	{ Controller::ROLL_PID_FACTORS, "0x23" },
-	{ Controller::PITCH_PID_FACTORS, "0x24" },
-	{ Controller::YAW_PID_FACTORS, "0x25" },
-	{ Controller::OUTER_PID_FACTORS, "0x26" },
-	{ Controller::HORIZON_OFFSET, "0x27" },
-	{ Controller::VBAT, "Battery voltage" },
-	{ Controller::TOTAL_CURRENT, "Total current draw" },
-	{ Controller::CURRENT_DRAW, "Current draw" },
-	{ Controller::BATTERY_LEVEL, "Battery level" },
-	{ Controller::CPU_LOAD, "0x35" },
-	{ Controller::CPU_TEMP, "0x36" },
-	{ Controller::RX_QUALITY, "0x37" },
-	// Setters
-	{ Controller::SET_ROLL, "0x40" },
-	{ Controller::SET_PITCH, "0x41" },
-	{ Controller::SET_YAW, "0x42" },
-	{ Controller::SET_THRUST, "0x43" },
-	{ Controller::RESET_MOTORS, "0x47" },
-	{ Controller::SET_MODE, "0x48" },
-	{ Controller::SET_ALTITUDE_HOLD, "Altitude hold" },
-	{ Controller::SET_ROLL_PID_P, "0x50" },
-	{ Controller::SET_ROLL_PID_I, "0x51" },
-	{ Controller::SET_ROLL_PID_D, "0x52" },
-	{ Controller::SET_PITCH_PID_P, "0x53" },
-	{ Controller::SET_PITCH_PID_I, "0x54" },
-	{ Controller::SET_PITCH_PID_D, "0x55" },
-	{ Controller::SET_YAW_PID_P, "0x56" },
-	{ Controller::SET_YAW_PID_I, "0x57" },
-	{ Controller::SET_YAW_PID_D, "0x58" },
-	{ Controller::SET_OUTER_PID_P, "0x59" },
-	{ Controller::SET_OUTER_PID_I, "0x5A" },
-	{ Controller::SET_OUTER_PID_D, "0x5B" },
-	{ Controller::SET_HORIZON_OFFSET, "0x5C" },
-	// Video
-	{ Controller::VIDEO_START_RECORD, "0xA0" },
-	{ Controller::VIDEO_STOP_RECORD, "0xA1" },
-	{ Controller::VIDEO_BRIGHTNESS_INCR, "0xA4" },
-	{ Controller::VIDEO_BRIGHTNESS_DECR, "0xA5" },
-	{ Controller::VIDEO_CONTRAST_INCR, "0xA6" },
-	{ Controller::VIDEO_CONTRAST_DECR, "0xA7" },
-	{ Controller::VIDEO_SATURATION_INCR, "0xA8" },
-	{ Controller::VIDEO_SATURATION_DECR, "0xA9" },
-	{ Controller::VIDEO_NIGHT_MODE, "0xC0" },
-};
-
 Controller::Controller( Link* link, bool spectate )
-	: Thread( "controller-tx" )
+	: ControllerBase( link )
+	, Thread( "controller-tx" )
 	, mPing( 0 )
 	, mCalibrated( false )
+	, mCalibrating( false )
 	, mArmed( false )
 	, mTotalCurrent( 0 )
 	, mCurrentDraw( 0 )
@@ -125,18 +47,16 @@ Controller::Controller( Link* link, bool spectate )
 	, mControlRPY{ 0.0f, 0.0f, 0.0f }
 	, mPIDsLoaded( false )
 	, mDroneRxQuality( 0 )
+	, mDroneRxLevel( 0 )
 	, mNightMode( false )
 	, mCameraMissing( false )
-	, mLink( link )
 	, mSpectate( spectate )
-	, mConnected( false )
-	, mConnectionEstablished( false )
-	, mLockState( 0 )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
 	, mDataTimer( 0 )
 	, mMsCounter( 0 )
 	, mMsCounter50( 0 )
+	, mRequestAck( false )
 	, mBoardInfos( "" )
 	, mSensorsInfos( "" )
 	, mConfigFile( "" )
@@ -147,9 +67,18 @@ Controller::Controller( Link* link, bool spectate )
 	, mSwitches{ 0 }
 	, mVideoRecording( false )
 	, mAcceleration( 0.0f )
+	, mLocalBatteryVoltage( 0 )
 {
 	mMode = Rate;
 	memset( mSwitches, 0, sizeof( mSwitches ) );
+
+	memset( &mRollPID, 0, sizeof(mRollPID) );
+	memset( &mPitchPID, 0, sizeof(mPitchPID) );
+	memset( &mYawPID, 0, sizeof(mYawPID) );
+	memset( &mOuterPID, 0, sizeof(mOuterPID) );
+	memset( &mHorizonOffset, 0, sizeof(mHorizonOffset) );
+
+	memset( &mControls, 0, sizeof(mControls) );
 
 #ifndef WIN32
 	signal( SIGPIPE, SIG_IGN );
@@ -158,7 +87,7 @@ Controller::Controller( Link* link, bool spectate )
 	mRxThread->setPriority( 99, 1 );
 
 	if ( spectate ) {
-		Stop();
+		Start();
 		mRxThread->Start();
 	} else {
 		Start();
@@ -190,6 +119,12 @@ bool Controller::run()
 {
 	uint64_t ticks0 = Thread::GetTick();
 
+	if ( mLockState >= 1 ) {
+		mLockState = 2;
+		usleep( 1000 * 10 );
+		return true;
+	}
+
 	if ( not mLink ) {
 		usleep( 1000 * 500 );
 		return true;
@@ -199,7 +134,7 @@ bool Controller::run()
 		std::cout << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
-			setPriority( 99, 1 );
+			setPriority( 99, 0 );
 			std::cout << "Ok !\n" << std::flush;
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
@@ -210,41 +145,19 @@ bool Controller::run()
 		return true;
 	}
 
-
-	if ( mLockState >= 1 ) {
-		mLockState = 2;
-		usleep( 1000 * 10 );
-		return true;
-	}
-
-	if ( Thread::GetTick() - mPingTimer >= 125 ) {
-		uint64_t ticks = Thread::GetTick();
+	if ( mSpectate ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( PING );
-		mTxFrame.WriteU32( (uint32_t)( ticks & 0xFFFFFFFFL ) );
-		mTxFrame.WriteU32( mPing ); // Report current ping
-		mLink->Write( &mTxFrame );
+		if ( mTxFrame.data().size() > 0 ) {
+			std::cout << "Sending " << mTxFrame.data().size()*4 << " bytes\n";
+			mLink->Write( &mTxFrame );
+		}
+		mTxFrame = Packet();
 		mXferMutex.unlock();
 
-		if ( not mRxThread->running() ) {
-			mRxThread->Start();
-			mXferMutex.lock();
-			mTxFrame.WriteU32( ROLL_PID_FACTORS );
-			mTxFrame.WriteU32( PITCH_PID_FACTORS );
-			mTxFrame.WriteU32( YAW_PID_FACTORS );
-			mTxFrame.WriteU32( OUTER_PID_FACTORS );
-			mTxFrame.WriteU32( HORIZON_OFFSET );
-			mXferMutex.unlock();
-		}
-
-		mPingTimer = Thread::GetTick();
-	}
-
-	// Send controls at 10Hz, allowing to be sure that TRPY are well received by the drone
-	bool force_update_controls = false;
-	if ( Thread::GetTick() - mDataTimer >= 1000 / 50 ) {
-		force_update_controls = true;
-		mDataTimer = Thread::GetTick();
+		mTicks = Thread::GetTick();
+		mMsCounter += ( mTicks - ticks0 );
+		usleep( 1000 * 1000 / 100 );
+		return true;
 	}
 
 	uint32_t oldswitch[8];
@@ -259,9 +172,14 @@ bool Controller::run()
 		mSwitches[i] = on;
 	}
 
+	if ( mSwitches[1] and not oldswitch[1] ) {
+		VideoTakePicture();
+	}
+
 	if ( mSwitches[2] and not mArmed and mCalibrated ) {
 		Arm();
 	} else if ( not mSwitches[2] and mArmed ) {
+		printf( "Disarming...\n" );
 		Disarm();
 	}
 	if ( mSwitches[3] and mMode != Stabilize ) {
@@ -276,65 +194,92 @@ bool Controller::run()
 	}
 	if ( mSwitches[5] and not mVideoRecording ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( VIDEO_START_RECORD );
+		mTxFrame.WriteU16( VIDEO_START_RECORD );
 		mXferMutex.unlock();
 	} else if ( not mSwitches[5] and mVideoRecording ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( VIDEO_STOP_RECORD );
+		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
 	}
 
-	float r_thrust = ReadThrust();
-	float r_yaw = ReadYaw();
-	float r_pitch = ReadPitch();
-	float r_roll = ReadRoll();
-	if ( ( force_update_controls or fabsf( r_thrust - mThrust ) >= 0.01f ) and r_thrust >= 0.0f and r_thrust <= 1.0f ) {
-		setThrust( r_thrust );
+	float f_thrust = ReadThrust();
+	float f_yaw = ReadYaw();
+	float f_pitch = ReadPitch();
+	float f_roll = ReadRoll();
+	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
+		mControls.thrust = (int8_t)( std::max( 0.0f, std::min( 1.0f, f_thrust ) ) * 127.0f );
 	}
-	if ( r_yaw >= -1.0f and r_yaw <= 1.0f ) {
-		if ( fabsf( r_yaw ) <= 0.05f ) {
-			r_yaw = 0.0f;
+	if ( f_yaw >= -1.0f and f_yaw <= 1.0f ) {
+		if ( fabsf( f_yaw ) <= 0.05f ) {
+			f_yaw = 0.0f;
 		}
-		if ( ( force_update_controls or fabsf( r_yaw - mControlRPY.z ) >= 0.01f ) ) {
-			setYaw( r_yaw );
-		}
+		mControls.yaw = (int8_t)( std::max( -1.0f, std::min( 1.0f, f_yaw ) ) * 127.0f );
 	}
-	if ( r_pitch >= -1.0f and r_pitch <= 1.0f ) {
-		if ( fabsf( r_pitch ) <= 0.05f ) {
-			r_pitch = 0.0f;
+	if ( f_pitch >= -1.0f and f_pitch <= 1.0f ) {
+		if ( fabsf( f_pitch ) <= 0.05f ) {
+			f_pitch = 0.0f;
 		}
-		else if ( r_pitch < 0.0f ) {
-			r_pitch += 0.05f;
-		} else if ( r_pitch > 0.0f ) {
-			r_pitch -= 0.05f;
+		else if ( f_pitch < 0.0f ) {
+			f_pitch += 0.05f;
+		} else if ( f_pitch > 0.0f ) {
+			f_pitch -= 0.05f;
 		}
-		if ( ( force_update_controls or fabsf( r_pitch - mControlRPY.y ) >= 0.01f ) ) {
-			setPitch( r_pitch );
-		}
+		mControls.pitch = (int8_t)( std::max( -1.0f, std::min( 1.0f, f_pitch ) ) * 127.0f );
 	}
-	if ( r_roll >= -1.0f and r_roll <= 1.0f ) {
-		if ( fabsf( r_roll ) <= 0.05f ) {
-			r_roll = 0.0f;
+	if ( f_roll >= -1.0f and f_roll <= 1.0f ) {
+		if ( fabsf( f_roll ) <= 0.05f ) {
+			f_roll = 0.0f;
 		}
-		else if ( r_roll < 0.0f ) {
-			r_roll += 0.05f;
-		} else if ( r_roll > 0.0f ) {
-			r_roll -= 0.05f;
+		else if ( f_roll < 0.0f ) {
+			f_roll += 0.05f;
+		} else if ( f_roll > 0.0f ) {
+			f_roll -= 0.05f;
 		}
-		if ( ( force_update_controls or fabsf( r_roll - mControlRPY.x ) >= 0.01f ) ) {
-			setRoll( r_roll );
+		mControls.roll = (int8_t)( std::max( -1.0f, std::min( 1.0f, f_roll ) ) * 127.0f );
+	}
+	mTxFrame.WriteU16( CONTROLS );
+	mTxFrame.Write( (uint8_t*)&mControls, sizeof(mControls) );
+
+	bool request_ack = false;
+	if ( Thread::GetTick() - mPingTimer >= 100 ) {
+		request_ack = true;
+		uint64_t ticks = Thread::GetTick();
+		mXferMutex.lock();
+		mTxFrame.WriteU16( PING );
+		mTxFrame.WriteU16( (uint16_t)( ticks & 0x0000FFFFL ) );
+		mTxFrame.WriteU16( mPing ); // Report current ping
+		mXferMutex.unlock();
+
+		if ( not mRxThread->running() ) {
+			mRxThread->Start();
+			mXferMutex.lock();
+			mTxFrame.WriteU16( ROLL_PID_FACTORS );
+			mTxFrame.WriteU16( PITCH_PID_FACTORS );
+			mTxFrame.WriteU16( YAW_PID_FACTORS );
+			mTxFrame.WriteU16( OUTER_PID_FACTORS );
+			mTxFrame.WriteU16( HORIZON_OFFSET );
+			mXferMutex.unlock();
 		}
+
+		if ( mUsername == "" ) {
+			mXferMutex.lock();
+			mTxFrame.WriteU16( GET_USERNAME );
+			mXferMutex.unlock();
+		}
+
+		mPingTimer = Thread::GetTick();
 	}
 
 	mXferMutex.lock();
 	if ( mTxFrame.data().size() > 0 ) {
-		mLink->Write( &mTxFrame );
+		mLink->Write( &mTxFrame, mRequestAck );
+		mRequestAck = request_ack;
 	}
 	mTxFrame = Packet();
 	mXferMutex.unlock();
 
-	if ( Thread::GetTick() - mTicks < 1000 / 500 ) {
-		usleep( 1000 * std::max( 0, 1000 / 500 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
+	if ( Thread::GetTick() - mTicks < 1000 / 150 ) {
+		usleep( 1000 * std::max( 0, 1000 / 150 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
 	}
 	mTicks = Thread::GetTick();
 	mMsCounter += ( mTicks - ticks0 );
@@ -363,7 +308,7 @@ bool Controller::RxRun()
 	}
 	Cmd cmd = (Cmd)0;
 
-	while ( telemetry.ReadU32( (uint32_t*)&cmd ) > 0 ) {
+	while ( telemetry.ReadU16( (uint16_t*)&cmd ) > 0 ) {
 // 		std::cout << "Received command : " << mCommandsNames[(cmd)] << "\n";
 
 		switch( cmd ) {
@@ -371,14 +316,38 @@ bool Controller::RxRun()
 				break;
 			}
 			case PING : {
-				uint32_t ret = telemetry.ReadU32();
-				uint32_t reported_ping = telemetry.ReadU32();
-				uint32_t curr = (uint32_t)( Thread::GetTick() & 0xFFFFFFFFL );
+				uint32_t ret = telemetry.ReadU16();
+				uint32_t reported_ping = telemetry.ReadU16();
+				uint32_t curr = (uint32_t)( Thread::GetTick() & 0x0000FFFFL );
 				mPing = curr - ret;
 				if ( mSpectate ) {
 					mPing = reported_ping;
 				}
 				mConnectionEstablished = true;
+				break;
+			}
+			case STATUS : {
+				uint32_t status = 0;
+				if ( telemetry.ReadU32( &status ) == sizeof(uint32_t) ) {
+					mArmed = status & STATUS_ARMED;
+					mCalibrated = status & STATUS_CALIBRATED;
+					mCalibrating = status & STATUS_CALIBRATING;
+					mNightMode = status & STATUS_NIGHTMODE;
+				}
+				break;
+			}
+			case TELEMETRY : {
+				Telemetry data;
+				memset( &data, 0, sizeof(data) );
+				telemetry.Read( (uint8_t*)&data, sizeof(data) );
+				mBatteryVoltage = (float)(data.battery_voltage) / 100.0f;
+				mTotalCurrent = (float)data.total_current;
+				mCurrentDraw = (float)data.current_draw;
+				mBatteryLevel = (float)(data.battery_level) / 100.0f;
+				mCPULoad = data.cpu_load;
+				mCPUTemp = data.cpu_temp;
+				mDroneRxQuality = data.rx_quality;
+				mDroneRxLevel = data.rx_level;
 				break;
 			}
 			case DEBUG_OUTPUT : {
@@ -396,9 +365,17 @@ bool Controller::RxRun()
 					std::cout << "Calibration success\n" << std::flush;
 				} else if ( value == 2 ) {
 					// This value is regularily sent to tell that the drone is still calibrated
+					mCalibrated = true;
+				} else if ( value == 3 ) {
+					// This value is regularily sent to tell that the drone is not calibrated
+					mCalibrated = false;
 				} else {
 					std::cout << "WARNING : Calibration failed !\n" << std::flush;
 				}
+				break;
+			}
+			case CALIBRATING : {
+				mCalibrating = telemetry.ReadU32();
 				break;
 			}
 			case ARM : {
@@ -435,6 +412,7 @@ bool Controller::RxRun()
 				break;
 			}
 			case SET_CONFIG_FILE : {
+				std::cout << "SET_CONFIG_FILE\n";
 				mConfigUploadValid = ( telemetry.ReadU32() == 0 );
 				break;
 			}
@@ -458,7 +436,10 @@ bool Controller::RxRun()
 				break;
 			}
 			case BATTERY_LEVEL : {
-				mBatteryLevel = telemetry.ReadFloat();
+				float level = 0.0f;
+				if ( telemetry.ReadFloat( &level ) == sizeof(float) ) {
+					mBatteryLevel = level;
+				}
 				break;
 			}
 			case CPU_LOAD : {
@@ -470,18 +451,32 @@ bool Controller::RxRun()
 				break;
 			}
 			case RX_QUALITY : {
-				mDroneRxQuality = telemetry.ReadU32();
+				uint32_t value = 0;
+				if ( telemetry.ReadU32( &value ) == sizeof(uint32_t) ) {
+					mDroneRxQuality = value;
+				}
+				break;
+			}
+			case RX_LEVEL : {
+				uint32_t value = 0;
+				if ( telemetry.ReadU32( &value ) == sizeof(uint32_t) ) {
+					mDroneRxLevel = (int32_t)value;
+				}
 				break;
 			}
 			case STABILIZER_FREQUENCY : {
-				mStabilizerFrequency = telemetry.ReadU32();
+				uint32_t value = 0;
+				if ( telemetry.ReadU32( &value ) == sizeof(uint32_t) ) {
+					mStabilizerFrequency = value;
+				}
 				break;
 			}
 			case MOTORS_SPEED: {
 				uint32_t size = telemetry.ReadU32();
 				mMotorsSpeed.clear();
-				for(int i =0; i< size ;i++) {
-					mMotorsSpeed.push_back(telemetry.ReadFloat());
+				for ( uint32_t i = 0; i < size; i++ ) {
+// 					mMotorsSpeed.push_back( telemetry.ReadFloat() );
+					(void)telemetry.ReadFloat();
 				}
 				break;
 			}
@@ -598,6 +593,20 @@ bool Controller::RxRun()
 				mHistoryMutex.unlock();
 				break;
 			}
+			case GYRO : {
+				vec4 rates;
+				rates.x = telemetry.ReadFloat();
+				rates.y = telemetry.ReadFloat();
+				rates.z = telemetry.ReadFloat();
+				rates.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
+				mRatesHistory.emplace_back( rates );
+				if ( mRatesHistory.size() > 256 ) {
+					mRatesHistory.pop_front();
+				}
+				mHistoryMutex.unlock();
+				break;
+			}
 			case CURRENT_ACCELERATION : {
 				mAcceleration = telemetry.ReadFloat();
 				break;
@@ -625,6 +634,10 @@ bool Controller::RxRun()
 				mVideoRecording = telemetry.ReadU32();
 				break;
 			}
+			case VIDEO_WHITE_BALANCE : {
+				mVideoWhiteBalance = telemetry.ReadString();
+				break;
+			}
 			case VIDEO_NIGHT_MODE : {
 				uint32_t night = telemetry.ReadU32();
 				if ( night != mNightMode ) {
@@ -645,8 +658,13 @@ bool Controller::RxRun()
 				break;
 			}
 
+			case GET_USERNAME : {
+				mUsername = telemetry.ReadString();
+				break;
+			}
+
 			// Errors
-			case CAMERA_MISSING : {
+			case ERROR_CAMERA_MISSING : {
 				mCameraMissing = true;
 				break;
 			}
@@ -663,6 +681,8 @@ bool Controller::RxRun()
 
 void Controller::Calibrate()
 {
+	std::cout << "Controller::Calibrate()\n";
+
 	if ( !mLink ) {
 		return;
 	}
@@ -673,14 +693,24 @@ void Controller::Calibrate()
 		float current_altitude = 0.0f;
 	} calibrate_cmd;
 	calibrate_cmd.cmd = htonl( CALIBRATE );
-	mXferMutex.lock();
-	mTxFrame.Write( (uint8_t*)&calibrate_cmd, sizeof( calibrate_cmd ) );
-	mXferMutex.unlock();
+	mCalibrated = false;
+	mCalibrating = false;
+	while ( not mCalibrating and not mCalibrated ) {
+		mXferMutex.lock();
+		mTxFrame.Write( (uint8_t*)&calibrate_cmd, sizeof( calibrate_cmd ) );
+		mXferMutex.unlock();
+		usleep( 50 * 1000 );
+		if ( not mCalibrating and not mCalibrated ) {
+			usleep( 1000 * 250 );
+		}
+	}
 }
 
 
 void Controller::CalibrateAll()
 {
+	std::cout << "Controller::CalibrateAll()\n";
+
 	if ( !mLink ) {
 		return;
 	}
@@ -704,7 +734,7 @@ void Controller::CalibrateESCs()
 	}
 
 	mXferMutex.lock();
-	mTxFrame.WriteU32( CALIBRATE_ESCS );
+	mTxFrame.WriteU16( CALIBRATE_ESCS );
 	mXferMutex.unlock();
 }
 
@@ -713,7 +743,7 @@ void Controller::setFullTelemetry( bool fullt )
 {
 	mXferMutex.lock();
 	for ( uint32_t retries = 0; retries < 8; retries++ ) {
-		mTxFrame.WriteU32( SET_FULL_TELEMETRY );
+		mTxFrame.WriteU16( SET_FULL_TELEMETRY );
 		mTxFrame.WriteU32( fullt );
 	}
 	mXferMutex.unlock();
@@ -722,9 +752,12 @@ void Controller::setFullTelemetry( bool fullt )
 
 void Controller::Arm()
 {
+	if ( mCalibrated == false ) {
+		return;
+	}
 	mXferMutex.lock();
 	for ( uint32_t retries = 0; retries < 1; retries++ ) {
-		mTxFrame.WriteU32( ARM );
+		mTxFrame.WriteU16( ARM );
 	}
 	mXferMutex.unlock();
 }
@@ -734,7 +767,7 @@ void Controller::Disarm()
 {
 	mXferMutex.lock();
 	for ( uint32_t retries = 0; retries < 1; retries++ ) {
-		mTxFrame.WriteU32( DISARM );
+		mTxFrame.WriteU16( DISARM );
 	}
 	mThrust = 0.0f;
 	mXferMutex.unlock();
@@ -745,7 +778,7 @@ void Controller::ResetBattery()
 {
 	mXferMutex.lock();
 	for ( uint32_t retries = 0; retries < 1; retries++ ) {
-		mTxFrame.WriteU32( RESET_BATTERY );
+		mTxFrame.WriteU16( RESET_BATTERY );
 		mTxFrame.WriteU32( 0U );
 	}
 	mXferMutex.unlock();
@@ -758,7 +791,7 @@ std::string Controller::getBoardInfos()
 	while ( mBoardInfos.length() == 0 ) {
 		mXferMutex.lock();
 		for ( uint32_t retries = 0; retries < 1; retries++ ) {
-			mTxFrame.WriteU32( GET_BOARD_INFOS );
+			mTxFrame.WriteU16( GET_BOARD_INFOS );
 		}
 		mXferMutex.unlock();
 		usleep( 1000 * 250 );
@@ -774,7 +807,7 @@ std::string Controller::getSensorsInfos()
 	while ( mSensorsInfos.length() == 0 ) {
 		mXferMutex.lock();
 		for ( uint32_t retries = 0; retries < 1; retries++ ) {
-			mTxFrame.WriteU32( GET_SENSORS_INFOS );
+			mTxFrame.WriteU16( GET_SENSORS_INFOS );
 		}
 		mXferMutex.unlock();
 		usleep( 1000 * 250 );
@@ -791,7 +824,7 @@ std::string Controller::getConfigFile()
 	// Wait for data to be filled by RX Thread (RxRun())
 	while ( mConfigFile.length() == 0 ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( GET_CONFIG_FILE );
+		mTxFrame.WriteU16( GET_CONFIG_FILE );
 		mXferMutex.unlock();
 		usleep( 1000 * 250 );
 	}
@@ -802,6 +835,7 @@ std::string Controller::getConfigFile()
 
 void Controller::setConfigFile( const std::string& content )
 {
+	std::cout << "setConfigFile...\n" << std::flush;
 	Packet packet( SET_CONFIG_FILE );
 	packet.WriteU32( crc32( (uint8_t*)content.c_str(), content.length() ) );
 	packet.WriteString( content );
@@ -809,13 +843,15 @@ void Controller::setConfigFile( const std::string& content )
 	mConfigUploadValid = false;
 	while ( not mConfigUploadValid ) {
 		mXferMutex.lock();
-// 		mTxFrame.WriteU32( SET_CONFIG_FILE );
+// 		mTxFrame.WriteU16( SET_CONFIG_FILE );
 // 		mTxFrame.WriteString( content );
+		std::cout << "Sending " << packet.data().size()*4 << " bytes\n";
 		mLink->Write( &packet );
 		mXferMutex.unlock();
 		usleep( 1000 * 250 );
 	};
 	mConfigFile = "";
+	std::cout << "setConfigFile ok\n" << std::flush;
 }
 
 
@@ -879,7 +915,7 @@ void Controller::UploadUpdateProcess( const uint8_t* buf, uint32_t size )
 void Controller::EnableTunDevice()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( ENABLE_TUN_DEVICE );
+	mTxFrame.WriteU16( ENABLE_TUN_DEVICE );
 	mXferMutex.unlock();
 }
 
@@ -887,7 +923,7 @@ void Controller::EnableTunDevice()
 void Controller::DisableTunDevice()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( DISABLE_TUN_DEVICE );
+	mTxFrame.WriteU16( DISABLE_TUN_DEVICE );
 	mXferMutex.unlock();
 }
 
@@ -896,10 +932,10 @@ void Controller::ReloadPIDs()
 {
 	for ( uint32_t retries = 0; retries < 4; retries++ ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( ROLL_PID_FACTORS );
-		mTxFrame.WriteU32( PITCH_PID_FACTORS );
-		mTxFrame.WriteU32( YAW_PID_FACTORS );
-		mTxFrame.WriteU32( OUTER_PID_FACTORS );
+		mTxFrame.WriteU16( ROLL_PID_FACTORS );
+		mTxFrame.WriteU16( PITCH_PID_FACTORS );
+		mTxFrame.WriteU16( YAW_PID_FACTORS );
+		mTxFrame.WriteU16( OUTER_PID_FACTORS );
 		mXferMutex.unlock();
 		usleep( 1000 * 10 );
 	}
@@ -911,11 +947,11 @@ void Controller::setRollPID( const vec3& v )
 	std::cout << "setRollPID...\n" << std::flush;
 	while ( mRollPID.x != v.x or mRollPID.y != v.y or mRollPID.z != v.z ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( SET_ROLL_PID_P );
+		mTxFrame.WriteU16( SET_ROLL_PID_P );
 		mTxFrame.WriteFloat( v.x );
-		mTxFrame.WriteU32( SET_ROLL_PID_I );
+		mTxFrame.WriteU16( SET_ROLL_PID_I );
 		mTxFrame.WriteFloat( v.y );
-		mTxFrame.WriteU32( SET_ROLL_PID_D );
+		mTxFrame.WriteU16( SET_ROLL_PID_D );
 		mTxFrame.WriteFloat( v.z );
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
@@ -929,11 +965,11 @@ void Controller::setPitchPID( const vec3& v )
 	std::cout << "setPitchPID...\n" << std::flush;
 	while ( mPitchPID.x != v.x or mPitchPID.y != v.y or mPitchPID.z != v.z ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( SET_PITCH_PID_P );
+		mTxFrame.WriteU16( SET_PITCH_PID_P );
 		mTxFrame.WriteFloat( v.x );
-		mTxFrame.WriteU32( SET_PITCH_PID_I );
+		mTxFrame.WriteU16( SET_PITCH_PID_I );
 		mTxFrame.WriteFloat( v.y );
-		mTxFrame.WriteU32( SET_PITCH_PID_D );
+		mTxFrame.WriteU16( SET_PITCH_PID_D );
 		mTxFrame.WriteFloat( v.z );
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
@@ -947,11 +983,11 @@ void Controller::setYawPID( const vec3& v )
 	std::cout << "setYawPID...\n" << std::flush;
 	while ( mYawPID.x != v.x or mYawPID.y != v.y or mYawPID.z != v.z ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( SET_YAW_PID_P );
+		mTxFrame.WriteU16( SET_YAW_PID_P );
 		mTxFrame.WriteFloat( v.x );
-		mTxFrame.WriteU32( SET_YAW_PID_I );
+		mTxFrame.WriteU16( SET_YAW_PID_I );
 		mTxFrame.WriteFloat( v.y );
-		mTxFrame.WriteU32( SET_YAW_PID_D );
+		mTxFrame.WriteU16( SET_YAW_PID_D );
 		mTxFrame.WriteFloat( v.z );
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
@@ -965,11 +1001,11 @@ void Controller::setOuterPID( const vec3& v )
 	std::cout << "setOuterPID...\n" << std::flush;
 	while ( mOuterPID.x != v.x or mOuterPID.y != v.y or mOuterPID.z != v.z ) {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( SET_OUTER_PID_P );
+		mTxFrame.WriteU16( SET_OUTER_PID_P );
 		mTxFrame.WriteFloat( v.x );
-		mTxFrame.WriteU32( SET_OUTER_PID_I );
+		mTxFrame.WriteU16( SET_OUTER_PID_I );
 		mTxFrame.WriteFloat( v.y );
-		mTxFrame.WriteU32( SET_OUTER_PID_D );
+		mTxFrame.WriteU16( SET_OUTER_PID_D );
 		mTxFrame.WriteFloat( v.z );
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
@@ -981,7 +1017,7 @@ void Controller::setOuterPID( const vec3& v )
 void Controller::setHorizonOffset( const vec3& v )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_HORIZON_OFFSET );
+	mTxFrame.WriteU16( SET_HORIZON_OFFSET );
 	mTxFrame.WriteFloat( v.x );
 	mTxFrame.WriteFloat( v.y );
 	mXferMutex.unlock();
@@ -991,7 +1027,7 @@ void Controller::setHorizonOffset( const vec3& v )
 void Controller::setThrust( const float& v )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_THRUST );
+	mTxFrame.WriteU16( SET_THRUST );
 	mTxFrame.WriteFloat( v );
 	mXferMutex.unlock();
 	mThrust = v;
@@ -1001,7 +1037,7 @@ void Controller::setThrust( const float& v )
 void Controller::setThrustRelative( const float& v )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_THRUST );
+	mTxFrame.WriteU16( SET_THRUST );
 	mTxFrame.WriteFloat( mThrust + v );
 	mThrust += v;
 	mXferMutex.unlock();
@@ -1011,7 +1047,7 @@ void Controller::setThrustRelative( const float& v )
 void Controller::setRoll( const float& v )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_ROLL );
+	mTxFrame.WriteU16( SET_ROLL );
 	mTxFrame.WriteFloat( v );
 	mControlRPY.x = v;
 	mXferMutex.unlock();
@@ -1021,7 +1057,7 @@ void Controller::setRoll( const float& v )
 void Controller::setPitch( const float& v )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_PITCH );
+	mTxFrame.WriteU16( SET_PITCH );
 	mTxFrame.WriteFloat( v );
 	mControlRPY.y = v;
 	mXferMutex.unlock();
@@ -1032,7 +1068,7 @@ void Controller::setPitch( const float& v )
 void Controller::setYaw( const float& v )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_YAW );
+	mTxFrame.WriteU16( SET_YAW );
 	mTxFrame.WriteFloat( v );
 	mControlRPY.z = v;
 	mXferMutex.unlock();
@@ -1042,7 +1078,7 @@ void Controller::setYaw( const float& v )
 void Controller::setMode( const Controller::Mode& mode )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( SET_MODE );
+	mTxFrame.WriteU16( SET_MODE );
 	mTxFrame.WriteU32( (uint32_t)mode );
 	mXferMutex.unlock();
 }
@@ -1051,7 +1087,7 @@ void Controller::setMode( const Controller::Mode& mode )
 void Controller::VideoPause()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_PAUSE );
+	mTxFrame.WriteU16( VIDEO_PAUSE );
 	mXferMutex.unlock();
 }
 
@@ -1059,7 +1095,15 @@ void Controller::VideoPause()
 void Controller::VideoResume()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_RESUME );
+	mTxFrame.WriteU16( VIDEO_RESUME );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoTakePicture()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU16( VIDEO_TAKE_PICTURE );
 	mXferMutex.unlock();
 }
 
@@ -1067,7 +1111,7 @@ void Controller::VideoResume()
 void Controller::VideoBrightnessIncrease()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_BRIGHTNESS_INCR );
+	mTxFrame.WriteU16( VIDEO_BRIGHTNESS_INCR );
 	mXferMutex.unlock();
 }
 
@@ -1075,7 +1119,7 @@ void Controller::VideoBrightnessIncrease()
 void Controller::VideoBrightnessDecrease()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_BRIGHTNESS_DECR );
+	mTxFrame.WriteU16( VIDEO_BRIGHTNESS_DECR );
 	mXferMutex.unlock();
 }
 
@@ -1083,7 +1127,7 @@ void Controller::VideoBrightnessDecrease()
 void Controller::VideoContrastIncrease()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_CONTRAST_INCR );
+	mTxFrame.WriteU16( VIDEO_CONTRAST_INCR );
 	mXferMutex.unlock();
 }
 
@@ -1091,7 +1135,7 @@ void Controller::VideoContrastIncrease()
 void Controller::VideoContrastDecrease()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_CONTRAST_DECR );
+	mTxFrame.WriteU16( VIDEO_CONTRAST_DECR );
 	mXferMutex.unlock();
 }
 
@@ -1099,7 +1143,7 @@ void Controller::VideoContrastDecrease()
 void Controller::VideoSaturationIncrease()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_SATURATION_INCR );
+	mTxFrame.WriteU16( VIDEO_SATURATION_INCR );
 	mXferMutex.unlock();
 }
 
@@ -1107,15 +1151,30 @@ void Controller::VideoSaturationIncrease()
 void Controller::VideoSaturationDecrease()
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_SATURATION_DECR );
+	mTxFrame.WriteU16( VIDEO_SATURATION_DECR );
 	mXferMutex.unlock();
+}
+
+
+std::string Controller::VideoWhiteBalance()
+{
+	mVideoWhiteBalance = "";
+
+	do {
+		mXferMutex.lock();
+		mTxFrame.WriteU16( VIDEO_WHITE_BALANCE );
+		mXferMutex.unlock();
+		usleep( 250 * 1000 );
+	} while ( mVideoWhiteBalance == "" );
+
+	return mVideoWhiteBalance;
 }
 
 
 void Controller::setNightMode( const bool& night )
 {
 	mXferMutex.lock();
-	mTxFrame.WriteU32( VIDEO_NIGHT_MODE );
+	mTxFrame.WriteU16( VIDEO_NIGHT_MODE );
 	mTxFrame.WriteU32( night );
 	mXferMutex.unlock();
 }
@@ -1128,7 +1187,7 @@ std::vector< std::string > Controller::recordingsList()
 	// Wait for data to be filled by RX Thread (RxRun())
 	do {
 		mXferMutex.lock();
-		mTxFrame.WriteU32( GET_RECORDINGS_LIST );
+		mTxFrame.WriteU16( GET_RECORDINGS_LIST );
 		mXferMutex.unlock();
 		uint32_t retry = 0;
 		while ( mRecordingsList.length() == 0 and retry++ < 1000 / 250 ) {
@@ -1157,6 +1216,15 @@ std::list< vec4 > Controller::rpyHistory()
 {
 	mHistoryMutex.lock();
 	std::list< vec4 > ret = mRPYHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
+std::list< vec4 > Controller::ratesHistory()
+{
+	mHistoryMutex.lock();
+	std::list< vec4 > ret = mRatesHistory;
 	mHistoryMutex.unlock();
 	return ret;
 }
@@ -1210,7 +1278,7 @@ void Controller::MotorTest(uint32_t id)
 	}
 
 	mXferMutex.lock();
-	mTxFrame.WriteU32( MOTOR_TEST );
+	mTxFrame.WriteU16( MOTOR_TEST );
 	mTxFrame.WriteU32( id );
 	mXferMutex.unlock();
 }

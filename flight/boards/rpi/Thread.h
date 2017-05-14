@@ -20,12 +20,13 @@
 #define THREAD_H
 
 #include <thread>
+#include <list>
 #include <pthread.h>
 
 class Thread
 {
 public:
-	Thread( const std::string& name = "flight" );
+	Thread( const std::string& name = "_thead_" );
 	virtual ~Thread();
 
 	void Start();
@@ -36,12 +37,20 @@ public:
 	void setPriority( int p, int affinity = -1 );
 	static void setMainPriority( int p );
 
+	static uint64_t GetTick();
+	static float GetSeconds();
+	static void StopAll();
+	static void EnterCritical() {/* mCriticalMutex.lock();*/ }
+	static void ExitCritical() {/* mCriticalMutex.unlock();*/ }
+
 protected:
 	virtual bool run() = 0;
 
 private:
 	void ThreadEntry();
+	std::string mName;
 	bool mRunning;
+	bool mStopped;
 	bool mIsRunning;
 	bool mFinished;
 	pthread_t mThread;
@@ -49,6 +58,7 @@ private:
 	int mSetPriority;
 	int mAffinity;
 	int mSetAffinity;
+	static std::list< Thread* > mThreads;
 };
 
 

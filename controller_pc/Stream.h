@@ -94,6 +94,8 @@ private:
 	Link* mLink;
 	Link* mAudioLink;
 	ISVCDecoder* mDecoder;
+	uint32_t mWidth;
+	uint32_t mHeight;
 	Plane mY;
 	Plane mU;
 	Plane mV;

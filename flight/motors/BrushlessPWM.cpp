@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#include <cmath>
 #include <Debug.h>
 #include "BrushlessPWM.h"
 
@@ -35,6 +36,9 @@ BrushlessPWM::~BrushlessPWM()
 
 void BrushlessPWM::setSpeedRaw( float speed, bool force_hw_update )
 {
+	if ( std::isnan( speed ) or std::isinf( speed ) ) {
+		return;
+	}
 	if ( speed < 0.0f ) {
 		speed = 0.0f;
 	}

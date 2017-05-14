@@ -60,6 +60,7 @@ void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, std::function<void()> fc
 	if ( mInterrupts.find( pin ) != mInterrupts.end() ) {
 		mInterrupts.at( pin ).emplace_back( fct );
 	} else {
+		pinMode( pin, INPUT );
 #define LINK_ISR(PIN) if(pin == PIN) { wiringPiISR( PIN, (int)mode, &GPIO::ISR_##PIN ); }
 		LINK_ISR(1);
 		LINK_ISR(2);

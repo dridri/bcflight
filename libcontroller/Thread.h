@@ -36,6 +36,7 @@ public:
 	bool running();
 
 	static uint64_t GetTick();
+	static float GetSeconds();
 	static void EnterCritical() {/* mCriticalMutex.lock();*/ }
 	static void ExitCritical() {/* mCriticalMutex.unlock();*/ }
 

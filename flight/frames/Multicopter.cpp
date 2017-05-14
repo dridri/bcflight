@@ -44,6 +44,7 @@ Multicopter::Multicopter( Config* config )
 		int fl_min = config->integer( "frame.motors[" + std::to_string(i+1) + "].minimum_us", 1020 );
 		int fl_max = config->integer( "frame.motors[" + std::to_string(i+1) + "].maximum_us", 1860 );
 		mMotors[i] = new BrushlessPWM( fl_pin, fl_min, fl_max );
+// 		mMotors[i] = new OneShot125( fl_pin );
 
 		mPIDMultipliers[i].x = config->number( "frame.motors[" + std::to_string(i+1) + "].pid_vector.x" );
 		mPIDMultipliers[i].y = config->number( "frame.motors[" + std::to_string(i+1) + "].pid_vector.y" );

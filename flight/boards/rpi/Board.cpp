@@ -59,6 +59,10 @@ uint64_t Board::mLastTotalJiffies = 0;
 bool Board::mUpdating = false;
 decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 
+HookThread<Board>* Board::mStatsThread = nullptr;
+uint32_t Board::mCPUTemp = 0;
+uint32_t Board::mCPULoad = 0;
+
 VCHI_INSTANCE_T Board::global_initialise_instance = nullptr;
 VCHI_CONNECTION_T* Board::global_connection = nullptr;
 
@@ -88,6 +92,11 @@ Board::Board( Main* main )
 	}
 
 	gDebug() << readcmd( "iw list" ) << "\n";
+
+	if ( mStatsThread == nullptr ) {
+		mStatsThread = new HookThread<Board>( "board_stats", this, &Board::StatsThreadRun );
+		mStatsThread->Start();
+	}
 }
 
 
@@ -462,8 +471,10 @@ void Board::VCOSInit()
 }
 
 
-uint32_t Board::CPULoad()
+bool Board::StatsThreadRun()
 {
+	mCPUTemp = std::atoi( readcmd( "vcgencmd measure_temp", "temp", "=" ).c_str() );
+
 	uint32_t jiffies[7];
 	std::stringstream ss;
 	ss.str( readcmd( "cat /proc/stat | grep \"cpu \" | cut -d' ' -f2-", "", "" ) ); 
@@ -479,17 +490,25 @@ uint32_t Board::CPULoad()
 	uint64_t work_jiffies = jiffies[0] + jiffies[1] + jiffies[2];
 	uint64_t total_jiffies = jiffies[0] + jiffies[1] + jiffies[2] + jiffies[3] + jiffies[4] + jiffies[5] + jiffies[6];
 
-	uint32_t ret = ( work_jiffies - mLastWorkJiffies ) * 100 / ( total_jiffies - mLastTotalJiffies );
+	mCPULoad = ( work_jiffies - mLastWorkJiffies ) * 100 / ( total_jiffies - mLastTotalJiffies );
 
 	mLastWorkJiffies = work_jiffies;
 	mLastTotalJiffies = total_jiffies;
-	return ret;
+
+	usleep( 1000 * 1000 * 2 );
+	return true;
+}
+
+
+uint32_t Board::CPULoad()
+{
+	return mCPULoad;
 }
 
 
 uint32_t Board::CPUTemp()
 {
-	return std::atoi( readcmd( "vcgencmd measure_temp", "temp", "=" ).c_str() );
+	return mCPUTemp;
 }
 
 
@@ -563,7 +582,7 @@ static void* thread_tx( void* argp )
 			close( args->fd );
 			break;
 		}
-		rawwifi_send_retry( args->rwifi, buffer, nread, 4 );
+		rawwifi_send_retry( args->rwifi, buffer, nread, 1 );
 	}
 
 	return NULL;

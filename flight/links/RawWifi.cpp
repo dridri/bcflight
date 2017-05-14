@@ -69,12 +69,15 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 	}
 
 	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
-	static_cast< RawWifi* >( link )->setRetries( config->integer( lua_object + ".retries", 1 ) );
+	static_cast< RawWifi* >( link )->setRetriesCount( config->integer( lua_object + ".retries", 1 ) );
 	static_cast< RawWifi* >( link )->setCECMode( config->string( lua_object + ".cec_mode", "none" ) );
 	static_cast< RawWifi* >( link )->SetChannel( config->integer( lua_object + ".channel", 11 ) );
+	static_cast< RawWifi* >( link )->setMaxBlockSize( config->integer( lua_object + ".max_block_size", 0 ) );
+	if ( config->boolean( lua_object + ".hamming84", false ) ) {
+		static_cast< RawWifi* >( link )->setTXFlags( RAWWIFI_BLOCK_FLAGS_HAMMING84 );
+	}
 	return link;
 }
-
 
 
 RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, int read_timeout_ms, bool blocking, bool drop_invalid_packets )
@@ -82,6 +85,7 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, 
 	, mRawWifi( nullptr )
 	, mDevice( device )
 	, mReadTimeout( read_timeout_ms )
+	, mMaxBlockSize( 0 )
 	, mChannel( 11 )
 	, mTxPower( 33 )
 	, mOutputPort( out_port )
@@ -89,6 +93,7 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, 
 	, mBlocking( blocking )
 	, mDrop( drop_invalid_packets )
 	, mRetries( 2 )
+	, mSendFlags( RAWWIFI_BLOCK_FLAGS_NONE )
 {
 }
 
@@ -136,15 +141,69 @@ void RawWifi::SetTxPower( int mBm )
 }
 
 
-void RawWifi::setRetries( int retries )
+void RawWifi::setRetriesCount( int retries )
 {
 	mRetries = retries;
+}
+
+
+void RawWifi::setMaxBlockSize( int max )
+{
+	mMaxBlockSize = max;
+	if ( mRawWifi and mMaxBlockSize > 0 ) {
+		rawwifi_set_send_max_block_size( mRawWifi, mMaxBlockSize );
+	}
+}
+
+
+uint32_t RawWifi::TXHeadersSize()
+{
+	return rawwifi_send_headers_length( mRawWifi );
+}
+
+
+RAWWIFI_BLOCK_FLAGS RawWifi::TXFlags()
+{
+	return mSendFlags;
+}
+
+
+void RawWifi::setTXFlags( RAWWIFI_BLOCK_FLAGS flags )
+{
+	mSendFlags = flags;
+}
+
+
+int32_t RawWifi::Channel()
+{
+	return mChannel;
+}
+
+
+int32_t RawWifi::Frequency()
+{
+	if ( mChannel == 14 ) {
+		return 2484;
+	}
+	return 2407 + mChannel * 5;
 }
 
 
 int32_t RawWifi::RxQuality()
 {
 	return rawwifi_recv_quality( mRawWifi );
+}
+
+
+int32_t RawWifi::RxLevel()
+{
+	return rawwifi_recv_level( mRawWifi );
+}
+
+
+uint32_t RawWifi::fullReadSpeed()
+{
+	return rawwifi_recv_speed( mRawWifi );
 }
 
 
@@ -192,16 +251,17 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 
 int RawWifi::Connect()
 {
-	gDebug() << "1\n";
 	Initialize( mDevice, mChannel, mTxPower );
-	gDebug() << "2\n";
 
-	mRawWifi = rawwifi_init( "wlan0", mOutputPort, mInputPort, mBlocking, mReadTimeout );
-	gDebug() << "3\n";
+	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, mBlocking, mReadTimeout );
 	if ( !mRawWifi ) {
 		return -1;
 	}
-	gDebug() << "4\n";
+
+	if ( mMaxBlockSize > 0 ) {
+		rawwifi_set_send_max_block_size( mRawWifi, mMaxBlockSize );
+	}
+	rawwifi_set_send_block_flags( mRawWifi, mSendFlags );
 
 	mConnected = true;
 	return 0;
@@ -237,7 +297,7 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 }
 
 
-int RawWifi::Write( const void* buf, uint32_t len, int timeout )
+int RawWifi::Write( const void* buf, uint32_t len, bool ack, int timeout )
 {
 	if ( !mConnected or mOutputPort < 0 ) {
 		return -1;

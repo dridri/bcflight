@@ -33,12 +33,14 @@ public:
 
 	int Connect();
 	int32_t Channel();
+	int32_t Frequency();
 	int32_t RxQuality();
 	int32_t RxLevel();
 
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
+	void setDropBroken( bool drop );
 	void setCECMode( const std::string& mode );
 	void setBlockRecoverMode( const std::string& mode );
 	void setRetriesCount( int retries );
@@ -51,14 +53,15 @@ public:
 	virtual uint32_t fullReadSpeed();
 
 protected:
-	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
+	static int Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
 	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, int32_t timeout );
+	int Write( const void* buf, uint32_t len, bool ack, int32_t timeout );
 
 	rawwifi_t* mRawWifi;
 	std::string mDevice;
 	int mChannel;
 	int mTxPower;
+	bool mDropBroken;
 	uint32_t mReadTimeout;
 	RAWWIFI_RX_FEC_MODE mCECMode;
 	RAWWIFI_BLOCK_RECOVER_MODE mRecoverMode;

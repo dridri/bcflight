@@ -130,7 +130,7 @@ AlsaMic::AlsaMic( Config* config, const std::string& conf_obj )
 	mLink = Link::Create( config, conf_obj + ".link" );
 	mLiveThread = new HookThread<AlsaMic>( "microphone", this, &AlsaMic::LiveThreadRun );
 	mLiveThread->Start();
-	mLiveThread->setPriority( 99, 3 );
+	mLiveThread->setPriority( 90, 3 );
 }
 
 
@@ -141,7 +141,7 @@ AlsaMic::~AlsaMic()
 
 bool AlsaMic::LiveThreadRun()
 {
-	if ( !mLink->isConnected() ) {
+	if ( mLink and not mLink->isConnected() ) {
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
 			gDebug() << "Microphone connected !\n";
@@ -154,12 +154,14 @@ bool AlsaMic::LiveThreadRun()
 	snd_pcm_sframes_t size = snd_pcm_readi( mPCM, data, 512 ) * 2;
 
 	if ( size > 0 ) {
-		mLink->Write( data, size, 0 );
+		if ( mLink ) {
+			mLink->Write( data, size, false, 0 );
+		}
 		if ( Main::instance()->camera() and Main::instance()->camera()->recording() ) {
 			RecordWrite( (char*)data, size );
 		}
 	} else {
-		printf( "snd_pcm_readi error %d\n", size );
+		printf( "snd_pcm_readi error %ld\n", size );
 	}
 	return true;
 }
@@ -184,7 +186,7 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 	fflush( mRecordStream );
 
 	mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 2048;
-	if ( mRecordSyncCounter % 30 == 0 ) {
+	if ( mRecordSyncCounter % 120 == 0 ) {
 		fsync( fileno( mRecordStream ) );
 	}
 

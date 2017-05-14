@@ -33,26 +33,39 @@ public:
 	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1, int read_timeout_ms = -1, bool blocking = true, bool drop_invalid_packets = false );
 	~RawWifi();
 
+	int Connect();
+
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
 	void setCECMode( const std::string& mode );
-	void setRetries( int retries );
-	int Connect();
+	void setBlockRecoverMode( const std::string& mode );
+	void setRetriesCount( int retries );
+	void setMaxBlockSize( int max );
+	void setTXFlags( RAWWIFI_BLOCK_FLAGS flags );
+
+	int32_t Channel();
+	int32_t Frequency();
 	int32_t RxQuality();
-	int retries() const { return mRetries; }
+	int32_t RxLevel();
+	uint32_t TXHeadersSize();
+	RAWWIFI_BLOCK_FLAGS TXFlags();
+	int retriesCount() const { return mRetries; }
+	virtual uint32_t fullReadSpeed();
+
+	int Read( void* buf, uint32_t len, int32_t timeout );
+	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
 
 	static int flight_register( Main* main );
 
 protected:
 	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
 	static Link* Instanciate( Config* config, const std::string& lua_object );
-	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, int32_t timeout );
 
 	rawwifi_t* mRawWifi;
 	std::string mDevice;
 	int mReadTimeout;
+	int mMaxBlockSize;
 	int mChannel;
 	int mTxPower;
 	int16_t mOutputPort;
@@ -60,6 +73,7 @@ protected:
 	bool mBlocking;
 	bool mDrop;
 	uint32_t mRetries;
+	RAWWIFI_BLOCK_FLAGS mSendFlags;
 
 	static std::mutex mInitializingMutex;
 	static bool mInitializing;

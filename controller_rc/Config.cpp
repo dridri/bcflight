@@ -259,6 +259,7 @@ void Config::Reload()
 {
 	luaL_dostring( L, "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
 	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
+	luaL_dostring( L, "function RF24( params ) params.link_type = \"nRF24L01\" ; return params end" );
 	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; if params.device == nil then params.device = \"wlan0\" end ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
 	luaL_dostring( L, "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" );

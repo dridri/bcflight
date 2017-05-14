@@ -111,9 +111,9 @@ Frame* Frame::Instanciate( const std::string& name, Config* config )
 }
 
 
-const std::vector< Motor* >& Frame::motors() const
+std::vector< Motor* >* Frame::motors()
 {
-	return mMotors;
+	return &mMotors;
 }
 
 

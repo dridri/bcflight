@@ -304,25 +304,25 @@ PWM::Channel::~Channel()
 }
 
 
-void PWM::terminate( int dummy )
+void PWM::terminate( int sig )
 {
 	size_t i, j;
-	printf( "pi-blaster::terminate( %d )\n", dummy );
+	printf( "pi-blaster::terminate( %d )\n", sig );
 
 	void* array[16];
 	size_t size;
 	size = backtrace( array, 16 );
-	fprintf( stderr, "Error: signal %d :\n", dummy );
+	fprintf( stderr, "Error: signal %d :\n", sig );
 	backtrace_symbols( array, size );
 
-	dprintf("Resetting DMA...\n");
+	dprintf( "Resetting DMA (%d)...\n", mChannels.size() );
 	for ( j = 0; j < mChannels.size(); j++ ) {
-		if ( mChannels[j]->dma_reg && mChannels[j]->mMbox.virt_addr ) {
-			for ( i = 0; i < mChannels[j]->mPinsCount; i++ ) {
-				mChannels[j]->mPinsPWM[i] = 0.0;
-			}
-			mChannels[j]->update_pwm();
-			usleep( mChannels[j]->mCycleTime * 2 );
+		if ( mChannels[j] and mChannels[j]->dma_reg && mChannels[j]->mMbox.virt_addr ) {
+// 			for ( i = 0; i < mChannels[j]->mPinsCount; i++ ) {
+// 				mChannels[j]->mPinsPWM[i] = 0.0;
+// 			}
+// 			mChannels[j]->update_pwm();
+// 			usleep( mChannels[j]->mCycleTime * 2 );
 			mChannels[j]->dma_reg[DMA_CS] = DMA_RESET;
 			usleep(10);
 		}
@@ -343,6 +343,10 @@ void PWM::terminate( int dummy )
 
 	dprintf("Unlink %s...\n", DEVFILE_MBOX);
 	unlink(DEVFILE_MBOX);
+
+	if ( sig == 2 ) {
+		exit(0);
+	}
 }
 
 
@@ -424,9 +428,9 @@ void PWM::Channel::Update()
 void PWM::Channel::update_pwm()
 {
 	uint32_t i, j;
-	uint32_t cmd_count = 2;// + ( mLoop == false );
-	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
-	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+// 	uint32_t cmd_count = 2;// + ( mLoop == false );
+// 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
+// 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
 	uint32_t mask;
 	dma_ctl_t ctl = mCtls[0];
 	if ( mLoop ) {
@@ -467,9 +471,9 @@ void PWM::Channel::update_pwm()
 
 void PWM::Channel::update_pwm_buffer()
 {
-	uint32_t cmd_count = 3;// + ( mLoop == false );
-	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
-	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+// 	uint32_t cmd_count = 3;// + ( mLoop == false );
+// 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
+// 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
 	uint32_t mask;
 	dma_ctl_t ctl = mCtls[0];
 
@@ -650,7 +654,8 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	dma_reg[DMA_CS] = DMA_INT | DMA_END;
 	dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
 	dma_reg[DMA_DEBUG] = 7; // clear debug error flags
-	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
+// 	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
+	dma_reg[DMA_CS] = 0x00770001;	// go, high priority
 	dprintf( "Ok\n" );
 }
 

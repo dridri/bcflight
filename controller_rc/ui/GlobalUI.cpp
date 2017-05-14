@@ -4,14 +4,16 @@
 #include "GlobalUI.h"
 #include "MainWindow.h"
 #include "Controller.h"
+#include "Config.h"
 
 #ifndef BOARD_generic
 Q_IMPORT_PLUGIN( QLinuxFbIntegrationPlugin );
 #endif
 
-GlobalUI::GlobalUI( Controller* controller )
+GlobalUI::GlobalUI( Config* config, Controller* controller )
 	: Thread( "GlobalUI" )
 	, mApplication( nullptr )
+	, mConfig( config )
 	, mController( controller )
 {
 }
@@ -25,12 +27,15 @@ GlobalUI::~GlobalUI()
 bool GlobalUI::run()
 {
 	if ( mApplication == nullptr ) {
-		putenv( (char*)"QT_QPA_FB_TSLIB=1" );
-		putenv( (char*)"QT_LOGGING_RULES=qt.qpa.input=true" );
-		putenv( (char*)"QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=270" );
+		std::string fbdev = "linuxfb:fb=" + mConfig->string( "touchscreen.framebuffer", "/dev/fb0" );
+		std::string rotate = "QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=" + std::to_string( mConfig->integer( "touchscreen.rotate", 0 ) );
+
+		putenv( (char*)rotate.c_str() );
+		putenv( (char*)"QT_QPA_EGLFS_DISABLE_INPUT=1" );
+		putenv( (char*)"QT_LOGGING_RULES=qt.qpa.input=false" );
 
 		int ac = 3;
-		const char* av[4] = { "controller", "-platform", "linuxfb:fb=/dev/fb1", nullptr };
+		const char* av[4] = { "controller", "-platform", fbdev.c_str(), nullptr };
 #ifdef BOARD_generic
 		ac = 1;
 #endif
@@ -60,6 +65,7 @@ bool GlobalUI::run()
 		mMainWindow->show();
 	}
 
+	printf( "UI running\n" );
 	return mApplication->exec();
 
 	mMainWindow->Update();

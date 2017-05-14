@@ -37,6 +37,7 @@
 #include <Stabilizer.h>
 #include <Frame.h>
 #include <Microphone.h>
+#include <HUD.h>
 #ifdef CAMERA_INCLUDE
 	#include CAMERA_INCLUDE // defined in CMakeLists.txt
 #endif
@@ -109,6 +110,7 @@ Main::Main()
 	, mLPSCounter( 0 )
 	, mController( nullptr )
 	, mCamera( nullptr )
+	, mHUD( nullptr )
 	, mMicrophone( nullptr )
 	, mCameraType( "" )
 {
@@ -131,11 +133,13 @@ Main::Main()
 	mConfig = new Config( "/var/flight/config.lua" );
 #endif
 	Board::InformLoading();
+	mConfig->DumpVariable( "username" );
 	mConfig->DumpVariable( "board" );
 	mConfig->DumpVariable( "frame" );
 	mConfig->DumpVariable( "battery" );
 	mConfig->DumpVariable( "controller" );
 	mConfig->DumpVariable( "camera" );
+	mConfig->DumpVariable( "hud" );
 	mConfig->DumpVariable( "accelerometers" );
 	mConfig->DumpVariable( "gyroscopes" );
 	mConfig->DumpVariable( "magnetometers" );
@@ -160,6 +164,8 @@ Main::Main()
 	mConfig->Apply();
 	Board::InformLoading();
 
+	mUsername = mConfig->string( "username" );
+
 	mPowerThread = new PowerThread( this );
 	mPowerThread->Start();
 	mPowerThread->setPriority( 97 );
@@ -179,6 +185,8 @@ Main::Main()
 	if ( mCameraType != "" ) {
 		mCamera = new CAMERA( mConfig, "camera" );
 		Board::InformLoading();
+	} else {
+		mCamera = nullptr;
 	}
 #else
 	mCamera = nullptr;
@@ -188,9 +196,13 @@ Main::Main()
 		mMicrophone = Microphone::Create( mConfig, "microphone" );
 	}
 
+	if ( mConfig->boolean( "hud.enabled", false ) ) {
+		mHUD = new HUD();
+	}
+
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
-	mController->setPriority( 99 );
+	mController->setPriority( 99, 1 );
 	Board::InformLoading();
 
 	mLoopTime = mConfig->integer( "stabilizer.loop_time", 2000 );
@@ -200,7 +212,10 @@ Main::Main()
 	mLPS = 0;
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
 	mStabilizerThread->Start();
-	mStabilizerThread->setPriority( 99 );
+	mStabilizerThread->setPriority( 99, 0 );
+
+	// Must be the very last atexit() call
+	atexit( &Thread::StopAll );
 
 	Thread::setMainPriority( 1 );
 	while ( 1 ) {
@@ -332,9 +347,21 @@ Camera* Main::camera() const
 }
 
 
+HUD* Main::hud() const
+{
+	return mHUD;
+}
+
+
 const std::string& Main::cameraType() const
 {
 	return mCameraType;
+}
+
+
+const std::string& Main::username() const
+{
+	return mUsername;
 }
 
 

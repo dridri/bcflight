@@ -163,6 +163,9 @@ int Config::LocateValue( const std::string& _name )
 
 	if ( strchr( name, '.' ) == nullptr and strchr( name, '[' ) == nullptr ) {
 		lua_getfield( L, LUA_GLOBALSINDEX, name );
+		if ( lua_type( L, -1 ) == LUA_TNIL ) {
+			return -1;
+		}
 	} else {
 		char tmp[128];
 		int i=0, j, k;
@@ -301,10 +304,18 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 }
 
 
+void Config::Execute( const std::string& code )
+{
+	luaL_dostring( L, code.c_str() );
+}
+
+
 void Config::Reload()
 {
 	luaL_dostring( L, "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
 	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
+	luaL_dostring( L, "function RF24( params ) params.link_type = \"nRF24L01\" ; return params end" );
+	luaL_dostring( L, "function MultiLink( params ) params.link_type = \"MultiLink\" ; return params end" );
 	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; params.device = \"wlan0\" ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
 	luaL_dostring( L, "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" );
@@ -312,6 +323,7 @@ void Config::Reload()
 	luaL_dostring( L, "frame = { motors = {} }" );
 	luaL_dostring( L, "battery = {}" );
 	luaL_dostring( L, "camera = {}" );
+	luaL_dostring( L, "hud = {}" );
 	luaL_dostring( L, "microphone = {}" );
 	luaL_dostring( L, "controller = {}" );
 	luaL_dostring( L, "stabilizer = { loop_time = 2000 }" );
@@ -327,7 +339,10 @@ void Config::Reload()
 	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
 
 	if ( ret != 0 ) {
-		gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : \"" << lua_tostring( L, -1 ) << "\"\n";
+		lua_Debug ar;
+		lua_getstack(L, 1, &ar);
+		lua_getinfo(L, "nSl", &ar);
+		gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
 		return;
 	}
 

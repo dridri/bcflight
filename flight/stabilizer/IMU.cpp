@@ -375,6 +375,7 @@ void IMU::Calibrate( float dt, bool all )
 			mdRPY = Vector3f();
 			mRate = Vector3f();
 			gDebug() << "Calibration done !\n";
+			mMain->frame()->Disarm(); // Activate motors
 			break;
 		}
 		default: break;
@@ -448,7 +449,8 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 	}
 	mGyroscope = total_gyro.xyz() / total_gyro.w;
 
-	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 16;
+	// Update RPY only at 1/4 update frequency when in Rate mode
+	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 4;
 	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
 	{
 		for ( Accelerometer* dev : Sensor::Accelerometers() ) {

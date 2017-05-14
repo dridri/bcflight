@@ -31,6 +31,7 @@ class Stabilizer;
 class Frame;
 class Controller;
 class Camera;
+class HUD;
 class Microphone;
 
 class Main
@@ -51,7 +52,9 @@ public:
 	Frame* frame() const;
 	Controller* controller() const;
 	Camera* camera() const;
+	HUD* hud() const;
 	const std::string& cameraType() const;
+	const std::string& username() const;
 
 	static std::string base64_encode( const uint8_t* buf, uint32_t size );
 	static Main* instance();
@@ -78,8 +81,10 @@ private:
 	Frame* mFrame;
 	Controller* mController;
 	Camera* mCamera;
+	HUD* mHUD;
 	Microphone* mMicrophone;
 	std::string mCameraType;
+	std::string mUsername;
 };
 
 #endif

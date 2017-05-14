@@ -55,6 +55,24 @@ Matrix::~Matrix()
 }
 
 
+void Matrix::Orthogonal( float left, float right, float bottom, float top, float zNear, float zFar )
+{
+	Identity();
+
+	float tx = - (right + left) / (right - left);
+	float ty = - (top + bottom) / (top - bottom);
+	float tz = - (zFar + zNear) / (zFar - zNear);
+
+	m[0] = 2.0 / (right - left);
+	m[5] = 2.0 / (top - bottom);
+	m[10] = -2.0 / (zFar - zNear);
+
+	m[12] = tx;
+	m[13] = ty;
+	m[14] = tz;
+}
+
+
 float* Matrix::data()
 {
 	return m;

@@ -38,6 +38,7 @@ public:
 	void Reload();
 	void Apply();
 	void Save();
+	void Execute( const std::string& code );
 
 	std::string string( const std::string& name, const std::string& def = "" );
 	int integer( const std::string& name, int def = 0 );

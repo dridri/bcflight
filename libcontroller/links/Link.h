@@ -41,23 +41,26 @@ class Packet
 {
 public:
 	Packet() : mReadOffset( 0 ) {}
-	Packet( uint32_t id ) { WriteU32( id ); }
+	Packet( uint32_t id ) { WriteU16( id ); }
 	void Write( const uint8_t* data, uint32_t bytes );
-	void WriteU32( uint32_t v ) { mData.emplace_back( htonl( v ) ); }
+	void WriteU16( uint16_t v );
+	void WriteU32( uint32_t v );
 	void WriteFloat( float v ) { union { float f; uint32_t u; } u; u.f = v; WriteU32( u.u ); }
 	void WriteString( const std::string& str );
 
-	int32_t Read( uint32_t* data, uint32_t words );
+	int32_t Read( uint8_t* data, uint32_t bytes );
+	uint32_t ReadU16( uint16_t* u );
 	uint32_t ReadU32( uint32_t* u );
 	uint32_t ReadFloat( float* f );
+	uint16_t ReadU16();
 	uint32_t ReadU32();
 	float ReadFloat();
 	std::string ReadString();
 
-	const std::vector< uint32_t >& data() const { return mData; }
+	const std::vector< uint8_t >& data() const { return mData; }
 
 private:
-	std::vector< uint32_t > mData;
+	std::vector< uint8_t > mData;
 	uint32_t mReadOffset;
 };
 
@@ -75,13 +78,14 @@ public:
 	virtual void setRetriesCount( int retries ) = 0;
 	virtual int retriesCount() const = 0;
 	virtual int32_t Channel() { return 0; }
+	virtual int32_t Frequency() { return 0; }
 	virtual int32_t RxQuality() { return 100; }
 	virtual int32_t RxLevel() { return -1; }
 	int32_t Read( Packet* p, int32_t timeout = 0 );
-	int32_t Write( const Packet* p, int32_t timeout = 0 );
+	int32_t Write( const Packet* p, bool ack = false, int32_t timeout = 0 );
 
 	virtual int Read( void* buf, uint32_t len, int32_t timeout ) = 0;
-	virtual int Write( const void* buf, uint32_t len, int32_t timeout ) = 0;
+	virtual int Write( const void* buf, uint32_t len, bool ack, int32_t timeout ) = 0;
 
 	uint32_t writeSpeed() const { return mWriteSpeed; }
 	uint32_t readSpeed() const { return mReadSpeed; }

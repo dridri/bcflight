@@ -62,8 +62,11 @@ int valid_handler(struct nl_msg *msg, void *arg)
 	return NL_OK;
 }
 
+static int _rawwifi_setup_interface_ok = 0;
 int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpower, uint32_t bHT, uint32_t bitrate )
 {
+	_rawwifi_setup_interface_ok = 1;
+
 	nl80211_state* state = (nl80211_state*)malloc( sizeof( nl80211_state ) );
 	strncpy( state->ifr, name, sizeof(state->ifr) );
 	state->fd = socket( AF_INET, SOCK_DGRAM, 0 );
@@ -80,6 +83,7 @@ int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpowe
 
 	if ( state->phyidx < 0 ) {
 		printf( "Error : interface '%s' not found !\n", name );
+		_rawwifi_setup_interface_ok = 0;
 		return -1;
 	}
 
@@ -91,16 +95,19 @@ int rawwifi_setup_interface( const char* name, uint32_t channel, uint32_t txpowe
 	state->nl_sock = nl_socket_alloc();
 	if ( !state->nl_sock ) {
 		fprintf(stderr, "Failed to allocate netlink socket.\n");
+		_rawwifi_setup_interface_ok = 0;
 		return -ENOMEM;
 	}
 	if ( genl_connect( state->nl_sock ) ) {
 		fprintf(stderr, "Failed to connect to generic netlink.\n");
+		_rawwifi_setup_interface_ok = 0;
 		return -ENOLINK;
 	}
 	nl_socket_set_buffer_size( state->nl_sock, 8192, 8192 );
 	state->nl80211_id = genl_ctrl_resolve( state->nl_sock, "nl80211" );
 	if ( state->nl80211_id < 0 ) {
 		fprintf(stderr, "nl80211 not found.\n");
+		_rawwifi_setup_interface_ok = 0;
 		return -ENOENT;
 	}
 

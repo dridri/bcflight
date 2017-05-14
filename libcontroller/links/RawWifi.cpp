@@ -41,6 +41,7 @@ RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, 
 	, mDevice( device )
 	, mChannel( 11 )
 	, mTxPower( 33 )
+	, mDropBroken( true )
 	, mReadTimeout( read_timeout_ms )
 	, mCECMode( RAWWIFI_RX_FAST )
 	, mRecoverMode( RAWWIFI_FILL_WITH_ZEROS )
@@ -98,6 +99,12 @@ void RawWifi::setBlockRecoverMode( const std::string& mode )
 }
 
 
+void RawWifi::setDropBroken( bool drop )
+{
+	mDropBroken = drop;
+}
+
+
 void RawWifi::SetChannel( int chan )
 {
 	mChannel = chan;
@@ -146,6 +153,15 @@ int32_t RawWifi::Channel()
 }
 
 
+int32_t RawWifi::Frequency()
+{
+	if ( mChannel == 14 ) {
+		return 2484;
+	}
+	return 2407 + mChannel * 5;
+}
+
+
 int32_t RawWifi::RxQuality()
 {
 	return rawwifi_recv_quality( mRawWifi );
@@ -164,8 +180,10 @@ uint32_t RawWifi::fullReadSpeed()
 }
 
 
-void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
+int RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
 {
+	return rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
+/*
 	mInitializingMutex.lock();
 	while ( mInitializing ) {
 		usleep( 1000 * 100 );
@@ -182,12 +200,16 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 		mInitializing = false;
 	}
 	mInitializingMutex.unlock();
+*/
 }
 
 
 int RawWifi::Connect()
 {
-	Initialize( mDevice, mChannel, mTxPower );
+	if ( Initialize( mDevice, mChannel, mTxPower ) != 0 ) {
+		usleep( 1000 * 500 );
+		return -1;
+	}
 
 	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, 1, mReadTimeout );
 	if ( !mRawWifi ) {
@@ -258,11 +280,16 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 		mWriteSpeedCounter = 0;
 		mSpeedTick = GetTicks();
 	}
+
+	if ( mDropBroken and not valid ) {
+		std::cout << "Drop corrupt packet (port " << mInputPort << ")\n";
+		ret = 0;
+	}
 	return ret;
 }
 
 
-int RawWifi::Write( const void* buf, uint32_t len, int timeout )
+int RawWifi::Write( const void* buf, uint32_t len, bool ack, int timeout )
 {
 	if ( !mConnected or mOutputPort < 0 ) {
 		return -1;
