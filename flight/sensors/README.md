@@ -3,10 +3,10 @@
 All the base classes are inherited from 'Sensor' class, which is a virtual class and cannot be used as-is. Sensor class also contains static variables and functions to access the available sensors and runtime detected sensors.
 
 These sub-classes are also virtual, helping to easily implement any kind of sensor, these base classes are :
- * Gyroscope ( rate gyroscopes only )
+ * Gyroscope
  * Accelerometer
  * ~~Magnetometer~~ ( Not used yet )
- * ~~Altimeter~~ ( Not used yet )
+ * ~~Altimeter~~ ( WIP )
  * ~~GPS~~ ( Not used yet )
  * Voltmeter
  * CurrentSensor
@@ -15,4 +15,4 @@ Gyroscopes, accelerometers, magnetometers are used as attitude sensors. Each att
 
 As many as requested sensors can be used ( within the limits of how many sensors the I2C/SPI/other busses support ). Attitude sensors and GPSs are mixed together (by IMU::UpdateSensors()) if several of them are used.
 
-Every axis of each sensors can be swapped ( or the whole vector can be multiplied by a matrix ) to allow easier alignement between the sensor and drone's frame. ( see Sensor::setAxisSwap() and Sensor::setAxisMatrix() )
+Every axis of each sensors can be swapped ( or the whole vector can be multiplied by a matrix ) to allow easier alignement between the sensor and drone's frame. ( see Sensor::setAxisSwap() and Sensor::setAxisMatrix(), used in LUA configuration as 'axis_swap' )

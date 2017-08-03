@@ -1,5 +1,6 @@
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
+The general idea is to allow to create any kind of flying object, from quad-racer to autonomous flying wing.
 
 ## flight
 The 'flight' subfolder contains the flight controller itself, currently supporting only Raspberry Pi board, but can be easily extended to any kind of board (including non-Linux ones, but it is not the purpose of this project).
@@ -26,7 +27,6 @@ Generation scripts for easier building
 
 ## buildroot
 *in progress*
-
 Contains buildroot configuration for both flight and ground targets.
 
 # Results
@@ -42,7 +42,7 @@ Racer :
 * ZMR250 frame
 * Raspberry Pi 3
 * Raspberry Pi official camera v2.1 (8MP, Sony IMX219 sensor) + wide-angle lens
-* Alfa Network AWUS036NH (maxed out to 2000mW TX power)
+* inAir9B radio module (SX1276 20dBm chip)
 * MPU9150 (gyroscope + accelerometer + magnetometer)
 * ADS1015 (ADC/Voltmeter)
 * ACS709 (current sensor)
@@ -52,8 +52,8 @@ Racer :
 RC controller :
 * Taranis X9D empty case
 * Taranis X9D gimballs
-* Raspberry Pi 2
+* Raspberry Pi 3
 * Waveshare 3.5" touchscreen
-* Alfa Network AWUS036NH (maxed out to 2000mW TX power)
+* inAir9B radio module (SX1276 20dBm chip)
 * MCP3208 ADC (for gimballs input and battery voltage sensing)
 * 10x ON-ON switches
