@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <list>
 #include <string>
+#include <vector>
 #include <map>
 #include "Thread.h"
 
@@ -66,6 +67,9 @@ public:
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
 
+	static std::vector< std::string > messages();
+	static std::map< std::string, bool >& defectivePeripherals();
+
 	static void EnableTunDevice();
 	static void DisableTunDevice();
 	static void UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t size );
@@ -74,6 +78,7 @@ public:
 
 private:
 	bool StatsThreadRun();
+	static void SegFaultHandler( int sig );
 
 	static uint64_t mTicksBase;
 	static std::map< std::string, std::string > mRegisters;
@@ -90,6 +95,9 @@ private:
 	static HookThread<Board>* mStatsThread;
 	static uint32_t mCPULoad;
 	static uint32_t mCPUTemp;
+
+	static std::vector< std::string > mBoardMessages;
+	static std::map< std::string, bool > mDefectivePeripherals;
 };
 
 #endif // BOARD_H

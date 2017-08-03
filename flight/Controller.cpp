@@ -36,6 +36,7 @@ Controller::Controller( Main* main, Link* link )
 	: ControllerBase( link )
 	, Thread( "controller" )
 	, mMain( main )
+	, mTimedOut( false )
 	, mArmed( false )
 	, mPing( 0 )
 	, mRPY( Vector3f() )
@@ -45,7 +46,7 @@ Controller::Controller( Main* main, Link* link )
 	, mTelemetryTick( 0 )
 	, mTelemetryCounter( 0 )
 	, mEmergencyTick( 0 )
-	, mTelemetryFull( false )
+	, mTelemetryFull( main->config()->boolean( "controller.full_telemetry", false ) )
 {
 	mTelemetryFrequency = main->config()->integer( "controller.telemetry_rate", 20 );
 
@@ -222,17 +223,39 @@ void Controller::setThrust( float value )
 }
 
 
+void Controller::Arm() {
+	gDebug() << "Arming\n";
+	mMain->imu()->ResetYaw();
+	mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
+	mMain->frame()->Arm();
+	mRPY.x = 0.0f;
+	mRPY.y = 0.0f;
+	mRPY.z = 0.0f;
+	mArmed = true;
+}
+
+
+void Controller::Disarm() {
+	gDebug() << "Disarming\n";
+	mArmed = false;
+	mThrust = 0.0f;
+	mMain->stabilizer()->Reset( 0.0f );
+	mRPY = Vector3f();
+	mSmoothRPY = Vector3f();
+	mMain->frame()->Disarm();
+}
+
+
 bool Controller::run()
 {
+	char stmp[64];
+
 	if ( !mLink->isConnected() ) {
 		mConnected = false;
 		mRPY.x = 0.0f;
 		mRPY.y = 0.0f;
-	}
 
-	if ( !mLink->isConnected() ) {
 		gDebug() << "Link not up, connecting...\n";
-// 		mConnected = false;
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
 			gDebug() << "Controller link initialized !\n";
@@ -246,6 +269,10 @@ bool Controller::run()
 	int readret = 0;
 	Packet command;
 	if ( ( readret = mLink->Read( &command, 0 ) ) == LINK_ERROR_TIMEOUT ) {
+		if ( not mTimedOut ) {
+			mMain->blackbox()->Enqueue( "Controller:connected", "false" );
+		}
+		mTimedOut = true;
 		if ( mArmed ) {
 			gDebug() << "Controller connection lost !\n";
 			mThrust = 0.0f;
@@ -257,26 +284,43 @@ bool Controller::run()
 			gDebug() << "STONE MODE !\n";
 			return true;
 		}
-		/*
-		mMain->stabilizer()->setMode( Stabilizer::Stabilize );
-		mMain->imu()->ResetRPY();
-		mRPY.x = 0.0f;
-		mRPY.y = 0.0f;
-		mRPY.z = mMain->imu()->RPY().z;
-		if ( mThrust > 0.3f ) {
-			mThrust = 0.3f;
+	} else {
+		if ( mTimedOut ) {
+			if ( mConnected ) {
+				mMain->blackbox()->Enqueue( "Controller:connected", "true" );
+			}
+			mTimedOut = false;
 		}
-		mEmergencyTick = Board::GetTicks();
-		gDebug() << "EMERGENCY MODE !\n";
-		return true;
-		*/
 	}
 
+	mMain->blackbox()->Enqueue( "Link:quality", std::to_string(mLink->RxQuality()) + "% @" + std::to_string(mLink->RxLevel()) + "dBm" );
+
+    auto ReadCmd = []( Packet* command, Cmd* cmd ) {
+		uint8_t part1 = 0;
+		uint8_t part2 = 0;
+		if ( command->ReadU8( &part1 ) == sizeof(uint8_t) ) {
+			if ( ( part1 & SHORT_COMMAND ) == SHORT_COMMAND ) {
+				*cmd = (Cmd)part1;
+				return (int)sizeof(uint8_t);
+			}
+			if ( command->ReadU8( &part2 ) == sizeof(uint8_t) ) {
+				*cmd = (Cmd)ntohs( ( ((uint16_t)part2) << 8 ) | part1 );
+				return (int)sizeof(uint16_t);
+			}
+		}
+		return 0;
+	};
+
 	Cmd cmd = (Cmd)0;
-	while ( command.ReadU16( (uint16_t*)&cmd ) > 0 ) {
+	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		printf( "Received cmd %08X\n", cmd );
 		bool do_response = false;
-		Packet response( cmd );
+		Packet response;
+		if ( ( cmd & SHORT_COMMAND ) == SHORT_COMMAND ) {
+			response.WriteU8( cmd );
+		} else {
+			response.WriteU16( cmd );
+		}
 
 		switch ( cmd )
 		{
@@ -285,6 +329,8 @@ bool Controller::run()
 					gDebug() << "Controller connected !\n";
 					mConnected = true;
 					mConnectionEstablished = true;
+					mMain->blackbox()->Enqueue( "Controller:connected", "true" );
+					mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 				}
 				uint16_t ticks = 0;
 				if ( command.ReadU16( &ticks ) == sizeof(uint16_t) ) {
@@ -292,7 +338,7 @@ bool Controller::run()
 					uint16_t last = command.ReadU16();
 					mPing = last;
 					response.WriteU16( last ); // Copy-back reported ping
-// 					do_response = true;
+					mMain->blackbox()->Enqueue( "Controller:ping", std::to_string(mPing) + "ms" );
 
 					// Send status
 					uint32_t status = 0;
@@ -310,35 +356,46 @@ bool Controller::run()
 							status |= STATUS_NIGHTMODE;
 						}
 					}
-					response.WriteU16( STATUS );
+					response.WriteU8( STATUS );
 					response.WriteU32( status );
 
 					// Send telemetry
 					Telemetry telemetry;
 					telemetry.battery_voltage = (uint16_t)( mMain->powerThread()->VBat() * 100.0f );
 					telemetry.total_current = (uint16_t)( mMain->powerThread()->CurrentTotal() * 1000.0f );
-					telemetry.current_draw = (uint8_t)mMain->powerThread()->CurrentDraw();
+					telemetry.current_draw = (uint8_t)( mMain->powerThread()->CurrentDraw() * 10.0f );
 					telemetry.battery_level = (uint8_t)( mMain->powerThread()->BatteryLevel() * 100.0f );
 					telemetry.cpu_load = Board::CPULoad();
 					telemetry.cpu_temp = Board::CPUTemp();
 					telemetry.rx_quality = mLink->RxQuality();
 					telemetry.rx_level = mLink->RxLevel();
-					response.WriteU16( TELEMETRY );
+					response.WriteU8( TELEMETRY );
 					response.Write( (uint8_t*)&telemetry, sizeof(telemetry) );
 
-					mSendMutex.lock();
-					mLink->WriteAck( response.data().data(), response.data().size() );
-					mSendMutex.unlock();
+					do_response = true;
 				}
 				break;
 			}
 			case CONTROLS : {
-				Controls controls = { 0, 0, 0, 0 };
+				if ( not mConnected ) {
+					// Should never happen (except at first controller connection)
+					break;
+				}
+				Controls controls = { 0, 0, 0, 0, 0, 0, 0, 0 };
 				if ( command.Read( (uint8_t*)&controls, sizeof(controls) ) == sizeof(controls) ) {
+					if ( controls.arm and not mArmed ) {
+						Arm();
+						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
+					} else if ( not controls.arm and mArmed ) {
+						Disarm();
+						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
+					}
 					setThrust( ((float)controls.thrust) / 127.0f );
-					setRoll( ((float)controls.roll) / 127.0f );
-					setPitch( ((float)controls.pitch) / 127.0f );
-					setYaw( ((float)controls.yaw) / 127.0f );
+					setRoll( ((float)controls.roll) / 128.0f );
+					setPitch( ((float)controls.pitch) / 128.0f );
+					setYaw( ((float)controls.yaw) / 128.0f );
+					sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
+					mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
 				}
 				break;
 			}
@@ -451,11 +508,7 @@ bool Controller::run()
 						} else {
 							mMain->imu()->Recalibrate();
 						}
-// 						while ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
-// 							usleep( 1000 * 10 );
-// 						}
 						response.WriteU32( 3 );
-// 						mMain->frame()->Disarm(); // Activate motors
 					}
 					do_response = true;
 				}
@@ -494,31 +547,20 @@ bool Controller::run()
 				break;
 			}
 			case ARM : {
-				gDebug() << "Arming\n";
 				if ( mMain->imu()->state() != IMU::Running ) {
 					response.WriteU32( 0 );
 					do_response = true;
 					break;
 				}
-				mMain->imu()->ResetYaw();
-				mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
-				mMain->frame()->Arm();
-				mRPY.x = 0.0f;
-				mRPY.y = 0.0f;
-				mRPY.z = 0.0f;
-				mArmed = true;
+				Arm();
+				mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 				response.WriteU32( mArmed );
 				do_response = true;
 				break;
 			}
 			case DISARM : {
-				gDebug() << "Disarming\n";
-				mArmed = false;
-				mThrust = 0.0f;
-				mMain->stabilizer()->Reset( 0.0f );
-				mRPY = Vector3f();
-				mSmoothRPY = Vector3f();
-				mMain->frame()->Disarm();
+				Disarm();
+				mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 				response.WriteU32( mArmed );
 				do_response = true;
 				break;
@@ -532,36 +574,44 @@ bool Controller::run()
 			}
 			case SET_ROLL : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				setRoll( value );
+				sprintf( stmp, "%.4f", mRPY.x );
+				mMain->blackbox()->Enqueue( "Controller:roll", stmp );
 				break;
 			}
 			case SET_PITCH : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				setPitch( value );
+				sprintf( stmp, "%.4f", mRPY.y );
+				mMain->blackbox()->Enqueue( "Controller:pitch", stmp );
 				break;
 			}
 
 			case SET_YAW : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				setYaw( value );
+				sprintf( stmp, "%.4f", mRPY.z );
+				mMain->blackbox()->Enqueue( "Controller:yaw", stmp );
 				break;
 			}
 
 			case SET_THRUST : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				setThrust( value );
+				sprintf( stmp, "%.4f", mThrust );
+				mMain->blackbox()->Enqueue( "Controller:thrust", stmp );
 				break;
 			}
 
@@ -583,10 +633,12 @@ bool Controller::run()
 					if ( mode == (uint32_t)Stabilizer::Rate ) {
 						mMain->imu()->setRateOnly( true );
 						mRPY.z = 0.0f;
+						mMain->blackbox()->Enqueue( "Controller:mode", "Rate" );
 					} else if ( mode == (uint32_t)Stabilizer::Stabilize ) {
 						mMain->imu()->setRateOnly( false );
 						mMain->imu()->ResetRPY();
 						mRPY.z = mMain->imu()->RPY().z;
+						mMain->blackbox()->Enqueue( "Controller:mode", "Stabilize" );
 					}
 					response.WriteU32( mMain->stabilizer()->mode() );
 					do_response = true;
@@ -606,7 +658,7 @@ bool Controller::run()
 
 			case SET_ROLL_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setRollP( value );
@@ -616,7 +668,7 @@ bool Controller::run()
 			}
 			case SET_ROLL_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setRollI( value );
@@ -626,7 +678,7 @@ bool Controller::run()
 			}
 			case SET_ROLL_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setRollD( value );
@@ -644,7 +696,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchP( value );
@@ -654,7 +706,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchI( value );
@@ -664,7 +716,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchD( value );
@@ -682,7 +734,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setYawP( value );
@@ -692,7 +744,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setYawI( value );
@@ -702,7 +754,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setYawD( value );
@@ -729,7 +781,7 @@ bool Controller::run()
 
 			case SET_OUTER_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterP( value );
@@ -739,7 +791,7 @@ bool Controller::run()
 			}
 			case SET_OUTER_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterI( value );
@@ -749,7 +801,7 @@ bool Controller::run()
 			}
 			case SET_OUTER_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) < 0 ) {
+				if ( command.ReadFloat( &value ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterD( value );
@@ -775,7 +827,7 @@ bool Controller::run()
 			}
 			case SET_HORIZON_OFFSET : {
 				Vector3f v;
-				if ( command.ReadFloat( &v.x ) < 0 or command.ReadFloat( &v.y ) < 0 ) {
+				if ( command.ReadFloat( &v.x ) == 0 or command.ReadFloat( &v.y ) == 0 ) {
 					break;
 				}
 				mMain->stabilizer()->setHorizonOffset( v );
@@ -923,7 +975,11 @@ bool Controller::run()
 			}
 
 			case GET_USERNAME : {
-				response.WriteString( mMain->username() );
+				if ( mMain->username() != "" ) {
+					response.WriteString( mMain->username() );
+				} else {
+					response.WriteString( "[unknown]" );
+				}
 				do_response = true;
 				break;
 			}

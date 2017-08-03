@@ -27,6 +27,7 @@
 #include <RawWifi.h>
 #include <Socket.h>
 #include <nRF24L01.h>
+#include <SX127x.h>
 
 int main( int ac, char** av )
 {
@@ -68,12 +69,29 @@ int main( int ac, char** av )
 			controller_link = new nRF24L01( device, cspin, cepin, irqpin, channel, input_port, output_port, drop_invalid_packets );
 			controller_link->setBlocking( blocking );
 		}
+	} else if ( config->string( "controller.link.link_type" ) == "SX127x" ) {
+		SX127x::Config conf;
+		conf.device = config->string( "controller.link.device", "spidev1.1" );
+		conf.resetPin = config->integer( "controller.link.resetpin", -1 );
+		conf.txPin = config->integer( "controller.link.txpin", -1 );
+		conf.rxPin = config->integer( "controller.link.rxpin", -1 );
+		conf.irqPin = config->integer( "controller.link.irqpin", -1 );
+		conf.frequency = config->integer( "controller.link.frequency", 433000000 );
+		conf.inputPort = config->integer( "controller.link.input_port", 1 );
+		conf.outputPort = config->integer( "controller.link.output_port", 0 );
+		conf.dropBroken = config->boolean( "controller.link.drop", true );
+		conf.blocking = config->boolean( "controller.link.blocking", true );
+		conf.retries = config->integer( "controller.link.retries", 1 );
+		conf.bitrate = config->integer( "controller.link.bitrate", 76800 );
+		conf.modem = SX127x::FSK;
+		controller_link = new SX127x( conf );
 	} else {
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ), -1 );
 		static_cast< RawWifi* >( controller_link )->SetChannel( config->integer( "controller.link.channel", 11 ) );
 	}
 
 	controller = new ControllerClient( config, controller_link, config->boolean( "controller.spectate", false ) );
+	controller->setUpdateFrequency( config->integer( "controller.update_frequency", 100 ) );
 
 	GlobalUI* ui = new GlobalUI( config, controller );
 	ui->Start();

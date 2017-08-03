@@ -2,6 +2,8 @@ cmake_minimum_required( VERSION 2.8.11 )
 set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
 project( controller_pc )
 
+SET( board "pc" CACHE BOOL "board" )
+
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_GNU_SOURCE -D_BSD_SOURCE -Wfatal-errors" )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -std=c++11 -DGE_LINUX -DGE_EGL -fpermissive -Wno-pmf-conversions -Wfatal-errors" )
 set( CMAKE_AUTOMOC ON )
@@ -56,6 +58,7 @@ add_custom_target( libopenh264_static COMMAND bash ${CMAKE_SOURCE_DIR}/../extern
 
 qt5_wrap_ui( controller_pc_UI
 				ui/mainWindow.ui
+				ui/blackbox.ui
 				ui/config.ui
 )
 
@@ -67,6 +70,7 @@ add_executable( controller_pc
 				ui/HStatusBar.cpp
 				ui/resources.qrc
 				MainWindow.cpp
+				BlackBox.cpp
 				Config.cpp
 				tinyxml2.cpp
 				${controller_pc_MOCS}

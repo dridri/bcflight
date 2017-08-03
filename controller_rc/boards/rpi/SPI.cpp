@@ -70,7 +70,7 @@ SPI::SPI( const std::string& device, uint32_t speed_hz )
 		std::cout << "SPI rd_lsb_fist\n";
 	}
 
-    std::cout << "SPI " << device.c_str() << ":" << mFD <<": spi mode " << mode << ", " << mBitsPerWord << "bits " << ( lsb ? "(lsb first) " : "" ) << "per word, " << speed_hz << " Hz max\n";
+    std::cout << "SPI " << device.c_str() << ":" << mFD <<": spi mode " << (int)mode << ", " << mBitsPerWord << "bits " << ( lsb ? "(lsb first) " : "" ) << "per word, " << speed_hz << " Hz max\n";
 
 	memset( mXFer, 0, sizeof( mXFer ) );
 	for ( uint32_t i = 0; i < sizeof( mXFer ) /  sizeof( struct spi_ioc_transfer ); i++) {

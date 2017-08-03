@@ -24,6 +24,7 @@
 #include <Board.h>
 #include "Debug.h"
 #include "PowerThread.h"
+#include "BlackBox.h"
 #include "Vector.h"
 
 class IMU;
@@ -33,6 +34,7 @@ class Controller;
 class Camera;
 class HUD;
 class Microphone;
+class Recorder;
 
 class Main
 {
@@ -47,12 +49,15 @@ public:
 	Config* config() const;
 	Board* board() const;
 	PowerThread* powerThread() const;
+	BlackBox* blackbox() const;
 	IMU* imu() const;
 	Stabilizer* stabilizer() const;
 	Frame* frame() const;
 	Controller* controller() const;
 	Camera* camera() const;
 	HUD* hud() const;
+	Microphone* microphone() const;
+	Recorder* recorder() const;
 	const std::string& cameraType() const;
 	const std::string& username() const;
 
@@ -76,6 +81,7 @@ private:
 	Config* mConfig;
 	Board* mBoard;
 	PowerThread* mPowerThread;
+	BlackBox* mBlackBox;
 	IMU* mIMU;
 	Stabilizer* mStabilizer;
 	Frame* mFrame;
@@ -83,6 +89,7 @@ private:
 	Camera* mCamera;
 	HUD* mHUD;
 	Microphone* mMicrophone;
+	Recorder* mRecorder;
 	std::string mCameraType;
 	std::string mUsername;
 };

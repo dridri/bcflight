@@ -59,7 +59,9 @@ int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
 
 	if ( mCurrAddr != addr ) {
 		mCurrAddr = addr;
-		ioctl( mFD, I2C_SLAVE, addr );
+		if ( ioctl( mFD, I2C_SLAVE, addr ) != 0 ) {
+			return 0;
+		}
 	}
 
 	write( mFD, &reg, 1 );
@@ -73,7 +75,6 @@ int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
 int I2C::_Write( int addr, uint8_t reg, void* _buf, uint32_t len )
 {
 	int ret;
-// 	char* buf = new char[ len + 1 ];
 	char buf[16];
 	buf[0] = reg;
 	memcpy( buf + 1, _buf, len );
@@ -82,13 +83,14 @@ int I2C::_Write( int addr, uint8_t reg, void* _buf, uint32_t len )
 
 	if ( mCurrAddr != addr ) {
 		mCurrAddr = addr;
-		ioctl( mFD, I2C_SLAVE, addr );
+		if ( ioctl( mFD, I2C_SLAVE, addr ) != 0 ) {
+			return 0;
+		}
 	}
 
 	ret = write( mFD, buf, len + 1 );
 
 	pthread_mutex_unlock( &mMutex );
-// 	delete buf;
 	return ret;
 }
 
@@ -191,5 +193,10 @@ std::list< int > I2C::ScanAll()
 	}
 
 	close( fd );
+	if ( ret.size() >= 127 ) {
+		gDebug() << "\e[0;41mError : Defective I2C bus !\e[0m\n";
+		Board::defectivePeripherals()["I2C"] = true;
+		ret.clear();
+	}
 	return ret;
 }

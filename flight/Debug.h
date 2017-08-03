@@ -31,6 +31,7 @@
 
 #include <cxxabi.h>
 #include <malloc.h>
+#include "Thread.h"
 /*
 class Debug
 {
@@ -58,7 +59,7 @@ public:
 	Debug() {
 	}
 	~Debug() {
-		std::string s = mSS.str();// + "\n"; TODO : uncomment this, and remove <<"\n" everywhere..
+		std::string s = mSS.str();
 		printf( "%s", s.c_str() );
 		fflush( stdout );
 		SendControllerOutput( s );
@@ -72,6 +73,7 @@ private:
 	std::stringstream mSS;
 	static std::mutex mMutex;
 	static std::string sBufferedData;
+	static std::string sBufferedBlackBox;
 	static void SendControllerOutput( const std::string& s );
 };
 
@@ -92,12 +94,13 @@ static inline std::string className(const std::string& prettyFunction)
 
 #pragma GCC system_header // HACK Disable unused-function warnings
 static std::string self_thread() {
-	if ( pthread_self() != 0 ) {
-		std::stringstream ret;
+	std::stringstream ret;
+	if ( Thread::currentThread() != nullptr ) {
+		ret << "[" << Thread::currentThread()->name() << "] ";
+	} else if ( pthread_self() != 0 ) {
 		ret << "[0x" << std::hex << ( pthread_self() & 0xFFFFFFFF ) << std::dec << "] ";
-		return ret.str();
 	}
-	return "";
+	return ret.str();
 }
 
 #define __CLASS_NAME__ className(__PRETTY_FUNCTION__)

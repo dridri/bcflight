@@ -38,15 +38,18 @@ public:
 	Packet() : mReadOffset( 0 ) {}
 	Packet( uint32_t id ) { WriteU16( id ); }
 	void Write( const uint8_t* data, uint32_t bytes );
+	void WriteU8( uint8_t v );
 	void WriteU16( uint16_t v );
 	void WriteU32( uint32_t v );
 	void WriteFloat( float v ) { union { float f; uint32_t u; } u; u.f = v; WriteU32( u.u ); }
 	void WriteString( const std::string& str );
 
 	uint32_t Read( uint8_t* data, uint32_t bytes );
+	uint32_t ReadU8( uint8_t* u );
 	uint32_t ReadU16( uint16_t* u );
 	uint32_t ReadU32( uint32_t* u );
 	uint32_t ReadFloat( float* f );
+	uint8_t ReadU8();
 	uint16_t ReadU16();
 	uint32_t ReadU32();
 	float ReadFloat();

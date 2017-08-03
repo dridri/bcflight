@@ -1382,6 +1382,7 @@ color: rgb(255, 255, 255);</string>
     <property name="title">
      <string>Fi&amp;le</string>
     </property>
+    <addaction name="actionInspect_blackbox"/>
     <addaction name="actionSettings"/>
    </widget>
    <addaction name="menuFile"/>
@@ -1390,6 +1391,11 @@ color: rgb(255, 255, 255);</string>
   <action name="actionSettings">
    <property name="text">
     <string>&amp;Settings...</string>
+   </property>
+  </action>
+  <action name="actionInspect_blackbox">
+   <property name="text">
+    <string>Inspect blackbox...</string>
    </property>
   </action>
  </widget>

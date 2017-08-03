@@ -50,6 +50,7 @@ Controller::Controller( Link* link, bool spectate )
 	, mDroneRxLevel( 0 )
 	, mNightMode( false )
 	, mCameraMissing( false )
+	, mUpdateFrequency( 100 )
 	, mSpectate( spectate )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
@@ -99,6 +100,12 @@ Controller::~Controller()
 {
 	Stop();
 	mRxThread->Stop();
+}
+
+
+void Controller::setUpdateFrequency( uint32_t freq_hz )
+{
+	mUpdateFrequency = freq_hz;
 }
 
 
@@ -176,7 +183,9 @@ bool Controller::run()
 		VideoTakePicture();
 	}
 
+	bool arm = mArmed;
 	if ( mSwitches[2] and not mArmed and mCalibrated ) {
+		arm = true;
 		Arm();
 	} else if ( not mSwitches[2] and mArmed ) {
 		printf( "Disarming...\n" );
@@ -207,37 +216,40 @@ bool Controller::run()
 	float f_pitch = ReadPitch();
 	float f_roll = ReadRoll();
 	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
-		mControls.thrust = (int8_t)( std::max( 0.0f, std::min( 1.0f, f_thrust ) ) * 127.0f );
+		mControls.thrust = (int8_t)( std::max( 0, std::min( 127, (int32_t)( f_thrust * 127.0f ) ) ) );
 	}
 	if ( f_yaw >= -1.0f and f_yaw <= 1.0f ) {
-		if ( fabsf( f_yaw ) <= 0.05f ) {
+		if ( fabsf( f_yaw ) <= 0.025f ) {
 			f_yaw = 0.0f;
+		} else if ( f_yaw < 0.0f ) {
+			f_yaw += 0.025f;
+		} else if ( f_yaw > 0.0f ) {
+			f_yaw -= 0.025f;
 		}
-		mControls.yaw = (int8_t)( std::max( -1.0f, std::min( 1.0f, f_yaw ) ) * 127.0f );
+		mControls.yaw = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_yaw * 127.0f ) ) ) );
 	}
 	if ( f_pitch >= -1.0f and f_pitch <= 1.0f ) {
-		if ( fabsf( f_pitch ) <= 0.05f ) {
+		if ( fabsf( f_pitch ) <= 0.025f ) {
 			f_pitch = 0.0f;
-		}
-		else if ( f_pitch < 0.0f ) {
-			f_pitch += 0.05f;
+		} else if ( f_pitch < 0.0f ) {
+			f_pitch += 0.025f;
 		} else if ( f_pitch > 0.0f ) {
-			f_pitch -= 0.05f;
+			f_pitch -= 0.025f;
 		}
-		mControls.pitch = (int8_t)( std::max( -1.0f, std::min( 1.0f, f_pitch ) ) * 127.0f );
+		mControls.pitch = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_pitch * 127.0f ) ) ) );
 	}
 	if ( f_roll >= -1.0f and f_roll <= 1.0f ) {
-		if ( fabsf( f_roll ) <= 0.05f ) {
+		if ( fabsf( f_roll ) <= 0.025f ) {
 			f_roll = 0.0f;
-		}
-		else if ( f_roll < 0.0f ) {
-			f_roll += 0.05f;
+		} else if ( f_roll < 0.0f ) {
+			f_roll += 0.025f;
 		} else if ( f_roll > 0.0f ) {
-			f_roll -= 0.05f;
+			f_roll -= 0.025f;
 		}
-		mControls.roll = (int8_t)( std::max( -1.0f, std::min( 1.0f, f_roll ) ) * 127.0f );
+		mControls.roll = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_roll * 127.0f ) ) ) );
 	}
-	mTxFrame.WriteU16( CONTROLS );
+	mControls.arm = arm;
+	mTxFrame.WriteU8( CONTROLS );
 	mTxFrame.Write( (uint8_t*)&mControls, sizeof(mControls) );
 
 	bool request_ack = false;
@@ -245,7 +257,7 @@ bool Controller::run()
 		request_ack = true;
 		uint64_t ticks = Thread::GetTick();
 		mXferMutex.lock();
-		mTxFrame.WriteU16( PING );
+		mTxFrame.WriteU8( PING );
 		mTxFrame.WriteU16( (uint16_t)( ticks & 0x0000FFFFL ) );
 		mTxFrame.WriteU16( mPing ); // Report current ping
 		mXferMutex.unlock();
@@ -261,13 +273,13 @@ bool Controller::run()
 			mXferMutex.unlock();
 		}
 
-		if ( mUsername == "" ) {
-			mXferMutex.lock();
-			mTxFrame.WriteU16( GET_USERNAME );
-			mXferMutex.unlock();
-		}
-
 		mPingTimer = Thread::GetTick();
+	}
+
+	if ( mUsername == "" ) {
+		mXferMutex.lock();
+		mTxFrame.WriteU16( GET_USERNAME );
+		mXferMutex.unlock();
 	}
 
 	mXferMutex.lock();
@@ -278,8 +290,8 @@ bool Controller::run()
 	mTxFrame = Packet();
 	mXferMutex.unlock();
 
-	if ( Thread::GetTick() - mTicks < 1000 / 150 ) {
-		usleep( 1000 * std::max( 0, 1000 / 150 - (int)( Thread::GetTick() - mTicks ) - 1 ) );
+	if ( Thread::GetTick() - mTicks < 1000 / mUpdateFrequency ) {
+		usleep( 1000 * std::max( 0U, 1000U / mUpdateFrequency - (int)( Thread::GetTick() - mTicks ) - 1U ) );
 	}
 	mTicks = Thread::GetTick();
 	mMsCounter += ( mTicks - ticks0 );
@@ -308,8 +320,24 @@ bool Controller::RxRun()
 	}
 	Cmd cmd = (Cmd)0;
 
-	while ( telemetry.ReadU16( (uint16_t*)&cmd ) > 0 ) {
-// 		std::cout << "Received command : " << mCommandsNames[(cmd)] << "\n";
+    auto ReadCmd = []( Packet* telemetry, Cmd* cmd ) {
+		uint8_t part1 = 0;
+		uint8_t part2 = 0;
+		if ( telemetry->ReadU8( &part1 ) == sizeof(uint8_t) ) {
+			if ( ( part1 & SHORT_COMMAND ) == SHORT_COMMAND ) {
+				*cmd = (Cmd)part1;
+				return (int)sizeof(uint8_t);
+			}
+			if ( telemetry->ReadU8( &part2 ) == sizeof(uint8_t) ) {
+				*cmd = (Cmd)ntohs( ( ((uint16_t)part2) << 8 ) | part1 );
+				return (int)sizeof(uint16_t);
+			}
+		}
+		return 0;
+	};
+
+	while ( ReadCmd( &telemetry, &cmd ) > 0 ) {
+// 		std::cout << "Received command (" << std::hex << (int)cmd << std::dec << ") : " << mCommandsNames[(cmd)] << "\n";
 
 		switch( cmd ) {
 			case UNKNOWN : {
@@ -342,7 +370,7 @@ bool Controller::RxRun()
 				telemetry.Read( (uint8_t*)&data, sizeof(data) );
 				mBatteryVoltage = (float)(data.battery_voltage) / 100.0f;
 				mTotalCurrent = (float)data.total_current;
-				mCurrentDraw = (float)data.current_draw;
+				mCurrentDraw = (float)data.current_draw / 10.0f;
 				mBatteryLevel = (float)(data.battery_level) / 100.0f;
 				mCPULoad = data.cpu_load;
 				mCPUTemp = data.cpu_temp;
@@ -428,7 +456,10 @@ bool Controller::RxRun()
 				break;
 			}
 			case TOTAL_CURRENT : {
-				mTotalCurrent = (uint32_t)( telemetry.ReadFloat() * 1000.0f );
+				uint32_t value = (uint32_t)( telemetry.ReadFloat() * 1000.0f );
+				if ( value < 1000000 ) {
+					mTotalCurrent = value;
+				}
 				break;
 			}
 			case CURRENT_DRAW : {
@@ -670,7 +701,7 @@ bool Controller::RxRun()
 			}
 
 			default :
-				std::cout << "WARNING : Received unknown packet (" << (uint32_t)cmd << ") !\n" << std::flush;
+				std::cout << "WARNING : Received unknown command (" << (uint16_t)cmd << ") !\n" << std::flush;
 				break;
 		}
 	}

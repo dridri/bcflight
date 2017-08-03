@@ -46,13 +46,32 @@ Thread::~Thread()
 }
 
 
+const std::string& Thread::name() const
+{
+	return mName;
+}
+
+
+Thread* Thread::currentThread()
+{
+	for ( Thread* th : mThreads ) {
+		if ( th->mThread == pthread_self() ) {
+			return th;
+		}
+	}
+	return nullptr;
+}
+
+
 void Thread::StopAll()
 {
 	std::cerr << "Stopping all threads !\n";
 	for ( Thread* thread : mThreads ) {
-		std::cerr << "Stopping thread \"" << thread->mName << "\"\n";
-		thread->Stop();
-		thread->Join();
+		if ( not thread->mStopped ) {
+			std::cerr << "Stopping thread \"" << thread->mName << "\"\n";
+			thread->Stop();
+			thread->Join();
+		}
 	}
 	std::cerr << "Stopped all threads !\n";
 }

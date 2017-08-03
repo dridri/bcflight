@@ -33,7 +33,7 @@ public:
 
 	const bool* axes() const;
 
-	virtual void Read( Vector3f* v, bool raw = false ) = 0;
+	virtual int Read( Vector3f* v, bool raw = false ) = 0;
 
 protected:
 	bool mAxes[3];

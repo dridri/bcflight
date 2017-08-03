@@ -304,7 +304,13 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		thrust = mAltitudePID.state();
 	}
 
-	if ( mFrame->Stabilize( Vector3f( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() ), thrust ) == false ) {
+	Vector3f ratePID( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
+
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", ratePID.x, ratePID.y, ratePID.z );
+	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", stmp );
+
+	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
 		Reset( mHorizonPID.state().z );
 	}
 }

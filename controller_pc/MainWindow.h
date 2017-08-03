@@ -27,6 +27,7 @@
 #include <QProgressBar>
 #include "Config.h"
 #include "Thread.h"
+#include "BlackBox.h"
 
 namespace Ui {
 	class MainWindow;
@@ -104,6 +105,7 @@ private:
 
 	Ui::MainWindow* ui;
 	Config* mConfig;
+	BlackBox* mBlackBox;
 	ControllerPC* mController;
 	ControllerMonitor* mControllerMonitor;
 	Link* mStreamLink;

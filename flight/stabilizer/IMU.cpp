@@ -53,6 +53,7 @@ IMU::IMU( Main* main )
 	, mVelocity( 3, 3 )
 	, mLastAccelAttitude( Vector4f() )
 	, mLastAcceleration( Vector3f() )
+	, mGyroscopeErrorCounter( 0 )
 {
 	/** mRates matrix :
 	 *   - Inputs :
@@ -181,6 +182,8 @@ IMU::IMU( Main* main )
 // 	mSensorsThread = new HookThread<IMU>( "imu_sensors", this, &IMU::SensorsThreadRun );
 // 	mSensorsThread->Start();
 // 	mSensorsThread->setPriority( 99 );
+
+	mMain->blackbox()->Enqueue( "IMU:state", "Off" );
 }
 
 
@@ -301,11 +304,9 @@ void IMU::Loop( float dt )
 		Calibrate( dt, ( mState == CalibratingAll ) );
 	} else if ( mState == CalibrationDone ) {
 		mState = Running;
+		mMain->blackbox()->Enqueue( "IMU:state", "Running" );
 	} else if ( mState == Running ) {
-// 		if ( mMain->stabilizer()->mode() == Stabilizer::Rate ) {
-// 			UpdateSensors( dt, true );
-// 		}
-		UpdateSensors( dt, ( mMain->stabilizer()->mode() == Stabilizer::Rate ) ); // TEST
+		UpdateSensors( dt, ( mMain->stabilizer()->mode() == Stabilizer::Rate ) );
 		UpdateAttitude( dt );
 		if ( mPositionUpdate ) {
 			mPositionUpdateMutex.lock();
@@ -314,6 +315,7 @@ void IMU::Loop( float dt )
 			UpdatePosition( dt );
 		}
 	}
+
 }
 
 
@@ -322,6 +324,7 @@ void IMU::Calibrate( float dt, bool all )
 	switch ( mCalibrationStep ) {
 		case 0 : {
 			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors\n";
+			mMain->blackbox()->Enqueue( "IMU:state", "Calibrating" );
 			mCalibrationStep++;
 			mCalibrationTimer = Board::GetTicks();
 			break;
@@ -368,6 +371,7 @@ void IMU::Calibrate( float dt, bool all )
 		case 5 : {
 			gDebug() << "Calibration almost done...\n";
 			mState = CalibrationDone;
+			mMain->blackbox()->Enqueue( "IMU:state", "CalibrationDone" );
 			mAcceleration = Vector3f();
 			mGyroscope = Vector3f();
 			mMagnetometer = Vector3f();
@@ -434,6 +438,7 @@ void IMU::ResetYaw()
 
 void IMU::UpdateSensors( float dt, bool gyro_only )
 {
+	int gyro_total_axis = 0;
 	Vector4f total_accel;
 	Vector4f total_gyro;
 	Vector4f total_magn;
@@ -442,15 +447,28 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 	Vector3f total_lat_lon;
 	Vector3f vtmp;
 	float ftmp;
+	char stmp[64];
 
 	for ( Gyroscope* dev : Sensor::Gyroscopes() ) {
-		dev->Read( &vtmp );
-		total_gyro += Vector4f( vtmp, 1.0f );
+		int ret = dev->Read( &vtmp );
+		if ( ret > 0 ) {
+			gyro_total_axis += ret;
+			total_gyro += Vector4f( vtmp, 1.0f );
+		}
 	}
-	mGyroscope = total_gyro.xyz() / total_gyro.w;
+	if ( gyro_total_axis >= 3 ) {
+		mGyroscope = total_gyro.xyz() / total_gyro.w;
+		sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
+		mMain->blackbox()->Enqueue( "IMU:gyroscope", stmp );
+	} else {
+		mGyroscopeErrorCounter++;
+		if ( mGyroscopeErrorCounter > 8 ) {
+			Board::defectivePeripherals()["Gyroscope"] = true;
+		}
+		mMain->blackbox()->Enqueue( "IMU:gyroscope", "error" );
+	}
 
 	// Update RPY only at 1/4 update frequency when in Rate mode
-	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 4;
 	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
 	{
 		for ( Accelerometer* dev : Sensor::Accelerometers() ) {
@@ -459,6 +477,8 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 		}
 		mLastAcceleration = mAcceleration;
 		mAcceleration = total_accel.xyz() / total_accel.w;
+		sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
+		mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
 
 		if ( mSensorsUpdateSlow % 16 == 0 ) {
 			for ( Magnetometer* dev : Sensor::Magnetometers() ) {
@@ -466,6 +486,8 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 				total_magn += Vector4f( vtmp, 1.0f );
 			}
 			mMagnetometer = total_magn.xyz() / total_magn.w;
+			sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mMagnetometer.x, mMagnetometer.y, mMagnetometer.z );
+			mMain->blackbox()->Enqueue( "IMU:magnetometer", stmp );
 		}
 
 		if ( mSensorsUpdateSlow % 32 == 0 ) {
@@ -510,6 +532,7 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 		}
 	}
 
+	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 4;
 	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 2048;
 }
 
@@ -564,6 +587,12 @@ void IMU::UpdateAttitude( float dt )
 
 	mdRPY = ( rpy - mRPY ) * dt;
 	mRPY = rpy;
+
+	char tmp[64];
+	sprintf( tmp, "\"%.4f,%.4f,%.4f\"", mRate.x, mRate.y, mRate.z );
+	mMain->blackbox()->Enqueue( "IMU:rate", tmp );
+	sprintf( tmp, "\"%.4f,%.4f,%.4f\"", mRPY.x, mRPY.y, mRPY.z );
+	mMain->blackbox()->Enqueue( "IMU:rpy", tmp );
 }
 
 

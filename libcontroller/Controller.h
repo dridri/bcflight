@@ -57,6 +57,7 @@ public:
 	Controller( Link* link, bool spectate = false );
 	virtual ~Controller();
 	bool isSpectate() const { return mSpectate; }
+	void setUpdateFrequency( uint32_t freq_hz );
 
 	void Calibrate();
 	void CalibrateAll();
@@ -155,6 +156,7 @@ protected:
 	bool RxRun();
 	uint32_t crc32( const uint8_t* buf, uint32_t len );
 
+	uint32_t mUpdateFrequency;
 	bool mSpectate;
 	Packet mTxFrame;
 	std::mutex mXferMutex;

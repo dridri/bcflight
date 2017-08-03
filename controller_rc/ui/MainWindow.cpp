@@ -110,6 +110,11 @@ void MainWindow::Update()
 		if ( not mController->isConnected() ) {
 			status = "Disconnected";
 		} else {
+			if ( mController->username() != "" ) {
+				status += "Connected to " + mController->username() + "\n";
+			} else {
+				status += "Connected\n";
+			}
 			if ( mController->calibrating() ) {
 				status += "Calibrating...\n";
 			} else if ( not mController->calibrated() ) {

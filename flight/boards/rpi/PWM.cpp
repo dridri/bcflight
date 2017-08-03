@@ -173,7 +173,8 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 {
 	if ( not mSigHandlerOk ) {
 		mSigHandlerOk = true;
-		static int sig_list[] = { 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 16, 19, 20 };
+// 		static int sig_list[] = { 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 16, 19, 20 };
+		static int sig_list[] = { 2 };
 		uint32_t i;
 		for ( i = 0; i <= sizeof(sig_list)/sizeof(int); i++ ) {
 			struct sigaction sa;
@@ -196,7 +197,7 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 		mChannels.emplace_back( mChannel );
 	}
 
-	// TODO, DANGER : set pin to zero signal NOW
+	mChannel->SetPWMus( mPin, 0 );
 }
 
 
@@ -243,7 +244,7 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 	memset( mPinsBufferLength, 0, sizeof(mPinsBufferLength) );
 
 	mMbox.handle = mbox_open();
-	if (mMbox.handle < 0) {
+	if ( mMbox.handle < 0 ) {
 		fatal("Failed to open mailbox\n");
 	}
 
@@ -313,7 +314,7 @@ void PWM::terminate( int sig )
 	size_t size;
 	size = backtrace( array, 16 );
 	fprintf( stderr, "Error: signal %d :\n", sig );
-	backtrace_symbols( array, size );
+	char** trace = backtrace_symbols( array, size );
 
 	dprintf( "Resetting DMA (%d)...\n", mChannels.size() );
 	for ( j = 0; j < mChannels.size(); j++ ) {
@@ -352,8 +353,6 @@ void PWM::terminate( int sig )
 
 void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
 {
-	float fwidth = ( (float)width_us / (float)mCycleTime );
-
 	bool found = false;
 	uint32_t i = 0;
 	for ( i = 0; i < mPinsCount; i++ ) {
@@ -375,8 +374,8 @@ void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
 		gpio_reg[GPIO_FSEL0 + pin/10] = fsel;
 	}
 
-	mPinsPWMf[i] = fwidth;
-	mPinsPWM[i] = (uint32_t)( fwidth * mNumSamples );
+	mPinsPWMf[i] = (float)width_us / (float)mCycleTime;
+	mPinsPWM[i] = width_us * mNumSamples / mCycleTime;
 }
 
 
@@ -429,8 +428,8 @@ void PWM::Channel::update_pwm()
 {
 	uint32_t i, j;
 // 	uint32_t cmd_count = 2;// + ( mLoop == false );
-// 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
-// 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
+	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
 	uint32_t mask;
 	dma_ctl_t ctl = mCtls[0];
 	if ( mLoop ) {
@@ -442,6 +441,7 @@ void PWM::Channel::update_pwm()
 		usleep(0);
 	}
 
+	ctl.cb[0].dst = phys_gpset0;
 	mask = 0;
 	for ( i = 0; i <= mPinsCount; i++ ) {
 		if ( mPinsPWM[i] > 0 ) {
@@ -451,6 +451,7 @@ void PWM::Channel::update_pwm()
 	ctl.sample[0] = mask;
 
 	for ( j = 1; j < mNumSamples; j++ ) {
+		ctl.cb[j*2].dst = phys_gpclr0;
 		mask = 0;
 		for ( i = 0; i <= mPinsCount; i++ ) {
 			if ( mPins[i] and j > mPinsPWM[i] ) {
@@ -570,8 +571,7 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 	 */
 	for (i = 0; i < mNumSamples; i++) {
 		// GPIO-Clear command
-		cbp->info = DMA_NO_WIDE_BURSTS;
-// 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
 // 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_TDMODE;
 		cbp->src = mem_virt_to_phys(ctl->sample + i);
 		cbp->dst = phys_gpclr0;
@@ -581,8 +581,8 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 		cbp++;
 		if ( mMode == MODE_BUFFER ) {
 			// GPIO-Set command
-			cbp->info = DMA_NO_WIDE_BURSTS;
-// 			cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
+// 			cbp->info = DMA_NO_WIDE_BURSTS;
+			cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP;
 			cbp->src = mem_virt_to_phys(ctl->sample + mNumSamples + i);
 			cbp->dst = phys_gpset0;
 			cbp->length = 4;
@@ -654,8 +654,7 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	dma_reg[DMA_CS] = DMA_INT | DMA_END;
 	dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
 	dma_reg[DMA_DEBUG] = 7; // clear debug error flags
-// 	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
-	dma_reg[DMA_CS] = 0x00770001;	// go, high priority
+	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
 	dprintf( "Ok\n" );
 }
 

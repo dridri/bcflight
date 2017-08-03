@@ -59,7 +59,13 @@ bool HUD::run()
 	glClear( GL_COLOR_BUFFER_BIT );
 
 	DroneStats dronestats;
+	LinkStats linkStats;
+	memset( &dronestats, 0, sizeof(dronestats) - sizeof(std::string) - sizeof(std::vector<std::string>) );
+	memset( &linkStats, 0, sizeof(linkStats) );
+
 	dronestats.username = Main::instance()->username();
+	dronestats.messages = Board::messages();
+	dronestats.blackBoxId = Main::instance()->blackbox()->id();
 	if ( controller ) {
 		dronestats.armed = controller->armed();
 		dronestats.mode = (DroneMode)stablizer->mode();
@@ -75,7 +81,6 @@ bool HUD::run()
 		dronestats.batteryVoltage = powerThread->VBat();
 		dronestats.batteryTotalCurrent = (uint32_t)( powerThread->CurrentTotal() * 1000 );
 	}
-	LinkStats linkStats;
 	if ( controller and controller->link() ) {
 		linkStats.qual = controller->link()->RxQuality();
 		linkStats.level = controller->link()->RxLevel();
@@ -83,6 +88,7 @@ bool HUD::run()
 		linkStats.channel = ( mShowFrequency ? controller->link()->Frequency() : controller->link()->Channel() );
 		linkStats.source = 0;
 	}
+
 	VideoStats video_stats = {
 		.width = (int)mWidth,
 		.height = (int)mHeight,

@@ -47,6 +47,7 @@ extern "C" {
 #include <Main.h>
 #include "Board.h"
 #include "I2C.h"
+#include "PWM.h"
 #include "Debug.h"
 
 extern "C" void bcm_host_init( void );
@@ -62,10 +63,13 @@ decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 HookThread<Board>* Board::mStatsThread = nullptr;
 uint32_t Board::mCPUTemp = 0;
 uint32_t Board::mCPULoad = 0;
+std::vector< std::string > Board::mBoardMessages;
+std::map< std::string, bool > Board::mDefectivePeripherals;
 
 VCHI_INSTANCE_T Board::global_initialise_instance = nullptr;
 VCHI_CONNECTION_T* Board::global_connection = nullptr;
 
+#include <signal.h>
 
 Board::Board( Main* main )
 {
@@ -80,6 +84,11 @@ Board::Board( Main* main )
 
 	atexit( &Board::AtExit );
 
+	struct sigaction sa;
+	memset( &sa, 0, sizeof(sa) );
+	sa.sa_handler = &Board::SegFaultHandler;
+	sigaction( 11, &sa, NULL );
+
 	std::ifstream file( "/var/flight/registers" );
 	std::string line;
 	if ( file.is_open() ) {
@@ -91,7 +100,7 @@ Board::Board( Main* main )
 		file.close();
 	}
 
-	gDebug() << readcmd( "iw list" ) << "\n";
+// 	gDebug() << readcmd( "iw list" ) << "\n";
 
 	if ( mStatsThread == nullptr ) {
 		mStatsThread = new HookThread<Board>( "board_stats", this, &Board::StatsThreadRun );
@@ -107,6 +116,55 @@ Board::~Board()
 
 void Board::AtExit()
 {
+}
+
+
+void Board::SegFaultHandler( int sig )
+{
+	std::string msg;
+	Thread* thread = Thread::currentThread();
+
+	if ( thread ) {
+		thread->Stop();
+		msg = "Thread \"" + thread->name() + "\" crashed !";
+	} else {
+		msg = "Thread <unknown> crashed !";
+	}
+
+	mBoardMessages.emplace_back( msg );
+	gDebug() << "\e[0;41m" << msg << "\e[0m\n";
+
+	if ( thread and thread->name() == "stabilizer" ) {
+		PWM::terminate(0);
+	}
+
+	while ( 1 ) {
+		usleep( 1000 * 1000 * 10 );
+	}
+}
+
+
+std::vector< std::string > Board::messages()
+{
+	std::vector< std::string > msgs;
+
+	for ( auto defect : mDefectivePeripherals ) {
+		if ( defect.second == true ) {
+			msgs.emplace_back( defect.first + " is defective !" );
+		}
+	}
+	if ( mCPUTemp > 80 ) {
+		msgs.emplace_back( "High CPU Temp (" + std::to_string(mCPUTemp) + "\xB0"" C)" );
+	}
+
+	msgs.insert( msgs.end(), mBoardMessages.begin(), mBoardMessages.end() );
+	return msgs;
+}
+
+
+std::map< std::string, bool >& Board::defectivePeripherals()
+{
+	return mDefectivePeripherals;
 }
 
 

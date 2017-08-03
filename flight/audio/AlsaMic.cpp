@@ -23,6 +23,7 @@
 #include <Main.h>
 #include <Debug.h>
 #include <Link.h>
+#include <Recorder.h>
 #include <video/Camera.h>
 
 int AlsaMic::flight_register( Main* main )
@@ -51,6 +52,7 @@ AlsaMic::AlsaMic( Config* config, const std::string& conf_obj )
 
 	if ( ( err = snd_pcm_open( &mPCM, device.c_str(), SND_PCM_STREAM_CAPTURE, 0 ) ) < 0 ) {
 		fprintf( stderr, "cannot open audio device %s (%s)\n", device.c_str(), snd_strerror( err ) );
+		Board::defectivePeripherals()["Microphone"] = true;
 		return;
 	}
 	fprintf( stdout, "audio interface opened\n");
@@ -162,6 +164,8 @@ bool AlsaMic::LiveThreadRun()
 		}
 	} else {
 		printf( "snd_pcm_readi error %ld\n", size );
+		Board::defectivePeripherals()["Microphone"] = true;
+		return false;
 	}
 	return true;
 }
@@ -169,6 +173,12 @@ bool AlsaMic::LiveThreadRun()
 
 int AlsaMic::RecordWrite( char* data, int datalen )
 {
+// 	Recorder* recorder = Main::instance()->recorder();
+// 	if ( recorder ) {
+// 		recorder->WriteAudio( data, datalen );
+// 		return datalen;
+// 	}
+
 	int ret = 0;
 
 	if ( !mRecordStream ) {
@@ -183,10 +193,10 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 	}
 
 	ret = fwrite( data, 1, datalen, mRecordStream );
-	fflush( mRecordStream );
 
 	mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 2048;
-	if ( mRecordSyncCounter % 120 == 0 ) {
+	if ( mRecordSyncCounter % 30 == 0 ) {
+		fflush( mRecordStream );
 		fsync( fileno( mRecordStream ) );
 	}
 

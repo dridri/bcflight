@@ -51,7 +51,7 @@ public:
 	~MPU9150Gyro();
 
 	void Calibrate( float dt, bool last_pass = false );
-	void Read( Vector3f* v, bool raw = false );
+	int Read( Vector3f* v, bool raw = false );
 
 	std::string infos();
 

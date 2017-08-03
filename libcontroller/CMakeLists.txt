@@ -35,6 +35,10 @@ add_library( controllerbase STATIC
 			)
 
 file( GLOB_RECURSE LINKS_SOURCES links/*.cpp links/*.c links/*/*.cpp links/*/*.c )
+if ( ${board} MATCHES OFF OR ${board} MATCHES "generic" OR ${board} MATCHES "pc" )
+	list( REMOVE_ITEM LINKS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/links/nRF24L01.cpp )
+	list( REMOVE_ITEM LINKS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/links/SX127x.cpp )
+endif()
 add_library( controller STATIC
 			 Controller.cpp
 			 Thread.cpp

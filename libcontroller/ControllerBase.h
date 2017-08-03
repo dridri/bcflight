@@ -53,12 +53,17 @@ protected:
 		int8_t roll;
 		int8_t pitch;
 		int8_t yaw;
+		int8_t arm : 1;
+		int8_t stabilizer_mode : 1;
+		int8_t night_mode : 1;
+		int8_t take_picture : 1;
+		int8_t _unused : 4;
 	} Controls;
 
 	typedef struct __attribute__((packed)) Telemetry {
 		uint16_t battery_voltage;
 		uint16_t total_current;
-		int8_t current_draw;
+		uint8_t current_draw;
 		int8_t battery_level;
 		uint8_t cpu_load;
 		uint8_t cpu_temp;
@@ -66,16 +71,18 @@ protected:
 		int8_t rx_level;
 	} Telemetry;
 
+#define SHORT_COMMAND 0xF0
+
 	typedef enum {
 		UNKNOWN = 0,
 
 		// Continuous data (should be as small as possible)
-		STATUS = 0x60,
-		TELEMETRY = 0x61,
-		CONTROLS = 0x62,
+		STATUS = SHORT_COMMAND | 0x0,
+		PING = SHORT_COMMAND | 0x1,
+		TELEMETRY = SHORT_COMMAND | 0x2,
+		CONTROLS = SHORT_COMMAND | 0x3,
 
 		// Configure
-		PING = 0x70,
 		CALIBRATE = 0x71,
 		CALIBRATING = 0x78,
 		SET_TIMESTAMP = 0x72,

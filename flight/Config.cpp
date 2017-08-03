@@ -315,6 +315,7 @@ void Config::Reload()
 	luaL_dostring( L, "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
 	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
 	luaL_dostring( L, "function RF24( params ) params.link_type = \"nRF24L01\" ; return params end" );
+	luaL_dostring( L, "function SX127x( params ) params.link_type = \"SX127x\" ; return params end" );
 	luaL_dostring( L, "function MultiLink( params ) params.link_type = \"MultiLink\" ; return params end" );
 	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; params.device = \"wlan0\" ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
 	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );

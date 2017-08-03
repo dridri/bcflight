@@ -65,7 +65,7 @@ ControllerClient::~ControllerClient()
 
 int8_t ControllerClient::ReadSwitch( uint32_t id )
 {
-	static const uint32_t map[8] = { 0, 5, 23, 24, 6, 26, 22, 27 };
+	static const uint32_t map[8] = { 0, 5, 23, 24, 6, 26, 22, 4 };
 
 	if ( id >= 8 ) {
 		return 0;
@@ -186,8 +186,8 @@ float ControllerClient::Joystick::Read()
 
 	if ( mThrustMode ) {
 		float ret = (float)( raw - mMin ) / (float)( mMax - mMin );
-		ret = std::max( 0.0f, std::min( 1.0f, ret ) );
 		ret = 0.01f * std::round( ret * 100.0f );
+		ret = std::max( 0.0f, std::min( 1.0f, ret ) );
 		return ret;
 	}
 
@@ -197,8 +197,8 @@ float ControllerClient::Joystick::Read()
 	}
 
 	float ret = (float)( raw - mCenter ) / base;
-	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
 	ret = 0.01f * std::round( ret * 100.0f );
+	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
 	return ret;
 }
 

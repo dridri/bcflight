@@ -107,6 +107,9 @@ protected:
 
 	Vector3f mLastAcceleration;
 	uint32_t mAcroRPYCounter;
+
+	// Error counters
+	uint32_t mGyroscopeErrorCounter;
 };
 
 #endif // IMU_H

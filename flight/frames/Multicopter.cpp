@@ -123,9 +123,12 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 			mStabSpeeds[i] = stab_shift + ( mStabSpeeds[i] - overall_min ) * stab_multiplier;
 		}
 
+		char stmp[64] = "\"";
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 			mMotors[i]->setSpeed( mStabSpeeds[i], ( i >= mMotors.size() - 1 ) );
+			sprintf( stmp, "%s%.4f,", stmp, mMotors[i]->speed() );
 		}
+		Main::instance()->blackbox()->Enqueue( "Multicopter:motors", std::string(stmp) + "\"" );
 
 		return true;
 	}

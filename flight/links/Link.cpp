@@ -51,6 +51,12 @@ void Packet::Write( const uint8_t* data, uint32_t bytes )
 }
 
 
+void Packet::WriteU8( uint8_t v )
+{
+	mData.insert( mData.end(), &v, &v + sizeof(uint8_t) );
+}
+
+
 void Packet::WriteU16( uint16_t v )
 {
 	union {
@@ -85,6 +91,17 @@ uint32_t Packet::Read( uint8_t* data, uint32_t bytes )
 		memcpy( data, mData.data() + mReadOffset, bytes );
 		mReadOffset += bytes;
 		return bytes;
+	}
+	return 0;
+}
+
+
+uint32_t Packet::ReadU8( uint8_t* u )
+{
+	if ( mReadOffset + sizeof(uint8_t) <= mData.size() ) {
+		*u = ((uint8_t*)(mData.data() + mReadOffset))[0];
+		mReadOffset += sizeof(uint8_t);
+		return sizeof(uint8_t);
 	}
 	return 0;
 }
@@ -135,6 +152,14 @@ uint16_t Packet::ReadU16()
 {
 	uint16_t ret = 0;
 	ReadU16( &ret );
+	return ret;
+}
+
+
+uint8_t Packet::ReadU8()
+{
+	uint8_t ret = 0;
+	ReadU8( &ret );
 	return ret;
 }
 

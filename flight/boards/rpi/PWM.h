@@ -38,6 +38,8 @@ public:
 	void SetPWMBuffer( uint8_t* buffer, uint32_t len );
 	void Update();
 
+	static void terminate( int dummy );
+
 private:
 	class Channel {
 	public:
@@ -116,7 +118,6 @@ private:
 	uint8_t mPin;
 
 	static std::vector< Channel* > mChannels;
-	static void terminate( int dummy );
 	static bool mSigHandlerOk;
 
 };

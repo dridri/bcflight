@@ -77,11 +77,13 @@ void L3GD20H::Calibrate( float dt, bool last_pass )
 }
 
 
-void L3GD20H::Read( Vector3f* v, bool raw )
+int L3GD20H::Read( Vector3f* v, bool raw )
 {
 	short sgyro[3] = { 0 };
 
-	mI2C->Read( L3GD20_OUT_X_L | 0x80, sgyro, sizeof(sgyro) );
+	if ( mI2C->Read( L3GD20_OUT_X_L | 0x80, sgyro, sizeof(sgyro) ) != sizeof(sgyro) ) {
+		return -1;
+	}
 	v->x = 0.0703125f * (float)sgyro[0];
 	v->y = 0.0703125f * (float)sgyro[1];
 	v->z = 0.0703125f * (float)sgyro[2];
@@ -90,4 +92,5 @@ void L3GD20H::Read( Vector3f* v, bool raw )
 	ApplySwap( *v );
 
 	mLastValues = *v;
+	return 3;
 }

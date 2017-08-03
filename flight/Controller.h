@@ -50,6 +50,8 @@ protected:
 	bool TelemetryRun();
 	uint32_t crc32( const uint8_t* buf, uint32_t len );
 
+	void Arm();
+	void Disarm();
 	void setRoll( float value );
 	void setPitch( float value );
 	void setYaw( float value );
@@ -57,6 +59,7 @@ protected:
 
 	Main* mMain;
 	std::mutex mSendMutex;
+	bool mTimedOut;
 	bool mArmed;
 	uint32_t mPing;
 	Vector4f mExpo;

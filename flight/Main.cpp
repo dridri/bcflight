@@ -37,6 +37,7 @@
 #include <Stabilizer.h>
 #include <Frame.h>
 #include <Microphone.h>
+#include <Recorder.h>
 #include <HUD.h>
 #ifdef CAMERA_INCLUDE
 	#include CAMERA_INCLUDE // defined in CMakeLists.txt
@@ -108,10 +109,12 @@ void Test()
 Main::Main()
 	: mLPS( 0 )
 	, mLPSCounter( 0 )
+	, mBlackBox( nullptr )
 	, mController( nullptr )
 	, mCamera( nullptr )
 	, mHUD( nullptr )
 	, mMicrophone( nullptr )
+	, mRecorder( nullptr )
 	, mCameraType( "" )
 {
 	mInstance = this;
@@ -120,6 +123,9 @@ Main::Main()
 	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
+
+	mBlackBox = new BlackBox();
+	Board::InformLoading();
 
 	mBoard = new Board( this );
 	flight_register();
@@ -180,6 +186,8 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
+// 	mRecorder = new Recorder();
+
 	mCameraType = mConfig->string( "camera.type" );
 #ifdef CAMERA
 	if ( mCameraType != "" ) {
@@ -195,10 +203,12 @@ Main::Main()
 	if ( mConfig->string( "microphone.type" ) != "" ) {
 		mMicrophone = Microphone::Create( mConfig, "microphone" );
 	}
+	Board::InformLoading();
 
 	if ( mConfig->boolean( "hud.enabled", false ) ) {
 		mHUD = new HUD();
 	}
+	Board::InformLoading();
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
@@ -242,7 +252,9 @@ bool Main::StabilizerThreadRun()
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
 	} else {
-		mStabilizer->Update( mIMU, mController, dt );
+		if ( mIMU->state() == IMU::Running ) {
+			mStabilizer->Update( mIMU, mController, dt );
+		}
 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
 	}
 
@@ -251,6 +263,7 @@ bool Main::StabilizerThreadRun()
 		mLPS = mLPSCounter;
 		mLPSCounter = 0;
 		mLPSTicks = mBoard->GetTicks();
+		mBlackBox->Enqueue( "Stabilizer:lps", std::to_string(mLPS) );
 	}
 	return true;
 }
@@ -317,6 +330,12 @@ Board* Main::board() const
 }
 
 
+BlackBox* Main::blackbox() const
+{
+	return mBlackBox;
+}
+
+
 IMU* Main::imu() const
 {
 	return mIMU;
@@ -353,6 +372,18 @@ HUD* Main::hud() const
 }
 
 
+Microphone* Main::microphone() const
+{
+	return mMicrophone;
+}
+
+
+Recorder* Main::recorder() const
+{
+	return mRecorder;
+}
+
+
 const std::string& Main::cameraType() const
 {
 	return mCameraType;
@@ -377,15 +408,14 @@ void Main::DetectDevices()
 
 	{
 		std::list< Sensor::Device > knownDevices = Sensor::KnownDevices();
-		Debug sensors;
-		sensors << "Supported sensors :\n";
+		gDebug() << "Supported sensors :\n";
 		for ( Sensor::Device dev : knownDevices ) {
 			if ( std::string(dev.name) != "" ) {
-				sensors << "    " << dev.name;
+				gDebug() << "    " << dev.name;
 				if ( dev.iI2CAddr != 0 ) {
-					sensors << " [I2C 0x" << std::hex << dev.iI2CAddr << "]";
+					gDebug() << " [I2C 0x" << std::hex << dev.iI2CAddr << "]";
 				}
-				sensors << "\n";
+				gDebug() << "\n";
 			}
 		}
 	}

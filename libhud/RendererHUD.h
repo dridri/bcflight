@@ -20,6 +20,7 @@
 #define RENDERERHUD_H
 
 #include <GLES2/gl2.h>
+#include <vector>
 #include <string>
 #include "Vector.h"
 #include "Matrix.h"
@@ -53,6 +54,7 @@ typedef struct DroneStats {
 	bool armed;
 	DroneMode mode;
 	uint32_t ping;
+	uint32_t blackBoxId;
 	// Attitude
 	float thrust;
 	float acceleration;
@@ -63,6 +65,7 @@ typedef struct DroneStats {
 	uint32_t batteryTotalCurrent;
 	// Other
 	std::string username;
+	std::vector< std::string > messages;
 } DroneStats;
 
 class RendererHUD

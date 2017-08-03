@@ -59,15 +59,18 @@ uint16_t MCP320x::Read( uint8_t channel )
 			return 0;
 		}
 	}
-
+/*
 	for ( int j = 0; j < nbx; j++ ) {
 		for ( int i = 0; i < nbx; i++ ) {
 			if ( i != j and bx[i][1] != bx[j][1] ) {
-// 				printf( "ADC too large (%X, %X)\n", bx[i][1], bx[j][1] );
+				if ( channel == 3 ) {
+					printf( "ADC too large (%X, %X || %d, %d)\n", bx[i][1], bx[j][1], bx[i][1], bx[j][1] );
+				}
 				return 0;
 			}
 		}
 	}
+*/
 	for ( int i = 0; i < nbx; i++ ) {
 		b[0] += bx[i][0];
 		b[1] += bx[i][1];

@@ -173,6 +173,8 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		}
 	}
 
+	int bottom_left_text_idx = 0;
+
 	// Battery
 	if ( dronestats ) {
 		float level = dronestats->batteryLevel;
@@ -187,6 +189,8 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		RenderText( mBorderLeft, mBorderBottom - mFontHeight * 3, svolt + "V", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
 		RenderText( mBorderLeft, mBorderBottom - mFontHeight * 2, std::to_string( dronestats->batteryTotalCurrent ) + "mAh", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.9f );
 
+		bottom_left_text_idx = 4;
+
 		if ( localVoltage > 0.0f ) {
 			if ( localVoltage <= 11.0f and mBlinkingViews ) {
 				RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize, "Low Goggles Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
@@ -195,7 +199,14 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			svolt = std::to_string( localVoltage );
 			svolt = svolt.substr( 0, svolt.find( "." ) + 3 );
 			RenderText( mBorderLeft, mBorderBottom - mFontHeight * 4, svolt + "V", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f, 1.0f ), 0.75 );
+
+			bottom_left_text_idx++;
 		}
+	}
+
+	// Blackbox
+	if ( dronestats ) {
+		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "BB " + std::to_string(dronestats->blackBoxId), Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
 	}
 
 	// Static elements
@@ -251,10 +262,10 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 
 	// Link status
 	if ( iwstats ) {
-		float level = ( iwstats->level != -200 ) ? ( ( (float)( 100 + iwstats->level ) * 100.0f / 60.0f ) / 100.0f ) : 0.8f;
+		float level = ( iwstats->level != -200 ) ? ( ( (float)( 100 + iwstats->level ) * 100.0f / 50.0f ) / 100.0f ) : 0.8f;
 		RenderLink( (float)iwstats->qual / 100.0f, level );
 		float link_red = 1.0f - ((float)iwstats->qual) / 100.0f;
-		std::string channel_str = ( iwstats->channel > 1000 ) ? ( std::to_string( iwstats->channel ) + "MHz" ) : ( "Ch" + std::to_string( iwstats->channel ) );
+		std::string channel_str = ( iwstats->channel > 400 ) ? ( std::to_string( iwstats->channel ) + "MHz" ) : ( "Ch" + std::to_string( iwstats->channel ) );
 		std::string level_str = ( iwstats->level != -200 ) ? ( std::to_string( iwstats->level ) + "dBm  " ) : "";
 		std::string link_quality_str = channel_str + "  " + level_str + std::to_string( iwstats->qual ) + "%";
 		RenderText( mBorderLeft, mBorderTop + 60, link_quality_str, Vector4f( 0.5f + 0.5f * link_red, 1.0f - link_red * 0.25f, 0.5f - link_red * 0.5f, 1.0f ), 0.9f );
@@ -293,6 +304,11 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		if ( dronestats->ping > 50 ) {
 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}
+	}
+
+	int imsg = 0;
+	for ( std::string msg : dronestats->messages ) {
+		RenderText( mBorderLeft * 0.75f, mBorderTop + mFontSize * 0.75f * ( 3 + (imsg++) ), msg, Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 0.75f, false );
 	}
 }
 

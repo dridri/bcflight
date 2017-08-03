@@ -61,6 +61,9 @@ MainWindow::MainWindow()
 	mConfig = new Config();
 	connect( ui->actionSettings, SIGNAL( triggered(bool) ), mConfig, SLOT( show() ) );
 
+	mBlackBox = new BlackBox();
+	connect( ui->actionInspect_blackbox, SIGNAL( triggered(bool) ), mBlackBox, SLOT( show() ) );
+
 	Link* mControllerLink = nullptr;
 	Link* mAudioLink = nullptr;
 

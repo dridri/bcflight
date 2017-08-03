@@ -30,7 +30,7 @@ public:
 
 	static Gyroscope* Instanciate( Config* config, const std::string& object );
 	void Calibrate( float dt, bool last_pass = false );
-	void Read( Vector3f* v, bool raw = false );
+	int Read( Vector3f* v, bool raw = false );
 
 	static int flight_register( Main* main );
 

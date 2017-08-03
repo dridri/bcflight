@@ -212,12 +212,14 @@ void MPU9150Accel::Read( Vector3f* v, bool raw )
 }
 
 
-void MPU9150Gyro::Read( Vector3f* v, bool raw )
+int MPU9150Gyro::Read( Vector3f* v, bool raw )
 {
 // 	short sgyro[3] = { 0 };
 	uint8_t sgyro[6] = { 0 };
 
-	mI2C->Read( MPU_9150_GYRO_XOUT_H | 0x80, sgyro, sizeof(sgyro) );
+	if ( mI2C->Read( MPU_9150_GYRO_XOUT_H | 0x80, sgyro, sizeof(sgyro) ) != sizeof(sgyro) ) {
+		return -1;
+	}
 	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
 	v->y = (float)( (int16_t)( sgyro[2] << 8 | sgyro[3] ) ) * 0.061037018952f;
 	v->z = (float)( (int16_t)( sgyro[4] << 8 | sgyro[5] ) ) * 0.061037018952f;
@@ -230,6 +232,7 @@ void MPU9150Gyro::Read( Vector3f* v, bool raw )
 	}
 
 	mLastValues = *v;
+	return 3;
 }
 
 

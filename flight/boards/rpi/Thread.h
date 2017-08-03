@@ -35,8 +35,10 @@ public:
 	void Join();
 	bool running();
 	void setPriority( int p, int affinity = -1 );
-	static void setMainPriority( int p );
+	const std::string& name() const;
 
+	static Thread* currentThread();
+	static void setMainPriority( int p );
 	static uint64_t GetTick();
 	static float GetSeconds();
 	static void StopAll();

@@ -27,7 +27,7 @@ public:
 	FakeGyroscope( int axisCount = 3, const Vector3f& noiseGain = Vector3f( 0.4f, 0.4f, 0.4f ) );
 	~FakeGyroscope();
 
-	void Read( Vector3f* v, bool raw = false );
+	int Read( Vector3f* v, bool raw = false );
 	void Calibrate( float dt, bool last_pass = false );
 
 	std::string infos();

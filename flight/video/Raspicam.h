@@ -111,6 +111,8 @@ protected:
 	std::condition_variable mTakePictureCond;
 
 	FILE* mRecordStream; // TODO : use board-specific file instead
+	std::mutex mRecordStreamMutex;
+	std::list< std::pair< uint8_t*, uint32_t > > mRecordStreamQueue;
 };
 
 #endif // RASPICAM_H

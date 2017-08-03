@@ -109,6 +109,7 @@ include_directories( peripherals )
 include_directories( video )
 include_directories( audio )
 include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
+include_directories( ${CMAKE_SOURCE_DIR}/../external/libmp4v2/include )
 
 if ( "${rawwifi}" MATCHES 1 )
 	SET( RAWWIFI_ON ${rawwifi} CACHE INTERNAL "RAWWIFI_ON" )
@@ -134,6 +135,7 @@ set( SOURCES
 	Main.cpp
 	Config.cpp
 	Controller.cpp
+	BlackBox.cpp
 	PowerThread.cpp
 	Matrix.cpp
 	Debug.cpp
@@ -180,6 +182,6 @@ if ( "${rawwifi}" MATCHES 1 )
 endif()
 
 message( "LIBS : ${LIBS} ${BOARD_LIBS}" )
-target_link_libraries( flight_unstripped -L./ -lluajit_static controllerbase ${LIBS} ${BOARD_LIBS} )
+target_link_libraries( flight_unstripped -L./ -L${CMAKE_SOURCE_DIR}/../external/libmp4v2/build/.libs -lluajit_static -lmp4v2 controllerbase ${LIBS} ${BOARD_LIBS} )
 
 board_strip()

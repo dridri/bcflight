@@ -27,6 +27,7 @@
 #include <GPIO.h>
 #include "Raspicam.h"
 #include <Board.h>
+#include <Recorder.h>
 #include <Main.h>
 #include "../../external/OpenMaxIL++/include/VideoDecode.h"
 
@@ -55,6 +56,7 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	fDebug( config, conf_obj );
 
 	if ( not IL::Component::mHandle ) {
+		Board::defectivePeripherals()["Camera"] = true;
 		return;
 	}
 
@@ -108,7 +110,6 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 // 		mEncoderRecord->SetState( IL::Component::StateIdle );
 		mEncoder->AllocateOutputBuffer();
 // 		mEncoderRecord->AllocateOutputBuffer();
-// 		mRecordThread = new HookThread<Raspicam>( "cam_record", this, &Raspicam::RecordThreadRun );
 		mSplitter->SetState( IL::Component::StateIdle );
 	} else {
 		IL::Camera::SetupTunnelVideo( mEncoder );
@@ -144,9 +145,8 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 		mLiveThread->setPriority( 99, 3 );
 	}
 
-	if ( mRecordThread ) {
-		mRecordThread->Start();
-	}
+	mRecordThread = new HookThread<Raspicam>( "cam_record", this, &Raspicam::RecordThreadRun );
+	mRecordThread->Start();
 
 	mTakePictureThread->Start();
 }
@@ -369,7 +369,7 @@ bool Raspicam::TakePictureThreadRun()
 	fclose( fp );
 
 	gDebug() << "Picture taken !\n";
-	delete buf;
+	delete[] buf;
 	mTakingPicture = false;
 	return true;
 }
@@ -440,10 +440,6 @@ bool Raspicam::LiveThreadRun()
 
 bool Raspicam::RecordThreadRun()
 {
-	if ( not mEncoderRecord ) {
-		usleep( 1000 * 1000 );
-		return true;
-	}
 	if ( not mRecording ) {
 		usleep( 1000 * 100 );
 		return true;
@@ -454,11 +450,30 @@ bool Raspicam::RecordThreadRun()
 		return true;
 	}
 
-	uint8_t data[65536] = { 0 };
-	uint32_t datalen = mEncoderRecord->getOutputData( data );
+	if ( mRecordStream ) {
+		mRecordStreamMutex.lock();
+		while ( mRecordStreamQueue.size() > 0 ) {
+			std::pair< uint8_t*, uint32_t > frame = mRecordStreamQueue.front();
+			mRecordStreamQueue.pop_front();
+			mRecordStreamMutex.unlock();
+			fwrite( frame.first, 1, frame.second, mRecordStream );
+			delete frame.first;
+			if ( mRecordSyncCounter == 0 ) {
+				fflush( mRecordStream );
+				fsync( fileno( mRecordStream ) );
+			}
+			mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 10;
+			mRecordStreamMutex.lock();
+		}
+		mRecordStreamMutex.unlock();
+	}
 
-	if ( (int32_t)datalen > 0 ) {
-		RecordWrite( (char*)data, datalen );
+	if ( mEncoderRecord ) {
+		uint8_t data[65536] = { 0 };
+		uint32_t datalen = mEncoderRecord->getOutputData( data );
+		if ( (int32_t)datalen > 0 ) {
+			RecordWrite( (char*)data, datalen );
+		}
 	}
 
 	return true;
@@ -483,6 +498,12 @@ int Raspicam::LiveSend( char* data, int datalen )
 
 int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 {
+// 	Recorder* recorder = Main::instance()->recorder();
+// 	if ( recorder ) {
+// 		recorder->WriteVideo( data, datalen );
+// 		return datalen;
+// 	}
+
 	int ret = 0;
 
 	if ( !mRecordStream ) {
@@ -503,22 +524,23 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 		}
 		sprintf( filename, "/var/VIDEO/video_%02dfps_%06u.h264", IL::Camera::framerate(), fileid );
 		mRecordFilename = std::string( filename );
-		mRecordStream = fopen( filename, "wb" );
+		FILE* stream = fopen( filename, "wb" );
 		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
 		if ( headers.size() > 0 ) {
 			for ( auto hdr : headers ) {
-				fwrite( hdr.second, 1, hdr.first, mRecordStream );
+				fwrite( hdr.second, 1, hdr.first, stream );
 			}
 		}
+		mRecordStream = stream;
 	}
 
-	ret = fwrite( data, 1, datalen, mRecordStream );
-
-	mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 2048;
-	if ( mRecordSyncCounter % 60 == 0 ) {
-		fflush( mRecordStream );
-		fsync( fileno( mRecordStream ) );
-	}
+	std::pair< uint8_t*, uint32_t > frame;
+	frame.first = new uint8_t[datalen];
+	frame.second = datalen;
+	memcpy( frame.first, data, datalen );
+	mRecordStreamMutex.lock();
+	mRecordStreamQueue.emplace_back( frame );
+	mRecordStreamMutex.unlock();
 
 	return ret;
 }

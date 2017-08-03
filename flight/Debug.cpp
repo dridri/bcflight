@@ -20,12 +20,22 @@
 #include "Debug.h"
 
 std::string Debug::sBufferedData;
+std::string Debug::sBufferedBlackBox;
 std::mutex Debug::mMutex;
 
 void Debug::SendControllerOutput( const std::string& s )
 {
 	mMutex.lock();
 	sBufferedData += s;
+	sBufferedBlackBox += s;
+
+	if ( sBufferedBlackBox.find('\n') != sBufferedData.npos and Main::instance() ) {
+		if ( sBufferedBlackBox[sBufferedBlackBox.length()-1] == '\n' ) {
+			sBufferedBlackBox = sBufferedBlackBox.substr( 0, sBufferedBlackBox.length() - 1 );
+		}
+		Main::instance()->blackbox()->Enqueue( "log", sBufferedBlackBox );
+		sBufferedBlackBox = "";
+	}
 
 	if ( sBufferedData.find('\n') != sBufferedData.npos and Main::instance() ) {
 		Controller* ctrl = Main::instance()->controller();
