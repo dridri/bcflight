@@ -41,8 +41,20 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0" colspan="3">
+   <item row="2" column="0" colspan="3">
     <widget class="QTableView" name="table"/>
+   </item>
+   <item row="1" column="0" colspan="3">
+    <widget class="QGroupBox" name="groups">
+     <property name="title">
+      <string>Groups</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <layout class="QHBoxLayout" name="groupsLayout"/>
+      </item>
+     </layout>
+    </widget>
    </item>
   </layout>
  </widget>

@@ -2,6 +2,8 @@
 #include "ui_blackbox.h"
 #include <QFileDialog>
 #include <QTextStream>
+#include <QCheckBox>
+#include <QPalette>
 #include <QDebug>
 
 BlackBox::BlackBox()
@@ -47,14 +49,29 @@ void BlackBox::openFile()
 	names.append( "log" );
 	instantValues.append( "" );
 
+	QStringList groups;
+	groups.append( "log" );
+
 	QTextStream in( &inputFile );
 	while ( not in.atEnd() ) {
 		instantValues[ names.indexOf("log") - 1 ] = ""; // Reset log
+		for ( QString& value : instantValues ) {
+			if ( value.startsWith( "$" ) ) {
+				value = value.mid( 1 );
+			}
+		}
 		QString sline = in.readLine();
 		QStringList line;
 		for ( int32_t i = 0; i < sline.size(); ) {
 			if ( line.size() == 2 ) {
-				line.append( sline.mid( i ) );
+				QString s = sline.mid( i );
+				if ( s[0] == '"' ) {
+					s = s.mid( 1 );
+					if ( s[s.length()-1] == '"' ) {
+						s = s.mid( 0, s.length() - 1 );
+					}
+				}
+				line.append( s );
 				break;
 			}
 			int32_t end = i + 1;
@@ -77,15 +94,25 @@ void BlackBox::openFile()
 		}
 		if ( not names.contains( line[1] ) ) {
 			names.append( line[1] );
-			instantValues.append( line[2] );
+			instantValues.append( QString("$") + line[2] );
+			QString group = line[1].split(":")[0];
+			if ( not groups.contains( group ) ) {
+				groups.append( group );
+			}
 		} else {
-			instantValues[ names.indexOf( line[1] ) - 1 ] = line[2];
+			instantValues[ names.indexOf( line[1] ) - 1 ] = QString("$") + line[2];
 		}
 		values.append( qMakePair( line[0].toULongLong(), instantValues ) );
 	}
 
 	inputFile.close();
 	mData->updated();
+
+	for ( QString group : groups ) {
+		QCheckBox* check = new QCheckBox( group );
+		check->setChecked( true );
+		ui->groupsLayout->addWidget( check );
+	}
 }
 
 
@@ -126,13 +153,28 @@ QVariant BlackBoxData::headerData( int section, Qt::Orientation orientation, int
 
 QVariant BlackBoxData::data( const QModelIndex& index, int role ) const
 {
-	if ( role == Qt::DisplayRole ) {
-		const QPair< uint64_t, QStringList >& data = values[index.row()];
+	const QPair< uint64_t, QStringList >& data = values[index.row()];
+
+	if ( role == Qt::FontRole ) {
+		QFont font;
+		if ( index.column() > 0 and index.column() - 1 < data.second.size() and data.second[ index.column() - 1 ].startsWith("$") ) {
+			font.setBold(true);
+		}
+		return font;
+	} else if ( role == Qt::BackgroundColorRole ) {
+		if ( index.column() > 0 and index.column() - 1 < data.second.size() and data.second[ index.column() - 1 ].startsWith("$") ) {
+			return table->palette().color( QPalette::AlternateBase );
+		}
+	} else if ( role == Qt::DisplayRole ) {
 		if ( index.column() == 0 ) {
 			return (qulonglong)data.first;
 		}
 		if ( index.column() - 1 < data.second.size() ) {
-			return data.second[ index.column() - 1 ];
+			QString str = data.second[ index.column() - 1 ];
+			if ( str.startsWith("$") ) {
+				str = str.mid( 1 );
+			}
+			return str;
 		}
 	}
 
