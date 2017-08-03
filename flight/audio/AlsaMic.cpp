@@ -195,7 +195,7 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 	ret = fwrite( data, 1, datalen, mRecordStream );
 
 	mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 2048;
-	if ( mRecordSyncCounter % 30 == 0 ) {
+	if ( mRecordSyncCounter % 15 == 0 ) { // sync on disk every 15 frames (up to 15*512*1/44100 seconds)
 		fflush( mRecordStream );
 		fsync( fileno( mRecordStream ) );
 	}

@@ -98,7 +98,7 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	IL::Camera::SetupTunnelImage( mImageEncoder );
 	mTakePictureThread = new HookThread<Raspicam>( "cam_still", this, &Raspicam::TakePictureThreadRun );
 
-	mEncoder = new IL::VideoEncode( mConfig->integer( mConfigObject + ".kbps", 1024 ), IL::VideoEncode::CodingAVC, not mDirectMode, true );
+	mEncoder = new IL::VideoEncode( mConfig->integer( mConfigObject + ".kbps", 1024 ), IL::VideoEncode::CodingAVC, not mDirectMode, false );
 
 	if ( mBetterRecording ) {
 		mSplitter = new IL::VideoSplitter( true );
@@ -462,7 +462,7 @@ bool Raspicam::RecordThreadRun()
 				fflush( mRecordStream );
 				fsync( fileno( mRecordStream ) );
 			}
-			mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 10;
+			mRecordSyncCounter = ( mRecordSyncCounter + 1 ) % 10; // sync on disk every 10 frames (up to 10*1/FPS seconds)
 			mRecordStreamMutex.lock();
 		}
 		mRecordStreamMutex.unlock();
