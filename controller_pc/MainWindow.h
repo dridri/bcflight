@@ -28,6 +28,7 @@
 #include "Config.h"
 #include "Thread.h"
 #include "BlackBox.h"
+#include "VideoEditor.h"
 
 namespace Ui {
 	class MainWindow;
@@ -106,6 +107,7 @@ private:
 	Ui::MainWindow* ui;
 	Config* mConfig;
 	BlackBox* mBlackBox;
+	VideoEditor* mVideoEditor;
 	ControllerPC* mController;
 	ControllerMonitor* mControllerMonitor;
 	Link* mStreamLink;
@@ -123,6 +125,14 @@ private:
 	QVector< double > mDataRatesX;
 	QVector< double > mDataRatesY;
 	QVector< double > mDataRatesZ;
+	QVector< double > mDataTmagnetometer;
+	QVector< double > mDataMagnetometerX;
+	QVector< double > mDataMagnetometerY;
+	QVector< double > mDataMagnetometerZ;
+	QVector< double > mDataTaccelerometer;
+	QVector< double > mDataAccelerometerX;
+	QVector< double > mDataAccelerometerY;
+	QVector< double > mDataAccelerometerZ;
 	QVector< double > mDataAltitude;
 
 	bool mPIDsOk;

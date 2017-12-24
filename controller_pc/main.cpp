@@ -19,6 +19,7 @@
 #include <iostream>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyleFactory>
+#include <QtCore/QLoggingCategory>
 #include <QDebug>
 
 #include <stdio.h>
@@ -41,8 +42,9 @@ int main( int ac, char** av )
 	WSAStartup( MAKEWORD(2,0), &WSAData );
 #endif
 
-	qInstallMessageHandler( msgHandler );
 	QApplication app( ac, av );
+	qInstallMessageHandler( msgHandler );
+	QLoggingCategory::defaultCategory()->setEnabled( QtDebugMsg, true );
 
 	MainWindow win;
 	win.show();

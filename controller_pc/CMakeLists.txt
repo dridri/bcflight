@@ -15,6 +15,8 @@ find_package( Qt5OpenGL )
 find_package( Qt5PrintSupport )
 find_package( Qt5Multimedia )
 find_package( QScintilla2 )
+find_package( MP4V2 )
+find_package( Shine )
 
 if ( WIN32 OR MINGW )
 	if ( NOT DEFINED ${QSCINTILLA_LIBRARY} OR ${QSCINTILLA_LIBRARY} MATCHES OFF )
@@ -59,6 +61,7 @@ add_custom_target( libopenh264_static COMMAND bash ${CMAKE_SOURCE_DIR}/../extern
 qt5_wrap_ui( controller_pc_UI
 				ui/mainWindow.ui
 				ui/blackbox.ui
+				ui/videoEditor.ui
 				ui/config.ui
 )
 
@@ -71,6 +74,7 @@ add_executable( controller_pc
 				ui/resources.qrc
 				MainWindow.cpp
 				BlackBox.cpp
+				VideoEditor.cpp
 				Config.cpp
 				tinyxml2.cpp
 				${controller_pc_MOCS}
@@ -81,6 +85,6 @@ add_dependencies( controller_pc libopenh264_static )
 add_dependencies( controller_pc libluajit_static )
 add_dependencies( controller_pc controller )
 
-target_link_libraries( controller_pc -L./ controller -lluajit_static -ldecoder_static -lopenh264_static ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
+target_link_libraries( controller_pc -L./ controller -lluajit_static -ldecoder_static -lopenh264_static ${SHINE_LIBRARIES} ${MP4V2_LIBRARIES} ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
 
 install( TARGETS controller_pc RUNTIME DESTINATION bin )

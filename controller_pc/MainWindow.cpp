@@ -64,6 +64,9 @@ MainWindow::MainWindow()
 	mBlackBox = new BlackBox();
 	connect( ui->actionInspect_blackbox, SIGNAL( triggered(bool) ), mBlackBox, SLOT( show() ) );
 
+	mVideoEditor = new VideoEditor();
+	connect( ui->actionVideo_Editor, SIGNAL( triggered(bool) ), mVideoEditor, SLOT( show() ) );
+
 	Link* mControllerLink = nullptr;
 	Link* mAudioLink = nullptr;
 
@@ -93,6 +96,7 @@ MainWindow::MainWindow()
 		std::function<Socket::PortType(const QString&)> socket_type = [](const QString& type){ if ( type == "UDPLite" ) return Socket::UDPLite; else if ( type == "UDP" ) return Socket::UDP; else return Socket::TCP; };
 		mControllerLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/controller/port", 2020 ).toInt(), socket_type( mConfig->value( "tcpip/controller/type", "TCP" ).toString() ) );
 		mStreamLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/video/port", 2021 ).toInt(), socket_type( mConfig->value( "tcpip/video/type", "UDPLite" ).toString() ) );
+		mAudioLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/audio/port", 2022 ).toInt(), socket_type( mConfig->value( "tcpip/audio/type", "TCP" ).toString() ) );
 	}
 	mController = new ControllerPC( mControllerLink, mConfig->value( "controller/spectate", false ).toBool() );
 
@@ -149,7 +153,10 @@ MainWindow::MainWindow()
 	std::list< QCustomPlot* > graphs;
 	graphs.emplace_back( ui->rpy );
 	graphs.emplace_back( ui->rates );
+	graphs.emplace_back( ui->accelerometer );
+	graphs.emplace_back( ui->magnetometer );
 	graphs.emplace_back( ui->altitude );
+	graphs.emplace_back( ui->gps );
 	for ( QCustomPlot* graph : graphs ) {
 		graph->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
 		graph->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
@@ -167,18 +174,7 @@ MainWindow::MainWindow()
 		graph->graph(1)->setPen( QPen( QBrush( QColor( 128, 255, 128 ) ), 2 ) );
 		graph->graph(2)->setPen( QPen( QBrush( QColor( 128, 128, 255 ) ), 2 ) );
 	}
-/*
-	ui->altitude->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
-	ui->altitude->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
-	ui->altitude->yAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
-	ui->altitude->yAxis->setNumberFormat( "f" );
-	ui->altitude->yAxis->setNumberPrecision( 3 );
-	ui->altitude->xAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );
-	ui->altitude->yAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );
-	ui->altitude->yAxis->grid()->setZeroLinePen( QPen( QBrush( QColor( 96, 96, 96 ) ), 2, Qt::DashLine ) );
-	ui->altitude->addGraph();
-	ui->altitude->graph(0)->setPen( QPen( QBrush( QColor( 255, 255, 255 ) ), 2 ) );
-*/
+
 	mTicks.start();
 
 	ui->video->setMainWindow( this );
@@ -283,6 +279,7 @@ void MainWindow::connected()
 	ui->system->expandAll();
 }
 
+
 void MainWindow::updateData()
 {
 	if ( not mController or not mController->link() ) {
@@ -324,7 +321,6 @@ void MainWindow::updateData()
 			}
 		}
 
-
 		std::string dbg = mController->debugOutput();
 		if ( dbg != "" ) {
 			QTextCursor cursor( ui->terminal->textCursor() );
@@ -336,64 +332,40 @@ void MainWindow::updateData()
 			}
 		}
 
-		std::list< vec4 > rpy = mController->rpyHistory();
-		mDataTrpy.clear();
-		mDataR.clear();
-		mDataP.clear();
-		mDataY.clear();
-		for ( vec4 v : rpy ) {
-			if ( std::isnan( v.x ) or std::isinf( v.x ) or fabsf( v.x ) > 1000.0f ) {
-				v.x = 0.0f;
+		auto plot = []( QCustomPlot* graph, const std::list< vec4 >& values, QVector< double >& t, QVector< double >& x, QVector< double >& y, QVector< double >& z ) {
+			t.clear();
+			x.clear();
+			y.clear();
+			z.clear();
+			for ( vec4 v : values ) {
+				if ( std::isnan( v.x ) or std::isinf( v.x ) or fabsf( v.x ) > 1000.0f ) {
+					v.x = 0.0f;
+				}
+				if ( std::isnan( v.y ) or std::isinf( v.y ) or fabsf( v.y ) > 1000.0f ) {
+					v.y = 0.0f;
+				}
+				if ( std::isnan( v.z ) or std::isinf( v.z ) or fabsf( v.z ) > 1000.0f ) {
+					v.z = 0.0f;
+				}
+				t.append( v.w );
+				x.append( v.x );
+				y.append( v.y );
+				z.append( v.z );
 			}
-			if ( std::isnan( v.y ) or std::isinf( v.y ) or fabsf( v.y ) > 1000.0f ) {
-				v.y = 0.0f;
-			}
-			if ( std::isnan( v.z ) or std::isinf( v.z ) or fabsf( v.z ) > 1000.0f ) {
-				v.z = 0.0f;
-			}
-			mDataTrpy.append( v.w );
-			mDataR.append( v.x );
-			mDataP.append( v.y );
-			mDataY.append( v.z );
-		}
-		std::list< vec4 > rates = mController->ratesHistory();
-		mDataTrates.clear();
-		mDataRatesX.clear();
-		mDataRatesY.clear();
-		mDataRatesZ.clear();
-		for ( vec4 v : rates ) {
-			if ( std::isnan( v.x ) or std::isinf( v.x ) or fabsf( v.x ) > 1000.0f ) {
-				v.x = 0.0f;
-			}
-			if ( std::isnan( v.y ) or std::isinf( v.y ) or fabsf( v.y ) > 1000.0f ) {
-				v.y = 0.0f;
-			}
-			if ( std::isnan( v.z ) or std::isinf( v.z ) or fabsf( v.z ) > 1000.0f ) {
-				v.z = 0.0f;
-			}
-			mDataTrates.append( v.w );
-			mDataRatesX.append( v.x );
-			mDataRatesY.append( v.y );
-			mDataRatesZ.append( v.z );
-		}
+			graph->graph(0)->setData( t, x );
+			graph->graph(1)->setData( t, y );
+			graph->graph(2)->setData( t, z );
+			graph->graph(0)->rescaleAxes();
+			graph->graph(1)->rescaleAxes( true );
+			graph->graph(2)->rescaleAxes( true );
+			graph->xAxis->rescale();
+			graph->replot();
+		};
+		plot( ui->rpy, mController->rpyHistory(), mDataTrpy, mDataR, mDataP, mDataY );
+		plot( ui->rates, mController->ratesHistory(), mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ );
+		plot( ui->accelerometer, mController->accelerationHistory(), mDataTaccelerometer, mDataAccelerometerX, mDataAccelerometerY, mDataAccelerometerZ );
+		plot( ui->magnetometer, mController->magnetometerHistory(), mDataTmagnetometer, mDataMagnetometerX, mDataMagnetometerY, mDataMagnetometerZ );
 
-		ui->rpy->graph(0)->setData( mDataTrpy, mDataR );
-		ui->rpy->graph(1)->setData( mDataTrpy, mDataP );
-		ui->rpy->graph(2)->setData( mDataTrpy, mDataY );
-		ui->rpy->graph(0)->rescaleAxes();
-		ui->rpy->graph(1)->rescaleAxes( true );
-		ui->rpy->graph(2)->rescaleAxes( true );
-		ui->rpy->xAxis->rescale();
-		ui->rpy->replot();
-
-		ui->rates->graph(0)->setData( mDataTrates, mDataRatesX );
-		ui->rates->graph(1)->setData( mDataTrates, mDataRatesY );
-		ui->rates->graph(2)->setData( mDataTrates, mDataRatesZ );
-		ui->rates->graph(0)->rescaleAxes();
-		ui->rates->graph(1)->rescaleAxes( true );
-		ui->rates->graph(2)->rescaleAxes( true );
-		ui->rates->xAxis->rescale();
-		ui->rates->replot();
 /*
 		ui->altitude->graph(0)->setData( mDataT, mDataAltitude );
 		ui->altitude->graph(0)->rescaleAxes();
