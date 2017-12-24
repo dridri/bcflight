@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <mutex>
 #include <list>
+#include <map>
 #include <Link.h>
 
 class ControllerBase
@@ -42,11 +43,17 @@ public:
 	void Lock() { printf( "Locking controller...\n" ); mLockState = 1; while ( mLockState != 2 ) { usleep(1); } printf( "Controller lock ok...\n" ); }
 	void Unlock() { mLockState = 0; }
 
+	typedef struct {
+		uint8_t base;
+		uint8_t radius;
+		int8_t strength;
+	} CameraLensShaderColor;
+
 protected:
-#define STATUS_ARMED 1
-#define STATUS_CALIBRATED 2
-#define STATUS_CALIBRATING 4
-#define STATUS_NIGHTMODE 128
+#define STATUS_ARMED		0b00000001
+#define STATUS_CALIBRATED	0b00000010
+#define STATUS_CALIBRATING	0b00000100
+#define STATUS_NIGHTMODE	0b10000000
 
 	typedef struct __attribute__((packed)) Controls {
 		int8_t thrust;
@@ -71,7 +78,8 @@ protected:
 		int8_t rx_level;
 	} Telemetry;
 
-#define SHORT_COMMAND 0xF0
+// Short commands only have 1 byte to define command ID
+#define SHORT_COMMAND 0x80
 
 	typedef enum {
 		UNKNOWN = 0,
@@ -81,6 +89,9 @@ protected:
 		PING = SHORT_COMMAND | 0x1,
 		TELEMETRY = SHORT_COMMAND | 0x2,
 		CONTROLS = SHORT_COMMAND | 0x3,
+
+		// Special
+		ACK_ID = 0x0600,
 
 		// Configure
 		CALIBRATE = 0x71,
@@ -92,10 +103,10 @@ protected:
 		CALIBRATE_ESCS = 0x76,
 		SET_FULL_TELEMETRY = 0x77,
 		DEBUG_OUTPUT = 0x7A,
-		GET_BOARD_INFOS = 0x80,
-		GET_SENSORS_INFOS = 0x81,
-		GET_CONFIG_FILE = 0x90,
-		SET_CONFIG_FILE = 0x91,
+		GET_BOARD_INFOS = 0x90,
+		GET_SENSORS_INFOS = 0x91,
+		GET_CONFIG_FILE = 0x92,
+		SET_CONFIG_FILE = 0x93,
 		UPDATE_UPLOAD_INIT = 0x9A,
 		UPDATE_UPLOAD_DATA = 0x9B,
 		UPDATE_UPLOAD_PROCESS = 0x9C,
@@ -158,22 +169,29 @@ protected:
 		// Video
 		VIDEO_PAUSE = 0xA0,
 		VIDEO_RESUME = 0xA1,
-		VIDEO_TAKE_PICTURE = 0xAA,
-		VIDEO_START_RECORD = 0xA2,
-		VIDEO_STOP_RECORD = 0xA3,
-		VIDEO_BRIGHTNESS_INCR = 0xA4,
-		VIDEO_BRIGHTNESS_DECR = 0xA5,
-		VIDEO_CONTRAST_INCR = 0xA6,
-		VIDEO_CONTRAST_DECR = 0xA7,
-		VIDEO_SATURATION_INCR = 0xA8,
-		VIDEO_SATURATION_DECR = 0xA9,
-		GET_RECORDINGS_LIST = 0xB1,
-		RECORD_DOWNLOAD = 0xB2,
-		RECORD_DOWNLOAD_INIT = 0xB3,
-		RECORD_DOWNLOAD_DATA = 0xB4,
-		RECORD_DOWNLOAD_PROCESS = 0xB5,
-		VIDEO_NIGHT_MODE = 0xC0,
+		VIDEO_TAKE_PICTURE = 0xA2,
+		VIDEO_START_RECORD = 0xA3,
+		VIDEO_STOP_RECORD = 0xA4,
+		GET_RECORDINGS_LIST = 0xA5,
+		RECORD_DOWNLOAD = 0xA6,
+		RECORD_DOWNLOAD_INIT = 0xA7,
+		RECORD_DOWNLOAD_DATA = 0xA8,
+		RECORD_DOWNLOAD_PROCESS = 0xA9,
+		VIDEO_NIGHT_MODE = 0xAA,
+		// Video settings
+		VIDEO_BRIGHTNESS_INCR = 0xB1,
+		VIDEO_BRIGHTNESS_DECR = 0xB2,
+		VIDEO_CONTRAST_INCR = 0xB3,
+		VIDEO_CONTRAST_DECR = 0xB4,
+		VIDEO_SATURATION_INCR = 0xB5,
+		VIDEO_SATURATION_DECR = 0xB6,
+		VIDEO_ISO_INCR = 0xB7,
+		VIDEO_ISO_DECR = 0xB8,
+		VIDEO_ISO = 0xB9,
 		VIDEO_WHITE_BALANCE = 0xC1,
+		VIDEO_LOCK_WHITE_BALANCE = 0xC2,
+		VIDEO_LENS_SHADER = 0xC5,
+		VIDEO_SET_LENS_SHADER = 0xC6,
 
 		// Testing
 		MOTOR_TEST = 0xD0,
@@ -186,14 +204,17 @@ protected:
 		// Host system errors - 0x72xx
 		// Sanity errors - 0x7F003xx
 		ERROR_DANGEROUS_BATTERY = 0x7301,
-		// Camera/video errors - 0x7Fxx
+		// Video/audio errors - 0x7Fxx
 		ERROR_CAMERA_MISSING = 0x7F01,
+		ERROR_MICROPHONE_MISSING = 0x7F02,
 	} Cmd;
 
 	Link* mLink;
 	bool mConnected;
 	bool mConnectionEstablished;
 	uint32_t mLockState;
+	uint16_t mTXAckID;
+	uint16_t mRXAckID;
 
 	static std::map< Cmd, std::string > mCommandsNames;
 };

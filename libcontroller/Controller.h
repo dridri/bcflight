@@ -95,6 +95,12 @@ public:
 	void VideoSaturationIncrease();
 	void VideoSaturationDecrease();
 	std::string VideoWhiteBalance();
+	std::string VideoLockWhiteBalance();
+	int32_t VideoGetIso();
+	void VideoIsoIncrease();
+	void VideoIsoDecrease();
+	void getCameraLensShader( CameraLensShaderColor* r, CameraLensShaderColor* g, CameraLensShaderColor* b );
+	void setCameraLensShader( const CameraLensShaderColor& r, const CameraLensShaderColor& g, const CameraLensShaderColor& b );
 
 	DECL_RO_VAR( uint32_t, Ping, ping );
 	DECL_RO_VAR( bool, Calibrated, calibrated );
@@ -133,6 +139,8 @@ public:
 	float acceleration() const;
 	std::list< vec4 > rpyHistory();
 	std::list< vec4 > ratesHistory();
+	std::list< vec4 > accelerationHistory();
+	std::list< vec4 > magnetometerHistory();
 	std::list< vec3 > outerPidHistory();
 	std::list< float > altitudeHistory();
 
@@ -183,10 +191,16 @@ protected:
 	uint32_t mSwitches[8];
 	bool mVideoRecording;
 	std::string mVideoWhiteBalance;
+	int32_t mVideoIso;
+	CameraLensShaderColor mCameraLensShaderR;
+	CameraLensShaderColor mCameraLensShaderG;
+	CameraLensShaderColor mCameraLensShaderB;
 
 	float mAcceleration;
 	std::list< vec4 > mRPYHistory;
 	std::list< vec4 > mRatesHistory;
+	std::list< vec4 > mAccelerationHistory;
+	std::list< vec4 > mMagnetometerHistory;
 	std::list< vec3 > mOuterPIDHistory;
 	std::list< float > mAltitudeHistory;
 	std::mutex mHistoryMutex;

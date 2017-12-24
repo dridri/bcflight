@@ -591,9 +591,7 @@ bool RF24::begin(void)
 	  }
     #endif
 	
-	// TODO : add device parameter
-    _SPI.begin( "/dev/spidev" + std::to_string(spidev) + "." + std::to_string(csn_pin) ); // controller
-//     _SPI.begin( "/dev/spidev0." + std::to_string(csn_pin) ); // drone
+    _SPI.begin( "/dev/spidev" + std::to_string(spidev) + "." + std::to_string(csn_pin) );
 
 	pinMode(ce_pin,OUTPUT);
 	ce(LOW);    

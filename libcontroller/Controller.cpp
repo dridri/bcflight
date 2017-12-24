@@ -67,6 +67,8 @@ Controller::Controller( Link* link, bool spectate )
 	, mTicks( 0 )
 	, mSwitches{ 0 }
 	, mVideoRecording( false )
+	, mVideoWhiteBalance( "" )
+	, mVideoIso( -1 )
 	, mAcceleration( 0.0f )
 	, mLocalBatteryVoltage( 0 )
 {
@@ -183,12 +185,11 @@ bool Controller::run()
 		VideoTakePicture();
 	}
 
-	bool arm = mArmed;
+	bool arm = mSwitches[2];
 	if ( mSwitches[2] and not mArmed and mCalibrated ) {
 		arm = true;
 		Arm();
 	} else if ( not mSwitches[2] and mArmed ) {
-		printf( "Disarming...\n" );
 		Disarm();
 	}
 	if ( mSwitches[3] and mMode != Stabilize ) {
@@ -226,6 +227,7 @@ bool Controller::run()
 		} else if ( f_yaw > 0.0f ) {
 			f_yaw -= 0.025f;
 		}
+		f_yaw *= 1.0f / ( 1.0f - 0.025f );
 		mControls.yaw = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_yaw * 127.0f ) ) ) );
 	}
 	if ( f_pitch >= -1.0f and f_pitch <= 1.0f ) {
@@ -236,6 +238,7 @@ bool Controller::run()
 		} else if ( f_pitch > 0.0f ) {
 			f_pitch -= 0.025f;
 		}
+		f_pitch *= 1.0f / ( 1.0f - 0.025f );
 		mControls.pitch = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_pitch * 127.0f ) ) ) );
 	}
 	if ( f_roll >= -1.0f and f_roll <= 1.0f ) {
@@ -246,6 +249,7 @@ bool Controller::run()
 		} else if ( f_roll > 0.0f ) {
 			f_roll -= 0.025f;
 		}
+		f_roll *= 1.0f / ( 1.0f - 0.025f );
 		mControls.roll = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_roll * 127.0f ) ) ) );
 	}
 	mControls.arm = arm;
@@ -259,7 +263,7 @@ bool Controller::run()
 		mXferMutex.lock();
 		mTxFrame.WriteU8( PING );
 		mTxFrame.WriteU16( (uint16_t)( ticks & 0x0000FFFFL ) );
-		mTxFrame.WriteU16( mPing ); // Report current ping
+		mTxFrame.WriteU16( mPing ); // Report current ping to drone
 		mXferMutex.unlock();
 
 		if ( not mRxThread->running() ) {
@@ -318,7 +322,6 @@ bool Controller::RxRun()
 		usleep( 500 );
 		return true;
 	}
-	Cmd cmd = (Cmd)0;
 
     auto ReadCmd = []( Packet* telemetry, Cmd* cmd ) {
 		uint8_t part1 = 0;
@@ -336,8 +339,22 @@ bool Controller::RxRun()
 		return 0;
 	};
 
+	Cmd cmd = (Cmd)0;
+	bool acknowledged = false;
 	while ( ReadCmd( &telemetry, &cmd ) > 0 ) {
-// 		std::cout << "Received command (" << std::hex << (int)cmd << std::dec << ") : " << mCommandsNames[(cmd)] << "\n";
+// 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
+// 			std::cout << "Received command (" << std::hex << (int)cmd << std::dec << ") : " << mCommandsNames[(cmd)] << "\n";
+// 		}
+
+		acknowledged = false;
+		if ( ( cmd & ACK_ID ) == ACK_ID ) {
+			uint16_t id = cmd & ~ACK_ID;
+			if ( id == mRXAckID ) {
+				acknowledged = true;
+			}
+			mRXAckID = id;
+			continue;
+		}
 
 		switch( cmd ) {
 			case UNKNOWN : {
@@ -374,8 +391,8 @@ bool Controller::RxRun()
 				mBatteryLevel = (float)(data.battery_level) / 100.0f;
 				mCPULoad = data.cpu_load;
 				mCPUTemp = data.cpu_temp;
-				mDroneRxQuality = data.rx_quality;
-				mDroneRxLevel = data.rx_level;
+				mDroneRxQuality = std::max( 0, std::min( 100, (int)data.rx_quality ) );
+				mDroneRxLevel = std::max( -127, std::min( 127, (int)data.rx_level ) );
 				break;
 			}
 			case DEBUG_OUTPUT : {
@@ -638,6 +655,34 @@ bool Controller::RxRun()
 				mHistoryMutex.unlock();
 				break;
 			}
+			case ACCEL : {
+				vec4 accel;
+				accel.x = telemetry.ReadFloat();
+				accel.y = telemetry.ReadFloat();
+				accel.z = telemetry.ReadFloat();
+				accel.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
+				mAccelerationHistory.emplace_back( accel );
+				if ( mAccelerationHistory.size() > 256 ) {
+					mAccelerationHistory.pop_front();
+				}
+				mHistoryMutex.unlock();
+				break;
+			}
+			case MAGN : {
+				vec4 magn;
+				magn.x = telemetry.ReadFloat();
+				magn.y = telemetry.ReadFloat();
+				magn.z = telemetry.ReadFloat();
+				magn.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
+				mMagnetometerHistory.emplace_back( magn );
+				if ( mMagnetometerHistory.size() > 256 ) {
+					mMagnetometerHistory.pop_front();
+				}
+				mHistoryMutex.unlock();
+				break;
+			}
 			case CURRENT_ACCELERATION : {
 				mAcceleration = telemetry.ReadFloat();
 				break;
@@ -657,16 +702,36 @@ bool Controller::RxRun()
 				break;
 			}
 
+			case VIDEO_WHITE_BALANCE : {
+				mVideoWhiteBalance = telemetry.ReadString();
+				break;
+			}
+			case VIDEO_LOCK_WHITE_BALANCE : {
+				mVideoWhiteBalance = telemetry.ReadString();
+				break;
+			}
+			case VIDEO_ISO : {
+				mVideoIso = (int32_t)telemetry.ReadU32();
+				break;
+			}
+			case VIDEO_LENS_SHADER : {
+				mCameraLensShaderR.base = telemetry.ReadU8();
+				mCameraLensShaderR.radius = telemetry.ReadU8();
+				mCameraLensShaderR.strength = telemetry.ReadU8();
+				mCameraLensShaderG.base = telemetry.ReadU8();
+				mCameraLensShaderG.radius = telemetry.ReadU8();
+				mCameraLensShaderG.strength = telemetry.ReadU8();
+				mCameraLensShaderB.base = telemetry.ReadU8();
+				mCameraLensShaderB.radius = telemetry.ReadU8();
+				mCameraLensShaderB.strength = telemetry.ReadU8();
+				break;
+			}
 			case VIDEO_START_RECORD : {
 				mVideoRecording = telemetry.ReadU32();
 				break;
 			}
 			case VIDEO_STOP_RECORD : {
 				mVideoRecording = telemetry.ReadU32();
-				break;
-			}
-			case VIDEO_WHITE_BALANCE : {
-				mVideoWhiteBalance = telemetry.ReadString();
 				break;
 			}
 			case VIDEO_NIGHT_MODE : {
@@ -783,6 +848,7 @@ void Controller::setFullTelemetry( bool fullt )
 
 void Controller::Arm()
 {
+/*
 	if ( mCalibrated == false ) {
 		return;
 	}
@@ -791,17 +857,20 @@ void Controller::Arm()
 		mTxFrame.WriteU16( ARM );
 	}
 	mXferMutex.unlock();
+*/
 }
 
 
 void Controller::Disarm()
 {
+/*
 	mXferMutex.lock();
 	for ( uint32_t retries = 0; retries < 1; retries++ ) {
 		mTxFrame.WriteU16( DISARM );
 	}
 	mThrust = 0.0f;
 	mXferMutex.unlock();
+*/
 }
 
 
@@ -1191,14 +1260,144 @@ std::string Controller::VideoWhiteBalance()
 {
 	mVideoWhiteBalance = "";
 
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+// 	mXferMutex.unlock();
+
+	uint32_t retry = 0;
 	do {
-		mXferMutex.lock();
+// 		mXferMutex.lock();
+		mTxFrame.WriteU16( ACK_ID | ack );
 		mTxFrame.WriteU16( VIDEO_WHITE_BALANCE );
-		mXferMutex.unlock();
-		usleep( 250 * 1000 );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+// 		mXferMutex.unlock();
+		usleep( 125 * 1000 );
+		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
 	} while ( mVideoWhiteBalance == "" );
 
+	mXferMutex.unlock();
 	return mVideoWhiteBalance;
+}
+
+
+std::string Controller::VideoLockWhiteBalance()
+{
+	mVideoWhiteBalance = "";
+
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+// 	mXferMutex.unlock();
+
+	uint32_t retry = 0;
+	do {
+// 		mXferMutex.lock();
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mTxFrame.WriteU16( VIDEO_LOCK_WHITE_BALANCE );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+// 		mXferMutex.unlock();
+		usleep( 125 * 1000 );
+		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
+	} while ( mVideoWhiteBalance == "" );
+
+	mXferMutex.unlock();
+	return mVideoWhiteBalance;
+}
+
+
+int32_t Controller::VideoGetIso()
+{
+	mVideoIso = -1;
+
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+// 	mXferMutex.unlock();
+
+	uint32_t retry = 0;
+	do {
+// 		mXferMutex.lock();
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mTxFrame.WriteU16( VIDEO_ISO );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+// 		mXferMutex.unlock();
+		usleep( 125 * 1000 );
+		printf( "lock %d ('%d')\n", retry++, mVideoIso );
+	} while ( mVideoIso == -1 );
+
+	mXferMutex.unlock();
+	return mVideoIso;
+}
+
+
+void Controller::VideoIsoDecrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU16( VIDEO_ISO_DECR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoIsoIncrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU16( VIDEO_ISO_INCR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::getCameraLensShader( CameraLensShaderColor* r, CameraLensShaderColor* g, CameraLensShaderColor* b )
+{
+	mCameraLensShaderR.base = 0;
+	mCameraLensShaderG.base = 0;
+	mCameraLensShaderB.base = 0;
+
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+
+	uint32_t retry = 0;
+	do {
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mTxFrame.WriteU16( VIDEO_LENS_SHADER );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 125 * 1000 );
+	} while ( mCameraLensShaderR.base == 0 and mCameraLensShaderG.base == 0 and mCameraLensShaderB.base == 0 );
+
+	mXferMutex.unlock();
+
+	// wait until all the entries are filled
+	usleep( 40 * 1000 );
+	*r = mCameraLensShaderR;
+	*g = mCameraLensShaderG;
+	*b = mCameraLensShaderB;
+}
+
+
+void Controller::setCameraLensShader( const CameraLensShaderColor& r, const CameraLensShaderColor& g, const CameraLensShaderColor& b )
+{
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+
+	for ( uint32_t retry = 0; retry < 4; retry++ ) {
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mTxFrame.WriteU16( VIDEO_SET_LENS_SHADER );
+		mTxFrame.WriteU8( r.base );
+		mTxFrame.WriteU8( r.radius );
+		mTxFrame.WriteU8( r.strength );
+		mTxFrame.WriteU8( g.base );
+		mTxFrame.WriteU8( g.radius );
+		mTxFrame.WriteU8( g.strength );
+		mTxFrame.WriteU8( b.base );
+		mTxFrame.WriteU8( b.radius );
+		mTxFrame.WriteU8( b.strength );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 20 * 1000 );
+	};
+
+	mXferMutex.unlock();
 }
 
 
@@ -1256,6 +1455,22 @@ std::list< vec4 > Controller::ratesHistory()
 {
 	mHistoryMutex.lock();
 	std::list< vec4 > ret = mRatesHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+std::list< vec4 > Controller::accelerationHistory()
+{
+	mHistoryMutex.lock();
+	std::list< vec4 > ret = mAccelerationHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
+std::list< vec4 > Controller::magnetometerHistory()
+{
+	mHistoryMutex.lock();
+	std::list< vec4 > ret = mMagnetometerHistory;
 	mHistoryMutex.unlock();
 	return ret;
 }

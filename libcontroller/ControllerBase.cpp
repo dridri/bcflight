@@ -26,13 +26,14 @@
 #include <stdio.h>
 #include <iostream>
 #include "ControllerBase.h"
-#include "links/RawWifi.h"
-
 
 std::map< ControllerBase::Cmd, std::string > ControllerBase::mCommandsNames = {
 	{ ControllerBase::UNKNOWN, "Unknown" },
 	// Configure
+	{ ControllerBase::STATUS, "Status" },
 	{ ControllerBase::PING, "Ping" },
+	{ ControllerBase::TELEMETRY, "Telemetry" },
+	{ ControllerBase::CONTROLS, "Controls" },
 	{ ControllerBase::CALIBRATE, "Calibrate" },
 	{ ControllerBase::SET_TIMESTAMP, "Set timestamp" },
 	{ ControllerBase::ARM, "Arm" },
@@ -107,6 +108,8 @@ std::map< ControllerBase::Cmd, std::string > ControllerBase::mCommandsNames = {
 	{ ControllerBase::VIDEO_SATURATION_INCR, "Increase video saturation" },
 	{ ControllerBase::VIDEO_SATURATION_DECR, "Decrease video saturation" },
 	{ ControllerBase::VIDEO_NIGHT_MODE, "Set video night mode" },
+	{ ControllerBase::VIDEO_WHITE_BALANCE, "Switch video white balance" },
+	{ ControllerBase::VIDEO_LOCK_WHITE_BALANCE, "Lock video white balance" },
 };
 
 ControllerBase::ControllerBase( Link* link )
@@ -114,6 +117,8 @@ ControllerBase::ControllerBase( Link* link )
 	, mConnected( false )
 	, mConnectionEstablished( false )
 	, mLockState( 0 )
+	, mTXAckID( 0 )
+	, mRXAckID( 0 )
 {
 }
 

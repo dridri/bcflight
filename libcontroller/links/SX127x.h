@@ -32,6 +32,8 @@ public:
 		int32_t retries;
 		int32_t readTimeout;
 		int32_t bitrate;
+		int32_t bandwidth;
+		int32_t fdev;
 	} Config;
 
 	SX127x(const SX127x::Config& config);
@@ -99,7 +101,7 @@ protected:
 	uint32_t getOpMode();
 	bool setOpMode( uint32_t mode );
 	uint8_t readRegister( uint8_t reg );
-	void writeRegister( uint8_t reg, uint8_t value );
+	bool writeRegister( uint8_t reg, uint8_t value );
 
 	SPI* mSPI;
 
@@ -117,6 +119,8 @@ protected:
 	int32_t mRetries;
 	int32_t mReadTimeout;
 	uint32_t mBitrate;
+	uint32_t mBandwidth;
+	uint32_t mFdev;
 	std::atomic_bool mSending;
 	std::atomic_bool mSendingEnd;
 	uint64_t mSendTime;

@@ -203,6 +203,7 @@ void Socket::setRetriesCount( int retries )
 
 int Socket::Read( void* buf, uint32_t len, int timeout )
 {
+	if ( mPort == 2022 ) printf( "read 1\n" );
 	if ( !mConnected ) {
 		return -1;
 	}
@@ -217,10 +218,13 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 		tv.tv_usec = 1000 * ( timeout % 1000 );
 		setsockopt( mSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval) );
 	}
+	if ( mPort == 2022 ) printf( "read 2\n" );
 
 	if ( mPortType == UDP or mPortType == UDPLite ) {
+		if ( mPort == 2022 ) printf( "read 3\n" );
 		socklen_t fromsize = sizeof( mSin );
 		ret = recvfrom( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)&mSin, &fromsize );
+		if ( mPort == 2022 ) printf( "read 4\n" );
 		if ( ret <= 0 and errno != EAGAIN) {
 			std::cout << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
 			mConnected = false;
