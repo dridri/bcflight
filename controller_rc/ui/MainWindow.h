@@ -3,8 +3,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QtCore/QTimer>
-
-class Controller;
+#include <Controller.h>
 
 namespace Ui {
 	class MainWindow;
@@ -43,8 +42,13 @@ public slots:
 	void VideoSaturationIncrease();
 	void VideoSaturationDecrease();
 	void VideoWhiteBalance();
+	void VideoLockWhiteBalance();
+	void VideoIsoIncrease();
+	void VideoIsoDecrease();
 
 private:
+	void CameraUpdateLensShader( bool send = true );
+
 	Controller* mController;
 	QTimer* mUpdateTimer;
 	Ui::MainWindow* ui;
@@ -63,6 +67,14 @@ private:
 		uint16_t max;
 	} CalibrationValues;
 	CalibrationValues mCalibrationValues[4];
+
+	typedef struct {
+		Controller::CameraLensShaderColor r;
+		Controller::CameraLensShaderColor g;
+		Controller::CameraLensShaderColor b;
+		uint8_t grid[4 * 52 * 39];
+	} CameraLensShader;
+	CameraLensShader mCameraLensShader;
 };
 
 #endif // MAINWINDOW_H

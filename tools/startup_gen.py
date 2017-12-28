@@ -7,13 +7,13 @@ root = sys.argv[1]
 output = sys.argv[2]
 final = "#include <Debug.h>\n"
 final = "#include <Main.h>\n"
-target = open( output, 'wb' )
+target = open( output, 'w' )
 fcts = []
 final_fcts = []
 
 p = subprocess.Popen( "grep -r \"flight_register.\" " + root, stdout = subprocess.PIPE, shell = True )
 (output, err) = p.communicate()
-output = output.split('\n')
+output = output.decode("utf-8").split("\n")
 
 for f in output:
 	if f.find( ".cpp:" ) > 0 and f.find( "Main.cpp" ) < 0:

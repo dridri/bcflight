@@ -1,5 +1,7 @@
 #include <iostream>
 #include "GLContext.h"
+#include <vc_dispmanx_types.h>
+#include <bcm_host.h>
 
 GLContext::GLContext()
 	: mWidth( 0 )
@@ -52,6 +54,7 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 	std::cout << "OpenGL version : " << glGetString( GL_VERSION ) << "\n";
 	std::cout << "Framebuffer resolution : " << mWidth << " x " << mHeight << "\n";
 	glViewport( 0, 0, mWidth, mHeight );
+	glViewport( 0, 0, 840, 480 );
 	glEnable( GL_CULL_FACE );
 	glFrontFace( GL_CCW );
 	glCullFace( GL_BACK );
@@ -90,9 +93,9 @@ EGL_DISPMANX_WINDOW_T GLContext::CreateNativeWindow( int layer )
 	dst_rect.width = display_width;
 	dst_rect.height = display_height;
 
-	// Force this layer to 720p for better performances (automatically upscaled by dispman)
-// 	display_width = 1280;
-// 	display_height = 720;
+	// Reduce resolution for better performances (automatically upscaled by dispman)
+	display_width = 840;
+	display_height = 480;
 
 	src_rect.x = 0;
 	src_rect.y = 0;
@@ -118,6 +121,19 @@ EGL_DISPMANX_WINDOW_T GLContext::CreateNativeWindow( int layer )
 
 	return nativewindow;
 }
+
+
+uint32_t GLContext::glWidth()
+{
+	return mWidth;
+}
+
+
+uint32_t GLContext::glHeight()
+{
+	return mHeight;
+}
+
 
 uint32_t GLContext::displayWidth()
 {

@@ -63,6 +63,7 @@ decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 HookThread<Board>* Board::mStatsThread = nullptr;
 uint32_t Board::mCPUTemp = 0;
 uint32_t Board::mCPULoad = 0;
+bool Board::mDiskFull = false;
 std::vector< std::string > Board::mBoardMessages;
 std::map< std::string, bool > Board::mDefectivePeripherals;
 
@@ -122,13 +123,19 @@ void Board::AtExit()
 void Board::SegFaultHandler( int sig )
 {
 	std::string msg;
+	char name[64] = "";
 	Thread* thread = Thread::currentThread();
 
 	if ( thread ) {
 		thread->Stop();
 		msg = "Thread \"" + thread->name() + "\" crashed !";
 	} else {
-		msg = "Thread <unknown> crashed !";
+		pthread_getname_np( pthread_self(), name, sizeof(name) );
+		if ( name[0] == '\0' or !strcmp( name, "flight" ) ) {
+			msg = "Thread <unknown> crashed !";
+		} else {
+			msg = "Thread \"" + std::string(name) + "\" crashed !";
+		}
 	}
 
 	mBoardMessages.emplace_back( msg );
@@ -152,6 +159,9 @@ std::vector< std::string > Board::messages()
 		if ( defect.second == true ) {
 			msgs.emplace_back( defect.first + " is defective !" );
 		}
+	}
+	if ( mDiskFull ) {
+		msgs.emplace_back( "No free space on disk" );
 	}
 	if ( mCPUTemp > 80 ) {
 		msgs.emplace_back( "High CPU Temp (" + std::to_string(mCPUTemp) + "\xB0"" C)" );
@@ -567,6 +577,18 @@ uint32_t Board::CPULoad()
 uint32_t Board::CPUTemp()
 {
 	return mCPUTemp;
+}
+
+
+uint32_t Board::FreeDiskSpace()
+{
+	return std::strtoul( readproc( "df -P /data | tail -n1 | sed 's/  */ /g' | cut -d' ' -f4" ).c_str(), nullptr, 0 );
+}
+
+
+void Board::setDiskFull()
+{
+	mDiskFull = true;
 }
 
 

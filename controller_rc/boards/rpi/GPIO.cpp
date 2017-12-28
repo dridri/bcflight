@@ -17,13 +17,14 @@
 **/
 
 #include <wiringPi.h>
+#include <unistd.h>
+#include <sys/poll.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 #include <softPwm.h>
 #include "GPIO.h"
 
-
-std::map< int, std::list<std::function<void()>> > GPIO::mInterrupts;
-std::map< int, bool > GPIO::mFirstCall;
-
+std::map< int, std::list<std::pair<std::function<void()>,GPIO::ISRMode>> > GPIO::mInterrupts;
 
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
@@ -57,92 +58,57 @@ bool GPIO::Read( int pin )
 void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, std::function<void()> fct )
 {
 	if ( mInterrupts.find( pin ) != mInterrupts.end() ) {
-		mInterrupts.at( pin ).emplace_back( fct );
+		mInterrupts.at( pin ).emplace_back( std::make_pair( fct, mode ) );
 	} else {
-		pinMode( pin, INPUT );
-#define LINK_ISR(PIN) if(pin == PIN) { wiringPiISR( PIN, (int)mode, &GPIO::ISR_##PIN ); }
-		LINK_ISR(1);
-		LINK_ISR(2);
-		LINK_ISR(3);
-		LINK_ISR(4);
-		LINK_ISR(5);
-		LINK_ISR(6);
-		LINK_ISR(7);
-		LINK_ISR(8);
-		LINK_ISR(9);
-		LINK_ISR(10);
-		LINK_ISR(11);
-		LINK_ISR(12);
-		LINK_ISR(13);
-		LINK_ISR(14);
-		LINK_ISR(15);
-		LINK_ISR(16);
-		LINK_ISR(17);
-		LINK_ISR(18);
-		LINK_ISR(19);
-		LINK_ISR(20);
-		LINK_ISR(21);
-		LINK_ISR(22);
-		LINK_ISR(23);
-		LINK_ISR(24);
-		LINK_ISR(25);
-		LINK_ISR(26);
-		LINK_ISR(27);
-		LINK_ISR(28);
-		LINK_ISR(29);
-		LINK_ISR(30);
-		LINK_ISR(31);
-		LINK_ISR(32);
-		std::list<std::function<void()>> lst;
-		lst.emplace_back( fct );
+		std::list<std::pair<std::function<void()>,GPIO::ISRMode>> lst;
+		lst.emplace_back( std::make_pair( fct, mode ) );
 		mInterrupts.emplace( std::make_pair( pin, lst ) );
+
+		system( ( "echo " + std::to_string( pin ) + " > /sys/class/gpio/export" ).c_str() );
+		int32_t fd = open( ( "/sys/class/gpio/gpio" + std::to_string( pin ) + "/value" ).c_str(), O_RDWR );
+		system( ( "echo both > /sys/class/gpio/gpio" + std::to_string( pin ) + "/edge" ).c_str() );
+		int count = 0;
+		char c = 0;
+		ioctl( fd, FIONREAD, &count );
+		for ( int i = 0; i < count; i++ ) {
+			(void)read( fd, &c, 1 );
+		}
+		int32_t* argp = (int32_t*)malloc( sizeof(int32_t) * 2 );
+		argp[0] = pin;
+		argp[1] = fd;
+		pthread_t thid;
+		pthread_create( &thid, nullptr, (void*(*)(void*))&GPIO::ISR, argp );
 	}
 }
 
 
-#define DECL_ISR(pin) \
-void GPIO::ISR_##pin() \
-{ \
-	if ( mFirstCall.find(pin) == mFirstCall.end() ) { \
-		mFirstCall.emplace( std::make_pair(pin, true) ); \
-		piHiPri(99); \
-	} \
-	if ( mInterrupts.find(pin) != mInterrupts.end() ) { \
-		for ( std::function<void()> fct : mInterrupts.at(pin) ) { \
-			fct(); \
-		} \
-	} \
-}
+void* GPIO::ISR( void* argp )
+{
+	int32_t pin = ((int32_t*)argp)[0];
+	int32_t fd = ((int32_t*)argp)[1];
+	struct pollfd fds;
+	char buffer[16];
 
-DECL_ISR(1);
-DECL_ISR(2);
-DECL_ISR(3);
-DECL_ISR(4);
-DECL_ISR(5);
-DECL_ISR(6);
-DECL_ISR(7);
-DECL_ISR(8);
-DECL_ISR(9);
-DECL_ISR(10);
-DECL_ISR(11);
-DECL_ISR(12);
-DECL_ISR(13);
-DECL_ISR(14);
-DECL_ISR(15);
-DECL_ISR(16);
-DECL_ISR(17);
-DECL_ISR(18);
-DECL_ISR(19);
-DECL_ISR(20);
-DECL_ISR(21);
-DECL_ISR(22);
-DECL_ISR(23);
-DECL_ISR(24);
-DECL_ISR(25);
-DECL_ISR(26);
-DECL_ISR(27);
-DECL_ISR(28);
-DECL_ISR(29);
-DECL_ISR(30);
-DECL_ISR(31);
-DECL_ISR(32);
+	pthread_setname_np( pthread_self(), ( "GPIO::ISR_" + std::to_string( pin ) ).c_str() );
+	piHiPri(99);
+	usleep( 1000 );
+
+	std::list<std::pair<std::function<void()>,GPIO::ISRMode>>& fcts = mInterrupts.at( pin );
+
+	while ( true ) {
+		fds.fd = fd;
+		fds.events = POLLPRI;
+		lseek( fd, 0, SEEK_SET );
+		if ( poll( &fds, 1, -1 ) == 1 and read( fd, buffer, 2 ) > 0 ) {
+			for ( std::pair<std::function<void()>,GPIO::ISRMode> fct : fcts ) {
+				if ( buffer[0] == '1' and fct.second != Falling ) {
+					fct.first();
+				} else if ( buffer[0] == '0' and fct.second != Rising ) {
+					fct.first();
+				}
+			}
+		}
+	}
+
+	return nullptr;
+}

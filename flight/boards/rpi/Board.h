@@ -66,6 +66,8 @@ public:
 	static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
+	static uint32_t FreeDiskSpace();
+	static void setDiskFull();
 
 	static std::vector< std::string > messages();
 	static std::map< std::string, bool >& defectivePeripherals();
@@ -95,6 +97,7 @@ private:
 	static HookThread<Board>* mStatsThread;
 	static uint32_t mCPULoad;
 	static uint32_t mCPUTemp;
+	static bool mDiskFull;
 
 	static std::vector< std::string > mBoardMessages;
 	static std::map< std::string, bool > mDefectivePeripherals;

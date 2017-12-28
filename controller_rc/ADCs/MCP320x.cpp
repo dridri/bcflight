@@ -34,6 +34,12 @@ MCP320x::~MCP320x()
 }
 
 
+void MCP320x::setSmoothFactor( uint8_t channel, float f )
+{
+	mSmoothFactor[channel] = f;
+}
+
+
 uint16_t MCP320x::Read( uint8_t channel )
 {
 	static const int nbx = 4;
@@ -59,29 +65,36 @@ uint16_t MCP320x::Read( uint8_t channel )
 			return 0;
 		}
 	}
-/*
+
+	uint32_t ret[nbx] = { 0 };
+	uint32_t final_ret = 0;
+	for ( int i = 0; i < nbx; i++ ) {
+		ret[i] = ( ( bx[i][1] & 0b1111 ) << 8 ) | bx[i][2];
+	}
 	for ( int j = 0; j < nbx; j++ ) {
 		for ( int i = 0; i < nbx; i++ ) {
-			if ( i != j and bx[i][1] != bx[j][1] ) {
+			if ( i != j and std::abs( (int32_t)(ret[i] - ret[j]) ) > 250 ) {
 				if ( channel == 3 ) {
-					printf( "ADC too large (%X, %X || %d, %d)\n", bx[i][1], bx[j][1], bx[i][1], bx[j][1] );
+// 					printf( "ADC too large (%d, %d - %d)\n", ret[i] - ret[j], ret[i], ret[j] );
 				}
 				return 0;
 			}
 		}
+		final_ret += ret[j];
 	}
-*/
-	for ( int i = 0; i < nbx; i++ ) {
-		b[0] += bx[i][0];
-		b[1] += bx[i][1];
-		b[2] += bx[i][2];
+	final_ret /= nbx;
+	final_ret &= 0xFFFFFFF7;
+
+	if ( mSmoothFactor.find(channel) != mSmoothFactor.end() ) {
+		float smooth = mSmoothFactor[channel];
+		if ( smooth > 0.0f and smooth < 1.0f ) {
+			mLastValue[channel] = std::max( 0.0f, mLastValue[channel] * smooth + (float)final_ret * ( 1.0f - smooth ) );
+			if ( channel == 3 ) {
+// 				printf( "ok : %d\n", (uint16_t)mLastValue[channel] );
+			}
+			return (uint16_t)mLastValue[channel];
+		}
 	}
-	b[0] /= nbx;
-	b[1] /= nbx;
-	b[2] /= nbx;
 
-	b[2] = b[2] & 0xF7;
-
-	return ( ( b[1] & 0b1111 ) << 8 ) | b[2];
-
+	return final_ret;
 }

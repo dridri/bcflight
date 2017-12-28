@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <SPI.h>
+#include <map>
 
 class MCP320x
 {
@@ -28,10 +29,13 @@ public:
 	MCP320x( const std::string& devfile );
 	~MCP320x();
 
+	void setSmoothFactor( uint8_t channel, float f );
 	uint16_t Read( uint8_t channel );
 
 private:
 	SPI* mSPI;
+	std::map< uint8_t, float > mSmoothFactor;
+	std::map< uint8_t, float >  mLastValue;
 };
 
 #endif // MCP320X_H

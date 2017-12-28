@@ -39,6 +39,7 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
 {
+/*
 	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->number( "stabilizer.pid_roll.p" ) ) );
 	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->number( "stabilizer.pid_roll.i" ) ) );
 	mRateRollPID.setD( Board::LoadRegisterFloat( "PID:Roll:D", main->config()->number( "stabilizer.pid_roll.d" ) ) );
@@ -52,6 +53,20 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	mHorizonPID.setP( Board::LoadRegisterFloat( "PID:Outerloop:P", main->config()->number( "stabilizer.pid_horizon.p" ) ) );
 	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->number( "stabilizer.pid_horizon.i" ) ) );
 	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->number( "stabilizer.pid_horizon.d" ) ) );
+*/
+	mRateRollPID.setP( main->config()->number( "stabilizer.pid_roll.p" ) );
+	mRateRollPID.setI( main->config()->number( "stabilizer.pid_roll.i" ) );
+	mRateRollPID.setD( main->config()->number( "stabilizer.pid_roll.d" ) );
+	mRatePitchPID.setP( main->config()->number( "stabilizer.pid_pitch.p" ) );
+	mRatePitchPID.setI( main->config()->number( "stabilizer.pid_pitch.i" ) );
+	mRatePitchPID.setD( main->config()->number( "stabilizer.pid_pitch.d" ) );
+	mRateYawPID.setP( main->config()->number( "stabilizer.pid_yaw.p" ) );
+	mRateYawPID.setI( main->config()->number( "stabilizer.pid_yaw.i" ) );
+	mRateYawPID.setD( main->config()->number( "stabilizer.pid_yaw.d" ) );
+
+	mHorizonPID.setP( main->config()->number( "stabilizer.pid_horizon.p" ) );
+	mHorizonPID.setI( main->config()->number( "stabilizer.pid_horizon.i" ) );
+	mHorizonPID.setD( main->config()->number( "stabilizer.pid_horizon.d" ) );
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
@@ -274,7 +289,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 			Vector3f control_angles = ctrl->RPY();
 			control_angles.x = mHorizonMultiplier.x * std::min( std::max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * std::min( std::max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
-			// TODO : when user-input is 0, increase control_angles by using imu->velocity() to overcompensate position drifting
+			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting
 			mHorizonPID.Process( control_angles, imu->RPY(), dt );
 			rate_control = mHorizonPID.state();
 			rate_control.x = std::max( -mHorizonMaxRate.x, std::min( mHorizonMaxRate.x, rate_control.x ) );
@@ -309,7 +324,6 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	char stmp[64];
 	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", ratePID.x, ratePID.y, ratePID.z );
 	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", stmp );
-
 	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
 		Reset( mHorizonPID.state().z );
 	}

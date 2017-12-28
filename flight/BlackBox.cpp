@@ -53,6 +53,7 @@ const uint32_t BlackBox::id() const
 
 void BlackBox::Enqueue( const std::string& data, const std::string& value )
 {
+	return;
 	if ( this == nullptr ) {
 		return;
 	}
@@ -81,11 +82,18 @@ bool BlackBox::run()
 	mQueueMutex.unlock();
 
 	if ( data.length() > 0 ) {
-		fwrite( data.c_str(), data.length(), 1, mFile );
-		fflush( mFile );
-		fsync( fileno( mFile ) );
+		if ( fwrite( data.c_str(), data.length(), 1, mFile ) != data.length() ) {
+			if ( errno == ENOSPC ) {
+				Board::setDiskFull();
+			}
+		}
+		if ( fflush( mFile ) < 0 or fsync( fileno( mFile ) ) < 0 ) {
+			if ( errno == ENOSPC ) {
+				Board::setDiskFull();
+			}
+		}
 	}
 
-	usleep( 1000 * 1000 / 50 ); // 50Hz update
+	usleep( 1000 * 1000 / 100 ); // 100Hz update
 	return true;
 }

@@ -1,12 +1,12 @@
 #include <QtWidgets/QGridLayout>
 #include <QtGui/QFontDatabase>
+#include <cmath>
 #include "MainWindow.h"
 #include "ui_window.h"
 #include "ui_main.h"
 #include "ui_calibrate.h"
 #include "ui_camera.h"
 #include "ui_network.h"
-#include <Controller.h>
 #include <links/Socket.h>
 #include <links/RawWifi.h>
 
@@ -20,6 +20,10 @@ MainWindow::MainWindow( Controller* controller )
 		mCalibrationValues[i].center = 0;
 		mCalibrationValues[i].max = 0;
 	}
+
+	mCameraLensShader.r.base = 64;
+	mCameraLensShader.g.base = 64;
+	mCameraLensShader.b.base = 64;
 
 	ui = new Ui::MainWindow;
 	ui->setupUi(this);
@@ -49,13 +53,35 @@ MainWindow::MainWindow( Controller* controller )
 	uiPageCamera = new Ui::PageCamera;
 	mPageCamera = new QWidget();
 	uiPageCamera->setupUi( mPageCamera );
+	connect( uiPageCamera->white_balance, SIGNAL( clicked() ), this, SLOT( VideoWhiteBalance() ) );
+	connect( uiPageCamera->lock_white_balance, SIGNAL( clicked() ), this, SLOT( VideoLockWhiteBalance() ) );
 	connect( uiPageCamera->brightness_dec, SIGNAL( clicked() ), this, SLOT( VideoBrightnessDecrease() ) );
 	connect( uiPageCamera->brightness_inc, SIGNAL( clicked() ), this, SLOT( VideoBrightnessIncrease() ) );
 	connect( uiPageCamera->contrast_dec, SIGNAL( clicked() ), this, SLOT( VideoContrastDecrease() ) );
 	connect( uiPageCamera->contrast_inc, SIGNAL( clicked() ), this, SLOT( VideoContrastIncrease() ) );
 	connect( uiPageCamera->saturation_dec, SIGNAL( clicked() ), this, SLOT( VideoSaturationDecrease() ) );
 	connect( uiPageCamera->saturation_inc, SIGNAL( clicked() ), this, SLOT( VideoSaturationIncrease() ) );
-	connect( uiPageCamera->white_balance, SIGNAL( clicked() ), this, SLOT( VideoWhiteBalance() ) );
+	connect( uiPageCamera->iso_dec, SIGNAL( clicked() ), this, SLOT( VideoIsoDecrease() ) );
+	connect( uiPageCamera->iso_inc, SIGNAL( clicked() ), this, SLOT( VideoIsoIncrease() ) );
+	connect( uiPageCamera->iso_auto, SIGNAL( clicked() ), this, SLOT( VideoIsoAuto() ) );
+	connect( uiPageCamera->r_base_dec, &QPushButton::clicked, [this](){ mCameraLensShader.r.base = std::max( 0, mCameraLensShader.r.base - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->r_base_inc, &QPushButton::clicked, [this](){ mCameraLensShader.r.base = std::min( 255, mCameraLensShader.r.base + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->r_radius_dec, &QPushButton::clicked, [this](){ mCameraLensShader.r.radius = std::max( 0, mCameraLensShader.r.radius - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->r_radius_inc, &QPushButton::clicked, [this](){ mCameraLensShader.r.radius = std::min( 128, mCameraLensShader.r.radius + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->r_strength_dec, &QPushButton::clicked, [this](){ mCameraLensShader.r.strength = std::max( -255, mCameraLensShader.r.strength - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->r_strength_inc, &QPushButton::clicked, [this](){ mCameraLensShader.r.strength = std::min( 255, mCameraLensShader.r.strength + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->g_base_dec, &QPushButton::clicked, [this](){ mCameraLensShader.g.base = std::max( 0, mCameraLensShader.g.base - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->g_base_inc, &QPushButton::clicked, [this](){ mCameraLensShader.g.base = std::min( 255, mCameraLensShader.g.base + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->g_radius_dec, &QPushButton::clicked, [this](){ mCameraLensShader.g.radius = std::max( 0, mCameraLensShader.g.radius - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->g_radius_inc, &QPushButton::clicked, [this](){ mCameraLensShader.g.radius = std::min( 128, mCameraLensShader.g.radius + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->g_strength_dec, &QPushButton::clicked, [this](){ mCameraLensShader.g.strength = std::max( -255, mCameraLensShader.g.strength - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->g_strength_inc, &QPushButton::clicked, [this](){ mCameraLensShader.g.strength = std::min( 255, mCameraLensShader.g.strength + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->b_base_dec, &QPushButton::clicked, [this](){ mCameraLensShader.b.base = std::max( 0, mCameraLensShader.b.base - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->b_base_inc, &QPushButton::clicked, [this](){ mCameraLensShader.b.base = std::min( 255, mCameraLensShader.b.base + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->b_radius_dec, &QPushButton::clicked, [this](){ mCameraLensShader.b.radius = std::max( 0, mCameraLensShader.b.radius - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->b_radius_inc, &QPushButton::clicked, [this](){ mCameraLensShader.b.radius = std::min( 128, mCameraLensShader.b.radius + 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->b_strength_dec, &QPushButton::clicked, [this](){ mCameraLensShader.b.strength = std::max( -255, mCameraLensShader.b.strength - 1 ); this->CameraUpdateLensShader(); } );
+	connect( uiPageCamera->b_strength_inc, &QPushButton::clicked, [this](){ mCameraLensShader.b.strength = std::min( 255, mCameraLensShader.b.strength + 1 ); this->CameraUpdateLensShader(); } );
 
 	uiPageNetwork = new Ui::PageNetwork;
 	mPageNetwork = new QWidget();
@@ -259,6 +285,11 @@ void MainWindow::Camera()
 	ui->centralLayout->removeWidget( mPageCalibrate );
 	ui->centralLayout->removeWidget( mPageNetwork );
 	ui->centralLayout->addWidget( mPageCamera );
+	if ( mController and mController->isConnected() ) {
+		uiPageCamera->iso->setText( QString::number( mController->VideoGetIso() ) );
+		mController->getCameraLensShader( &mCameraLensShader.r, &mCameraLensShader.g, &mCameraLensShader.b );
+		CameraUpdateLensShader( false );
+	}
 }
 
 
@@ -383,9 +414,102 @@ void MainWindow::VideoSaturationIncrease()
 }
 
 
+void MainWindow::VideoIsoDecrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoIsoDecrease();
+		uiPageCamera->iso->setText( QString::number( mController->VideoGetIso() ) );
+	}
+}
+
+
+void MainWindow::VideoIsoIncrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoIsoIncrease();
+		uiPageCamera->iso->setText( QString::number( mController->VideoGetIso() ) );
+	}
+}
+
+
 void MainWindow::VideoWhiteBalance()
 {
 	if ( mController and mController->isConnected() ) {
 		uiPageCamera->white_balance->setText( "White balance : " + QString::fromStdString(mController->VideoWhiteBalance()) );
+	}
+}
+
+
+void MainWindow::VideoLockWhiteBalance()
+{
+	if ( mController and mController->isConnected() ) {
+		uiPageCamera->white_balance->setText( "White balance : \n" + QString::fromStdString(mController->VideoLockWhiteBalance()) );
+	}
+}
+
+
+void MainWindow::CameraUpdateLensShader( bool send )
+{
+	if ( not mController or not mController->isConnected() ) {
+		return;
+	}
+
+	auto update_basic = []( QLabel* label, int value ) {
+		label->setText( QString::number( value ) );
+	};
+	auto update_positive = []( QLabel* label, int value ) {
+		label->setText( QString::number( value >> 5 ) + "." + QString::number( ( value & 0b00011111 ) * 100 / 32 ).rightJustified( 2, '0' ) );
+	};
+	auto update_negative = []( QLabel* label, int value ) {
+		if ( value < 0 ) {
+			label->setText( QString("-") + QString::number( (-value) >> 5 ) + "." + QString::number( ( (-value) & 0b00011111 ) * 100 / 32 ).rightJustified( 2, '0' ) );
+		} else {
+			label->setText( QString::number( value >> 5 ) + "." + QString::number( ( value & 0b00011111 ) * 100 / 32 ) );
+		}
+	};
+
+	update_positive( uiPageCamera->r_v_base, mCameraLensShader.r.base );
+	update_negative( uiPageCamera->r_v_strength, mCameraLensShader.r.strength );
+	update_basic( uiPageCamera->r_v_radius, mCameraLensShader.r.radius );
+	update_positive( uiPageCamera->g_v_base, mCameraLensShader.g.base );
+	update_negative( uiPageCamera->g_v_strength, mCameraLensShader.g.strength );
+	update_basic( uiPageCamera->g_v_radius, mCameraLensShader.g.radius );
+	update_positive( uiPageCamera->b_v_base, mCameraLensShader.b.base );
+	update_negative( uiPageCamera->b_v_strength, mCameraLensShader.b.strength );
+	update_basic( uiPageCamera->b_v_radius, mCameraLensShader.b.radius );
+
+	QImage image = QImage(52, 39, QImage::Format_RGB32 );
+	uint32_t stride = 52 * 39;
+	for ( int32_t y = 0; y < 39; y++ ) {
+		for ( int32_t x = 0; x < 52; x++ ) {
+			int32_t r = mCameraLensShader.r.base;
+			int32_t g = mCameraLensShader.g.base;
+			int32_t b = mCameraLensShader.b.base;
+			int32_t dist = std::sqrt( ( x - 52 / 2 ) * ( x - 52 / 2 ) + ( y - 39 / 2 ) * ( y - 39 / 2 ) );
+
+			if ( mCameraLensShader.r.radius > 0 ) {
+				float dot_r = (float)std::max( 0, mCameraLensShader.r.radius - dist ) / (float)mCameraLensShader.r.radius;
+				r = std::max( 0, std::min( 255, r + (int32_t)( dot_r * mCameraLensShader.r.strength ) ) );
+			}
+			if ( mCameraLensShader.g.radius > 0 ) {
+				float dot_g = (float)std::max( 0, mCameraLensShader.g.radius - dist ) / (float)mCameraLensShader.g.radius;
+				g = std::max( 0, std::min( 255, g + (int32_t)( dot_g * mCameraLensShader.g.strength ) ) );
+			}
+			if ( mCameraLensShader.b.radius > 0 ) {
+				float dot_b = (float)std::max( 0, mCameraLensShader.b.radius - dist ) / (float)mCameraLensShader.b.radius;
+				b = std::max( 0, std::min( 255, b + (int32_t)( dot_b * mCameraLensShader.b.strength ) ) );
+			}
+
+			mCameraLensShader.grid[ stride*0 + 52*y + x ] = r;
+			mCameraLensShader.grid[ stride*1 + 52*y + x ] = g;
+			mCameraLensShader.grid[ stride*2 + 52*y + x ] = g;
+			mCameraLensShader.grid[ stride*3 + 52*y + x ] = b;
+			image.setPixel( x, y, QColor( r, g, b ).rgba() );
+		}
+	}
+	uiPageCamera->shader->setPixmap( QPixmap::fromImage(image) );
+
+	if ( send ) {
+		mController->setCameraLensShader( mCameraLensShader.r, mCameraLensShader.g, mCameraLensShader.b );
 	}
 }

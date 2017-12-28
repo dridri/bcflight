@@ -21,6 +21,7 @@ protected:
 	std::vector< float > mStabSpeeds;
 	std::vector< Vector3f > mPIDMultipliers;
 	float mMaxSpeed;
+	float mAirModeTrigger;
 	float mAirModeSpeed;
 };
 

@@ -21,6 +21,7 @@
 #include <iostream>
 #include "Thread.h"
 #include "Board.h"
+#include "Debug.h"
 
 std::list< Thread* > Thread::mThreads;
 
@@ -36,6 +37,7 @@ Thread::Thread( const std::string& name )
 	, mSetAffinity( -1 )
 {
 	mThreads.emplace_back( this );
+	gDebug() << "New thread : \"" << name << "\"\n";
 	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 }

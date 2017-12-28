@@ -39,11 +39,15 @@ bool HUD::run()
 		mWidth = mGLContext->displayWidth();
 		mHeight = mGLContext->displayHeight();
 		mFrameRate = std::min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
+		if ( camera ) {
+// 			mWidth = std::min( mWidth, camera->width() );
+// 			mHeight = std::min( mHeight, camera->height() );
+		}
 	}
 	if ( mRendererHUD == nullptr ) {
 		Config* config = Main::instance()->config();
 		Vector4i render_region = Vector4i( config->integer( "hud.top", 10 ), config->integer( "hud.bottom", 10 ), config->integer( "hud.left", 20 ), config->integer( "hud.right", 20 ) );
-		mRendererHUD = new RendererHUDNeo( mWidth, mHeight, config->number( "hud.ratio", 1.0f ), config->integer( "hud.font_size", 60 ), render_region, config->boolean( "hud.correction", false ) );
+		mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), config->number( "hud.ratio", 1.0f ), config->integer( "hud.font_size", 60 ), render_region, config->boolean( "hud.correction", false ) );
 		mRendererHUD->setStereo( config->boolean( "hud.stereo", false ) );
 		mRendererHUD->set3DStrength( config->number( "hud.stereo_strength", 0.004f ) );
 		mRendererHUD->setStereo( false );
@@ -100,6 +104,16 @@ bool HUD::run()
 
 	mRendererHUD->PreRender();
 	mRendererHUD->Render( &dronestats, 0.0f, &video_stats, &linkStats );
+
+	if ( false ) {
+		uint32_t time = Board::GetTicks() / 1000;
+		uint32_t minuts = time / ( 1000 * 60 );
+		uint32_t seconds = ( time / 1000 ) % 60;
+		uint32_t ms = time % 1000;
+		char txt[256];
+		sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
+		mRendererHUD->RenderText( 1280 * 0.5, 100, txt, 0xFFFFFFFF, 4.0f, true );
+	}
 
 	mGLContext->SwapBuffers();
 	mWaitTicks = Board::WaitTick( 1000 * 1000 / mHUDFramerate, mWaitTicks );

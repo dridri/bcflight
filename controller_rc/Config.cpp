@@ -280,7 +280,6 @@ void Config::Reload()
 
 void Config::Save()
 {
-	// TODO
 }
 
 

@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef MPU9150_H
-#define MPU9150_H
+#ifndef MPU6050_H
+#define MPU6050_H
 
 #include <Accelerometer.h>
 #include <Gyroscope.h>
@@ -26,11 +26,11 @@
 #include <Quaternion.h>
 
 
-class MPU9150Accel : public Accelerometer
+class MPU6050Accel : public Accelerometer
 {
 public:
-	MPU9150Accel( int addr );
-	~MPU9150Accel();
+	MPU6050Accel( int addr );
+	~MPU6050Accel();
 
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
@@ -44,11 +44,11 @@ private:
 };
 
 
-class MPU9150Gyro : public Gyroscope
+class MPU6050Gyro : public Gyroscope
 {
 public:
-	MPU9150Gyro( int addr );
-	~MPU9150Gyro();
+	MPU6050Gyro( int addr );
+	~MPU6050Gyro();
 
 	void Calibrate( float dt, bool last_pass = false );
 	int Read( Vector3f* v, bool raw = false );
@@ -62,11 +62,11 @@ private:
 };
 
 
-class MPU9150Mag : public Magnetometer
+class MPU6050Mag : public Magnetometer
 {
 public:
-	MPU9150Mag( int addr );
-	~MPU9150Mag();
+	MPU6050Mag( int addr );
+	~MPU6050Mag();
 
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
@@ -81,16 +81,16 @@ private:
 };
 
 
-class MPU9150 : public Sensor
+class MPU6050 : public Sensor
 {
 public:
 	static int flight_register( Main* main );
 
-	static Sensor* Instanciate( Config* config, const std::string& object );
+	static Sensor* Instanciate( uint8_t i2c_addr, Config* config, const std::string& object );
 
-/*
+protected:
+	MPU6050( I2C* i2c );
 	uint8_t dmpInitialize();
-	bool dmpPacketAvailable();
 	uint8_t dmpGetAccel(int32_t* data, const uint8_t* packet);
 	uint8_t dmpGetAccel(int16_t* data, const uint8_t* packet);
 	uint8_t dmpGetAccel(Vector3f* v, const uint8_t* packet);
@@ -108,46 +108,80 @@ public:
 	uint8_t dmpProcessFIFOPacket(const unsigned char* dmpData);
 	uint8_t dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t* processed);
 	uint16_t dmpGetFIFOPacketSize();
-*/
+
+	void resetFIFO();
+	uint16_t getFIFOCount();
+	uint8_t getFIFOByte();
+	void getFIFOBytes( uint8_t *data, uint8_t length );
+	void setFIFOByte( uint8_t data );
+	uint8_t readMemoryByte();
+	int8_t getXGyroOffset();
+	int8_t getYGyroOffset();
+	int8_t getZGyroOffset();
+	void setXGyroOffsetUser( int16_t offset );
+	void setYGyroOffsetUser( int16_t offset );
+	void setZGyroOffsetUser( int16_t offset );
+	void setXGyroOffsetTC( char offset );
+	void setYGyroOffsetTC( char offset );
+	void setZGyroOffsetTC( char offset );
+	void setMemoryBank( uint8_t bank, uint8_t prefetchEnabled, uint8_t userBank );
+	void setMemoryStartAddress( uint8_t address );
+	uint8_t writeProgMemoryBlock( const uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, uint8_t verify );
+	uint8_t writeProgDMPConfigurationSet( const uint8_t *data, uint16_t dataSize );
+	uint8_t writeDMPConfigurationSet( const uint8_t *data, uint16_t dataSize, uint8_t useProgMem );
+	void readMemoryBlock( uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address );
+	uint8_t writeMemoryBlock( const uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, uint8_t verify, uint8_t useProgMem );
+	bool writeBit( uint8_t regAddr, uint8_t bitNum, uint8_t data );
+	bool writeBits( uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data );
+	char readBits( uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data );
+	uint8_t getIntStatus();
+
+	bool dmpReady;
+	I2C* mI2C;
+
+	void Calibrate( float dt, bool last_pass = false ) {}
+	void Read( Vector3f* v, bool raw = false ) {}
 };
 
 
-#define MPU_9150_I2C_ADDRESS_1          0x69    // Base address of the Drotek board
-#define MPU_9150_I2C_ADDRESS_2          0x68    // Base address of the SparkFun board
-#define MPU_9150_SMPRT_DIV              0x19    // Gyro sampling rate divider
-#define MPU_9150_DEFINE                 0x1A    // Gyro and accel configuration
-#define MPU_9150_GYRO_CONFIG            0x1B    // Gyroscope configuration
-#define MPU_9150_ACCEL_CONFIG           0x1C    // Accelerometer configuration
-#define MPU_9150_FIFO_EN                0x23    // FIFO buffer control
-#define MPU_9150_INT_PIN_CFG            0x37    // Bypass enable configuration
-#define MPU_9150_INT_ENABLE             0x38    // Interrupt control
-#define MPU_9150_ACCEL_XOUT_H           0x3B    // Accel X axis High
-#define MPU_9150_ACCEL_XOUT_L           0x3C    // Accel X axis Low
-#define MPU_9150_ACCEL_YOUT_H           0x3D    // Accel Y axis High
-#define MPU_9150_ACCEL_YOUT_L           0x3E    // Accel Y axis Low
-#define MPU_9150_ACCEL_ZOUT_H           0x3F    // Accel Z axis High
-#define MPU_9150_ACCEL_ZOUT_L           0x40    // Accel Z axis Low
-#define MPU_9150_GYRO_XOUT_H            0x43    // Gyro X axis High
-#define MPU_9150_GYRO_XOUT_L            0x44    // Gyro X axis Low
-#define MPU_9150_GYRO_YOUT_H            0x45    // Gyro Y axis High
-#define MPU_9150_GYRO_YOUT_L            0x46    // Gyro Y axis Low
-#define MPU_9150_GYRO_ZOUT_H            0x47    // Gyro Z axis High
-#define MPU_9150_GYRO_ZOUT_L            0x48    // Gyro Z axis Low
-#define MPU_9150_USER_CTRL              0x6A    // User control
-#define MPU_9150_PWR_MGMT_1             0x6B    // Power management 1
+#define MPU_6050_I2C_ADDRESS_1          0x69    // Base address of the Drotek board
+#define MPU_6050_I2C_ADDRESS_2          0x68    // Base address of the SparkFun board
+#define MPU_6050_SMPRT_DIV              0x19    // Gyro sampling rate divider
+#define MPU_6050_DEFINE                 0x1A    // Gyro and accel configuration
+#define MPU_6050_GYRO_CONFIG            0x1B    // Gyroscope configuration
+#define MPU_6050_ACCEL_CONFIG           0x1C    // Accelerometer configuration
+#define MPU_6050_ACCEL_CONFIG_2         0x1D    // Accelerometer configuration 2
+#define MPU_6050_FIFO_EN                0x23    // FIFO buffer control
+#define MPU_6050_INT_PIN_CFG            0x37    // Bypass enable configuration
+#define MPU_6050_INT_ENABLE             0x38    // Interrupt control
+#define MPU_6050_ACCEL_XOUT_H           0x3B    // Accel X axis High
+#define MPU_6050_ACCEL_XOUT_L           0x3C    // Accel X axis Low
+#define MPU_6050_ACCEL_YOUT_H           0x3D    // Accel Y axis High
+#define MPU_6050_ACCEL_YOUT_L           0x3E    // Accel Y axis Low
+#define MPU_6050_ACCEL_ZOUT_H           0x3F    // Accel Z axis High
+#define MPU_6050_ACCEL_ZOUT_L           0x40    // Accel Z axis Low
+#define MPU_6050_GYRO_XOUT_H            0x43    // Gyro X axis High
+#define MPU_6050_GYRO_XOUT_L            0x44    // Gyro X axis Low
+#define MPU_6050_GYRO_YOUT_H            0x45    // Gyro Y axis High
+#define MPU_6050_GYRO_YOUT_L            0x46    // Gyro Y axis Low
+#define MPU_6050_GYRO_ZOUT_H            0x47    // Gyro Z axis High
+#define MPU_6050_GYRO_ZOUT_L            0x48    // Gyro Z axis Low
+#define MPU_6050_USER_CTRL              0x6A    // User control
+#define MPU_6050_PWR_MGMT_1             0x6B    // Power management 1
+#define MPU_6050_WHO_AM_I               0x75
 
-#define MPU_9150_I2C_MAGN_ADDRESS       0x0C    // Address of the magnetometer in bypass mode
-#define MPU_9150_WIA                    0x00    // Mag Who I Am
-#define MPU_9150_AKM_ID                 0x48    // Mag device ID
-#define MPU_9150_ST1                    0x02    // Magnetometer status 1
-#define MPU_9150_HXL                    0x03    // Mag X axis Low
-#define MPU_9150_HXH                    0x04    // Mag X axis High
-#define MPU_9150_HYL                    0x05    // Mag Y axis Low
-#define MPU_9150_HYH                    0x06    // Mag Y axis High
-#define MPU_9150_HZL                    0x07    // Mag Z axis Low
-#define MPU_9150_HZH                    0x08    // Mag Z axis High
-#define MPU_9150_ST2                    0x09    // Magnetometer status 2
-#define MPU_9150_CNTL                   0x0A    // Magnetometer control
+#define MPU_6050_I2C_MAGN_ADDRESS       0x0C    // Address of the magnetometer in bypass mode
+#define MPU_6050_WIA                    0x00    // Mag Who I Am
+#define MPU_6050_AKM_ID                 0x48    // Mag device ID
+#define MPU_6050_ST1                    0x02    // Magnetometer status 1
+#define MPU_6050_HXL                    0x03    // Mag X axis Low
+#define MPU_6050_HXH                    0x04    // Mag X axis High
+#define MPU_6050_HYL                    0x05    // Mag Y axis Low
+#define MPU_6050_HYH                    0x06    // Mag Y axis High
+#define MPU_6050_HZL                    0x07    // Mag Z axis Low
+#define MPU_6050_HZH                    0x08    // Mag Z axis High
+#define MPU_6050_ST2                    0x09    // Magnetometer status 2
+#define MPU_6050_CNTL                   0x0A    // Magnetometer control
 
 
-#endif // MPU9150_H
+#endif // MPU6050_H

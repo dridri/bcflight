@@ -75,7 +75,7 @@ int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
 int I2C::_Write( int addr, uint8_t reg, void* _buf, uint32_t len )
 {
 	int ret;
-	char buf[16];
+	char buf[256];
 	buf[0] = reg;
 	memcpy( buf + 1, _buf, len );
 

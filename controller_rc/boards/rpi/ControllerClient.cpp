@@ -110,10 +110,17 @@ bool ControllerClient::run()
 {
 	if ( mADC == nullptr ) {
 		mADC = new MCP320x( mConfig->string( "adc.device", "/dev/spidev1.0" ) );
-		mJoysticks[0] = Joystick( mADC, 0, 0, true );
-		mJoysticks[1] = Joystick( mADC, 1, 1 );
-		mJoysticks[2] = Joystick( mADC, 2, 2 );
-		mJoysticks[3] = Joystick( mADC, 3, 3 );
+		if ( mADC ) {
+			mADC->setSmoothFactor( 0, 0.5f );
+			mADC->setSmoothFactor( 1, 0.5f );
+			mADC->setSmoothFactor( 2, 0.5f );
+			mADC->setSmoothFactor( 3, 0.5f );
+			mADC->setSmoothFactor( 7, 0.75f );
+			mJoysticks[0] = Joystick( mADC, 0, 0, true );
+			mJoysticks[1] = Joystick( mADC, 1, 1 );
+			mJoysticks[2] = Joystick( mADC, 2, 2 );
+			mJoysticks[3] = Joystick( mADC, 3, 3 );
+		}
 	}
 	if ( mADC ) {
 		uint16_t battery_voltage = mADC->Read( 7 );

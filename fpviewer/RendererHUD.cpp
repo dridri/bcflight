@@ -546,7 +546,6 @@ int32_t RendererHUD::CharacterWidth( Texture* tex, unsigned char c )
 
 int32_t RendererHUD::CharacterHeight( Texture* tex, unsigned char c )
 {
-	// TODO : calculate fine value
 	return tex->height / 16;
 }
 

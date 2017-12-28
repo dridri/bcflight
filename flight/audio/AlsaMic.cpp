@@ -43,6 +43,7 @@ AlsaMic::AlsaMic( Config* config, const std::string& conf_obj )
 	: Microphone()
 	, mRecordSyncCounter( 0 )
 	, mRecordStream( nullptr )
+	, mRecorderTrackId( 0 )
 {
 	int err = 0;
 	std::string device = config->string( conf_obj + ".device", "plughw:1,0" );
@@ -129,6 +130,17 @@ AlsaMic::AlsaMic( Config* config, const std::string& conf_obj )
 
 	fprintf( stdout, "Audio interface prepared\n" );
 
+	shine_set_config_mpeg_defaults( &mShineConfig.mpeg );
+	mShineConfig.wave.channels = ( ( channels == 2 ) ? PCM_STEREO : PCM_MONO );
+	mShineConfig.wave.samplerate = rate;
+	mShineConfig.mpeg.mode = ( ( channels == 2 ) ? STEREO : MONO );
+	mShineConfig.mpeg.bitr = 128;
+	mShine = shine_initialise( &mShineConfig );
+	printf ("shine_samples_per_pass : %d\n", shine_samples_per_pass( mShine ) );
+	if ( Main::instance()->recorder() ) {
+		mRecorderTrackId = Main::instance()->recorder()->AddAudioTrack( 1, rate, "mp3" );
+	}
+
 	mLink = Link::Create( config, conf_obj + ".link" );
 	mLiveThread = new HookThread<AlsaMic>( "microphone", this, &AlsaMic::LiveThreadRun );
 	mLiveThread->Start();
@@ -152,8 +164,8 @@ bool AlsaMic::LiveThreadRun()
 		return true;
 	}
 
-	uint8_t data[16384];
-	snd_pcm_sframes_t size = snd_pcm_readi( mPCM, data, 512 ) * 2;
+	uint8_t data[32768];
+	snd_pcm_sframes_t size = snd_pcm_readi( mPCM, data, 1152 ) * 2;
 
 	if ( size > 0 ) {
 		if ( mLink ) {
@@ -163,9 +175,13 @@ bool AlsaMic::LiveThreadRun()
 			RecordWrite( (char*)data, size );
 		}
 	} else {
-		printf( "snd_pcm_readi error %ld\n", size );
-		Board::defectivePeripherals()["Microphone"] = true;
-		return false;
+		printf( "snd_pcm_readi error %ld\n", size / 2 );
+		if ( size / 2 == -EPIPE ) {
+			snd_pcm_recover( mPCM, (int)size / 2, 0 );
+		} else {
+			Board::defectivePeripherals()["Microphone"] = true;
+			return false;
+		}
 	}
 	return true;
 }
@@ -173,11 +189,15 @@ bool AlsaMic::LiveThreadRun()
 
 int AlsaMic::RecordWrite( char* data, int datalen )
 {
-// 	Recorder* recorder = Main::instance()->recorder();
-// 	if ( recorder ) {
-// 		recorder->WriteAudio( data, datalen );
-// 		return datalen;
-// 	}
+	int baselen = datalen;
+	datalen = 0;
+	data = (char*)shine_encode_buffer_interleaved( mShine, (int16_t*)data, &datalen );
+
+	Recorder* recorder = Main::instance()->recorder();
+	if ( recorder ) {
+		recorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen );
+		return datalen;
+	}
 
 	int ret = 0;
 
@@ -188,7 +208,7 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 			return 0;
 		}
 		uint32_t fileid = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
-		sprintf( filename, "/var/VIDEO/audio_44100hz_1ch_%06u.wav", fileid );
+		sprintf( filename, "/var/VIDEO/audio_44100hz_1ch_%06u.mp3", fileid );
 		mRecordStream = fopen( filename, "wb" );
 	}
 

@@ -120,7 +120,10 @@ int32_t Socket::Channel()
 
 int32_t Socket::RxQuality()
 {
+	// TODO : use "iw dev wlan0 station dump" instead
 	iwstats stats;
+
+	errno = 0;
 
 	int32_t ret = 0;
 	int iwSocket = iw_sockets_open();
@@ -163,7 +166,9 @@ int Socket::setBlocking( bool blocking )
 
 int Socket::retriesCount() const
 {
-	// TODO
+	if ( mPortType == UDP or mPortType == UDPLite ) {
+		// TODO
+	}
 	return 1;
 }
 
@@ -200,7 +205,7 @@ int Socket::Connect()
 		int option = 1;
 		setsockopt( mSocket, SOL_SOCKET, ( 15/*SO_REUSEPORT*/ | SO_REUSEADDR ), (char*)&option, sizeof( option ) );
 		if ( mPortType == TCP ) {
-			int flag = 1; 
+			int flag = 1;
 			setsockopt( mSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) );
 		}
 		if ( mBroadcast ) {

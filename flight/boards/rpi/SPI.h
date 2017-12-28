@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <list>
+#include <mutex>
 #include <string>
 #include <linux/spi/spidev.h>
 
@@ -36,6 +37,7 @@ private:
 	int mFD;
 	int mBitsPerWord;
 	struct spi_ioc_transfer mXFer[10];
+	std::mutex mTransferMutex;
 };
 
 #endif

@@ -34,6 +34,7 @@ public:
 
 	int Connect();
 	int setBlocking( bool blocking );
+	void setReadTimeout( uint32_t timeout );
 	void setRetriesCount( int retries );
 	int retriesCount() const;
 	int32_t Channel();
@@ -51,6 +52,7 @@ protected:
 	static Link* Instanciate( Config* config, const std::string& lua_object );
 
 	bool mBlocking;
+	uint32_t mReadTimeout;
 	std::list< Link* > mSenders;
 	std::list< Link* > mReceivers;
 };

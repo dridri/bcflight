@@ -87,8 +87,11 @@ SPI::~SPI()
 
 int SPI::Transfer( void* tx, void* rx, uint32_t len )
 {
+	mTransferMutex.lock();
 	mXFer[0].tx_buf = (uintptr_t)tx;
 	mXFer[0].len = len;
 	mXFer[0].rx_buf = (uintptr_t)rx;
-	return ioctl( mFD, SPI_IOC_MESSAGE(1), mXFer );
+	int ret = ioctl( mFD, SPI_IOC_MESSAGE(1), mXFer );
+	mTransferMutex.unlock();
+	return ret;
 }

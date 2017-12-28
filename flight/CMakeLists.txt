@@ -182,6 +182,6 @@ if ( "${rawwifi}" MATCHES 1 )
 endif()
 
 message( "LIBS : ${LIBS} ${BOARD_LIBS}" )
-target_link_libraries( flight_unstripped -L./ -L${CMAKE_SOURCE_DIR}/../external/libmp4v2/build/.libs -lluajit_static -lmp4v2 controllerbase ${LIBS} ${BOARD_LIBS} )
+target_link_libraries( flight_unstripped -L./ -L${CMAKE_SOURCE_DIR}/../external/libmp4v2/build/.libs -lluajit_static -lshine -lmp4v2 controllerbase ${LIBS} ${BOARD_LIBS} )
 
 board_strip()

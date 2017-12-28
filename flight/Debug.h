@@ -94,8 +94,14 @@ static inline std::string className(const std::string& prettyFunction)
 
 #pragma GCC system_header // HACK Disable unused-function warnings
 static std::string self_thread() {
+	static pthread_t main_thid = 0;
 	std::stringstream ret;
-	if ( Thread::currentThread() != nullptr ) {
+	if ( main_thid == 0 ) {
+		main_thid = pthread_self();
+	}
+	if ( pthread_self() == main_thid ) {
+		ret << "[main] ";
+	} else if ( Thread::currentThread() != nullptr ) {
 		ret << "[" << Thread::currentThread()->name() << "] ";
 	} else if ( pthread_self() != 0 ) {
 		ret << "[0x" << std::hex << ( pthread_self() & 0xFFFFFFFF ) << std::dec << "] ";

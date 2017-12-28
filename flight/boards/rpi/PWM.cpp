@@ -184,7 +184,7 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 		}
 	}
 
-	uint8_t channel = 12;
+	uint8_t channel = 13;
 	for ( Channel* chan : mChannels ) {
 		if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time and chan->mLoop == loop ) {
 			mChannel = chan;
@@ -207,18 +207,27 @@ PWM::~PWM()
 
 void PWM::SetPWMus( uint32_t width_us )
 {
+	if ( not mChannel ) {
+		return;
+	}
 	mChannel->SetPWMus( mPin, width_us );
 }
 
 
 void PWM::SetPWMBuffer( uint8_t* buffer, uint32_t len )
 {
+	if ( not mChannel ) {
+		return;
+	}
 	mChannel->SetPWMBuffer( mPin, buffer, len );
 }
 
 
 void PWM::Update()
 {
+	if ( not mChannel ) {
+		return;
+	}
 	mChannel->Update();
 }
 
@@ -273,7 +282,7 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 	gpio_reg = (uint32_t*)map_peripheral( GPIO_BASE, GPIO_LEN );
 
 	/* Use the mailbox interface to the VC to ask for physical memory */
-	uint32_t cmd_count = 2 + ( mMode == MODE_BUFFER );// + ( mLoop == false );
+	uint32_t cmd_count = 4 + ( mMode == MODE_BUFFER );// + ( mLoop == false );
 	mMbox.mem_ref = mem_alloc( mMbox.handle, mNumPages * PAGE_SIZE * cmd_count, PAGE_SIZE, mem_flag );
 	dprintf( "mem_ref %u\n", mMbox.mem_ref );
 	mMbox.bus_addr = mem_lock( mMbox.handle, mMbox.mem_ref );

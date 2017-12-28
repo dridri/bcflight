@@ -16,6 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+/* TODO Add :
+ * night mode
+ * white balance lock
+ * picture taken indicator
+ * altitude [altitude hold]
+*/
+
 #define GL_GLEXT_PROTOTYPES
 #include <string.h>
 #include <GLES2/gl2.h>
@@ -507,8 +514,8 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 		color = 0xFF40FF40;
 	}
 
-	float xrot = M_PI * ( mSmoothRPY.x / 180.0f );
-	float yofs = ( mHeight / 2.0f ) * ( mSmoothRPY.y / 180.0f ) * M_PI * 2.25f;
+	float xrot = -M_PI * ( mSmoothRPY.x / 180.0f );
+	float yofs = -( mHeight / 2.0f ) * ( mSmoothRPY.y / 180.0f ) * M_PI * 2.25f;
 	float s = std::sin( xrot );
 	float c = std::cos( xrot );
 
@@ -720,8 +727,9 @@ void RendererHUDNeo::Compute()
 
 	{
 		FastVertexColor circleBuffer[2048];
-		for ( uint32_t i = 0; i < 64; i++ ) {
-			float angle = ( 0.1f + 0.8f * ( (float)i / 64.0f ) ) * M_PI;
+		uint32_t steps_count = 64;
+		for ( uint32_t i = 0; i < steps_count; i++ ) {
+			float angle = ( 0.1f + 0.8f * ( (float)i / (float)steps_count ) ) * M_PI;
 			Vector2f pos = Vector2f( 150.0f * std::cos( angle ), 150.0f * std::sin( angle ) );
 			pos = VR_Distort( pos + Vector2f( mWidth / 2.0f, mHeight / 2.0f ) );
 			circleBuffer[i].x = pos.x;
@@ -730,15 +738,16 @@ void RendererHUDNeo::Compute()
 			if ( i <= 10 ) {
 				circleBuffer[i].color = ( ( i * 255 / 10 ) << 24 ) | 0x00FFFFFF;
 			} else if ( i >= 54 ) {
-				circleBuffer[i].color = ( ( ( 64 - i ) * 255 / 10 ) << 24 ) | 0x00FFFFFF;
+				circleBuffer[i].color = ( ( ( steps_count - i ) * 255 / 10 ) << 24 ) | 0x00FFFFFF;
 			}
-			memcpy( &circleBuffer[ 64 + i ], &circleBuffer[i], sizeof( circleBuffer[i] ) );
-			circleBuffer[ 64 + i ].y = 720.0f / 2.0f - ( pos.y - 720.0f / 2.0f );
+			memcpy( &circleBuffer[ steps_count + i ], &circleBuffer[i], sizeof( circleBuffer[i] ) );
+			circleBuffer[ steps_count + i ].y = 720.0f / 2.0f - ( pos.y - 720.0f / 2.0f );
 		}
 
 		uint32_t i = 128;
-		for ( uint32_t j = 0; j < 32; j++ ) {
-			float angle = ( 0.1f + 0.8f * ( (float)j / 32.0f ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
+		steps_count = 32;
+		for ( uint32_t j = 0; j < steps_count; j++ ) {
+			float angle = ( 0.1f + 0.8f * ( (float)j / (float)steps_count ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
 			if ( j == 0 ) {
 				Vector2f pos = VR_Distort( Vector2f( mBorderRight - thrust_outer * 0.7f + thrust_outer * std::cos( angle ), mBorderBottom - thrust_outer * 0.75f + thrust_outer * std::sin( angle ) ) );
 				circleBuffer[i].x = pos.x;
@@ -751,8 +760,8 @@ void RendererHUDNeo::Compute()
 			circleBuffer[i].y = pos.y;
 			circleBuffer[i].color = 0xFFFFFFFF;
 		}
-		for ( uint32_t j = 0; j < 32; j++ ) {
-			float angle = ( 0.1f + 0.8f * ( (float)( 31 - j ) / 32.0f ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
+		for ( uint32_t j = 0; j < steps_count; j++ ) {
+			float angle = ( 0.1f + 0.8f * ( (float)( 31 - j ) / (float)steps_count ) ) * M_PI * 2.0f - ( M_PI * 1.48f );
 			Vector2f pos = Vector2f( mBorderRight - thrust_outer * 0.7f + thrust_out * std::cos( angle ), mBorderBottom - thrust_outer * 0.75f + thrust_out * std::sin( angle ) );
 			pos = VR_Distort( pos );
 			circleBuffer[++i].x = pos.x;

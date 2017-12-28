@@ -312,14 +312,28 @@ bool Controller::run()
 	};
 
 	Cmd cmd = (Cmd)0;
+	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
-// 		printf( "Received cmd %08X\n", cmd );
+// 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
+// 			std::cout << "Received command (" << std::hex << (int)cmd << std::dec << ") : " << mCommandsNames[(cmd)] << "\n";
+// 		}
 		bool do_response = false;
 		Packet response;
 		if ( ( cmd & SHORT_COMMAND ) == SHORT_COMMAND ) {
 			response.WriteU8( cmd );
 		} else {
 			response.WriteU16( cmd );
+		}
+
+		if ( ( cmd & ACK_ID ) == ACK_ID ) {
+			uint16_t id = cmd & ~ACK_ID;
+			if ( id == mRXAckID ) {
+				acknowledged = true;
+			} else {
+				acknowledged = false;
+			}
+			mRXAckID = id;
+			continue;
 		}
 
 		switch ( cmd )
@@ -383,19 +397,21 @@ bool Controller::run()
 				}
 				Controls controls = { 0, 0, 0, 0, 0, 0, 0, 0 };
 				if ( command.Read( (uint8_t*)&controls, sizeof(controls) ) == sizeof(controls) ) {
-					if ( controls.arm and not mArmed ) {
+					if ( controls.arm and not mArmed and mMain->imu()->state() == IMU::Running ) {
 						Arm();
 						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
-					} else if ( not controls.arm and mArmed ) {
+					} else if ( not controls.arm ) {
 						Disarm();
 						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 					}
-					setThrust( ((float)controls.thrust) / 127.0f );
-					setRoll( ((float)controls.roll) / 128.0f );
-					setPitch( ((float)controls.pitch) / 128.0f );
-					setYaw( ((float)controls.yaw) / 128.0f );
-					sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
-					mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
+					if ( mArmed ) {
+						setThrust( ((float)controls.thrust) / 127.0f );
+						setRoll( ((float)controls.roll) / 128.0f );
+						setPitch( ((float)controls.pitch) / 128.0f );
+						setYaw( ((float)controls.yaw) / 128.0f );
+						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
+						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
+					}
 				}
 				break;
 			}
@@ -547,6 +563,7 @@ bool Controller::run()
 				break;
 			}
 			case ARM : {
+				/*
 				if ( mMain->imu()->state() != IMU::Running ) {
 					response.WriteU32( 0 );
 					do_response = true;
@@ -556,13 +573,21 @@ bool Controller::run()
 				mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 				response.WriteU32( mArmed );
 				do_response = true;
+				*/
 				break;
 			}
 			case DISARM : {
+				/*
+				if ( mMain->imu()->state() == IMU::Off ) {
+					response.WriteU32( 0 );
+					do_response = true;
+					break;
+				}
 				Disarm();
 				mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 				response.WriteU32( mArmed );
 				do_response = true;
+				*/
 				break;
 			}
 			case RESET_BATTERY : {
@@ -658,7 +683,7 @@ bool Controller::run()
 
 			case SET_ROLL_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setRollP( value );
@@ -668,7 +693,7 @@ bool Controller::run()
 			}
 			case SET_ROLL_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setRollI( value );
@@ -678,7 +703,7 @@ bool Controller::run()
 			}
 			case SET_ROLL_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setRollD( value );
@@ -696,7 +721,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchP( value );
@@ -706,7 +731,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchI( value );
@@ -716,7 +741,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchD( value );
@@ -734,7 +759,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setYawP( value );
@@ -744,7 +769,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setYawI( value );
@@ -754,7 +779,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setYawD( value );
@@ -781,7 +806,7 @@ bool Controller::run()
 
 			case SET_OUTER_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 50.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterP( value );
@@ -791,7 +816,7 @@ bool Controller::run()
 			}
 			case SET_OUTER_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 50.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterI( value );
@@ -801,7 +826,7 @@ bool Controller::run()
 			}
 			case SET_OUTER_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 ) {
+				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 50.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterD( value );
@@ -827,7 +852,7 @@ bool Controller::run()
 			}
 			case SET_HORIZON_OFFSET : {
 				Vector3f v;
-				if ( command.ReadFloat( &v.x ) == 0 or command.ReadFloat( &v.y ) == 0 ) {
+				if ( command.ReadFloat( &v.x ) == 0 or command.ReadFloat( &v.y ) == 0 or std::abs(v.x) > 45.0f or std::abs(v.y) > 45.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setHorizonOffset( v );
@@ -939,6 +964,81 @@ bool Controller::run()
 				}
 				break;
 			}
+			case VIDEO_ISO_INCR : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					gDebug() << "Setting camera ISO to " << cam->ISO() + 100 << "\n";
+					cam->setISO( cam->ISO() + 100 );
+				}
+				break;
+			}
+			case VIDEO_ISO_DECR : {
+				Camera* cam = mMain->camera();
+				if ( cam and cam->ISO() > 0 ) {
+					gDebug() << "Setting camera ISO to " << cam->ISO() - 100 << "\n";
+					cam->setISO( cam->ISO() - 100 );
+				}
+				break;
+			}
+			case VIDEO_ISO : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					response.WriteU32( (uint32_t)cam->ISO() );
+					do_response = true;
+				}
+				break;
+			}
+			case VIDEO_LENS_SHADER : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					Camera::LensShaderColor r, g, b;
+					cam->getLensShader( &r, &g, &b );
+					response.WriteU8( r.base );
+					response.WriteU8( r.radius );
+					response.WriteU8( r.strength );
+					response.WriteU8( g.base );
+					response.WriteU8( g.radius );
+					response.WriteU8( g.strength );
+					response.WriteU8( b.base );
+					response.WriteU8( b.radius );
+					response.WriteU8( b.strength );
+					do_response = true;
+				}
+				break;
+			}
+			case VIDEO_SET_LENS_SHADER : {
+				Camera::LensShaderColor r, g, b;
+				r.base = command.ReadU8();
+				r.radius = command.ReadU8();
+				r.strength = command.ReadU8();
+				g.base = command.ReadU8();
+				g.radius = command.ReadU8();
+				g.strength = command.ReadU8();
+				b.base = command.ReadU8();
+				b.radius = command.ReadU8();
+				b.strength = command.ReadU8();
+				auto int35_float = []( int32_t value ) {
+					if ( value < 0 ) {
+						return -1.0f * ( (float)( (-value) >> 5 ) + (float)( (-value) & 0b00011111 ) / 32.0f );
+					}
+					return (float)( value >> 5 ) + (float)( value & 0b00011111 ) / 32.0f;
+				};
+				mMain->config()->setNumber( "camera.lens_shading.r.base", int35_float( r.base ) );
+				mMain->config()->setInteger( "camera.lens_shading.r.radius", r.radius );
+				mMain->config()->setNumber( "camera.lens_shading.r.strength", int35_float( r.strength ) );
+				mMain->config()->setNumber( "camera.lens_shading.g.base", int35_float( g.base ) );
+				mMain->config()->setInteger( "camera.lens_shading.g.radius", g.radius );
+				mMain->config()->setNumber( "camera.lens_shading.g.strength", int35_float( g.strength ) );
+				mMain->config()->setNumber( "camera.lens_shading.b.base", int35_float( b.base ) );
+				mMain->config()->setInteger( "camera.lens_shading.b.radius", b.radius );
+				mMain->config()->setNumber( "camera.lens_shading.b.strength", int35_float( b.strength ) );
+				mMain->config()->Save();
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					cam->setLensShader( r, g, b );
+				}
+				break;
+			}
 			case VIDEO_NIGHT_MODE : {
 				Camera* cam = mMain->camera();
 				uint32_t night = command.ReadU32();
@@ -954,8 +1054,27 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				std::string ret = "(none)";
 				if ( cam ) {
-					ret = cam->switchWhiteBalance();
-					gDebug() << "Camera white balance set to \"" << ret << "\"\n";
+					if ( acknowledged ) {
+						ret = cam->whiteBalance();
+					} else {
+						ret = cam->switchWhiteBalance();
+						gDebug() << "Camera white balance set to \"" << ret << "\"\n";
+					}
+				}
+				response.WriteString( ret );
+				do_response = true;
+				break;
+			}
+			case VIDEO_LOCK_WHITE_BALANCE : {
+				Camera* cam = mMain->camera();
+				std::string ret = "(none)";
+				if ( cam ) {
+					if ( acknowledged ) {
+						ret = cam->whiteBalance();
+					} else {
+						ret = cam->lockWhiteBalance();
+						gDebug() << "Camera white balance \"" << ret << "\"\n";
+					}
 				}
 				response.WriteString( ret );
 				do_response = true;
@@ -1007,8 +1126,6 @@ bool Controller::TelemetryRun()
 		usleep( 1000 * 10 );
 		return true;
 	}
-
-	fDebug0();
 
 	Packet telemetry;
 

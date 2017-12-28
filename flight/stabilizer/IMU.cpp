@@ -435,6 +435,17 @@ void IMU::ResetYaw()
 */
 }
 
+void geNormalize( Vector3f* v )
+{
+	double l = std::sqrt((double)( (v->x*v->x) + (v->y*v->y) + (v->z*v->z) ));
+	if ( l > 0.00001f ) {
+		double il = 1.0f / l;
+		v->x *= il;
+		v->y *= il;
+		v->z *= il;
+	}
+}
+
 
 void IMU::UpdateSensors( float dt, bool gyro_only )
 {
@@ -456,19 +467,10 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 			total_gyro += Vector4f( vtmp, 1.0f );
 		}
 	}
-	if ( gyro_total_axis >= 3 ) {
-		mGyroscope = total_gyro.xyz() / total_gyro.w;
-		sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
-		mMain->blackbox()->Enqueue( "IMU:gyroscope", stmp );
-	} else {
-		mGyroscopeErrorCounter++;
-		if ( mGyroscopeErrorCounter > 8 ) {
-			Board::defectivePeripherals()["Gyroscope"] = true;
-		}
-		mMain->blackbox()->Enqueue( "IMU:gyroscope", "error" );
-	}
+	mGyroscope = total_gyro.xyz() / total_gyro.w;
+	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
+	mMain->blackbox()->Enqueue( "IMU:gyroscope", stmp );
 
-	// Update RPY only at 1/4 update frequency when in Rate mode
 	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
 	{
 		for ( Accelerometer* dev : Sensor::Accelerometers() ) {
@@ -477,10 +479,11 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 		}
 		mLastAcceleration = mAcceleration;
 		mAcceleration = total_accel.xyz() / total_accel.w;
+// 		geNormalize( &mAcceleration );
 		sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
 		mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
 
-		if ( mSensorsUpdateSlow % 16 == 0 ) {
+		if ( mSensorsUpdateSlow % 8 == 0 ) {
 			for ( Magnetometer* dev : Sensor::Magnetometers() ) {
 				dev->Read( &vtmp );
 				total_magn += Vector4f( vtmp, 1.0f );
@@ -490,7 +493,7 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 			mMain->blackbox()->Enqueue( "IMU:magnetometer", stmp );
 		}
 
-		if ( mSensorsUpdateSlow % 32 == 0 ) {
+		if ( mSensorsUpdateSlow % 16 == 0 ) {
 			for ( Altimeter* dev : Sensor::Altimeters() ) {
 				dev->Read( &ftmp );
 				if ( dev->type() == Altimeter::Proximity and ftmp > 0.0f ) {
@@ -532,7 +535,8 @@ void IMU::UpdateSensors( float dt, bool gyro_only )
 		}
 	}
 
-	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 4;
+	// Update RPY only at 1/10 update frequency when in Rate mode
+	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 10;
 	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 2048;
 }
 
@@ -554,12 +558,12 @@ void IMU::UpdateAttitude( float dt )
 	Vector3f accel = mAccelerationSmoother.state( 0 );
 
 	Vector2f accel_roll_pitch = Vector2f();
-	if ( std::abs( accel.x ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
+// 	if ( std::abs( accel.x ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
 		accel_roll_pitch.x = std::atan2( accel.x, accel.z ) * 180.0f / M_PI;
-	}
-	if ( std::abs( accel.y ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
+// 	}
+// 	if ( std::abs( accel.y ) >= 0.5f * 9.8f or std::abs( accel.z ) >= 0.5f * 9.8f ) {
 		accel_roll_pitch.y = std::atan2( accel.y, accel.z ) * 180.0f / M_PI;
-	}
+// 	}
 
 	// Update accelerometer values
 	mAttitude.UpdateInput( 0, accel_roll_pitch.x );
@@ -581,8 +585,8 @@ void IMU::UpdateAttitude( float dt )
 	Vector4f rpy = mAttitude.state( 0 );
 
 	//TEST
-	rpy.x = 0.98f * ( mRPY.x + mRate.x * dt ) + 0.02f * accel_roll_pitch.x;
-	rpy.y = 0.98f * ( mRPY.y + mRate.y * dt ) + 0.02f * accel_roll_pitch.y;
+	rpy.x = 0.999f * ( mRPY.x + mRate.x * dt ) + 0.001f * accel_roll_pitch.x;
+	rpy.y = 0.999f * ( mRPY.y + mRate.y * dt ) + 0.001f * accel_roll_pitch.y;
 	rpy.z = mRPY.z + mRate.z * dt;
 
 	mdRPY = ( rpy - mRPY ) * dt;

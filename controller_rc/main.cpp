@@ -83,7 +83,9 @@ int main( int ac, char** av )
 		conf.blocking = config->boolean( "controller.link.blocking", true );
 		conf.retries = config->integer( "controller.link.retries", 1 );
 		conf.bitrate = config->integer( "controller.link.bitrate", 76800 );
-		conf.modem = SX127x::FSK;
+		conf.bandwidth = config->integer( "controller.link.bandwidth", 250000 );
+		conf.fdev = config->integer( "controller.link.fdev", 20000 );
+		conf.modem = config->string( "controller.link.modem", "FSK" ) == "LoRa" ? SX127x::LoRa : SX127x::FSK;
 		controller_link = new SX127x( conf );
 	} else {
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ), -1 );

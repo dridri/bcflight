@@ -161,7 +161,7 @@ SX127x::SX127x( Config* config, const std::string& lua_object )
 	, mInputPort( config->integer( lua_object + ".input_port", 0 ) )
 	, mOutputPort( config->integer( lua_object + ".output_port", 1 ) )
 	, mRetries( config->integer( lua_object + ".retries", 1 ) )
-	, mReadTimeout( config->integer( lua_object + ".timeout", 2000 ) )
+	, mReadTimeout( config->integer( lua_object + ".read_timeout", 1000 ) )
 	, mBitrate( config->integer( lua_object + ".bitrate", 76800 ) )
 	, mBandwidth( config->integer( lua_object + ".bandwidth", 250000 ) )
 	, mFdev( config->integer( lua_object + ".fdev", 200000 ) )
@@ -216,6 +216,7 @@ int SX127x::Connect()
 	reset();
 
 	if ( not ping() ) {
+		gDebug() << "Module online : " << ping() << "\n";
 		Board::defectivePeripherals()["SX127x"] = true;
 		return -1;
 	}
@@ -242,30 +243,41 @@ int SX127x::Connect()
 	// Start module in sleep mode
 	setOpMode( RF_OPMODE_SLEEP );
 
+	// Set modem
+	setModem( mModem );
+
 	// Set frequency
 	setFrequency( mFrequency );
 
-	bool boosted_module_20dbm = false;
+	bool boosted_module_20dbm = true;
 
 	// Set PA to maximum => TODO : make it more configurable
 	writeRegister( REG_PACONFIG, ( boosted_module_20dbm ? RF_PACONFIG_PASELECT_PABOOST : RF_PACONFIG_PASELECT_RFO ) | 0x70 | 0xF );
-	writeRegister( REG_PADAC, 0x80 | ( boosted_module_20dbm ? RF_PADAC_20DBM_ON : RF_PADAC_20DBM_OFF ) );
+	writeRegister( REG_PADAC, 0x80 | ( boosted_module_20dbm ? RF_PADAC_20DBM_ON : RF_PADAC_20DBM_OFF ) ); // TBD 0x80 or 0x10 ?
 	writeRegister( REG_OCP, RF_OCP_TRIM_240_MA | RF_OCP_OFF );
 	writeRegister( REG_PARAMP, RF_PARAMP_SHAPING_NONE | RF_PARAMP_0040_US | RF_PARAMP_LOWPNTXPLL_ON );
 
 	// Set LNA
 	writeRegister( REG_LNA, RF_LNA_GAIN_G1 | RF_LNA_BOOST_ON );
 
-	// Set RX/Sync config
-	writeRegister( REG_RXCONFIG, RF_RXCONFIG_RESTARTRXONCOLLISION_OFF | RF_RXCONFIG_AGCAUTO_OFF );
-	writeRegister( REG_SYNCCONFIG, RF_SYNCCONFIG_SYNC_ON | RF_SYNCCONFIG_AUTORESTARTRXMODE_WAITPLL_ON | RF_SYNCCONFIG_PREAMBLEPOLARITY_AA | RF_SYNCCONFIG_SYNCSIZE_4 );
+	if ( mModem == FSK ) {
+		// Set RX/Sync config
+		writeRegister( REG_RXCONFIG, RF_RXCONFIG_RESTARTRXONCOLLISION_OFF | RF_RXCONFIG_AGCAUTO_OFF );
+		writeRegister( REG_SYNCCONFIG, RF_SYNCCONFIG_SYNC_ON | RF_SYNCCONFIG_AUTORESTARTRXMODE_WAITPLL_ON | RF_SYNCCONFIG_PREAMBLEPOLARITY_AA | RF_SYNCCONFIG_SYNCSIZE_4 );
+// 		writeRegister( REG_SYNCCONFIG, RF_SYNCCONFIG_SYNC_ON | RF_SYNCCONFIG_AUTORESTARTRXMODE_WAITPLL_ON | RF_SYNCCONFIG_PREAMBLEPOLARITY_AA | RF_SYNCCONFIG_SYNCSIZE_3 );
+// 		writeRegister( REG_SYNCVALUE1, 0x64 );
+// 		writeRegister( REG_SYNCVALUE2, 0x72 );
+// 		writeRegister( REG_SYNCVALUE3, 0x69 );
+// 		writeRegister( REG_SYNCVALUE4, 0x30 );
+	}
 
 	// Set RSSI smoothing
 	writeRegister( REG_RSSICONFIG, RF_RSSICONFIG_SMOOTHING_32 );
-// 	writeRegister( REG_RSSICOLLISION, 40 );
 
-	// Set modem to FSK mode
-	setModem( mModem );
+	if ( mModem == LoRa ) {
+		mBandwidth = 500000;
+		mBitrate = 7;
+	}
 
 	TxConfig_t txconf = {
 		.fdev = mFdev, // Hz
@@ -287,7 +299,7 @@ int SX127x::Connect()
 		.coderate = txconf.coderate, // only for LoRa
 		.bandwidthAfc = txconf.bandwidth, // Hz
 		.preambleLen = txconf.preambleLen,
-		.symbTimeout = 0, // only for LoRa
+		.symbTimeout = 1, // only for LoRa
 		.payloadLen = PACKET_SIZE,
 		.crcOn = mDropBroken,
 		.freqHopOn = false,
@@ -336,37 +348,37 @@ void SX127x::SetupTX( const TxConfig_t& conf )
 		{
 			uint32_t bandwidth = conf.bandwidth;
 			if ( bandwidth == 125000 ) {
-				bandwidth = 0;
+				bandwidth = 7;
 			} else if ( bandwidth == 250000 ) {
-				bandwidth = 1;
+				bandwidth = 8;
 			} else if ( bandwidth == 500000 ) {
-				bandwidth = 2;
+				bandwidth = 9;
 			} else {
 				gDebug() << "ERROR: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported !\n";
 				return;
 			}
-			bandwidth = conf.bandwidth + 7;
-			uint32_t datarate = std::max( 6u, std::min( 12u, conf.datarate ) );
-			uint32_t lowDatarateOptimize = ( ( ( bandwidth == 7 ) and ( ( datarate == 11 ) or ( datarate == 12 ) ) ) or ( ( bandwidth == 8 ) and ( datarate == 12 ) ) );
+			uint32_t spreading_factor = std::max( 6u, std::min( 12u, conf.datarate ) );
+			uint32_t lowDatarateOptimize = ( ( ( bandwidth == 7 ) and ( ( spreading_factor == 11 ) or ( spreading_factor == 12 ) ) ) or ( ( bandwidth == 8 ) and ( spreading_factor == 12 ) ) );
 
 			if( conf.freqHopOn == true ) {
 				writeRegister( REG_LR_PLLHOP, ( readRegister( REG_LR_PLLHOP ) & RFLR_PLLHOP_FASTHOP_MASK ) | RFLR_PLLHOP_FASTHOP_ON );
 				writeRegister( REG_LR_HOPPERIOD, conf.hopPeriod );
 			}
 
-			writeRegister( REG_LR_MODEMCONFIG1, ( readRegister( REG_LR_MODEMCONFIG1 ) & RFLR_MODEMCONFIG1_BW_MASK & RFLR_MODEMCONFIG1_CODINGRATE_MASK & RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) | ( bandwidth << 4 ) | ( conf.coderate << 1 ) | RFLR_MODEMCONFIG1_IMPLICITHEADER_ON );
-			writeRegister( REG_LR_MODEMCONFIG2, ( readRegister( REG_LR_MODEMCONFIG2 ) & RFLR_MODEMCONFIG2_SF_MASK & RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK ) | ( datarate << 4 ) | ( conf.crcOn << 2 ) );
-			writeRegister( REG_LR_MODEMCONFIG3, ( readRegister( REG_LR_MODEMCONFIG3 ) & RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) | ( lowDatarateOptimize << 3 ) );
+			gDebug() << "default REG_LR_MODEMCONFIG2 : 0x" << std::hex << (int)readRegister( REG_LR_MODEMCONFIG2 ) << "\n";
+			writeRegister( REG_LR_MODEMCONFIG1, ( readRegister( REG_LR_MODEMCONFIG1 ) & RFLR_MODEMCONFIG1_BW_MASK & RFLR_MODEMCONFIG1_CODINGRATE_MASK & RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) | ( bandwidth << 4 ) | ( conf.coderate << 1 ) | RFLR_MODEMCONFIG1_IMPLICITHEADER_OFF );
+			writeRegister( REG_LR_MODEMCONFIG2, ( readRegister( REG_LR_MODEMCONFIG2 ) & RFLR_MODEMCONFIG2_SF_MASK & RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK ) | ( spreading_factor << 4 ) | ( conf.crcOn << 2 ) );
+// 			writeRegister( REG_LR_MODEMCONFIG3, ( readRegister( REG_LR_MODEMCONFIG3 ) & RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) | ( lowDatarateOptimize << 3 ) );
 
-			writeRegister( REG_LR_PREAMBLEMSB, ( conf.preambleLen >> 8 ) & 0x00FF );
-			writeRegister( REG_LR_PREAMBLELSB, conf.preambleLen & 0xFF );
+// 			writeRegister( REG_LR_PREAMBLEMSB, ( conf.preambleLen >> 8 ) & 0x00FF );
+// 			writeRegister( REG_LR_PREAMBLELSB, conf.preambleLen & 0xFF );
 
-			if( datarate == 6 ) {
-				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF6 );
-				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF6 );
+			if( spreading_factor == 6 ) {
+// 				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF6 );
+// 				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF6 );
 			} else {
-				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF7_TO_SF12 );
-				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
+// 				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF7_TO_SF12 );
+// 				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
 			}
 		}
 		break;
@@ -401,30 +413,26 @@ void SX127x::SetupRX( const RxConfig_t& conf )
 		{
 			uint32_t bandwidth = conf.bandwidth;
 			if ( bandwidth == 125000 ) {
-				bandwidth = 0;
+				bandwidth = 7;
 			} else if ( bandwidth == 250000 ) {
-				bandwidth = 1;
+				bandwidth = 8;
 			} else if ( bandwidth == 500000 ) {
-				bandwidth = 2;
+				bandwidth = 9;
 			} else {
 				gDebug() << "ERROR: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported !\n";
 				return;
 			}
-			bandwidth = conf.bandwidth + 7;
-			uint32_t datarate = std::max( 6u, std::min( 12u, conf.datarate ) );
-			uint32_t lowDatarateOptimize = ( ( ( bandwidth == 7 ) and ( ( datarate == 11 ) or ( datarate == 12 ) ) ) or ( ( bandwidth == 8 ) and ( datarate == 12 ) ) );
+			uint32_t spreading_factor = std::max( 6u, std::min( 12u, conf.datarate ) );
+			uint32_t lowDatarateOptimize = ( ( ( bandwidth == 7 ) and ( ( spreading_factor == 11 ) or ( spreading_factor == 12 ) ) ) or ( ( bandwidth == 8 ) and ( spreading_factor == 12 ) ) );
 
-			writeRegister( REG_LR_MODEMCONFIG1, ( readRegister( REG_LR_MODEMCONFIG1 ) & RFLR_MODEMCONFIG1_BW_MASK & RFLR_MODEMCONFIG1_CODINGRATE_MASK & RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) | ( bandwidth << 4 ) | ( conf.coderate << 1 ) | RFLR_MODEMCONFIG1_IMPLICITHEADER_ON );
-			writeRegister( REG_LR_MODEMCONFIG2, ( readRegister( REG_LR_MODEMCONFIG2 ) & RFLR_MODEMCONFIG2_SF_MASK & RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK & RFLR_MODEMCONFIG2_SYMBTIMEOUTMSB_MASK ) | ( datarate << 4 ) | ( conf.crcOn << 2 ) | ( ( conf.symbTimeout >> 8 ) & ~RFLR_MODEMCONFIG2_SYMBTIMEOUTMSB_MASK ) );
-			writeRegister( REG_LR_MODEMCONFIG3, ( readRegister( REG_LR_MODEMCONFIG3 ) & RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) | ( lowDatarateOptimize << 3 ) );
+			writeRegister( REG_LR_MODEMCONFIG1, ( readRegister( REG_LR_MODEMCONFIG1 ) & RFLR_MODEMCONFIG1_BW_MASK & RFLR_MODEMCONFIG1_CODINGRATE_MASK & RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) | ( bandwidth << 4 ) | ( conf.coderate << 1 ) | RFLR_MODEMCONFIG1_IMPLICITHEADER_OFF );
+			writeRegister( REG_LR_MODEMCONFIG2, ( readRegister( REG_LR_MODEMCONFIG2 ) & RFLR_MODEMCONFIG2_SF_MASK & RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK & RFLR_MODEMCONFIG2_SYMBTIMEOUTMSB_MASK ) | ( spreading_factor << 4 ) | ( conf.crcOn << 2 ) | ( ( conf.symbTimeout >> 8 ) & ~RFLR_MODEMCONFIG2_SYMBTIMEOUTMSB_MASK ) );
+// 			writeRegister( REG_LR_MODEMCONFIG3, ( readRegister( REG_LR_MODEMCONFIG3 ) & RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) | ( lowDatarateOptimize << 3 ) );
 
-			writeRegister( REG_LR_SYMBTIMEOUTLSB, ( uint8_t )( conf.symbTimeout & 0xFF ) );
+// 			writeRegister( REG_LR_SYMBTIMEOUTLSB, ( uint8_t )( conf.symbTimeout & 0xFF ) );
 
-			writeRegister( REG_LR_PREAMBLEMSB, ( uint8_t )( ( conf.preambleLen >> 8 ) & 0xFF ) );
-			writeRegister( REG_LR_PREAMBLELSB, ( uint8_t )( conf.preambleLen & 0xFF ) );
-
-// 			writeRegister( REG_PAYLOADLENGTH, conf.payloadLen );
-			writeRegister( REG_PAYLOADLENGTH, 0xFF );
+// 			writeRegister( REG_LR_PREAMBLEMSB, ( uint8_t )( ( conf.preambleLen >> 8 ) & 0xFF ) );
+// 			writeRegister( REG_LR_PREAMBLELSB, ( uint8_t )( conf.preambleLen & 0xFF ) );
 
 			if( conf.freqHopOn == true ) {
 				writeRegister( REG_LR_PLLHOP, ( readRegister( REG_LR_PLLHOP ) & RFLR_PLLHOP_FASTHOP_MASK ) | RFLR_PLLHOP_FASTHOP_ON );
@@ -433,25 +441,26 @@ void SX127x::SetupRX( const RxConfig_t& conf )
 
 			if( ( bandwidth == 9 ) and ( mFrequency > 525000000 ) ) {
 				// ERRATA 2.1 - Sensitivity Optimization with a 500 kHz Bandwidth
-				writeRegister( REG_LR_TEST36, 0x02 );
-				writeRegister( REG_LR_TEST3A, 0x64 );
+// 				writeRegister( REG_LR_TEST36, 0x02 );
+// 				writeRegister( REG_LR_TEST3A, 0x64 );
 			} else if( bandwidth == 9 ) {
 				// ERRATA 2.1 - Sensitivity Optimization with a 500 kHz Bandwidth
-				writeRegister( REG_LR_TEST36, 0x02 );
-				writeRegister( REG_LR_TEST3A, 0x7F );
+// 				writeRegister( REG_LR_TEST36, 0x02 );
+// 				writeRegister( REG_LR_TEST3A, 0x7F );
 			} else {
 				// ERRATA 2.1 - Sensitivity Optimization with a 500 kHz Bandwidth
-				writeRegister( REG_LR_TEST36, 0x03 );
+// 				writeRegister( REG_LR_TEST36, 0x03 );
 			}
 
-			if( datarate == 6 ) {
-				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF6 );
-				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF6 );
+			if( spreading_factor == 6 ) {
+// 				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF6 );
+// 				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF6 );
 			} else {
-				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF7_TO_SF12 );
-				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
+// 				writeRegister( REG_LR_DETECTOPTIMIZE, ( readRegister( REG_LR_DETECTOPTIMIZE ) & RFLR_DETECTIONOPTIMIZE_MASK ) | RFLR_DETECTIONOPTIMIZE_SF7_TO_SF12 );
+// 				writeRegister( REG_LR_DETECTIONTHRESHOLD, RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
 			}
 		}
+
 		break;
 	}
 }
@@ -478,6 +487,16 @@ void SX127x::startReceiving()
 		GPIO::Write( mRXPin, true );
 	}
 
+	if ( mModem == LoRa ) {
+		writeRegister( REG_LR_INVERTIQ, ( ( readRegister( REG_LR_INVERTIQ ) & RFLR_INVERTIQ_TX_MASK & RFLR_INVERTIQ_RX_MASK ) | RFLR_INVERTIQ_RX_OFF | RFLR_INVERTIQ_TX_OFF ) );
+		writeRegister( REG_LR_INVERTIQ2, RFLR_INVERTIQ2_OFF );
+		writeRegister( REG_LR_IRQFLAGSMASK, RFLR_IRQFLAGS_VALIDHEADER | RFLR_IRQFLAGS_TXDONE | RFLR_IRQFLAGS_CADDONE | RFLR_IRQFLAGS_FHSSCHANGEDCHANNEL | RFLR_IRQFLAGS_CADDETECTED );
+		writeRegister( REG_DIOMAPPING1, ( readRegister( REG_DIOMAPPING1 ) & RFLR_DIOMAPPING1_DIO0_MASK ) | RFLR_DIOMAPPING1_DIO0_00 );
+		writeRegister( REG_LR_DETECTOPTIMIZE, readRegister( REG_LR_DETECTOPTIMIZE ) | 0x80 );
+		writeRegister( REG_LR_FIFORXBASEADDR, 0 );
+		writeRegister( REG_LR_FIFOADDRPTR, 0 );
+	}
+
 	setOpMode( RF_OPMODE_RECEIVER );
 	writeRegister( REG_LNA, RF_LNA_GAIN_G1 | RF_LNA_BOOST_ON );
 }
@@ -491,6 +510,12 @@ void SX127x::startTransmitting()
 	if ( mTXPin >= 0 ) {
 		GPIO::Write( mTXPin, true );
 	}
+
+	if ( mModem == LoRa ) {
+		writeRegister( REG_LR_IRQFLAGSMASK, RFLR_IRQFLAGS_RXTIMEOUT | RFLR_IRQFLAGS_RXDONE | RFLR_IRQFLAGS_PAYLOADCRCERROR | RFLR_IRQFLAGS_VALIDHEADER | RFLR_IRQFLAGS_CADDONE | RFLR_IRQFLAGS_FHSSCHANGEDCHANNEL | RFLR_IRQFLAGS_CADDETECTED );
+		writeRegister( REG_DIOMAPPING1, ( readRegister( REG_DIOMAPPING1 ) & RFLR_DIOMAPPING1_DIO0_MASK ) | RFLR_DIOMAPPING1_DIO0_01 );
+	}
+
 	setOpMode( RF_OPMODE_TRANSMITTER );
 }
 
@@ -543,12 +568,12 @@ void SX127x::PerfUpdate()
 	mPerfMutex.lock();
 	if ( TICKS - mPerfTicks >= 250 ) {
 		int32_t count = mRxBlock.block_id - mPerfLastRxBlock;
+		if ( count < 0 ) {
+			count = 255 + count;
+		}
 		if ( count == 0 or count == 1 ) {
 			mRxQuality = 0;
 		} else {
-			if ( count < 0 ) {
-				count = 255 + count;
-			}
 			mRxQuality = 100 * ( mPerfValidBlocks * 4 + mPerfInvalidBlocks ) / ( count * 4 );
 			if ( mRxQuality > 100 ) {
 				mRxQuality = 100;
@@ -591,6 +616,7 @@ int SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 	if ( mRxQueue.size() == 0 ) {
 		mRxQueueMutex.unlock();
 		if ( timedout ) {
+			gDebug() << "Module online : " << ping() << "\n";
 			return LINK_ERROR_TIMEOUT;
 		}
 		return 0;
@@ -633,19 +659,25 @@ int SX127x::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 // 			while ( mSending ) {
 // 				usleep( 1 );
 // 			}
-			if ( not writeRegister( REG_FIFOTHRESH, RF_FIFOTHRESH_TXSTARTCONDITION_FIFOTHRESH | ( plen + sizeof(Header) ) ) ) {
-				return 0;
-			}
-
-
 			uint8_t tx[64];
 			uint8_t rx[64];
 			memset( tx, 0, sizeof(tx) );
 			memset( rx, 0, sizeof(rx) );
 
-			tx[0] = REG_FIFO | 0x80;
-			tx[1] = plen + sizeof(Header);
-			memcpy( &tx[2], buf, plen + sizeof(Header) );
+			if ( mModem == LoRa ) {
+				writeRegister( REG_LR_PAYLOADLENGTH, plen + sizeof(Header) );
+				writeRegister( REG_LR_FIFOTXBASEADDR, 0 );
+				writeRegister( REG_LR_FIFOADDRPTR, 0 );
+
+				tx[0] = REG_FIFO | 0x80;
+				memcpy( &tx[1], buf, plen + sizeof(Header) );
+			} else {
+				writeRegister( REG_FIFOTHRESH, RF_FIFOTHRESH_TXSTARTCONDITION_FIFOTHRESH | ( plen + sizeof(Header) ) );
+
+				tx[0] = REG_FIFO | 0x80;
+				tx[1] = plen + sizeof(Header);
+				memcpy( &tx[2], buf, plen + sizeof(Header) );
+			}
 
 			mSendingEnd = false;
 
@@ -654,7 +686,11 @@ int SX127x::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 			mSendingEnd = true;
 			mSendTime = TICKS;
 			startTransmitting();
-			mSPI->Transfer( tx, rx, plen + sizeof(Header) + 2 );
+			mSPI->Transfer( tx, rx, plen + sizeof(Header) + 1 + ( mModem == FSK ) );
+
+			while ( mModem == LoRa and mSending ) {
+				usleep( 1 );
+			}
 		}
 
 		header->packet_id++;
@@ -694,7 +730,7 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 		mRxBlock.packets_count = header->packets_count;
 	}
 
-// 		printf( "Received [%d] { %d %d %d } [%d bytes]\n", buflen, header->block_id, header->packet_id, header->packets_count, datalen );
+// 	printf( "Received [%d] { %d %d %d } [%d bytes]\n", buflen, header->block_id, header->packet_id, header->packets_count, datalen );
 
 	if ( header->packets_count == 1 ) {
 // 		printf( "small block\n" );
@@ -739,7 +775,17 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 
 void SX127x::Interrupt()
 {
+	// Take RSSI before anything else bofore the value becomes invalidated
+	if ( mModem == FSK ) {
+		mRSSI = -( readRegister( REG_RSSIVALUE ) >> 1 );
+	} else {
+		mRSSI = -157 + readRegister( REG_LR_PKTRSSIVALUE ); // TBD : use REG_LR_RSSIVALUE ?
+	}
+
+	uint64_t tick_ms = TICKS;
+
 	uint8_t opMode = getOpMode();
+// 	if ( opMode != RF_OPMODE_RECEIVER and opMode != RF_OPMODE_SYNTHESIZER_RX ) {
 	if ( opMode == RF_OPMODE_TRANSMITTER or opMode == RF_OPMODE_SYNTHESIZER_TX ) {
 // 		gDebug() << "SX127x::Interrupt() SendTime : " << std::dec << TICKS - mSendTime << "\n";
 		if ( mSendingEnd ) {
@@ -750,16 +796,29 @@ void SX127x::Interrupt()
 	}
 // 	gDebug() << "SX127x::Interrupt()\n";
 
-	mRSSI = -( readRegister( REG_RSSIVALUE ) >> 1 );
-
 	if( mDropBroken ) {
-		uint8_t irqFlags = readRegister( REG_IRQFLAGS2 );
-		if( ( irqFlags & RF_IRQFLAGS2_CRCOK ) != RF_IRQFLAGS2_CRCOK ) {
+		bool crc_err = false;
+		if ( mModem == LoRa ) {
+			uint8_t irqFlags = readRegister( REG_LR_IRQFLAGS );
+			crc_err = ( ( irqFlags & RFLR_IRQFLAGS_PAYLOADCRCERROR_MASK ) == RFLR_IRQFLAGS_PAYLOADCRCERROR );
+		} else {
+			uint8_t irqFlags = readRegister( REG_IRQFLAGS2 );
+			crc_err = ( ( irqFlags & RF_IRQFLAGS2_CRCOK ) != RF_IRQFLAGS2_CRCOK );
+			
+		}
+		if( crc_err ) {
+			if ( mModem == LoRa ) {
+				return;
+			}
 			// Clear Irqs
 			writeRegister( REG_IRQFLAGS1, RF_IRQFLAGS1_RSSI | RF_IRQFLAGS1_PREAMBLEDETECT | RF_IRQFLAGS1_SYNCADDRESSMATCH );
 			writeRegister( REG_IRQFLAGS2, RF_IRQFLAGS2_FIFOOVERRUN );
 			// Continuous mode restart Rx chain
-			writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK );
+// 			writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK );
+			// Continuous mode restart Rx chain
+			while ( writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK ) == false and TICKS - tick_ms < 50 ) {
+				usleep( 1 );
+			}
 			return;
 		}
 	}
@@ -770,7 +829,12 @@ void SX127x::Interrupt()
 	memset( rx, 0, sizeof(rx) );
 	tx[0] = REG_FIFO & 0x7f;
 
-	uint8_t len = readRegister( REG_FIFO );
+	uint8_t len = 0;
+	if ( mModem == LoRa ) {
+		len = readRegister( REG_LR_RXNBBYTES );
+	} else {
+		len = readRegister( REG_FIFO );
+	}
 	mSPI->Transfer( tx, rx, len + 1 );
 
 	if ( len > 0 ) {
@@ -793,7 +857,11 @@ void SX127x::Interrupt()
 		*/
 	}
 
-	writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK );
+	if ( mModem == FSK ) {
+		while ( writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK ) == false and TICKS - tick_ms < 50 ) {
+			usleep( 1 );
+		}
+	}
 }
 
 
@@ -842,14 +910,19 @@ bool SX127x::setOpMode( uint32_t opMode )
 	writeRegister( REG_OPMODE, ( readRegister(REG_OPMODE) & RF_OPMODE_MASK ) | opMode );
 	
 	uint64_t tick = TICKS;
+	uint32_t retry_tick = TICKS;
 	bool stalling = false;
-	while ( getOpMode() != opMode and TICKS - tick < 250 ) {
+	while ( getOpMode() != opMode and ( opMode == RF_OPMODE_RECEIVER or TICKS - tick < 250 ) ) {
 		usleep( 1 );
 		if ( TICKS - tick > 100 ) {
 			if ( not stalling ) {
-				gDebug() << "setOpMode(" << opMode << ") stalling !\n";
+				gDebug() << "setOpMode(" << opMode << ") stalling ! (!=" << getOpMode() << ")\n";
 			}
 			stalling = true;
+		}
+		if ( TICKS - retry_tick > 100 ) {
+			writeRegister( REG_OPMODE, ( readRegister(REG_OPMODE) & RF_OPMODE_MASK ) | opMode );
+			retry_tick = TICKS;
 		}
 	}
 	if ( stalling ) {
@@ -884,7 +957,7 @@ bool SX127x::writeRegister( uint8_t address, uint8_t value )
 		if ( address == REG_RXCONFIG ) {
 			value &= ~( RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK | RF_RXCONFIG_RESTARTRXWITHPLLLOCK );
 		}
-		if ( ret != value and address != REG_OPMODE ) {
+		if ( ret != value and address != REG_OPMODE and address != REG_IRQFLAGS1 ) {
 			gDebug() << "Error while setting register " << GetRegName(address) << " to 0x" << std::hex << (int)value << " (0x" << (int)ret << ")" << std::dec << "\n";
 			return false;
 		}

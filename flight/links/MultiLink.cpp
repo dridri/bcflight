@@ -52,7 +52,7 @@ Link* MultiLink::Instanciate( Config* config, const std::string& lua_object )
 	}
 
 	MultiLink* ret = new MultiLink( senders, receivers );
-// 	ret->setReadTimeout( read_timeout ); // TODO
+	ret->setReadTimeout( read_timeout );
 	return ret;
 }
 
@@ -60,6 +60,7 @@ Link* MultiLink::Instanciate( Config* config, const std::string& lua_object )
 MultiLink::MultiLink( std::list<Link*> senders, std::list<Link*> receivers )
 	: Link()
 	, mBlocking( true )
+	, mReadTimeout( 2000 )
 	, mSenders( senders )
 	, mReceivers( receivers )
 {
@@ -95,7 +96,7 @@ int MultiLink::Connect()
 		}
 	}
 
-	mConnected = not ret;
+	mConnected = ( not ret );
 	return ret;
 }
 
@@ -104,6 +105,12 @@ int MultiLink::setBlocking( bool blocking )
 {
 	mBlocking = blocking;
 	return 0;
+}
+
+
+void MultiLink::setReadTimeout( uint32_t timeout )
+{
+	mReadTimeout = timeout;
 }
 
 
@@ -123,13 +130,7 @@ int MultiLink::retriesCount() const
 
 int32_t MultiLink::Channel()
 {
-	int32_t ret = 0;
-
-	for ( Link* link : mSenders ) {
-		ret = ( ret << 6 ) + link->Channel();
-	}
-
-	return ret;
+	return mReceivers.front()->Channel();
 }
 
 
@@ -141,31 +142,13 @@ int32_t MultiLink::Frequency()
 
 int32_t MultiLink::RxQuality()
 {
-	int32_t ret = 0;
-
-	for ( Link* link : mReceivers ) {
-		int32_t qual = link->RxQuality();
-		if ( qual > ret ) {
-			ret = qual;
-		}
-	}
-
-	return ret;
+	return mReceivers.front()->RxQuality();
 }
 
 
 int32_t MultiLink::RxLevel()
 {
-	int32_t ret = -200;
-
-	for ( Link* link : mReceivers ) {
-		int32_t level = link->RxLevel();
-		if ( level > ret ) {
-			ret = level;
-		}
-	}
-
-	return ret;
+	return mReceivers.front()->RxLevel();
 }
 
 
@@ -193,15 +176,18 @@ int MultiLink::Write( const void* buf, uint32_t len, bool ack, int32_t timeout )
 int MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 {
 	int ret = 0;
-	int32_t hopping_timeout = 500;
+	int32_t hopping_timeout = 50;
 	uint32_t time_base = Board::GetTicks();
 
 	if ( mReceivers.size() == 0 ) {
 		return -1;
 	}
 
-	if ( timeout > 0 ) {
-		hopping_timeout = timeout / mReceivers.size();
+// 	if ( timeout > 0 ) {
+// 		hopping_timeout = timeout / mReceivers.size();
+// 	}
+	if ( timeout == 0 ) {
+		timeout = mReadTimeout;
 	}
 
 	do  {
@@ -211,17 +197,24 @@ int MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 		// If good, then return now
 		if ( ret > 0 ) {
 			return ret;
+		} else if ( ret == LINK_ERROR_TIMEOUT ) {
+// 			gDebug() << front->Frequency() << " front timed out\n";
 		}
 
 		// Else, try with the others until one is responding
-		for ( Link* link : mReceivers ) {
-			if ( link != front ) {
-				ret = link->Read( buf, len, hopping_timeout );
+		for ( std::list<Link*>::iterator it = mReceivers.begin(); it != mReceivers.end(); it++ ) {
+			if ( (*it) != front ) {
+				ret = (*it)->Read( buf, len, hopping_timeout );
 				// If good, put this receiver in front, and return now
 				if ( ret > 0 ) {
-					mReceivers.remove( link );
-					mReceivers.push_front( link );
+					Link* tmp = mReceivers.front();
+					mReceivers.front() = *it;
+					*it = tmp;
 					return ret;
+				} else if ( ret == LINK_ERROR_TIMEOUT ) {
+// 					gDebug() << (*it)->Frequency() << " timed out\n";
+				} else {
+// 					gDebug() << (*it)->Frequency() << " error " << ret << "\n";
 				}
 			}
 		}

@@ -74,23 +74,34 @@ int Main::flight_entry( int ac, char** av )
 
 void Test()
 {
-	Motor* os125 = new OneShot125( 23 );
-// 	Motor* os125 = new BrushlessPWM( 18 );
+	Motor* os125 = new OneShot125( 18 );
+	Motor* os125_2 = new OneShot125( 23 );
+	Motor* os125_3 = new OneShot125( 24 );
+	Motor* os125_4 = new OneShot125( 25 );
 	float s = 0.0f;
 	const float v = 0.005f;
 	float w = v;
 
 	printf( "s = 1.0\n" ); fflush(stdout);
 	os125->setSpeed( 1.0f, true );
-	usleep( 1000 * 1000 * 10 );
+	os125_2->setSpeed( 1.0f, true );
+	os125_3->setSpeed( 1.0f, true );
+	os125_4->setSpeed( 1.0f, true );
+	usleep( 1000 * 1000 * 8 );
 
 	printf( "s = 0.0\n" ); fflush(stdout);
 	os125->setSpeed( 0.0f, true );
-	usleep( 1000 * 1000 * 10 );
+	os125_2->setSpeed( 0.0f, true );
+	os125_3->setSpeed( 0.0f, true );
+	os125_4->setSpeed( 0.0f, true );
+	usleep( 1000 * 1000 * 8 );
 
 	while ( 1 ) {
 		printf( "s = %.4f\n", s ); fflush(stdout);
 		os125->setSpeed( s, true );
+		os125_2->setSpeed( s, true );
+		os125_3->setSpeed( s, true );
+		os125_4->setSpeed( s, true );
 		usleep( 1000 * 25 );
 		s += w;
 		if ( s >= 1.0f ) {
@@ -100,6 +111,9 @@ void Test()
 			w = v;
 			s = 0.1f;
 			os125->Disarm();
+			os125_2->Disarm();
+			os125_3->Disarm();
+			os125_4->Disarm();
 			usleep(1000*1000);
 		}
 	}
@@ -134,9 +148,9 @@ Main::Main()
 // 	Test();
 
 #ifdef BOARD_generic
-	mConfig = new Config( "config.lua" );
+	mConfig = new Config( "config.lua", "settings.lua" );
 #else
-	mConfig = new Config( "/var/flight/config.lua" );
+	mConfig = new Config( "/var/flight/config.lua", "/var/flight/settings.lua" );
 #endif
 	Board::InformLoading();
 	mConfig->DumpVariable( "username" );
@@ -186,7 +200,7 @@ Main::Main()
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
 
-// 	mRecorder = new Recorder();
+	mRecorder = new Recorder();
 
 	mCameraType = mConfig->string( "camera.type" );
 #ifdef CAMERA
@@ -212,7 +226,7 @@ Main::Main()
 
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 	mController = new Controller( this, controllerLink );
-	mController->setPriority( 99, 1 );
+	mController->setPriority( 98 );
 	Board::InformLoading();
 
 	mLoopTime = mConfig->integer( "stabilizer.loop_time", 2000 );
@@ -222,7 +236,7 @@ Main::Main()
 	mLPS = 0;
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
 	mStabilizerThread->Start();
-	mStabilizerThread->setPriority( 99, 0 );
+	mStabilizerThread->setPriority( 99 );
 
 	// Must be the very last atexit() call
 	atexit( &Thread::StopAll );
@@ -252,9 +266,9 @@ bool Main::StabilizerThreadRun()
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
 	} else {
-		if ( mIMU->state() == IMU::Running ) {
+// 		if ( mIMU->state() == IMU::Running ) {
 			mStabilizer->Update( mIMU, mController, dt );
-		}
+// 		}
 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
 	}
 

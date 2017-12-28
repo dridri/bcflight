@@ -28,6 +28,12 @@ public:
 	Camera();
 	~Camera();
 
+	typedef struct {
+		uint8_t base;
+		uint8_t radius;
+		int8_t strength;
+	} LensShaderColor;
+
 	virtual void Pause() = 0;
 	virtual void Resume() = 0;
 	virtual void StartRecording() = 0;
@@ -38,6 +44,7 @@ public:
 	virtual const uint32_t brightness() = 0;
 	virtual const int32_t contrast() = 0;
 	virtual const int32_t saturation() = 0;
+	virtual const int32_t ISO() = 0;
 	virtual const bool nightMode() = 0;
 	virtual const std::string whiteBalance() = 0;
 	virtual const bool recording() = 0;
@@ -45,8 +52,12 @@ public:
 	virtual void setBrightness( uint32_t value ) = 0;
 	virtual void setContrast( int32_t value ) = 0;
 	virtual void setSaturation( int32_t value ) = 0;
+	virtual void setISO( int32_t value ) = 0;
 	virtual void setNightMode( bool night_mode ) = 0;
 	virtual std::string switchWhiteBalance() = 0;
+	virtual std::string lockWhiteBalance() = 0;
+	virtual void setLensShader( const LensShaderColor& r, const LensShaderColor& g, const LensShaderColor& b ) = 0;
+	virtual void getLensShader( LensShaderColor* r, LensShaderColor* g, LensShaderColor* b ) = 0;
 
 	virtual uint32_t* getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp ) = 0;
 };

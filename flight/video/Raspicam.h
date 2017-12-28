@@ -53,6 +53,7 @@ public:
 	virtual const uint32_t brightness();
 	virtual const int32_t contrast();
 	virtual const int32_t saturation();
+	virtual const int32_t ISO();
 	virtual const bool nightMode();
 	virtual const std::string whiteBalance();
 	virtual const bool recording();
@@ -60,8 +61,12 @@ public:
 	virtual void setBrightness( uint32_t value );
 	virtual void setContrast( int32_t value );
 	virtual void setSaturation( int32_t value );
+	virtual void setISO( int32_t value );
 	virtual void setNightMode( bool night_mode );
 	virtual std::string switchWhiteBalance();
+	virtual std::string lockWhiteBalance();
+	virtual void setLensShader( const LensShaderColor& R, const LensShaderColor& G, const LensShaderColor& B );
+	virtual void getLensShader( LensShaderColor* r, LensShaderColor* g, LensShaderColor* b );
 
 	virtual uint32_t* getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
@@ -72,11 +77,15 @@ protected:
 
 	int LiveSend( char* data, int datalen );
 	int RecordWrite( char* data, int datalen, int64_t pts = 0, bool audio = false );
+	void setLensShader_internal( const LensShaderColor& R, const LensShaderColor& G, const LensShaderColor& B );
 
 	Config* mConfig;
 	std::string mConfigObject;
 	Link* mLink;
 	bool mDirectMode;
+	uint32_t mWidth;
+	uint32_t mHeight;
+	int32_t mISO;
 	IL::NullSink* mNullSink;
 	IL::VideoEncode* mEncoder;
 	IL::VideoRender* mRender;
@@ -90,6 +99,11 @@ protected:
 	bool mNightMode;
 	bool mPaused;
 	IL::Camera::WhiteBalControl mWhiteBalance;
+	std::string mWhiteBalanceLock;
+	uint8_t* mLiveBuffer;
+	LensShaderColor mLensShaderR;
+	LensShaderColor mLensShaderG;
+	LensShaderColor mLensShaderB;
 
 	// Record
 	bool mBetterRecording;
@@ -113,6 +127,9 @@ protected:
 	FILE* mRecordStream; // TODO : use board-specific file instead
 	std::mutex mRecordStreamMutex;
 	std::list< std::pair< uint8_t*, uint32_t > > mRecordStreamQueue;
+	uint32_t mRecorderTrackId;
+
+	static void DebugOutput( int level, const std::string fmt, ... );
 };
 
 #endif // RASPICAM_H

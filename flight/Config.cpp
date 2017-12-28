@@ -17,6 +17,8 @@
 **/
 #include <list>
 #include <fstream>
+#include <algorithm>
+#include <regex>
 #include <string.h>
 #include "Debug.h"
 #include "Config.h"
@@ -24,8 +26,9 @@
 #include <Gyroscope.h>
 #include <Magnetometer.h>
 
-Config::Config( const std::string& filename )
+Config::Config( const std::string& filename, const std::string& settings_filename )
 	: mFilename( filename )
+	, mSettingsFilename( settings_filename )
 	, L( nullptr )
 {
 	L = luaL_newstate();
@@ -75,7 +78,7 @@ void Config::WriteFile( const std::string& content )
 
 std::string Config::string( const std::string& name, const std::string& def )
 {
-	Debug() << "Config::string( " << name << " )";
+	gDebug() << "Config::string( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
@@ -90,7 +93,7 @@ std::string Config::string( const std::string& name, const std::string& def )
 
 int Config::integer( const std::string& name, int def )
 {
-	Debug() << "Config::integer( " << name << " )";
+	gDebug() << "Config::integer( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
@@ -105,7 +108,7 @@ int Config::integer( const std::string& name, int def )
 
 float Config::number( const std::string& name, float def )
 {
-	Debug() << "Config::number( " << name << " )";
+	gDebug() << "Config::number( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
@@ -120,7 +123,7 @@ float Config::number( const std::string& name, float def )
 
 bool Config::boolean( const std::string& name, bool def )
 {
-	Debug() << "Config::boolean( " << name << " )";
+	gDebug() << "Config::boolean( " << name << " )";
 
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
@@ -135,7 +138,7 @@ bool Config::boolean( const std::string& name, bool def )
 
 std::vector<int> Config::integerArray( const std::string& name )
 {
-	Debug() << "Config::integerArray( " << name << " )";
+	gDebug() << "Config::integerArray( " << name << " )";
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
 		return std::vector<int>();
@@ -235,6 +238,7 @@ int Config::ArrayLength( const std::string& name )
 			lua_pushnil( L );
 			while( lua_next( L, -2 ) != 0 ) {
 				ret++;
+				lua_pop( L, 1 );
 			}
 		}
 	}
@@ -285,7 +289,14 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 				if ( lua_isnumber( L, index - 1 ) ) {
 					key = "[" + key + "]";
 				}
-				DumpVariable( key, index, indent + 1 );
+				if ( key != "lens_shading" ) {
+					DumpVariable( key, index, indent + 1 );
+				} else {
+					for ( int i = 0; i < indent + 1; i++ ) {
+						Debug() << "    ";
+					}
+					std::cout << key << " = {...}";
+				}
 				lua_pop( L, 1 );
 				Debug() << ",\n";
 			}
@@ -307,6 +318,26 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 void Config::Execute( const std::string& code )
 {
 	luaL_dostring( L, code.c_str() );
+}
+
+
+static inline std::string& ltrim( std::string& s, const char* t = " \t\n\r\f\v" )
+{
+	s.erase(0, s.find_first_not_of(t));
+	return s;
+}
+
+
+static inline std::string& rtrim( std::string& s, const char* t = " \t\n\r\f\v" )
+{
+	s.erase(s.find_last_not_of(t) + 1);
+	return s;
+}
+
+
+static inline std::string& trim( std::string& s, const char* t = " \t\n\r\f\v" )
+{
+	return ltrim(rtrim(s, t), t);
 }
 
 
@@ -336,15 +367,41 @@ void Config::Reload()
 	luaL_dostring( L, "GPSes = {}" );
 	luaL_dostring( L, "user_sensors = {}" );
 	luaL_dostring( L, "function RegisterSensor( name, params ) user_sensors[name] = params ; return params end" );
+
 	luaL_loadfile( L, mFilename.c_str() );
 	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
-
 	if ( ret != 0 ) {
 		lua_Debug ar;
 		lua_getstack(L, 1, &ar);
 		lua_getinfo(L, "nSl", &ar);
 		gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
 		return;
+	}
+
+	if ( mSettingsFilename != "" ) {
+		luaL_loadfile( L, mSettingsFilename.c_str() );
+		int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
+		if ( ret != 0 ) {
+			lua_Debug ar;
+			lua_getstack(L, 1, &ar);
+			lua_getinfo(L, "nSl", &ar);
+			gDebug() << "Lua : Error while executing file \"" << mSettingsFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
+		}
+	
+		std::string line;
+		std::string key;
+		std::string value;
+		std::ifstream file( mSettingsFilename, std::ios_base::in );
+		if ( file.is_open() ) {
+			while ( std::getline( file, line ) ) {
+				key = line.substr( 0, line.find( "=" ) );
+				value = line.substr( line.find( "=" ) + 1 );
+				key = trim( key );
+				value = trim( value );
+				mSettings[ key ] = value;
+				std::cout << "mSettings[\"" << key << "\"] = '" << mSettings[ key ] << "'\n";
+			}
+		}
 	}
 
 	std::list< std::string > user_sensors;
@@ -355,7 +412,6 @@ void Config::Reload()
 		user_sensors.emplace_back( key );
 		lua_pop( L, 1 );
 	}
-
 	for ( std::string s : user_sensors ) {
 		Sensor::RegisterDevice( s, this, "user_sensors." + s );
 	}
@@ -423,7 +479,45 @@ void Config::Apply()
 }
 
 
+void Config::setBoolean( const std::string& name, const bool v )
+{
+	mSettings[name] = ( v ? "true" : "false" );
+	luaL_dostring( L, ( name + "=" + mSettings[name] ).c_str() );
+}
+
+
+void Config::setInteger( const std::string& name, const int v )
+{
+	mSettings[name] = std::to_string(v);
+	luaL_dostring( L, ( name + "=" + mSettings[name] ).c_str() );
+}
+
+
+void Config::setNumber( const std::string& name, const float v )
+{
+	mSettings[name] = std::to_string(v);
+	luaL_dostring( L, ( name + "=" + mSettings[name] ).c_str() );
+}
+
+
+void Config::setString( const std::string& name, const std::string& v )
+{
+	mSettings[name] = v;
+	luaL_dostring( L, ( name + "=" + v ).c_str() );
+}
+
+
 void Config::Save()
 {
-	// TODO
+	std::ofstream file( mSettingsFilename );
+	std::string str;
+
+	if ( file.is_open() ) {
+		for ( std::pair< std::string, std::string > setting : mSettings ) {
+			str = setting.first + " = " + setting.second + "\n";
+			gDebug() << "Saving setting  : " << str;
+			file.write( str.c_str(), str.length() );
+		}
+		file.close();
+	}
 }

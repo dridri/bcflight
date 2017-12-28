@@ -21,6 +21,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 extern "C" {
 #include <luajit.h>
@@ -32,7 +33,7 @@ extern "C" {
 class Config
 {
 public:
-	Config( const std::string& filename );
+	Config( const std::string& filename, const std::string& settings_filename = "" );
 	~Config();
 
 	void Reload();
@@ -50,13 +51,21 @@ public:
 	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
 	int ArrayLength( const std::string& name );
 
+	void setBoolean( const std::string& name, const bool v );
+	void setInteger( const std::string& name, const int v );
+	void setNumber( const std::string& name, const float v );
+	void setString( const std::string& name, const std::string& v );
+
 	std::string ReadFile();
 	void WriteFile( const std::string& content );
 
 protected:
-	std::string mFilename;
-	lua_State* L;
 	int LocateValue( const std::string& name );
+
+	std::string mFilename;
+	std::string mSettingsFilename;
+	lua_State* L;
+	std::map< std::string, std::string > mSettings;
 };
 
 #endif // CONFIG_H

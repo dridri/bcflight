@@ -22,6 +22,9 @@
 #define ALSAMIC_H
 
 #include <alsa/asoundlib.h>
+extern "C" {
+	#include <shine/layer3.h>
+};
 #include <Thread.h>
 #include "Microphone.h"
 
@@ -49,6 +52,9 @@ protected:
 	//Record
 	uint32_t mRecordSyncCounter;
 	FILE* mRecordStream;
+	uint32_t mRecorderTrackId;
+	shine_config_t mShineConfig;
+	shine_t mShine;
 };
 
 #endif // ALSAMIC_H

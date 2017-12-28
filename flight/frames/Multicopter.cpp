@@ -23,9 +23,10 @@ Frame* Multicopter::Instanciate( Config* config )
 Multicopter::Multicopter( Config* config )
 	: Frame()
 	, mMaxSpeed( 1.0f )
+	, mAirModeTrigger( config->number( "frame.air_mode.trigger", 0.35f ) )
 	, mAirModeSpeed( config->number( "frame.air_mode.speed", 0.15f ) )
 {
-	float maxspeed = config->number( "frame.max_speed" );
+	float maxspeed = config->number( "frame.max_speed", 1.0f );
 	if ( maxspeed > 0.0f and maxspeed <= 1.0f ) {
 		mMaxSpeed = maxspeed;
 	}
@@ -43,8 +44,8 @@ Multicopter::Multicopter( Config* config )
 		int fl_pin = config->integer( "frame.motors[" + std::to_string(i+1) + "].pin" );
 		int fl_min = config->integer( "frame.motors[" + std::to_string(i+1) + "].minimum_us", 1020 );
 		int fl_max = config->integer( "frame.motors[" + std::to_string(i+1) + "].maximum_us", 1860 );
-		mMotors[i] = new BrushlessPWM( fl_pin, fl_min, fl_max );
 // 		mMotors[i] = new OneShot125( fl_pin );
+		mMotors[i] = new BrushlessPWM( fl_pin, fl_min, fl_max );
 
 		mPIDMultipliers[i].x = config->number( "frame.motors[" + std::to_string(i+1) + "].pid_vector.x" );
 		mPIDMultipliers[i].y = config->number( "frame.motors[" + std::to_string(i+1) + "].pid_vector.y" );
@@ -66,23 +67,35 @@ Multicopter::~Multicopter()
 void Multicopter::Arm()
 {
 	fDebug0();
+	char stmp[256] = "\"";
+
 	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 		mStabSpeeds[i] = 0.0f;
 		mMotors[i]->setSpeed( 0.0f, true );
+		sprintf( stmp, "%s%.4f,", stmp, mMotors[i]->speed() );
 	}
+
 	mArmed = true;
+	Main::instance()->blackbox()->Enqueue( "Multicopter:motors", std::string(stmp) + "\"" );
 }
 
 
 void Multicopter::Disarm()
 {
 	fDebug0();
+	char stmp[256] = "\"";
+
 	mAirMode = false;
+
 	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
+		mMotors[i]->setSpeed( 0.0f, false );
 		mMotors[i]->Disarm();
 		mStabSpeeds[i] = 0.0f;
+		sprintf( stmp, "%s%.4f,", stmp, mMotors[i]->speed() );
 	}
+
 	mArmed = false;
+	Main::instance()->blackbox()->Enqueue( "Multicopter:motors", std::string(stmp) + "\"" );
 }
 
 
@@ -96,8 +109,10 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 	if ( not mArmed ) {
 		return false;
 	}
-	// Automatically enable air-mode after lift-off
-	if ( thrust >= 0.35f ) {
+	if ( thrust >= mAirModeTrigger ) {
+		if ( not mAirMode ) {
+			gDebug() << "Now in air mode\n";
+		}
 		mAirMode = true;
 	}
 
@@ -120,12 +135,12 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 		}
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mStabSpeeds[i] = stab_shift + ( mStabSpeeds[i] - overall_min ) * stab_multiplier;
+			mStabSpeeds[i] = stab_shift + std::max( 0.0f, ( mStabSpeeds[i] - overall_min ) * stab_multiplier );
 		}
 
-		char stmp[64] = "\"";
+		char stmp[256] = "\"";
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mMotors[i]->setSpeed( mStabSpeeds[i], ( i >= mMotors.size() - 1 ) );
+			mMotors[i]->setSpeed( std::min( mMaxSpeed, mStabSpeeds[i] ), ( i >= mMotors.size() - 1 ) );
 			sprintf( stmp, "%s%.4f,", stmp, mMotors[i]->speed() );
 		}
 		Main::instance()->blackbox()->Enqueue( "Multicopter:motors", std::string(stmp) + "\"" );
