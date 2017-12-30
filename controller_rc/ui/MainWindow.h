@@ -43,8 +43,11 @@ public slots:
 	void VideoSaturationDecrease();
 	void VideoWhiteBalance();
 	void VideoLockWhiteBalance();
+	void VideoExposureMode();
 	void VideoIsoIncrease();
 	void VideoIsoDecrease();
+	void VideoShutterSpeedIncrease();
+	void VideoShutterSpeedDecrease();
 
 private:
 	void CameraUpdateLensShader( bool send = true );

@@ -980,10 +980,34 @@ bool Controller::run()
 				}
 				break;
 			}
+			case VIDEO_SHUTTER_SPEED_INCR : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					gDebug() << "Setting camera shutter speed to " << cam->shutterSpeed() + 100 << "\n";
+					cam->setShutterSpeed( cam->shutterSpeed() + 100 );
+				}
+				break;
+			}
+			case VIDEO_SHUTTER_SPEED_DECR : {
+				Camera* cam = mMain->camera();
+				if ( cam and cam->shutterSpeed() > 0 ) {
+					gDebug() << "Setting camera shutter speed to " << cam->shutterSpeed() - 100 << "\n";
+					cam->setShutterSpeed( cam->shutterSpeed() - 100 );
+				}
+				break;
+			}
 			case VIDEO_ISO : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					response.WriteU32( (uint32_t)cam->ISO() );
+					do_response = true;
+				}
+				break;
+			}
+			case VIDEO_SHUTTER_SPEED : {
+				Camera* cam = mMain->camera();
+				if ( cam ) {
+					response.WriteU32( cam->shutterSpeed() );
 					do_response = true;
 				}
 				break;
@@ -1047,6 +1071,21 @@ bool Controller::run()
 					cam->setNightMode( night );
 				}
 				response.WriteU32( night );
+				do_response = true;
+				break;
+			}
+			case VIDEO_EXPOSURE_MODE : {
+				Camera* cam = mMain->camera();
+				std::string ret = "(none)";
+				if ( cam ) {
+					if ( acknowledged ) {
+						ret = cam->exposureMode();
+					} else {
+						ret = cam->switchExposureMode();
+						gDebug() << "Camera exposure mode set to \"" << ret << "\"\n";
+					}
+				}
+				response.WriteString( ret );
 				do_response = true;
 				break;
 			}

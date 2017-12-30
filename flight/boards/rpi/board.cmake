@@ -21,9 +21,11 @@ set( BOARD_LIBS ${BOARD_LIBS} -lgps )
 include_directories( /opt/vc/include )
 
 include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/include )
+include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++/include/MMAL++ )
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++ ${CMAKE_CURRENT_BINARY_DIR}/OpenMaxIL++ )
-set( BOARD_DEPENDENCIES "OpenMaxIL++" )
-set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" )
+add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++ ${CMAKE_CURRENT_BINARY_DIR}/MMAL++ )
+set( BOARD_DEPENDENCIES "OpenMaxIL++" "MMAL++" )
+set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
 
 function( board_strip )
 	add_custom_target( flight ALL

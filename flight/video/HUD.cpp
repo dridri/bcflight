@@ -100,6 +100,7 @@ bool HUD::run()
 	};
 	if ( camera ) {
 		strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
+		strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
 	}
 
 	mRendererHUD->PreRender();

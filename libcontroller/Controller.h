@@ -96,9 +96,13 @@ public:
 	void VideoSaturationDecrease();
 	std::string VideoWhiteBalance();
 	std::string VideoLockWhiteBalance();
+	std::string VideoExposureMode();
 	int32_t VideoGetIso();
+	uint32_t VideoGetShutterSpeed();
 	void VideoIsoIncrease();
 	void VideoIsoDecrease();
+	void VideoShutterSpeedIncrease();
+	void VideoShutterSpeedDecrease();
 	void getCameraLensShader( CameraLensShaderColor* r, CameraLensShaderColor* g, CameraLensShaderColor* b );
 	void setCameraLensShader( const CameraLensShaderColor& r, const CameraLensShaderColor& g, const CameraLensShaderColor& b );
 
@@ -191,7 +195,9 @@ protected:
 	uint32_t mSwitches[8];
 	bool mVideoRecording;
 	std::string mVideoWhiteBalance;
+	std::string mVideoExposureMode;
 	int32_t mVideoIso;
+	int32_t mVideoShutterSpeed;
 	CameraLensShaderColor mCameraLensShaderR;
 	CameraLensShaderColor mCameraLensShaderG;
 	CameraLensShaderColor mCameraLensShaderB;

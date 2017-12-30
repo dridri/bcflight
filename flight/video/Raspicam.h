@@ -26,18 +26,30 @@
 #include <Config.h>
 #include "Camera.h"
 
+#define CAM_USE_MMAL 0
+
+#if CAM_USE_MMAL == 1
+#define CAM_INTF MMAL
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/Camera.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoSplitter.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoEncode.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoDecode.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoRender.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/ImageEncode.h"
+#else
+#define CAM_INTF IL
 #include "../../external/OpenMaxIL++/include/Camera.h"
 #include "../../external/OpenMaxIL++/include/VideoSplitter.h"
-#include "../../external/OpenMaxIL++/include/SoftwareVideoSplitter.h"
 #include "../../external/OpenMaxIL++/include/VideoEncode.h"
+#include "../../external/OpenMaxIL++/include/VideoDecode.h"
 #include "../../external/OpenMaxIL++/include/VideoRender.h"
-#include "../../external/OpenMaxIL++/include/NullSink.h"
 #include "../../external/OpenMaxIL++/include/ImageEncode.h"
+#endif
 
 class Main;
 class Link;
 
-class Raspicam : public Camera, protected IL::Camera
+class Raspicam : public Camera, protected CAM_INTF::Camera
 {
 public:
 	Raspicam( Config* config, const std::string& conf_obj );
@@ -54,17 +66,21 @@ public:
 	virtual const int32_t contrast();
 	virtual const int32_t saturation();
 	virtual const int32_t ISO();
+	virtual const uint32_t shutterSpeed();
 	virtual const bool nightMode();
 	virtual const std::string whiteBalance();
+	virtual const std::string exposureMode();
 	virtual const bool recording();
 	virtual const std::string recordFilename();
 	virtual void setBrightness( uint32_t value );
 	virtual void setContrast( int32_t value );
 	virtual void setSaturation( int32_t value );
 	virtual void setISO( int32_t value );
+	virtual void setShutterSpeed( uint32_t value );
 	virtual void setNightMode( bool night_mode );
 	virtual std::string switchWhiteBalance();
 	virtual std::string lockWhiteBalance();
+	virtual std::string switchExposureMode();
 	virtual void setLensShader( const LensShaderColor& R, const LensShaderColor& G, const LensShaderColor& B );
 	virtual void getLensShader( LensShaderColor* r, LensShaderColor* g, LensShaderColor* b );
 
@@ -86,9 +102,9 @@ protected:
 	uint32_t mWidth;
 	uint32_t mHeight;
 	int32_t mISO;
-	IL::NullSink* mNullSink;
-	IL::VideoEncode* mEncoder;
-	IL::VideoRender* mRender;
+	uint32_t mShutterSpeed;
+	CAM_INTF::VideoEncode* mEncoder;
+	CAM_INTF::VideoRender* mRender;
 	HookThread<Raspicam>* mLiveThread;
 	uint64_t mLiveFrameCounter;
 	uint64_t mLiveTicks;
@@ -98,7 +114,8 @@ protected:
 	bool mLedState;
 	bool mNightMode;
 	bool mPaused;
-	IL::Camera::WhiteBalControl mWhiteBalance;
+	CAM_INTF::Camera::WhiteBalControl mWhiteBalance;
+	CAM_INTF::Camera::ExposureControl mExposureMode;
 	std::string mWhiteBalanceLock;
 	uint8_t* mLiveBuffer;
 	LensShaderColor mLensShaderR;
@@ -113,14 +130,14 @@ protected:
 	int mRecordFrameDataSize;
 	int mRecordFrameSize;
 	uint32_t mRecordSyncCounter;
-	IL::VideoSplitter* mSplitter;
-	IL::VideoEncode* mEncoderRecord;
+	CAM_INTF::VideoSplitter* mSplitter;
+	CAM_INTF::VideoEncode* mEncoderRecord;
 	HookThread<Raspicam>* mRecordThread;
 
 	// Still image
 	bool mTakingPicture;
 	HookThread<Raspicam>* mTakePictureThread;
-	IL::ImageEncode* mImageEncoder;
+	CAM_INTF::ImageEncode* mImageEncoder;
 	std::mutex mTakePictureMutex;
 	std::condition_variable mTakePictureCond;
 

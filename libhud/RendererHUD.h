@@ -32,6 +32,7 @@ typedef struct VideoStats {
 	int height;
 	int fps;
 	char whitebalance[32];
+	char exposure[32];
 } VideoStats;
 
 typedef struct LinkStats {

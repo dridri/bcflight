@@ -68,7 +68,9 @@ Controller::Controller( Link* link, bool spectate )
 	, mSwitches{ 0 }
 	, mVideoRecording( false )
 	, mVideoWhiteBalance( "" )
+	, mVideoExposureMode( "" )
 	, mVideoIso( -1 )
+	, mVideoShutterSpeed( -1 )
 	, mAcceleration( 0.0f )
 	, mLocalBatteryVoltage( 0 )
 {
@@ -714,6 +716,14 @@ bool Controller::RxRun()
 				mVideoIso = (int32_t)telemetry.ReadU32();
 				break;
 			}
+			case VIDEO_EXPOSURE_MODE : {
+				mVideoExposureMode = telemetry.ReadString();
+				break;
+			}
+			case VIDEO_SHUTTER_SPEED : {
+				mVideoShutterSpeed = (int32_t)telemetry.ReadU32();
+				break;
+			}
 			case VIDEO_LENS_SHADER : {
 				mCameraLensShaderR.base = telemetry.ReadU8();
 				mCameraLensShaderR.radius = telemetry.ReadU8();
@@ -1306,6 +1316,31 @@ std::string Controller::VideoLockWhiteBalance()
 }
 
 
+std::string Controller::VideoExposureMode()
+{
+	mVideoExposureMode = "";
+
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+// 	mXferMutex.unlock();
+
+	uint32_t retry = 0;
+	do {
+// 		mXferMutex.lock();
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mTxFrame.WriteU16( VIDEO_EXPOSURE_MODE );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+// 		mXferMutex.unlock();
+		usleep( 125 * 1000 );
+		printf( "lock %d ('%s')\n", retry++, mVideoExposureMode.c_str() );
+	} while ( mVideoExposureMode == "" );
+
+	mXferMutex.unlock();
+	return mVideoExposureMode;
+}
+
+
 int32_t Controller::VideoGetIso()
 {
 	mVideoIso = -1;
@@ -1331,6 +1366,31 @@ int32_t Controller::VideoGetIso()
 }
 
 
+uint32_t Controller::VideoGetShutterSpeed()
+{
+	mVideoShutterSpeed = -1;
+
+	mXferMutex.lock();
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+// 	mXferMutex.unlock();
+
+	uint32_t retry = 0;
+	do {
+// 		mXferMutex.lock();
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mTxFrame.WriteU16( VIDEO_SHUTTER_SPEED );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+// 		mXferMutex.unlock();
+		usleep( 125 * 1000 );
+		printf( "lock %d ('%d')\n", retry++, mVideoShutterSpeed );
+	} while ( mVideoShutterSpeed == -1 );
+
+	mXferMutex.unlock();
+	return mVideoShutterSpeed;
+}
+
+
 void Controller::VideoIsoDecrease()
 {
 	mXferMutex.lock();
@@ -1343,6 +1403,22 @@ void Controller::VideoIsoIncrease()
 {
 	mXferMutex.lock();
 	mTxFrame.WriteU16( VIDEO_ISO_INCR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoShutterSpeedDecrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU16( VIDEO_SHUTTER_SPEED_DECR );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VideoShutterSpeedIncrease()
+{
+	mXferMutex.lock();
+	mTxFrame.WriteU16( VIDEO_SHUTTER_SPEED_INCR );
 	mXferMutex.unlock();
 }
 

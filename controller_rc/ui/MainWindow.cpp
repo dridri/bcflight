@@ -55,6 +55,7 @@ MainWindow::MainWindow( Controller* controller )
 	uiPageCamera->setupUi( mPageCamera );
 	connect( uiPageCamera->white_balance, SIGNAL( clicked() ), this, SLOT( VideoWhiteBalance() ) );
 	connect( uiPageCamera->lock_white_balance, SIGNAL( clicked() ), this, SLOT( VideoLockWhiteBalance() ) );
+	connect( uiPageCamera->exposure_mode, SIGNAL( clicked() ), this, SLOT( VideoExposureMode() ) );
 	connect( uiPageCamera->brightness_dec, SIGNAL( clicked() ), this, SLOT( VideoBrightnessDecrease() ) );
 	connect( uiPageCamera->brightness_inc, SIGNAL( clicked() ), this, SLOT( VideoBrightnessIncrease() ) );
 	connect( uiPageCamera->contrast_dec, SIGNAL( clicked() ), this, SLOT( VideoContrastDecrease() ) );
@@ -64,6 +65,9 @@ MainWindow::MainWindow( Controller* controller )
 	connect( uiPageCamera->iso_dec, SIGNAL( clicked() ), this, SLOT( VideoIsoDecrease() ) );
 	connect( uiPageCamera->iso_inc, SIGNAL( clicked() ), this, SLOT( VideoIsoIncrease() ) );
 	connect( uiPageCamera->iso_auto, SIGNAL( clicked() ), this, SLOT( VideoIsoAuto() ) );
+	connect( uiPageCamera->shutter_speed_dec, SIGNAL( clicked() ), this, SLOT( VideoShutterSpeedDecrease() ) );
+	connect( uiPageCamera->shutter_speed_inc, SIGNAL( clicked() ), this, SLOT( VideoShutterSpeedIncrease() ) );
+	connect( uiPageCamera->shutter_speed_auto, SIGNAL( clicked() ), this, SLOT( VideoShutterSpeedAuto() ) );
 	connect( uiPageCamera->r_base_dec, &QPushButton::clicked, [this](){ mCameraLensShader.r.base = std::max( 0, mCameraLensShader.r.base - 1 ); this->CameraUpdateLensShader(); } );
 	connect( uiPageCamera->r_base_inc, &QPushButton::clicked, [this](){ mCameraLensShader.r.base = std::min( 255, mCameraLensShader.r.base + 1 ); this->CameraUpdateLensShader(); } );
 	connect( uiPageCamera->r_radius_dec, &QPushButton::clicked, [this](){ mCameraLensShader.r.radius = std::max( 0, mCameraLensShader.r.radius - 1 ); this->CameraUpdateLensShader(); } );
@@ -432,6 +436,24 @@ void MainWindow::VideoIsoIncrease()
 }
 
 
+void MainWindow::VideoShutterSpeedDecrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoShutterSpeedDecrease();
+		uiPageCamera->iso->setText( QString::number( mController->VideoGetShutterSpeed() ) );
+	}
+}
+
+
+void MainWindow::VideoShutterSpeedIncrease()
+{
+	if ( mController and mController->isConnected() ) {
+		mController->VideoShutterSpeedIncrease();
+		uiPageCamera->iso->setText( QString::number( mController->VideoGetShutterSpeed() ) );
+	}
+}
+
+
 void MainWindow::VideoWhiteBalance()
 {
 	if ( mController and mController->isConnected() ) {
@@ -444,6 +466,14 @@ void MainWindow::VideoLockWhiteBalance()
 {
 	if ( mController and mController->isConnected() ) {
 		uiPageCamera->white_balance->setText( "White balance : \n" + QString::fromStdString(mController->VideoLockWhiteBalance()) );
+	}
+}
+
+
+void MainWindow::VideoExposureMode()
+{
+	if ( mController and mController->isConnected() ) {
+		uiPageCamera->white_balance->setText( "Exposure mode : \n" + QString::fromStdString(mController->VideoExposureMode()) );
 	}
 }
 
