@@ -75,6 +75,7 @@ add_executable( controller_pc
 				MainWindow.cpp
 				BlackBox.cpp
 				VideoEditor.cpp
+				ui/VideoViewer.cpp
 				Config.cpp
 				tinyxml2.cpp
 				${controller_pc_MOCS}

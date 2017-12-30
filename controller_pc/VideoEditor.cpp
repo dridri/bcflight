@@ -1,20 +1,34 @@
+#include <unistd.h>
 #include <mp4v2/mp4v2.h>
 #include <QtWidgets/QFileDialog>
 #include <QtCore/QTextStream>
 #include <QtCore/QDebug>
+#include <iostream>
 #include "VideoEditor.h"
 #include "ui_videoEditor.h"
+#include "ui/VideoViewer.h"
+
+extern "C" {
+#include <codec_api.h>
+}
 
 VideoEditor::VideoEditor()
 	: QMainWindow()
 	, ui( new Ui::VideoEditor )
 	, mInputFile( nullptr )
 	, mLastTimestamp( 0 )
+	, mDecoder( nullptr )
+	, mEncoder( nullptr )
 {
 	ui->setupUi(this);
 
 	connect( ui->btnOpen, SIGNAL(pressed()), this, SLOT(Open()) );
 	connect( ui->btnExport, SIGNAL(pressed()), this, SLOT(Export()) );
+	connect( ui->play, SIGNAL(pressed()), this, SLOT(Play()) );
+	connect( ui->temp, SIGNAL(valueChanged(int)), this, SLOT(setWhiteBalanceTemperature(int)) );
+	connect( ui->vibrance, SIGNAL(valueChanged(int)), this, SLOT(setVibrance(int)) );
+
+	mPlayer = new PlayerThread( this );
 }
 
 
@@ -26,11 +40,12 @@ VideoEditor::~VideoEditor()
 
 void VideoEditor::Open()
 {
-	QString fileName = QFileDialog::getOpenFileName( this, "Open record", "", "*.csv" );
+	QString fileName = QFileDialog::getOpenFileName( this, "Open record", "/mnt/data/drone", "*.csv" );
 
 	if ( fileName == "" ) {
 		return;
 	}
+	mInputFilename = fileName;
 
 	if ( mInputFile ) {
 		mInputFile->close();
@@ -55,6 +70,8 @@ void VideoEditor::Open()
 		QStringList line = sline.split( "," );
 		if ( line[0] == "new_track" ) {
 			Track* track = new Track;
+			track->file = nullptr;
+			track->cacheFile = nullptr;
 			track->id = line[1].toUInt();
 			track->filename = line[3];
 			track->format = line[3].split(".").last();
@@ -78,8 +95,6 @@ void VideoEditor::Open()
 				addTreeChild( itemTrack, "samplerate", QString::number(track->samplerate) + " Hz" );
 				addTreeChild( itemTrack, "channels", QString::number(track->channels) );
 			}
-			track->file = new QFile( fileName.mid( 0, fileName.lastIndexOf("/") + 1 ) + track->filename );
-			track->file->open( QIODevice::ReadOnly );
 			mTracks.emplace_back( track );
 		} else if ( sline[0] >= '0' and sline[0] <= '9' ) {
 			mLastTimestamp = line[1].toUInt();
@@ -90,6 +105,52 @@ void VideoEditor::Open()
 	addTreeChild( itemInfos, "total size", "0 KB" );
 
 	ui->tree->expandAll();
+
+	mTimeline.clear();
+	mInputFile->seek( 0 );
+	in.seek( 0 );
+	uint64_t first_record_time = 0;
+	while ( not in.atEnd() ) {
+		QString sline = in.readLine();
+		QStringList line = sline.split( "," );
+		if ( sline[0] == '#' or line[0] == "new_track" ) {
+			continue;
+		}
+		Timepoint point;
+		point.id = line[0].toUInt();
+		point.time = line[1].toUInt();
+		point.offset = line[2].toUInt();
+		point.size = line[3].toUInt();
+		if ( first_record_time == 0 ) {
+			first_record_time = point.time;
+		}
+		point.time -= first_record_time;
+		mTimeline.push_back( point );
+	}
+
+	if ( mDecoder ) {
+		WelsDestroyDecoder( mDecoder );
+		mDecoder = nullptr;
+	}
+	qDebug() << "WelsCreateDecoder :" << WelsCreateDecoder( &mDecoder );
+	SDecodingParam decParam;
+	memset( &decParam, 0, sizeof (SDecodingParam) );
+	decParam.uiTargetDqLayer = UCHAR_MAX;
+	decParam.eEcActiveIdc = ERROR_CON_SLICE_MV_COPY_CROSS_IDR;//ERROR_CON_SLICE_COPY;
+	decParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_AVC;
+	qDebug() << "mDecoder->Initialize :" << mDecoder->Initialize( &decParam );
+}
+
+
+void VideoEditor::setWhiteBalanceTemperature( int t )
+{
+	ui->preview->setWhiteBalanceTemperature( (float)t );
+}
+
+
+void VideoEditor::setVibrance( int t )
+{
+	ui->preview->setVibrance( (float)t / 50.0f );
 }
 
 
@@ -136,7 +197,11 @@ void VideoEditor::Export()
 		uint32_t size = line[3].toUInt();
 		MP4TrackId& trackId = trackIds[iID];
 		Track* track = mTracks[iID];
-
+		if ( not track->file ) {
+			track->file = new QFile( mInputFilename.mid( 0, mInputFilename.lastIndexOf("/") + 1 ) + track->filename );
+			track->file->open( QIODevice::ReadOnly );
+		}
+	
 		ui->progress->setValue( record_time * 100 / mLastTimestamp );
 
 		if ( first_record_time == 0 ) {
@@ -177,7 +242,7 @@ void VideoEditor::Export()
 			}
 		}
 // 		getchar();
-		delete buf;
+		delete[] buf;
 	}
 
 	MP4Close( handle );
@@ -204,4 +269,106 @@ QTreeWidgetItem* VideoEditor::addTreeChild( QTreeWidgetItem* parent, const QStri
 
     parent->addChild( treeItem );
 	return treeItem;
+}
+
+
+void VideoEditor::Play()
+{
+	for ( auto track : mTracks ) {
+		if ( not track->cacheFile ) {
+			std::string file = ( mInputFilename.mid( 0, mInputFilename.lastIndexOf("/") + 1 ) + track->filename ).toStdString();
+			track->cacheFile = new FileCache( file, 8 * 1024 * 1024 );
+		} else {
+			track->cacheFile->seek( 0 );
+		}
+	}
+
+	mPlayerIdx = 0;
+	mPlayer->start();
+}
+
+
+bool VideoEditor::play()
+{
+	uint8_t* data[3];
+	SBufferInfo bufInfo;
+
+	memset( data, 0, sizeof(data) );
+	memset( &bufInfo, 0, sizeof(SBufferInfo) );
+
+	VideoViewer::Plane& mY = ui->preview->planeY();
+	VideoViewer::Plane& mU = ui->preview->planeU();
+	VideoViewer::Plane& mV = ui->preview->planeV();
+
+	uint8_t src[1024 * 512];
+	Timepoint& point = mTimeline[mPlayerIdx++];
+	Track* track = mTracks[point.id];
+
+	if ( mPlayerStartTime == 0 ) {
+		mPlayerStartTime = GetTicks();
+	}
+
+	// skip audio for new
+	if ( track->type == TrackTypeAudio ) {
+		return true;
+	}
+
+	mPlayerFPSCounter++;
+	if ( GetTicks() - mPlayerFPSTimer >= 1000000 ) {
+		mPlayerFPSTimer = GetTicks();
+		mPlayerFPS = mPlayerFPSCounter;
+		mPlayerFPSCounter = 0;
+	}
+
+	// skip if underrun
+	if ( GetTicks() >= mPlayerStartTime + point.time ) {
+		printf( "underrun [%d]\n", mPlayerFPS );
+// 		return true;
+	}
+
+	track->cacheFile->seek( point.offset );
+	track->cacheFile->read( src, point.size );
+
+	DECODING_STATE ret = mDecoder->DecodeFrameNoDelay( src, (int)point.size, data, &bufInfo );
+	printf( "        DecodeFrameNoDelay returned %08X [%d]\n", ret, mPlayerFPS );
+
+	if ( bufInfo.iBufferStatus == 1 ) {
+		mY.stride = bufInfo.UsrData.sSystemBuffer.iStride[0];
+		mY.width = bufInfo.UsrData.sSystemBuffer.iWidth;
+		mY.height = bufInfo.UsrData.sSystemBuffer.iHeight;
+		mY.data = data[0];
+
+		mU.stride = bufInfo.UsrData.sSystemBuffer.iStride[1];
+		mU.width = bufInfo.UsrData.sSystemBuffer.iWidth / 2;
+		mU.height = bufInfo.UsrData.sSystemBuffer.iHeight / 2;
+		mU.data = data[1];
+
+		mV.stride = bufInfo.UsrData.sSystemBuffer.iStride[1];
+		mV.width = bufInfo.UsrData.sSystemBuffer.iWidth / 2;
+		mV.height = bufInfo.UsrData.sSystemBuffer.iHeight / 2;
+		mV.data = data[2];
+
+// 		WaitTick( mPlayerStartTime + point.time );
+		ui->preview->invalidate();
+	}
+
+	return true;
+}
+
+
+uint64_t VideoEditor::GetTicks()
+{
+	struct timespec now;
+	clock_gettime( CLOCK_MONOTONIC, &now );
+	return (uint64_t)now.tv_sec * 1000000ULL + (uint64_t)now.tv_nsec / 1000ULL;
+}
+
+
+void VideoEditor::WaitTick( uint64_t final )
+{
+	if ( GetTicks() >= final ) {
+		std::cout << "skip " << ( GetTicks() - final ) << " (" << ( final - mPlayerStartTime ) << ")" << "\n";
+		return;
+	}
+	usleep( final - GetTicks() - 10 );
 }
