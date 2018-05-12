@@ -37,6 +37,7 @@ This video was recorded on 03-feb-2017 during an FPV session
 ## Latest videos :
 * [2017-08-11] https://www.youtube.com/watch?v=-q8AbUXIIAU
 * [2017-08-11] https://www.youtube.com/watch?v=f2EZNX43WbE
+* [2018-04-13] https://www.youtube.com/watch?v=BVB1eS7WqcU
 
 # Current test setup
 
