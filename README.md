@@ -1,3 +1,5 @@
+(this project is not dead, just paused due to financial reasons)
+
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
 The general idea is to allow to create any kind of flying object, from quad-racer to autonomous flying wing.
