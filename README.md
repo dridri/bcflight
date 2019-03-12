@@ -1,5 +1,7 @@
 (this project is not dead, just paused due to financial reasons)
 
+[12-03-2019] Current roadmap is to create (and maybe sell) a drone-specific board for the RaspberryPi Compute Module, allowing reduced weight by stacking every peripherals on it. This also enables the possibility to use an STM32Fx to control IMU and motors, as the RaspberryPi's DMA can only produce 500Hz PWM but not oneshot/multishot/dshot
+
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
 The general idea is to allow to create any kind of flying object, from quad-racer to autonomous flying wing.
