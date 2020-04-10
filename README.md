@@ -37,7 +37,7 @@ Contains buildroot configuration for both flight and ground targets.
 
 This video was recorded on 22-nov-2018 during an FPV session
 
-![FPV Video of drone](https://i.ibb.co/NF0CKLV/drich.gif)
+<img width="512" alt="FPV Video of drone" src="https://i.ibb.co/NF0CKLV/drich.gif"/>
 
 ## Latest videos :
 * [2017-08-11] https://www.youtube.com/watch?v=-q8AbUXIIAU
