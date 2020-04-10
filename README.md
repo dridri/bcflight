@@ -35,8 +35,8 @@ Contains buildroot configuration for both flight and ground targets.
 
 # Results
 
-This video was recorded on 03-feb-2017 during an FPV session
-[![FPV Video of drone](http://img4.hostingpics.net/pics/934968drone20170302.gif)](https://drive.google.com/file/d/0Bwo1JutVEkplLV9DNU5hZEtFcnM/view?usp=sharing)
+This video was recorded on 22-nov-2018 during an FPV session
+![FPV Video of drone](https://i.ibb.co/NF0CKLV/drich.gif)
 
 ## Latest videos :
 * [2017-08-11] https://www.youtube.com/watch?v=-q8AbUXIIAU
@@ -45,24 +45,22 @@ This video was recorded on 03-feb-2017 during an FPV session
 
 # Current test setup
 
-![Photo of drone and controller](http://img4.hostingpics.net/pics/982150drichdronezmrcontrollersmall.jpg)
-
 Racer :
 * ZMR250 frame
-* Raspberry Pi 3
-* Raspberry Pi official camera v2.1 (8MP, Sony IMX219 sensor) + wide-angle lens
-* inAir9B radio module (SX1276 20dBm chip)
+* Raspberry Pi 3 A+
+* Raspberry Pi Camera v2.1 (8MP, Sony IMX219 sensor) + M12 wide-angle lens
+* RFM95W radio module (SX1276-like 20dBm chip)
 * MPU9150 (gyroscope + accelerometer + magnetometer)
 * ADS1015 (ADC/Voltmeter)
 * ACS709 (current sensor)
-* 4x DYS XM20A ESCs (flashed with BLHeli, DampedLight enabled)
+* 4x Multistar BLHeli-S 30A ESCs
 * 4x Multistar Elite 2204-2300KV motors
 
 RC controller :
 * Taranis X9D empty case
 * Taranis X9D gimballs
 * Raspberry Pi 3
-* Waveshare 3.5" touchscreen
+* Waveshare 3.5" HDMI touchscreen
 * inAir9B radio module (SX1276 20dBm chip)
 * MCP3208 ADC (for gimballs input and battery voltage sensing)
 * 10x ON-ON switches
