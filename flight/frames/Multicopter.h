@@ -14,12 +14,13 @@ public:
 	void WarmUp();
 	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust );
 
-	static Frame* Instanciate( Config* config );
 	static int flight_register( Main* main );
 
 protected:
-	std::vector< float > mStabSpeeds;
-	std::vector< Vector3f > mPIDMultipliers;
+	static Frame* Instanciate( Config* config );
+
+	vector< float > mStabSpeeds;
+	vector< Vector3f > mPIDMultipliers;
 	float mMaxSpeed;
 	float mAirModeTrigger;
 	float mAirModeSpeed;

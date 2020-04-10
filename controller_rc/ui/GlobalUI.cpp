@@ -7,7 +7,7 @@
 #include "Config.h"
 
 #ifndef BOARD_generic
-Q_IMPORT_PLUGIN( QLinuxFbIntegrationPlugin );
+// Q_IMPORT_PLUGIN( QLinuxFbIntegrationPlugin );
 #endif
 
 GlobalUI::GlobalUI( Config* config, Controller* controller )
@@ -52,7 +52,7 @@ bool GlobalUI::run()
 		palette.setColor( QPalette::Button, QColor( 31, 36, 41 ) );
 		palette.setColor( QPalette::ButtonText, Qt::white );
 		palette.setColor( QPalette::BrightText, Qt::blue );
-		palette.setColor( QPalette::Highlight, QColor( 142, 0, 0 ).lighter( ) );
+		palette.setColor( QPalette::Highlight, QColor( 142, 0, 0 ) );
 		palette.setColor( QPalette::HighlightedText, Qt::black );
 		palette.setColor( QPalette::Disabled, QPalette::Text, Qt::darkGray );
 		palette.setColor( QPalette::Disabled, QPalette::ButtonText, Qt::darkGray );

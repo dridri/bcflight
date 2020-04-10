@@ -30,12 +30,12 @@ public:
 	~ADS1015();
 
 	static int flight_register( Main* main );
-	static Sensor* Instanciate( Config* config, const std::string& object );
+	static Sensor* Instanciate( Config* config, const string& object );
 
 	void Calibrate( float dt, bool last_pass = false );
 	float Read( int channel );
 
-	std::string infos();
+	string infos();
 
 private:
 	I2C* mI2C;

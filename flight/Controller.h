@@ -24,6 +24,8 @@
 #include "Vector.h"
 #include "ControllerBase.h"
 
+using namespace STD;
+
 class Main;
 class Link;
 
@@ -43,7 +45,7 @@ public:
 	void UpdateSmoothControl( const float& dt );
 	void Emergency();
 
-	void SendDebug( const std::string& s );
+	void SendDebug( const string& s );
 
 protected:
 	virtual bool run();
@@ -58,7 +60,9 @@ protected:
 	void setThrust( float value );
 
 	Main* mMain;
-	std::mutex mSendMutex;
+#ifdef SYSTEM_NAME_Linux
+	mutex mSendMutex;
+#endif
 	bool mTimedOut;
 	bool mArmed;
 	uint32_t mPing;

@@ -24,6 +24,7 @@
 #include <string>
 #include <Main.h>
 #include <Matrix.h>
+#include <Mutex.h>
 
 class Config;
 class Gyroscope;
@@ -39,16 +40,16 @@ class Sensor
 public:
 	class Device {
 	public:
-		int iI2CAddr;
+		int iI2CAddr;//defaultI2Caddr;
 		const char* name;
-		std::function< Sensor* ( Config*, const std::string& ) > fInstanciate;
+		function< Sensor* ( Config*, const string& ) > fInstanciate;
 		Device() : iI2CAddr(0), name("") {}
 	};
 
 	Sensor();
 	virtual ~Sensor();
 
-	const std::list< std::string >& names() const;
+	const list< string >& names() const;
 	const bool calibrated() const;
 	Vector4f lastValues() const;
 
@@ -57,27 +58,27 @@ public:
 	virtual void Calibrate( float dt, bool last_pass = false ) = 0;
 
 	static void AddDevice( Sensor* sensor );
-	static void RegisterDevice( int I2Caddr, const std::string& name = "" );
-	static void RegisterDevice( const std::string& name, Config* config, const std::string& object );
-	static const std::list< Device >& KnownDevices();
-	static std::list< Sensor* > Devices();
-	static std::list< Gyroscope* > Gyroscopes();
-	static std::list< Accelerometer* > Accelerometers();
-	static std::list< Magnetometer* > Magnetometers();
-	static std::list< Altimeter* > Altimeters();
-	static std::list< GPS* > GPSes();
-	static std::list< Voltmeter* > Voltmeters();
-	static std::list< CurrentSensor* > CurrentSensors();
-	static Gyroscope* gyroscope( const std::string& name );
-	static Accelerometer* accelerometer( const std::string& name );
-	static Magnetometer* magnetometer( const std::string& name );
-	static Altimeter* altimeter( const std::string& name );
-	static GPS* gps( const std::string& name );
-	static Voltmeter* voltmeter( const std::string& name );
-	static CurrentSensor* currentSensor( const std::string& name );
+	static void RegisterDevice( int I2Caddr, const string& name = "" );
+	static void RegisterDevice( const string& name, Config* config, const string& object );
+	static const list< Device >& KnownDevices();
+	static list< Sensor* > Devices();
+	static list< Gyroscope* > Gyroscopes();
+	static list< Accelerometer* > Accelerometers();
+	static list< Magnetometer* > Magnetometers();
+	static list< Altimeter* > Altimeters();
+	static list< GPS* > GPSes();
+	static list< Voltmeter* > Voltmeters();
+	static list< CurrentSensor* > CurrentSensors();
+	static Gyroscope* gyroscope( const string& name );
+	static Accelerometer* accelerometer( const string& name );
+	static Magnetometer* magnetometer( const string& name );
+	static Altimeter* altimeter( const string& name );
+	static GPS* gps( const string& name );
+	static Voltmeter* voltmeter( const string& name );
+	static CurrentSensor* currentSensor( const string& name );
 
-	virtual std::string infos() { return ""; }
-	static std::string infosAll();
+	virtual string infos() { return ""; }
+	static string infosAll();
 
 protected:
 	typedef enum {
@@ -86,7 +87,7 @@ protected:
 		SwapModeMatrix,
 	} SwapMode;
 
-	std::list< std::string > mNames;
+	list< string > mNames;
 	Vector4f mLastValues;
 	bool mCalibrated;
 	int mSwapMode;
@@ -96,15 +97,15 @@ protected:
 	void ApplySwap( Vector3f& v );
 	void ApplySwap( Vector4f& v );
 
-	static std::list< Device > mKnownDevices; // Contains all the known devices by this software
-	static std::list< Sensor* > mDevices; // Contains all the detected devices
-	static std::list< Gyroscope* > mGyroscopes; // Contains all the detected gyroscopes
-	static std::list< Accelerometer* > mAccelerometers; // ^
-	static std::list< Magnetometer* > mMagnetometers; // ^
-	static std::list< Altimeter* > mAltimeters; // ^
-	static std::list< GPS* > mGPSes; // ^
-	static std::list< Voltmeter* > mVoltmeters; // ^
-	static std::list< CurrentSensor* > mCurrentSensors; // ^
+	static list< Device > mKnownDevices; // Contains all the known devices by this software
+	static list< Sensor* > mDevices; // Contains all the detected devices
+	static list< Gyroscope* > mGyroscopes; // Contains all the detected gyroscopes
+	static list< Accelerometer* > mAccelerometers; // ^
+	static list< Magnetometer* > mMagnetometers; // ^
+	static list< Altimeter* > mAltimeters; // ^
+	static list< GPS* > mGPSes; // ^
+	static list< Voltmeter* > mVoltmeters; // ^
+	static list< CurrentSensor* > mCurrentSensors; // ^
 
 	static void UpdateDevices();
 };

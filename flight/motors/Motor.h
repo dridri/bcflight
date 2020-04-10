@@ -20,6 +20,13 @@
 #define MOTOR_H
 
 #include <stdint.h>
+#include <string>
+#include <map>
+#include <functional>
+
+using namespace STD;
+
+class Config;
 
 class Motor
 {
@@ -33,10 +40,17 @@ public:
 	virtual void Disarm() = 0;
 	virtual void Disable() = 0;
 
+	static Motor* Instanciate( const string& name, Config* config, const string& object );
+	static void RegisterMotor( const string& name, function< Motor* ( Config*, const string& ) > instanciate );
+	static const map< string, function< Motor* ( Config*, const string& ) > > knownMotors() { return mKnownMotors; }
+
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update = false ) = 0;
 
 	float mSpeed;
+
+private:
+	static map< string, function< Motor* ( Config*, const string& ) > > mKnownMotors;
 };
 
 #endif // MOTOR_H

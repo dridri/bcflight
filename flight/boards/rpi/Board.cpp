@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/signal.h>
+#include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -30,6 +31,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <execinfo.h>
 #if ( BUILD_RAWWIFI == 1 )
 #include "rawwifi.h"
 #endif
@@ -39,6 +41,7 @@ extern "C" {
 #include <interface/vmcs_host/vc_vchi_bufman.h>
 #include <interface/vmcs_host/vc_tvservice.h>
 #include <interface/vmcs_host/vc_cecservice.h>
+#include <interface/vmcs_host/vcgencmd.h>
 #include <interface/vchiq_arm/vchiq_if.h>
 };
 
@@ -64,8 +67,8 @@ HookThread<Board>* Board::mStatsThread = nullptr;
 uint32_t Board::mCPUTemp = 0;
 uint32_t Board::mCPULoad = 0;
 bool Board::mDiskFull = false;
-std::vector< std::string > Board::mBoardMessages;
-std::map< std::string, bool > Board::mDefectivePeripherals;
+vector< string > Board::mBoardMessages;
+map< string, bool > Board::mDefectivePeripherals;
 
 VCHI_INSTANCE_T Board::global_initialise_instance = nullptr;
 VCHI_CONNECTION_T* Board::global_connection = nullptr;
@@ -76,6 +79,7 @@ Board::Board( Main* main )
 {
 	bcm_host_init();
 	OMX_Init();
+	vc_gencmd_init();
 // 	VCOSInit();
 
 	wiringPiSetupGpio();
@@ -90,12 +94,12 @@ Board::Board( Main* main )
 	sa.sa_handler = &Board::SegFaultHandler;
 	sigaction( 11, &sa, NULL );
 
-	std::ifstream file( "/var/flight/registers" );
-	std::string line;
+	ifstream file( "/var/flight/registers" );
+	string line;
 	if ( file.is_open() ) {
-		while ( std::getline( file, line, '\n' ) ) {
-			std::string key = line.substr( 0, line.find( "=" ) );
-			std::string value = line.substr( line.find( "=" ) + 1 );
+		while ( getline( file, line, '\n' ) ) {
+			string key = line.substr( 0, line.find( "=" ) );
+			string value = line.substr( line.find( "=" ) + 1 );
 			mRegisters[ key ] = value;
 		}
 		file.close();
@@ -105,6 +109,7 @@ Board::Board( Main* main )
 
 	if ( mStatsThread == nullptr ) {
 		mStatsThread = new HookThread<Board>( "board_stats", this, &Board::StatsThreadRun );
+		mStatsThread->setFrequency( 1 );
 		mStatsThread->Start();
 	}
 }
@@ -122,7 +127,7 @@ void Board::AtExit()
 
 void Board::SegFaultHandler( int sig )
 {
-	std::string msg;
+	string msg;
 	char name[64] = "";
 	Thread* thread = Thread::currentThread();
 
@@ -134,15 +139,32 @@ void Board::SegFaultHandler( int sig )
 		if ( name[0] == '\0' or !strcmp( name, "flight" ) ) {
 			msg = "Thread <unknown> crashed !";
 		} else {
-			msg = "Thread \"" + std::string(name) + "\" crashed !";
+			msg = "Thread \"" + string(name) + "\" crashed !";
 		}
 	}
 
 	mBoardMessages.emplace_back( msg );
 	gDebug() << "\e[0;41m" << msg << "\e[0m\n";
 
+	void* array[16];
+	size_t size;
+	size = backtrace( array, 16 );
+	fprintf( stderr, "Error: signal %d :\n", sig );
+	char** trace = backtrace_symbols( array, size );
+	gDebug() << "\e[91mStack trace :\e[0m\n";
+	for ( size_t j = 0; j < size; j++ ) {
+		gDebug() << "\e[91m" << trace[j] << "\e[0m\n";
+	}
+
 	if ( thread and thread->name() == "stabilizer" ) {
 		PWM::terminate(0);
+	}
+
+	// Try to restart the thread, but not too many times
+	static uint32_t total_restarts = 0;
+	if ( thread and total_restarts < 4 ) {
+		total_restarts++;
+		thread->Recover();
 	}
 
 	while ( 1 ) {
@@ -151,9 +173,9 @@ void Board::SegFaultHandler( int sig )
 }
 
 
-std::vector< std::string > Board::messages()
+vector< string > Board::messages()
 {
-	std::vector< std::string > msgs;
+	vector< string > msgs;
 
 	for ( auto defect : mDefectivePeripherals ) {
 		if ( defect.second == true ) {
@@ -164,7 +186,7 @@ std::vector< std::string > Board::messages()
 		msgs.emplace_back( "No free space on disk" );
 	}
 	if ( mCPUTemp > 80 ) {
-		msgs.emplace_back( "High CPU Temp (" + std::to_string(mCPUTemp) + "\xB0"" C)" );
+		msgs.emplace_back( "High CPU Temp (" + to_string(mCPUTemp) + "\xB0"" C)" );
 	}
 
 	msgs.insert( msgs.end(), mBoardMessages.begin(), mBoardMessages.end() );
@@ -172,7 +194,7 @@ std::vector< std::string > Board::messages()
 }
 
 
-std::map< std::string, bool >& Board::defectivePeripherals()
+map< string, bool >& Board::defectivePeripherals()
 {
 	return mDefectivePeripherals;
 }
@@ -187,7 +209,7 @@ void Board::UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t si
 		system( "touch /tmp/flight_update" );
 	}
 
-	std::fstream firmware( "/tmp/flight_update", std::ios_base::in | std::ios_base::out | std::ios_base::binary );
+	fstream firmware( "/tmp/flight_update", ios_base::in | ios_base::out | ios_base::binary );
 	firmware.seekg( offset, firmware.beg );
 	firmware.write( (char*)buf, size );
 	firmware.close();
@@ -221,7 +243,7 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 	gDebug() << "Updating Flight Controller firmware\n";
 	mUpdating = true;
 
-	std::ifstream firmware( "/tmp/flight_update" );
+	ifstream firmware( "/tmp/flight_update" );
 	if ( firmware.is_open() ) {
 		firmware.seekg( 0, firmware.end );
 		int length = firmware.tellg();
@@ -238,7 +260,7 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 		
 		system( "rm -f /tmp/update.sh" );
 	
-		std::ofstream file( "/tmp/update.sh" );
+		ofstream file( "/tmp/update.sh" );
 		file << "#!/bin/bash\n\n";
 		file << "systemctl stop flight.service &\n";
 		file << "sleep 1\n";
@@ -270,7 +292,7 @@ void Board::Reset()
 	gDebug() << "Restarting Flight Controller service\n";
 	system( "rm -f /tmp/reset.sh" );
 
-	std::ofstream file( "/tmp/reset.sh" );
+	ofstream file( "/tmp/reset.sh" );
 	file << "#!/bin/bash\n\n";
 	file << "systemctl stop flight.service &\n";
 	file << "sleep 1\n";
@@ -289,11 +311,11 @@ void Board::Reset()
 }
 
 
-static std::string readproc( const std::string& filename, const std::string& entry = "", const std::string& delim = ":" )
+static string readproc( const string& filename, const string& entry = "", const string& delim = ":" )
 {
 	char buf[1024] = "";
-	std::string res = "";
-	std::ifstream file( filename );
+	string res = "";
+	ifstream file( filename );
 
 	if ( file.is_open() ) {
 		if ( entry.length() == 0 or entry == "" ) {
@@ -310,7 +332,7 @@ static std::string readproc( const std::string& filename, const std::string& ent
 					char* end = s;
 					while ( *end != '\n' and *end++ );
 					*end = 0;
-					res = std::string( s );
+					res = string( s );
 					break;
 				}
 			}
@@ -322,10 +344,10 @@ static std::string readproc( const std::string& filename, const std::string& ent
 }
 
 
-std::string Board::readcmd( const std::string& cmd, const std::string& entry, const std::string& delim )
+string Board::readcmd( const string& cmd, const string& entry, const string& delim )
 {
 	char buf[1024] = "";
-	std::string res = "";
+	string res = "";
 	FILE* fp = popen( cmd.c_str(), "r" );
 	if ( !fp ) {
 		printf( "popen failed : %s\n", strerror( errno ) );
@@ -346,7 +368,7 @@ std::string Board::readcmd( const std::string& cmd, const std::string& entry, co
 				char* end = s;
 				while ( *end != '\n' and *end++ );
 				*end = 0;
-				res = std::string( s );
+				res = string( s );
 				break;
 			}
 		}
@@ -357,20 +379,20 @@ std::string Board::readcmd( const std::string& cmd, const std::string& entry, co
 }
 
 
-std::string Board::infos()
+string Board::infos()
 {
-	std::string res = "";
+	string res = "";
 
 	res += "Type:" BOARD "\n";
 	res += "Firmware version:" VERSION_STRING "\n";
-	res += "Model:" + readproc( "/proc/cpuinfo", "Hardware" ) + std::string( "\n" );
-	res += "CPU:" + readproc( "/proc/cpuinfo", "model name" ) + std::string( "\n" );
-	res += "CPU cores count:" + std::to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + std::string( "\n" );
-	res += "CPU frequency:" + std::to_string( std::atoi( readproc( "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ).c_str() ) / 1000 ) + std::string( "MHz\n" );
-	res += "GPU frequency:" + std::to_string( std::atoi( readcmd( "vcgencmd measure_clock core", "frequency", "=" ).c_str() ) / 1000000 ) + std::string( "MHz\n" );
-	res += "SoC voltage:" + readcmd( "vcgencmd measure_volts core", "volt", "=" ) + std::string( "\n" );
-	res += "RAM:" + readcmd( "vcgencmd get_mem arm", "arm", "=" ) + std::string( "\n" );
-	res += "VRAM:" + readcmd( "vcgencmd get_mem gpu", "gpu", "=" ) + std::string( "\n" );
+	res += "Model:" + readproc( "/proc/cpuinfo", "Hardware" ) + string( "\n" );
+	res += "CPU:" + readproc( "/proc/cpuinfo", "model name" ) + string( "\n" );
+	res += "CPU cores count:" + to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + string( "\n" );
+	res += "CPU frequency:" + to_string( atoi( readproc( "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ).c_str() ) / 1000 ) + string( "MHz\n" );
+	res += "GPU frequency:" + to_string( atoi( readcmd( "vcgencmd measure_clock core", "frequency", "=" ).c_str() ) / 1000000 ) + string( "MHz\n" );
+	res += "SoC voltage:" + readcmd( "vcgencmd measure_volts core", "volt", "=" ) + string( "\n" );
+	res += "RAM:" + readcmd( "vcgencmd get_mem arm", "arm", "=" ) + string( "\n" );
+	res += "VRAM:" + readcmd( "vcgencmd get_mem gpu", "gpu", "=" ) + string( "\n" );
 
 	return res;
 }
@@ -425,27 +447,27 @@ Board::Date Board::localDate()
 }
 
 
-const uint32_t Board::LoadRegisterU32( const std::string& name, uint32_t def )
+const uint32_t Board::LoadRegisterU32( const string& name, uint32_t def )
 {
-	std::string str = LoadRegister( name );
+	string str = LoadRegister( name );
 	if ( str != "" and str.length() > 0 ) {
-		return std::strtoul( str.c_str(), nullptr, 10 );
+		return strtoul( str.c_str(), nullptr, 10 );
 	}
 	return def;
 }
 
 
-const float Board::LoadRegisterFloat( const std::string& name, float def )
+const float Board::LoadRegisterFloat( const string& name, float def )
 {
-	std::string str = LoadRegister( name );
+	string str = LoadRegister( name );
 	if ( str != "" and str.length() > 0 ) {
-		return std::atof( str.c_str() );
+		return atof( str.c_str() );
 	}
 	return def;
 }
 
 
-const std::string Board::LoadRegister( const std::string& name )
+const string Board::LoadRegister( const string& name )
 {
 	if ( mRegisters.find( name ) != mRegisters.end() ) {
 		return mRegisters[ name ];
@@ -454,14 +476,14 @@ const std::string Board::LoadRegister( const std::string& name )
 }
 
 
-int Board::SaveRegister( const std::string& name, const std::string& value )
+int Board::SaveRegister( const string& name, const string& value )
 {
 	mRegisters[ name ] = value;
 
-	std::ofstream file( "/var/flight/registers" );
+	ofstream file( "/var/flight/registers" );
 	if ( file.is_open() ) {
 		for ( auto reg : mRegisters ) {
-			std::string line = reg.first + "=" + reg.second + "\n";
+			string line = reg.first + "=" + reg.second + "\n";
 			file.write( line.c_str(), line.length() );
 		}
 		file.flush();
@@ -541,10 +563,12 @@ void Board::VCOSInit()
 
 bool Board::StatsThreadRun()
 {
-	mCPUTemp = std::atoi( readcmd( "vcgencmd measure_temp", "temp", "=" ).c_str() );
+	char cpu_temp[256];
+	vc_gencmd( cpu_temp, sizeof(cpu_temp)-1, "measure_temp" );
+	mCPUTemp = atoi( strchr( cpu_temp, '=' ) + 1 );
 
 	uint32_t jiffies[7];
-	std::stringstream ss;
+	stringstream ss;
 	ss.str( readcmd( "cat /proc/stat | grep \"cpu \" | cut -d' ' -f2-", "", "" ) ); 
 
 	ss >> jiffies[0];
@@ -563,7 +587,6 @@ bool Board::StatsThreadRun()
 	mLastWorkJiffies = work_jiffies;
 	mLastTotalJiffies = total_jiffies;
 
-	usleep( 1000 * 1000 * 2 );
 	return true;
 }
 
@@ -582,7 +605,7 @@ uint32_t Board::CPUTemp()
 
 uint32_t Board::FreeDiskSpace()
 {
-	return std::strtoul( readproc( "df -P /data | tail -n1 | sed 's/  */ /g' | cut -d' ' -f4" ).c_str(), nullptr, 0 );
+	return strtoul( readproc( "df -P /data | tail -n1 | sed 's/  */ /g' | cut -d' ' -f4" ).c_str(), nullptr, 0 );
 }
 
 
@@ -628,6 +651,7 @@ static void cmd( const char* fmt, ... )
 }
 
 
+#if ( BUILD_RAWWIFI == 1 )
 typedef struct tun_args {
 	int fd;
 	rawwifi_t* rwifi;
@@ -667,6 +691,7 @@ static void* thread_tx( void* argp )
 
 	return NULL;
 }
+#endif
 
 
 void Board::EnableTunDevice()
@@ -706,4 +731,34 @@ void Board::EnableTunDevice()
 void Board::DisableTunDevice()
 {
 	// TODO
+}
+
+
+extern "C" uint32_t _mem_usage()
+{
+	return 0; // TODO
+}
+
+
+uint16_t board_htons( uint16_t v )
+{
+	return htons( v );
+}
+
+
+uint16_t board_ntohs( uint16_t v )
+{
+	return ntohs( v );
+}
+
+
+uint32_t board_htonl( uint32_t v )
+{
+	return htonl( v );
+}
+
+
+uint32_t board_ntohl( uint32_t v )
+{
+	return ntohl( v );
 }

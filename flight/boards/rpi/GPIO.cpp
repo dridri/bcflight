@@ -25,7 +25,8 @@
 #include <Debug.h>
 #include "GPIO.h"
 
-std::map< int, std::list<std::pair<std::function<void()>,GPIO::ISRMode>> > GPIO::mInterrupts;
+map< int, list<pair<function<void()>,GPIO::ISRMode>> > GPIO::mInterrupts;
+map< int, GPIO::ISR* > GPIO::mThreads;
 
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
@@ -34,6 +35,12 @@ void GPIO::setMode( int pin, GPIO::Mode mode )
 	} else {
 		pinMode( pin, INPUT );
 	}
+}
+
+
+void GPIO::setPUD( int pin, PUDMode mode )
+{
+	pullUpDnControl( pin, mode );
 }
 
 
@@ -56,60 +63,56 @@ bool GPIO::Read( int pin )
 }
 
 
-void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, std::function<void()> fct )
+void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, function<void()> fct )
 {
 	if ( mInterrupts.find( pin ) != mInterrupts.end() ) {
-		mInterrupts.at( pin ).emplace_back( std::make_pair( fct, mode ) );
+		mInterrupts.at( pin ).emplace_back( make_pair( fct, mode ) );
 	} else {
-		std::list<std::pair<std::function<void()>,GPIO::ISRMode>> lst;
-		lst.emplace_back( std::make_pair( fct, mode ) );
-		mInterrupts.emplace( std::make_pair( pin, lst ) );
+		list<pair<function<void()>,GPIO::ISRMode>> lst;
+		lst.emplace_back( make_pair( fct, mode ) );
+		mInterrupts.emplace( make_pair( pin, lst ) );
 
-		system( ( "echo " + std::to_string( pin ) + " > /sys/class/gpio/export" ).c_str() );
-		int32_t fd = open( ( "/sys/class/gpio/gpio" + std::to_string( pin ) + "/value" ).c_str(), O_RDWR );
-		system( ( "echo both > /sys/class/gpio/gpio" + std::to_string( pin ) + "/edge" ).c_str() );
+		system( ( "echo " + to_string( pin ) + " > /sys/class/gpio/export" ).c_str() );
+		int32_t fd = open( ( "/sys/class/gpio/gpio" + to_string( pin ) + "/value" ).c_str(), O_RDWR );
+		system( ( "echo both > /sys/class/gpio/gpio" + to_string( pin ) + "/edge" ).c_str() );
 		int count = 0;
 		char c = 0;
 		ioctl( fd, FIONREAD, &count );
 		for ( int i = 0; i < count; i++ ) {
 			(void)read( fd, &c, 1 );
 		}
-		int32_t* argp = (int32_t*)malloc( sizeof(int32_t) * 2 );
-		argp[0] = pin;
-		argp[1] = fd;
-		pthread_t thid;
-		pthread_create( &thid, nullptr, (void*(*)(void*))&GPIO::ISR, argp );
+		ISR* isr = new ISR( pin, fd );
+		mThreads.emplace( make_pair( pin, isr ) );
+		isr->Start();
+		isr->setPriority( 99 );
 	}
 }
 
 
-void* GPIO::ISR( void* argp )
+bool GPIO::ISR::run()
 {
-	int32_t pin = ((int32_t*)argp)[0];
-	int32_t fd = ((int32_t*)argp)[1];
+	if ( not mReady ) {
+		mReady = true;
+		usleep( 1000 * 100 );
+	}
+
 	struct pollfd fds;
 	char buffer[16];
+	list<pair<function<void()>,GPIO::ISRMode>>& fcts = mInterrupts.at( mPin );
 
-	pthread_setname_np( pthread_self(), ( "GPIO::ISR_" + std::to_string( pin ) ).c_str() );
-	piHiPri(99);
-	usleep( 1000 );
-
-	std::list<std::pair<std::function<void()>,GPIO::ISRMode>>& fcts = mInterrupts.at( pin );
-
-	while ( true ) {
-		fds.fd = fd;
-		fds.events = POLLPRI;
-		lseek( fd, 0, SEEK_SET );
-		if ( poll( &fds, 1, -1 ) == 1 and read( fd, buffer, 2 ) > 0 ) {
-			for ( std::pair<std::function<void()>,GPIO::ISRMode> fct : fcts ) {
-				if ( buffer[0] == '1' and fct.second != Falling ) {
-					fct.first();
-				} else if ( buffer[0] == '0' and fct.second != Rising ) {
-					fct.first();
-				}
+	fds.fd = mFD;
+	fds.events = POLLPRI;
+	lseek( mFD, 0, SEEK_SET );
+	int rpoll = poll( &fds, 1, -1 );
+	if ( rpoll == 1 and read( mFD, buffer, 2 ) > 0 ) {
+		for ( pair<function<void()>,GPIO::ISRMode> fct : fcts ) {
+			if ( buffer[0] == '1' and fct.second != Falling ) {
+				fct.first();
+			} else if ( buffer[0] == '0' and fct.second != Rising ) {
+				fct.first();
 			}
 		}
 	}
 
-	return nullptr;
+	return true;
 }

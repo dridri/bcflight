@@ -33,6 +33,9 @@ build
 *~
 shield.txt
 
+# local files
+blackbox_*
+
 # lib
 external/openh264*/*
 external/*.gz

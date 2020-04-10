@@ -27,12 +27,17 @@
 #include <cmath>
 #include <Config.h>
 #include "ControllerClient.h"
+#include "Socket.h"
 
 Config* ControllerClient::mConfig = nullptr;
 
 ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 	: Controller( link, spectate )
 	, mADC( nullptr )
+	, mSimulatorEnabled( false )
+	, mSimulatorSocketServer( nullptr )
+	, mSimulatorSocket( nullptr )
+	, mSimulatorTicks( 0 )
 {
 	mConfig = config;
 
@@ -55,6 +60,8 @@ ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 	pinMode( 26, INPUT );
 	pinMode( 27, INPUT );
 
+	mSimulatorThread = new HookThread<ControllerClient>( "Simulator", this, &ControllerClient::RunSimulator );
+	mSimulatorThread->Start();
 }
 
 
@@ -135,6 +142,94 @@ bool ControllerClient::run()
 	}
 
 	return Controller::run();
+}
+
+
+bool ControllerClient::RunSimulator()
+{
+	typedef struct {
+		int8_t throttle;
+		int8_t roll;
+		int8_t pitch;
+		int8_t yaw;
+	} __attribute__((packed)) ControllerData;
+	ControllerData data;
+
+	if ( not mSimulatorEnabled ) {
+		if ( mSimulatorSocket ) {
+			delete mSimulatorSocket;
+		}
+		if ( mSimulatorSocketServer ) {
+			delete mSimulatorSocketServer;
+		}
+		mSimulatorSocket = nullptr;
+		mSimulatorSocketServer = nullptr;
+		usleep( 1000 * 1000 * 2 );
+		return true;
+	}
+
+	if ( not mSimulatorSocketServer ) {
+		mSimulatorSocketServer = new rpi::Socket( 5000 );
+		mSimulatorSocketServer->Connect();
+		std::cout << "mSimulatorSocketServer : " << mSimulatorSocketServer << "\n";
+	}
+	if ( not mSimulatorSocket ) {
+		mSimulatorSocket = mSimulatorSocketServer->WaitClient();
+		std::cout << "mSimulatorSocket : " << mSimulatorSocket << "\n";
+	}
+
+	float f_thrust = ReadThrust();
+	float f_yaw = ReadYaw();
+	float f_pitch = ReadPitch();
+	float f_roll = ReadRoll();
+	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
+		data.throttle = (int8_t)( std::max( 0, std::min( 127, (int32_t)( f_thrust * 127.0f ) ) ) );
+	}
+	if ( f_yaw >= -1.0f and f_yaw <= 1.0f ) {
+		if ( fabsf( f_yaw ) <= 0.025f ) {
+			f_yaw = 0.0f;
+		} else if ( f_yaw < 0.0f ) {
+			f_yaw += 0.025f;
+		} else if ( f_yaw > 0.0f ) {
+			f_yaw -= 0.025f;
+		}
+		f_yaw *= 1.0f / ( 1.0f - 0.025f );
+		data.yaw = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_yaw * 127.0f ) ) ) );
+	}
+	if ( f_pitch >= -1.0f and f_pitch <= 1.0f ) {
+		if ( fabsf( f_pitch ) <= 0.025f ) {
+			f_pitch = 0.0f;
+		} else if ( f_pitch < 0.0f ) {
+			f_pitch += 0.025f;
+		} else if ( f_pitch > 0.0f ) {
+			f_pitch -= 0.025f;
+		}
+		f_pitch *= 1.0f / ( 1.0f - 0.025f );
+		data.pitch = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_pitch * 127.0f ) ) ) );
+	}
+	if ( f_roll >= -1.0f and f_roll <= 1.0f ) {
+		if ( fabsf( f_roll ) <= 0.025f ) {
+			f_roll = 0.0f;
+		} else if ( f_roll < 0.0f ) {
+			f_roll += 0.025f;
+		} else if ( f_roll > 0.0f ) {
+			f_roll -= 0.025f;
+		}
+		f_roll *= 1.0f / ( 1.0f - 0.025f );
+		data.roll = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_roll * 127.0f ) ) ) );
+	}
+
+	if ( mSimulatorSocket->Send( &data, sizeof(data) ) <= 0 ) {
+		delete mSimulatorSocket;
+		mSimulatorSocket = nullptr;
+	}
+
+	uint64_t ticks = Thread::GetTick();
+	if ( ticks - mSimulatorTicks < 1000 / 100 ) {
+		usleep( 1000LLU * std::max( 0LL, 1000LL / 100LL - (int64_t)( ticks - mTicks ) - 1LL ) );
+	}
+	mSimulatorTicks = Thread::GetTick();
+	return true;
 }
 
 
@@ -255,4 +350,11 @@ void ControllerClient::SaveRollCalibration( uint16_t min, uint16_t center, uint1
 	mount( "", "/", "", MS_REMOUNT, nullptr );
 	mConfig->SaveSettings( "/root/settings" );
 	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
+}
+
+
+bool ControllerClient::SimulatorMode( bool e )
+{
+	mSimulatorEnabled = e;
+	return e;
 }

@@ -40,7 +40,7 @@ public:
 	int Write16( uint8_t reg, uint16_t value );
 	int Write32( uint8_t reg, uint32_t value );
 
-	static std::list< int > ScanAll();
+	static list< int > ScanAll();
 
 private:
 	int mAddr;

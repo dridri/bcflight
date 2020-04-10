@@ -16,7 +16,7 @@ int LinuxGPS::flight_register( Main* main )
 }
 
 
-Sensor* LinuxGPS::Instanciate( Config* config, const std::string& object )
+Sensor* LinuxGPS::Instanciate( Config* config, const string& object )
 {
 	int rc = 0;
 	struct gps_data_t gps_data;
@@ -64,7 +64,7 @@ void LinuxGPS::Read( float* lattitude, float* longitude, float* altitude, float*
 		if ( ( rc = gps_read( mGpsData ) ) < 0 ) {
 		gDebug() << "gps_read failed : " << gps_errstr(rc) << " (" << rc << ")\n";
 		} else {
-			if ( ( mGpsData->status == STATUS_FIX ) and ( mGpsData->fix.mode == MODE_2D or mGpsData->fix.mode == MODE_3D ) and not std::isnan(mGpsData->fix.latitude) and not std::isnan(mGpsData->fix.longitude) ) {
+			if ( ( mGpsData->status == STATUS_FIX ) and ( mGpsData->fix.mode == MODE_2D or mGpsData->fix.mode == MODE_3D ) and not isnan(mGpsData->fix.latitude) and not isnan(mGpsData->fix.longitude) ) {
 				gDebug() << "latitude: " << mGpsData->fix.latitude << ", longitude: " << mGpsData->fix.longitude << ", speed: " << mGpsData->fix.speed << ", timestamp: " << mGpsData->fix.time << "\n";
 			} else {
 				gDebug() << "no GPS data available\n";

@@ -23,6 +23,7 @@
 #include <Board.h>
 #include <IMU.h>
 #include <Controller.h>
+#include "Config.h"
 #include "Stabilizer.h"
 
 Stabilizer::Stabilizer( Main* main, Frame* frame )
@@ -40,77 +41,77 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	, mHorizonOffset( Vector3f() )
 {
 /*
-	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->number( "stabilizer.pid_roll.p" ) ) );
-	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->number( "stabilizer.pid_roll.i" ) ) );
-	mRateRollPID.setD( Board::LoadRegisterFloat( "PID:Roll:D", main->config()->number( "stabilizer.pid_roll.d" ) ) );
-	mRatePitchPID.setP( Board::LoadRegisterFloat( "PID:Pitch:P", main->config()->number( "stabilizer.pid_pitch.p" ) ) );
-	mRatePitchPID.setI( Board::LoadRegisterFloat( "PID:Pitch:I", main->config()->number( "stabilizer.pid_pitch.i" ) ) );
-	mRatePitchPID.setD( Board::LoadRegisterFloat( "PID:Pitch:D", main->config()->number( "stabilizer.pid_pitch.d" ) ) );
-	mRateYawPID.setP( Board::LoadRegisterFloat( "PID:Yaw:P", main->config()->number( "stabilizer.pid_yaw.p" ) ) );
-	mRateYawPID.setI( Board::LoadRegisterFloat( "PID:Yaw:I", main->config()->number( "stabilizer.pid_yaw.i" ) ) );
-	mRateYawPID.setD( Board::LoadRegisterFloat( "PID:Yaw:D", main->config()->number( "stabilizer.pid_yaw.d" ) ) );
+	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->Number( "stabilizer.pid_roll.p" ) ) );
+	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->Number( "stabilizer.pid_roll.i" ) ) );
+	mRateRollPID.setD( Board::LoadRegisterFloat( "PID:Roll:D", main->config()->Number( "stabilizer.pid_roll.d" ) ) );
+	mRatePitchPID.setP( Board::LoadRegisterFloat( "PID:Pitch:P", main->config()->Number( "stabilizer.pid_pitch.p" ) ) );
+	mRatePitchPID.setI( Board::LoadRegisterFloat( "PID:Pitch:I", main->config()->Number( "stabilizer.pid_pitch.i" ) ) );
+	mRatePitchPID.setD( Board::LoadRegisterFloat( "PID:Pitch:D", main->config()->Number( "stabilizer.pid_pitch.d" ) ) );
+	mRateYawPID.setP( Board::LoadRegisterFloat( "PID:Yaw:P", main->config()->Number( "stabilizer.pid_yaw.p" ) ) );
+	mRateYawPID.setI( Board::LoadRegisterFloat( "PID:Yaw:I", main->config()->Number( "stabilizer.pid_yaw.i" ) ) );
+	mRateYawPID.setD( Board::LoadRegisterFloat( "PID:Yaw:D", main->config()->Number( "stabilizer.pid_yaw.d" ) ) );
 
-	mHorizonPID.setP( Board::LoadRegisterFloat( "PID:Outerloop:P", main->config()->number( "stabilizer.pid_horizon.p" ) ) );
-	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->number( "stabilizer.pid_horizon.i" ) ) );
-	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->number( "stabilizer.pid_horizon.d" ) ) );
+	mHorizonPID.setP( Board::LoadRegisterFloat( "PID:Outerloop:P", main->config()->Number( "stabilizer.pid_horizon.p" ) ) );
+	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->Number( "stabilizer.pid_horizon.i" ) ) );
+	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->Number( "stabilizer.pid_horizon.d" ) ) );
 */
-	mRateRollPID.setP( main->config()->number( "stabilizer.pid_roll.p" ) );
-	mRateRollPID.setI( main->config()->number( "stabilizer.pid_roll.i" ) );
-	mRateRollPID.setD( main->config()->number( "stabilizer.pid_roll.d" ) );
-	mRatePitchPID.setP( main->config()->number( "stabilizer.pid_pitch.p" ) );
-	mRatePitchPID.setI( main->config()->number( "stabilizer.pid_pitch.i" ) );
-	mRatePitchPID.setD( main->config()->number( "stabilizer.pid_pitch.d" ) );
-	mRateYawPID.setP( main->config()->number( "stabilizer.pid_yaw.p" ) );
-	mRateYawPID.setI( main->config()->number( "stabilizer.pid_yaw.i" ) );
-	mRateYawPID.setD( main->config()->number( "stabilizer.pid_yaw.d" ) );
+	mRateRollPID.setP( main->config()->Number( "stabilizer.pid_roll.p" ) );
+	mRateRollPID.setI( main->config()->Number( "stabilizer.pid_roll.i" ) );
+	mRateRollPID.setD( main->config()->Number( "stabilizer.pid_roll.d" ) );
+	mRatePitchPID.setP( main->config()->Number( "stabilizer.pid_pitch.p" ) );
+	mRatePitchPID.setI( main->config()->Number( "stabilizer.pid_pitch.i" ) );
+	mRatePitchPID.setD( main->config()->Number( "stabilizer.pid_pitch.d" ) );
+	mRateYawPID.setP( main->config()->Number( "stabilizer.pid_yaw.p" ) );
+	mRateYawPID.setI( main->config()->Number( "stabilizer.pid_yaw.i" ) );
+	mRateYawPID.setD( main->config()->Number( "stabilizer.pid_yaw.d" ) );
 
-	mHorizonPID.setP( main->config()->number( "stabilizer.pid_horizon.p" ) );
-	mHorizonPID.setI( main->config()->number( "stabilizer.pid_horizon.i" ) );
-	mHorizonPID.setD( main->config()->number( "stabilizer.pid_horizon.d" ) );
+	mHorizonPID.setP( main->config()->Number( "stabilizer.pid_horizon.p" ) );
+	mHorizonPID.setI( main->config()->Number( "stabilizer.pid_horizon.i" ) );
+	mHorizonPID.setD( main->config()->Number( "stabilizer.pid_horizon.d" ) );
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
 
 	float v;
-	if ( ( v = main->config()->number( "stabilizer.horizon_angles.x" ) ) > 0.0f ) {
+	if ( ( v = main->config()->Number( "stabilizer.horizon_angles.x" ) ) > 0.0f ) {
 		mHorizonMultiplier.x = v;
 	}
-	if ( ( v = main->config()->number( "stabilizer.horizon_angles.y" ) ) > 0.0f ) {
+	if ( ( v = main->config()->Number( "stabilizer.horizon_angles.y" ) ) > 0.0f ) {
 		mHorizonMultiplier.y = v;
 	}
 
 // 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 
-	mRateFactor = main->config()->number( "stabilizer.rate_speed" );
+	mRateFactor = main->config()->Number( "stabilizer.rate_speed" );
 	if ( mRateFactor <= 0.0f ) {
 		mRateFactor = 200.0f;
 	}
 
-	mHorizonMaxRate.x = main->config()->number( "stabilizer.horizon_max_rate.x", 300.0f );
-	mHorizonMaxRate.y = main->config()->number( "stabilizer.horizon_max_rate.y", 300.0f );
-	mHorizonMaxRate.z = main->config()->number( "stabilizer.horizon_max_rate.z", 300.0f );
+	mHorizonMaxRate.x = main->config()->Number( "stabilizer.horizon_max_rate.x", 300.0f );
+	mHorizonMaxRate.y = main->config()->Number( "stabilizer.horizon_max_rate.y", 300.0f );
+	mHorizonMaxRate.z = main->config()->Number( "stabilizer.horizon_max_rate.z", 300.0f );
 }
 
 
 void Stabilizer::setRollP( float p )
 {
 	mRateRollPID.setP( p );
-	Board::SaveRegister( "PID:Roll:P", std::to_string( p ) );
+	Board::SaveRegister( "PID:Roll:P", to_string( p ) );
 }
 
 
 void Stabilizer::setRollI( float i )
 {
 	mRateRollPID.setI( i );
-	Board::SaveRegister( "PID:Roll:I", std::to_string( i ) );
+	Board::SaveRegister( "PID:Roll:I", to_string( i ) );
 }
 
 
 void Stabilizer::setRollD( float d )
 {
 	mRateRollPID.setD( d );
-	Board::SaveRegister( "PID:Roll:D", std::to_string( d ) );
+	Board::SaveRegister( "PID:Roll:D", to_string( d ) );
 }
 
 
@@ -123,21 +124,21 @@ Vector3f Stabilizer::getRollPID() const
 void Stabilizer::setPitchP( float p )
 {
 	mRatePitchPID.setP( p );
-	Board::SaveRegister( "PID:Pitch:P", std::to_string( p ) );
+	Board::SaveRegister( "PID:Pitch:P", to_string( p ) );
 }
 
 
 void Stabilizer::setPitchI( float i )
 {
 	mRatePitchPID.setI( i );
-	Board::SaveRegister( "PID:Pitch:I", std::to_string( i ) );
+	Board::SaveRegister( "PID:Pitch:I", to_string( i ) );
 }
 
 
 void Stabilizer::setPitchD( float d )
 {
 	mRatePitchPID.setD( d );
-	Board::SaveRegister( "PID:Pitch:D", std::to_string( d ) );
+	Board::SaveRegister( "PID:Pitch:D", to_string( d ) );
 }
 
 
@@ -150,21 +151,21 @@ Vector3f Stabilizer::getPitchPID() const
 void Stabilizer::setYawP( float p )
 {
 	mRateYawPID.setP( p );
-	Board::SaveRegister( "PID:Yaw:P", std::to_string( p ) );
+	Board::SaveRegister( "PID:Yaw:P", to_string( p ) );
 }
 
 
 void Stabilizer::setYawI( float i )
 {
 	mRateYawPID.setI( i );
-	Board::SaveRegister( "PID:Yaw:I", std::to_string( i ) );
+	Board::SaveRegister( "PID:Yaw:I", to_string( i ) );
 }
 
 
 void Stabilizer::setYawD( float d )
 {
 	mRateYawPID.setD( d );
-	Board::SaveRegister( "PID:Yaw:D", std::to_string( d ) );
+	Board::SaveRegister( "PID:Yaw:D", to_string( d ) );
 }
 
 
@@ -183,21 +184,21 @@ Vector3f Stabilizer::lastPIDOutput() const
 void Stabilizer::setOuterP( float p )
 {
 	mHorizonPID.setP( p );
-	Board::SaveRegister( "PID:Outerloop:P", std::to_string( p ) );
+	Board::SaveRegister( "PID:Outerloop:P", to_string( p ) );
 }
 
 
 void Stabilizer::setOuterI( float i )
 {
 	mHorizonPID.setI( i );
-	Board::SaveRegister( "PID:Outerloop:I", std::to_string( i ) );
+	Board::SaveRegister( "PID:Outerloop:I", to_string( i ) );
 }
 
 
 void Stabilizer::setOuterD( float d )
 {
 	mHorizonPID.setD( d );
-	Board::SaveRegister( "PID:Outerloop:D", std::to_string( d ) );
+	Board::SaveRegister( "PID:Outerloop:D", to_string( d ) );
 }
 
 
@@ -287,13 +288,13 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		case Stabilize :
 		default : {
 			Vector3f control_angles = ctrl->RPY();
-			control_angles.x = mHorizonMultiplier.x * std::min( std::max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
-			control_angles.y = mHorizonMultiplier.y * std::min( std::max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
+			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
+			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
 			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting
 			mHorizonPID.Process( control_angles, imu->RPY(), dt );
 			rate_control = mHorizonPID.state();
-			rate_control.x = std::max( -mHorizonMaxRate.x, std::min( mHorizonMaxRate.x, rate_control.x ) );
-			rate_control.y = std::max( -mHorizonMaxRate.y, std::min( mHorizonMaxRate.y, rate_control.y ) );
+			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
+			rate_control.y = max( -mHorizonMaxRate.y, min( mHorizonMaxRate.y, rate_control.y ) );
 			rate_control.z = control_angles.z * mRateFactor; // TEST : Bypass heading for now
 			break;
 		}
@@ -306,7 +307,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	float thrust = ctrl->thrust();
 	if ( mAltitudeHold ) {
 		thrust = thrust * 2.0f - 1.0f;
-		if ( std::abs( thrust ) < 0.1f ) {
+		if ( abs( thrust ) < 0.1f ) {
 			thrust = 0.0f;
 		} else if ( thrust > 0.0f ) {
 			thrust = ( thrust - 0.1f ) * ( 1.0f / 0.9f );

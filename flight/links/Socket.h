@@ -46,13 +46,13 @@ public:
 	int32_t RxQuality();
 	int32_t RxLevel();
 
-	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
 
 	static int flight_register( Main* main );
 
 protected:
-	static Link* Instanciate( Config* config, const std::string& lua_object );
+	static Link* Instanciate( Config* config, const string& lua_object );
 
 	uint16_t mPort;
 	PortType mPortType;
@@ -65,6 +65,13 @@ protected:
 
 	// Stats
 	int32_t mChannel;
+};
+
+#else
+
+class Socket {
+public:
+	static int flight_register( Main* main ) { return 0; }
 };
 
 #endif // ( BUILD_SOCKET == 1 )

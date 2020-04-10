@@ -26,6 +26,9 @@
 #define PI_OVER_180 0.0174532f
 #define PI_OVER_90 0.0349065f
 
+#define min( a, b ) ( ( (a) < (b) ) ? (a) : (b) )
+#define max( a, b ) ( ( (a) > (b) ) ? (a) : (b) )
+
 Matrix::Matrix( int w, int h )
 	: mWidth( w )
 	, mHeight( h )
@@ -125,8 +128,8 @@ void Matrix::RotateX( float a )
 	Matrix t;
 	t.Identity();
 
-	float c = std::cos( a );
-	float s = std::sin( a );
+	float c = cos( a );
+	float s = sin( a );
 	t.m[1*4+1] = c;
 	t.m[1*4+2] = s;
 	t.m[2*4+1] = -s;
@@ -141,8 +144,8 @@ void Matrix::RotateY( float a )
 	Matrix t;
 	t.Identity();
 
-	float c = std::cos( a );
-	float s = std::sin( a );
+	float c = cos( a );
+	float s = sin( a );
 	t.m[0*4+0] = c;
 	t.m[0*4+2] = -s;
 	t.m[2*4+0] = s;
@@ -157,8 +160,8 @@ void Matrix::RotateZ( float a )
 	Matrix t;
 	t.Identity();
 
-	float c = std::cos( a );
-	float s = std::sin( a );
+	float c = cos( a );
+	float s = sin( a );
 	t.m[0*4+0] = c;
 	t.m[0*4+1] = s;
 	t.m[1*4+0] = -s;
@@ -243,8 +246,8 @@ void Matrix::operator=( const Matrix& other )
 
 Matrix operator+( const Matrix& m1, const Matrix& m2 )
 {
-	int w = std::min( m1.width(), m2.width() );
-	int h = std::min( m1.height(), m2.height() );
+	int w = min( m1.width(), m2.width() );
+	int h = min( m1.height(), m2.height() );
 	Matrix ret( w, h );
 
 	for ( int j = 0, j1 = 0, j2 = 0; j < h; j++, j1 += m1.width(), j2 += m2.width() ) {
@@ -260,8 +263,8 @@ Matrix operator+( const Matrix& m1, const Matrix& m2 )
 
 Matrix operator-( const Matrix& m1, const Matrix& m2 )
 {
-	int w = std::min( m1.width(), m2.width() );
-	int h = std::min( m1.height(), m2.height() );
+	int w = min( m1.width(), m2.width() );
+	int h = min( m1.height(), m2.height() );
 	Matrix ret( w, h );
 
 	for ( int j = 0, j1 = 0, j2 = 0; j < h; j++, j1 += m1.width(), j2 += m2.width() ) {

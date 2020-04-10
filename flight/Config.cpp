@@ -18,23 +18,49 @@
 #include <list>
 #include <fstream>
 #include <algorithm>
-#include <regex>
 #include <string.h>
 #include "Debug.h"
 #include "Config.h"
 #include <Accelerometer.h>
 #include <Gyroscope.h>
 #include <Magnetometer.h>
+#include <Motor.h>
+#include <Link.h>
 
-Config::Config( const std::string& filename, const std::string& settings_filename )
+extern "C" uint32_t _mem_usage();
+
+Config::Config( const string& filename, const string& settings_filename )
 	: mFilename( filename )
 	, mSettingsFilename( settings_filename )
 	, L( nullptr )
 {
+	gDebug() << "step 1 : " << _mem_usage() << "\n";
+
+	gDebug() << LUA_RELEASE << "\n";
 	L = luaL_newstate();
-	luaL_openlibs( L );
+	gDebug() << "step 2 : " << _mem_usage() << "\n";
+
+// 	luaL_openlibs( L );
+	static const luaL_Reg lualibs[] = {
+		{ "", luaopen_base },
+		{ LUA_TABLIBNAME, luaopen_table },
+		{ LUA_STRLIBNAME, luaopen_string },
+		{ LUA_MATHLIBNAME, luaopen_math },
+		{ nullptr, nullptr }
+	};
+
+	const luaL_Reg* lib = lualibs;
+	for (; lib->func; lib++ ) {
+		lua_pushcfunction( L, lib->func );
+		lua_pushstring( L, lib->name );
+		lua_call( L, 1, 0 );
+	}
+
+	gDebug() << "step 3 : " << _mem_usage() << "\n";
 
 	Reload();
+
+	gDebug() << "step 4 : " << _mem_usage() << "\n";
 }
 
 
@@ -44,10 +70,10 @@ Config::~Config()
 }
 
 
-std::string Config::ReadFile()
+string Config::ReadFile()
 {
-	std::string ret = "";
-	std::ifstream file( mFilename );
+	string ret = "";
+	ifstream file( mFilename );
 
 	if ( file.is_open() ) {
 		file.seekg( 0, file.end );
@@ -65,9 +91,9 @@ std::string Config::ReadFile()
 }
 
 
-void Config::WriteFile( const std::string& content )
+void Config::WriteFile( const string& content )
 {
-	std::ofstream file( mFilename );
+	ofstream file( mFilename );
 
 	if ( file.is_open() ) {
 		file.write( content.c_str(), content.length() );
@@ -76,7 +102,7 @@ void Config::WriteFile( const std::string& content )
 }
 
 
-std::string Config::string( const std::string& name, const std::string& def )
+string Config::String( const string& name, const string& def )
 {
 	gDebug() << "Config::string( " << name << " )";
 
@@ -85,13 +111,13 @@ std::string Config::string( const std::string& name, const std::string& def )
 		return def;
 	}
 
-	std::string ret = lua_tolstring( L, -1, nullptr );
+	string ret = lua_tolstring( L, -1, nullptr );
 	Debug() << " => " << ret << "\n";
 	return ret;
 }
 
 
-int Config::integer( const std::string& name, int def )
+int Config::Integer( const string& name, int def )
 {
 	gDebug() << "Config::integer( " << name << " )";
 
@@ -106,7 +132,7 @@ int Config::integer( const std::string& name, int def )
 }
 
 
-float Config::number( const std::string& name, float def )
+float Config::Number( const string& name, float def )
 {
 	gDebug() << "Config::number( " << name << " )";
 
@@ -121,7 +147,7 @@ float Config::number( const std::string& name, float def )
 }
 
 
-bool Config::boolean( const std::string& name, bool def )
+bool Config::Boolean( const string& name, bool def )
 {
 	gDebug() << "Config::boolean( " << name << " )";
 
@@ -136,15 +162,15 @@ bool Config::boolean( const std::string& name, bool def )
 }
 
 
-std::vector<int> Config::integerArray( const std::string& name )
+vector<int> Config::IntegerArray( const string& name )
 {
 	gDebug() << "Config::integerArray( " << name << " )";
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
-		return std::vector<int>();
+		return vector<int>();
 	}
 
-	std::vector<int> ret;
+	vector<int> ret;
 	size_t len = lua_objlen( L, -1 );
 	if ( len > 0 ) {
 		for ( size_t i = 1; i <= len; i++ ) {
@@ -160,12 +186,19 @@ std::vector<int> Config::integerArray( const std::string& name )
 }
 
 
-int Config::LocateValue( const std::string& _name )
+int Config::LocateValue( const string& _name )
 {
 	const char* name = _name.c_str();
 
 	if ( strchr( name, '.' ) == nullptr and strchr( name, '[' ) == nullptr ) {
+#ifdef LUA_GLOBALSINDEX
 		lua_getfield( L, LUA_GLOBALSINDEX, name );
+#else
+		lua_rawgeti( L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS );
+		lua_getfield( L, -1, name );
+		lua_copy( L, -1, -2 );
+		lua_pop( L, 1 );
+#endif
 		if ( lua_type( L, -1 ) == LUA_TNIL ) {
 			return -1;
 		}
@@ -186,13 +219,20 @@ int Config::LocateValue( const std::string& _name )
 				}
 				if ( in_table and name[i] == ']' and lua_istable( L, -1 ) ) {
 					if ( tmp[0] >= '0' and tmp[0] <= '9' ) {
-						lua_rawgeti( L, -1, std::atoi(tmp) );
+						lua_rawgeti( L, -1, atoi(tmp) );
 					} else {
 						lua_getfield( L, -1, tmp );
 					}
 				} else {
 					if ( k == 0 ) {
+#ifdef LUA_GLOBALSINDEX
 						lua_getfield( L, LUA_GLOBALSINDEX, tmp );
+#else
+						lua_rawgeti( L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS );
+						lua_getfield( L, -1, tmp );
+						lua_copy( L, -1, -2 );
+						lua_pop( L, 1 );
+#endif
 					} else {
 						lua_getfield( L, -1, tmp );
 					}
@@ -221,7 +261,7 @@ int Config::LocateValue( const std::string& _name )
 }
 
 
-int Config::ArrayLength( const std::string& name )
+int Config::ArrayLength( const string& name )
 {
 	if ( LocateValue( name ) < 0 ) {
 		return -1;
@@ -247,13 +287,15 @@ int Config::ArrayLength( const std::string& name )
 }
 
 
-void Config::DumpVariable( const std::string& name, int index, int indent )
+string Config::DumpVariable( const string& name, int index, int indent )
 {
+	stringstream ret;
+
 	for ( int i = 0; i < indent; i++ ) {
-		Debug() << "    ";
+		ret << "    ";
 	}
 	if ( name != "" ) {
-		Debug() << name << " = ";
+		ret << name << " = ";
 	}
 
 	if ( indent == 0 ) {
@@ -261,121 +303,145 @@ void Config::DumpVariable( const std::string& name, int index, int indent )
 	}
 
 	if ( lua_isnil( L, index ) ) {
-		Debug() << "nil";
+		ret << "nil";
 	} else if ( lua_isnumber( L, index ) ) {
-		Debug() << lua_tonumber( L, index );
+		ret << lua_tonumber( L, index );
 	} else if ( lua_isboolean( L, index ) ) {
-		Debug() << ( lua_toboolean( L, index ) ? "true" : "false" );
+		ret << ( lua_toboolean( L, index ) ? "true" : "false" );
 	} else if ( lua_isstring( L, index ) ) {
-		Debug() << "\"" << lua_tostring( L, index ) << "\"";
+		ret << "\"" << lua_tostring( L, index ) << "\"";
 	} else if ( lua_iscfunction( L, index ) ) {
-		Debug() << "C-function()";
+		ret << "C-function()";
 	} else if ( lua_isuserdata( L, index ) ) {
-		Debug() << "__userdata__";
+		ret << "__userdata__";
 	} else if ( lua_istable( L, index ) ) {
-		Debug() << "{\n";
+		ret << "{\n\r";
 		size_t len = lua_objlen( L, index );
 		if ( len > 0 ) {
 			for ( size_t i = 1; i <= len; i++ ) {
 				lua_rawgeti( L, index, i );
-				DumpVariable( "", -1, indent + 1 );
+				ret << DumpVariable( "", -1, indent + 1 );
 				lua_pop( L, 1 );
-				Debug() << ",\n";
+				ret << ",\n\r";
 			}
 		} else {
 			lua_pushnil( L );
 			while( lua_next( L, -2 ) != 0 ) {
-				std::string key = lua_tostring( L, index-1 );
+				string key = lua_tostring( L, index-1 );
 				if ( lua_isnumber( L, index - 1 ) ) {
 					key = "[" + key + "]";
 				}
 				if ( key != "lens_shading" ) {
-					DumpVariable( key, index, indent + 1 );
+					ret << DumpVariable( key, index, indent + 1 );
 				} else {
 					for ( int i = 0; i < indent + 1; i++ ) {
-						Debug() << "    ";
+						ret << "    ";
 					}
-					std::cout << key << " = {...}";
+					ret << key << " = {...}";
 				}
 				lua_pop( L, 1 );
-				Debug() << ",\n";
+				ret << ",\n\r";
 			}
 		}
 		for ( int i = 0; i < indent; i++ ) {
-			Debug() << "    ";
+			ret << "    ";
 		}
-		Debug() << "}";
+		ret << "}";
 	} else {
-		Debug() << "__unknown__";
+		ret << "__unknown__";
 	}
 
 	if ( indent == 0 ) {
-		Debug() << "\n";
+		ret << "\n\r";
 	}
+	return ret.str();
 }
 
 
-void Config::Execute( const std::string& code )
+void Config::Execute( const string& code )
 {
+	fDebug( code );
 	luaL_dostring( L, code.c_str() );
 }
 
 
-static inline std::string& ltrim( std::string& s, const char* t = " \t\n\r\f\v" )
+static inline string& ltrim( string& s, const char* t = " \t\n\r\f\v" )
 {
 	s.erase(0, s.find_first_not_of(t));
 	return s;
 }
 
 
-static inline std::string& rtrim( std::string& s, const char* t = " \t\n\r\f\v" )
+static inline string& rtrim( string& s, const char* t = " \t\n\r\f\v" )
 {
 	s.erase(s.find_last_not_of(t) + 1);
 	return s;
 }
 
 
-static inline std::string& trim( std::string& s, const char* t = " \t\n\r\f\v" )
+static inline string& trim( string& s, const char* t = " \t\n\r\f\v" )
 {
 	return ltrim(rtrim(s, t), t);
 }
 
 
+#define LUAdostring( s ) gDebug() << "dostring : '" << s << "'\n"; luaL_dostring( L, string(s).c_str() )
+
+
 void Config::Reload()
 {
-	luaL_dostring( L, "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
-	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
-	luaL_dostring( L, "function RF24( params ) params.link_type = \"nRF24L01\" ; return params end" );
-	luaL_dostring( L, "function SX127x( params ) params.link_type = \"SX127x\" ; return params end" );
-	luaL_dostring( L, "function MultiLink( params ) params.link_type = \"MultiLink\" ; return params end" );
-	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; params.device = \"wlan0\" ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
-	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
-	luaL_dostring( L, "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" );
-	luaL_dostring( L, ( "board = { type = \"" + std::string( BOARD ) + "\" }" ).c_str() );
-	luaL_dostring( L, "frame = { motors = {} }" );
-	luaL_dostring( L, "battery = {}" );
-	luaL_dostring( L, "camera = {}" );
-	luaL_dostring( L, "hud = {}" );
-	luaL_dostring( L, "microphone = {}" );
-	luaL_dostring( L, "controller = {}" );
-	luaL_dostring( L, "stabilizer = { loop_time = 2000 }" );
-	luaL_dostring( L, "sensors_map_i2c = {}" );
-	luaL_dostring( L, "accelerometers = {}" );
-	luaL_dostring( L, "gyroscopes = {}" );
-	luaL_dostring( L, "magnetometers = {}" );
-	luaL_dostring( L, "altimeters = {}" );
-	luaL_dostring( L, "GPSes = {}" );
-	luaL_dostring( L, "user_sensors = {}" );
-	luaL_dostring( L, "function RegisterSensor( name, params ) user_sensors[name] = params ; return params end" );
+	gDebug() << "Reload 1 : " << _mem_usage() << "\n";
+	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
+	LUAdostring( "frame = { motors = {} }" );
+	LUAdostring( "battery = {}" );
+	LUAdostring( "camera = {}" );
+	LUAdostring( "hud = {}" );
+	LUAdostring( "microphone = {}" );
+	LUAdostring( "controller = {}" );
+	LUAdostring( "stabilizer = { loop_time = 2000 }" );
+	LUAdostring( "sensors_map_i2c = {}" );
+	LUAdostring( "accelerometers = {}" );
+	LUAdostring( "gyroscopes = {}" );
+	LUAdostring( "magnetometers = {}" );
+	LUAdostring( "altimeters = {}" );
+	LUAdostring( "GPSes = {}" );
+	LUAdostring( "user_sensors = {}" );
+	LUAdostring( "function RegisterSensor( name, params ) user_sensors[name] = params ; return params end" );
+	LUAdostring( "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
+	LUAdostring( "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" ); // TODO : remove this
+	LUAdostring( "function Voltmeter( params ) params.type = \"Voltemeter\" ; return params end" );
+	gDebug() << "Reload 2 : " << _mem_usage() << "\n";
 
-	luaL_loadfile( L, mFilename.c_str() );
-	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
-	if ( ret != 0 ) {
-		lua_Debug ar;
-		lua_getstack(L, 1, &ar);
-		lua_getinfo(L, "nSl", &ar);
-		gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
-		return;
+#ifdef BUILD_motors
+	for ( auto motor : Motor::knownMotors() ) {
+		LUAdostring( "function " + motor.first + "( params ) params.motor_type = \"" + motor.first + "\" ; return params end" );
+	}
+#endif
+	gDebug() << "Reload 3 : " << _mem_usage() << "\n";
+#ifdef BUILD_links
+	for ( auto link : Link::knownLinks() ) {
+		LUAdostring( "function " + link.first + "( params ) params.link_type = \"" + link.first + "\" ; return params end" );
+	}
+#endif
+	gDebug() << "Reload 4 : " << _mem_usage() << "\n";
+#ifdef BUILD_sensors
+	for ( const Sensor::Device& device : Sensor::KnownDevices() ) {
+		LUAdostring( "function " + string(device.name) + "( params ) params.sensor_type = \"" + string(device.name) + "\" ; return params end" );
+	}
+#endif
+	gDebug() << "Reload 5 : " << _mem_usage() << "\n";
+
+
+	if ( mFilename != "" ) {
+		luaL_loadfile( L, mFilename.c_str() );
+		int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
+		if ( ret != 0 ) {
+			lua_Debug ar;
+			lua_getstack(L, 1, &ar);
+			lua_getinfo(L, "nSl", &ar);
+			gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
+			return;
+		}
 	}
 
 	if ( mSettingsFilename != "" ) {
@@ -388,41 +454,44 @@ void Config::Reload()
 			gDebug() << "Lua : Error while executing file \"" << mSettingsFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
 		}
 	
-		std::string line;
-		std::string key;
-		std::string value;
-		std::ifstream file( mSettingsFilename, std::ios_base::in );
+		string line;
+		string key;
+		string value;
+		ifstream file( mSettingsFilename, fstream::in );
 		if ( file.is_open() ) {
-			while ( std::getline( file, line ) ) {
+			while ( getline( file, line ) ) {
 				key = line.substr( 0, line.find( "=" ) );
 				value = line.substr( line.find( "=" ) + 1 );
 				key = trim( key );
 				value = trim( value );
 				mSettings[ key ] = value;
-				std::cout << "mSettings[\"" << key << "\"] = '" << mSettings[ key ] << "'\n";
+				gDebug() << "mSettings[\"" << key << "\"] = '" << mSettings[ key ] << "'\n";
 			}
 		}
 	}
 
-	std::list< std::string > user_sensors;
+#ifdef BUILD_sensors
+	list< string > user_sensors;
 	LocateValue( "user_sensors" );
 	lua_pushnil( L );
 	while( lua_next( L, -2 ) != 0 ) {
-		std::string key = lua_tostring( L, -2 );
+		string key = lua_tostring( L, -2 );
 		user_sensors.emplace_back( key );
 		lua_pop( L, 1 );
 	}
-	for ( std::string s : user_sensors ) {
+	for ( string s : user_sensors ) {
 		Sensor::RegisterDevice( s, this, "user_sensors." + s );
 	}
+#endif
 }
 
 
 void Config::Apply()
 {
-	std::list< std::string > accelerometers;
-	std::list< std::string > gyroscopes;
-	std::list< std::string > magnetometers;
+#ifdef BUILD_sensors
+	list< string > accelerometers;
+	list< string > gyroscopes;
+	list< string > magnetometers;
 
 	lua_getglobal( L, "accelerometers" );
 	lua_pushnil( L );
@@ -450,9 +519,9 @@ void Config::Apply()
 		Gyroscope* gyro = Sensor::gyroscope( it );
 		if ( gyro ) {
 			int swap[4] = { 0, 0, 0, 0 };
-			swap[0] = integer( "gyroscopes." + it + ".axis_swap.x" );
-			swap[1] = integer( "gyroscopes." + it + ".axis_swap.y" );
-			swap[2] = integer( "gyroscopes." + it + ".axis_swap.z" );
+			swap[0] = Integer( "gyroscopes." + it + ".axis_swap.x" );
+			swap[1] = Integer( "gyroscopes." + it + ".axis_swap.y" );
+			swap[2] = Integer( "gyroscopes." + it + ".axis_swap.z" );
 			gyro->setAxisSwap( swap );
 		}
 	}
@@ -460,9 +529,9 @@ void Config::Apply()
 		Accelerometer* accel = Sensor::accelerometer( it );
 		if ( accel ) {
 			int swap[4] = { 0, 0, 0, 0 };
-			swap[0] = integer( "accelerometers." + it + ".axis_swap.x" );
-			swap[1] = integer( "accelerometers." + it + ".axis_swap.y" );
-			swap[2] = integer( "accelerometers." + it + ".axis_swap.z" );
+			swap[0] = Integer( "accelerometers." + it + ".axis_swap.x" );
+			swap[1] = Integer( "accelerometers." + it + ".axis_swap.y" );
+			swap[2] = Integer( "accelerometers." + it + ".axis_swap.z" );
 			accel->setAxisSwap( swap );
 		}
 	}
@@ -470,50 +539,51 @@ void Config::Apply()
 		Magnetometer* magn = Sensor::magnetometer( it );
 		if ( magn ) {
 			int swap[4] = { 0, 0, 0, 0 };
-			swap[0] = integer( "magnetometers." + it + ".axis_swap.x" );
-			swap[1] = integer( "magnetometers." + it + ".axis_swap.y" );
-			swap[2] = integer( "magnetometers." + it + ".axis_swap.z" );
+			swap[0] = Integer( "magnetometers." + it + ".axis_swap.x" );
+			swap[1] = Integer( "magnetometers." + it + ".axis_swap.y" );
+			swap[2] = Integer( "magnetometers." + it + ".axis_swap.z" );
 			magn->setAxisSwap( swap );
 		}
 	}
+#endif // BUILD_sensors
 }
 
 
-void Config::setBoolean( const std::string& name, const bool v )
+void Config::setBoolean( const string& name, const bool v )
 {
 	mSettings[name] = ( v ? "true" : "false" );
-	luaL_dostring( L, ( name + "=" + mSettings[name] ).c_str() );
+	LUAdostring( name + "=" + mSettings[name] );
 }
 
 
-void Config::setInteger( const std::string& name, const int v )
+void Config::setInteger( const string& name, const int v )
 {
-	mSettings[name] = std::to_string(v);
-	luaL_dostring( L, ( name + "=" + mSettings[name] ).c_str() );
+	mSettings[name] = to_string(v);
+	LUAdostring( name + "=" + mSettings[name] );
 }
 
 
-void Config::setNumber( const std::string& name, const float v )
+void Config::setNumber( const string& name, const float v )
 {
-	mSettings[name] = std::to_string(v);
-	luaL_dostring( L, ( name + "=" + mSettings[name] ).c_str() );
+	mSettings[name] = to_string(v);
+	LUAdostring( name + "=" + mSettings[name] );
 }
 
 
-void Config::setString( const std::string& name, const std::string& v )
+void Config::setString( const string& name, const string& v )
 {
 	mSettings[name] = v;
-	luaL_dostring( L, ( name + "=" + v ).c_str() );
+	LUAdostring( name + "=" + v );
 }
 
 
 void Config::Save()
 {
-	std::ofstream file( mSettingsFilename );
-	std::string str;
+	ofstream file( mSettingsFilename );
+	string str;
 
 	if ( file.is_open() ) {
-		for ( std::pair< std::string, std::string > setting : mSettings ) {
+		for ( pair< string, string > setting : mSettings ) {
 			str = setting.first + " = " + setting.second + "\n";
 			gDebug() << "Saving setting  : " << str;
 			file.write( str.c_str(), str.length() );

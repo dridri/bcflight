@@ -28,7 +28,7 @@ public:
 	L3GD20H();
 	~L3GD20H();
 
-	static Gyroscope* Instanciate( Config* config, const std::string& object );
+	static Gyroscope* Instanciate( Config* config, const string& object );
 	void Calibrate( float dt, bool last_pass = false );
 	int Read( Vector3f* v, bool raw = false );
 

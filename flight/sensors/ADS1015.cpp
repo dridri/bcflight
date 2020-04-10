@@ -30,7 +30,7 @@ int ADS1015::flight_register( Main* main )
 }
 
 
-Sensor* ADS1015::Instanciate( Config* config, const std::string& object )
+Sensor* ADS1015::Instanciate( Config* config, const string& object )
 {
 	return new ADS1015();
 }
@@ -75,7 +75,7 @@ float ADS1015::Read( int channel )
 	config = ( ( config << 8 ) & 0xFF00 ) | ( ( config >> 8 ) & 0xFF );
 
 	mI2C->Write16( ADS1015_REG_POINTER_CONFIG, config );
-	usleep( 1000 );
+	usleep( 8000 );
 	mI2C->Read16( ADS1015_REG_POINTER_CONVERT, &_ret );
 
 	ret = _ret;
@@ -86,7 +86,7 @@ float ADS1015::Read( int channel )
 }
 
 
-std::string ADS1015::infos()
+string ADS1015::infos()
 {
-	return "I2Caddr = " + std::to_string( mI2C->address() ) + ", " + "Resolution = \"12 bits\", " + "Channels = 4";
+	return "I2Caddr = " + to_string( mI2C->address() ) + ", " + "Resolution = \"12 bits\", " + "Channels = 4";
 }

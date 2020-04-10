@@ -3,6 +3,9 @@
 #include <vc_dispmanx_types.h>
 #include <bcm_host.h>
 
+#define OPTIMUM_WIDTH 840
+#define OPTIMUM_HEIGHT 480
+
 GLContext::GLContext()
 	: mWidth( 0 )
 	, mHeight( 0 )
@@ -54,7 +57,7 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 	std::cout << "OpenGL version : " << glGetString( GL_VERSION ) << "\n";
 	std::cout << "Framebuffer resolution : " << mWidth << " x " << mHeight << "\n";
 	glViewport( 0, 0, mWidth, mHeight );
-	glViewport( 0, 0, 840, 480 );
+	glViewport( 0, 0, OPTIMUM_WIDTH, OPTIMUM_HEIGHT );
 	glEnable( GL_CULL_FACE );
 	glFrontFace( GL_CCW );
 	glCullFace( GL_BACK );
@@ -94,8 +97,8 @@ EGL_DISPMANX_WINDOW_T GLContext::CreateNativeWindow( int layer )
 	dst_rect.height = display_height;
 
 	// Reduce resolution for better performances (automatically upscaled by dispman)
-	display_width = 840;
-	display_height = 480;
+	display_width = OPTIMUM_WIDTH;
+	display_height = OPTIMUM_HEIGHT;
 
 	src_rect.x = 0;
 	src_rect.y = 0;

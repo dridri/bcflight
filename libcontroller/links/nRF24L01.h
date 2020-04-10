@@ -22,7 +22,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <termios.h>
 #include <mutex>
 #include <list>
 #include <atomic>

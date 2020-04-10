@@ -111,7 +111,7 @@ public:
 	void normalize() {
 		T add = 0;
 		VEC_ADD( add, this-> , * , this-> );
-		T l = std::sqrt( add );
+		T l = sqrt( add );
 		if ( l > 0.00001f ) {
 			T il = 1 / l;
 			VEC_IM( this-> , this-> , * , il );
@@ -121,7 +121,7 @@ public:
 	T length() const {
 		T add = 0;
 		VEC_ADD( add, this-> , * , this-> );
-		return std::sqrt( add );
+		return sqrt( add );
 	}
 
 	VECTOR_INLINE T operator[]( int i ) const

@@ -21,10 +21,10 @@
 #include "Frame.h"
 #include <Config.h>
 
-std::map< std::string, std::function< Frame* ( Config* ) > > Frame::mKnownFrames;
+map< string, function< Frame* ( Config* ) > > Frame::mKnownFrames;
 
 Frame::Frame()
-	: mMotors( std::vector< Motor* >() )
+	: mMotors( vector< Motor* >() )
 	, mArmed( false )
 	, mAirMode( false )
 {
@@ -41,7 +41,7 @@ void Frame::MotorTest(uint32_t id) {
 		gDebug() << "Out of range abort\n";
 	}
 	
-	Motor *m = mMotors[id];
+	Motor* m = mMotors[id];
 	m->setSpeed( 0.0f, true );
 	usleep(1 * 1000 * 1000);
 	m->Disarm();
@@ -102,7 +102,7 @@ bool Frame::airMode() const
 }
 
 
-Frame* Frame::Instanciate( const std::string& name, Config* config )
+Frame* Frame::Instanciate( const string& name, Config* config )
 {
 	if ( mKnownFrames.find( name ) != mKnownFrames.end() ) {
 		return mKnownFrames[ name ]( config );
@@ -111,13 +111,13 @@ Frame* Frame::Instanciate( const std::string& name, Config* config )
 }
 
 
-std::vector< Motor* >* Frame::motors()
+vector< Motor* >* Frame::motors()
 {
 	return &mMotors;
 }
 
 
-void Frame::RegisterFrame( const std::string& name, std::function< Frame* ( Config* ) > instanciate )
+void Frame::RegisterFrame( const string& name, function< Frame* ( Config* ) > instanciate )
 {
 	mKnownFrames[ name ] = instanciate;
 }

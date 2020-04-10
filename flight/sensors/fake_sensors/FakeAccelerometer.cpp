@@ -43,7 +43,7 @@ void FakeAccelerometer::Calibrate( float dt, bool last_pass )
 void FakeAccelerometer::Read( Vector3f* v, bool raw )
 {
 	for ( int i = 0; i < mAxisCount; i++ ) {
-		v->operator[](0) = 0.0f * std::sin( mSinCounter ) + mNoiseGain[0] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
+		v->operator[](0) = 0.0f * sin( mSinCounter ) + mNoiseGain[0] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
 		v->operator[](1) = mNoiseGain[1] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
 		v->operator[](2) = 9.8f + mNoiseGain[2] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
 	}
@@ -52,7 +52,7 @@ void FakeAccelerometer::Read( Vector3f* v, bool raw )
 }
 
 
-std::string FakeAccelerometer::infos()
+string FakeAccelerometer::infos()
 {
 	return "Resolution = \"32 bits float\", Scale = \"16g\"";
 }

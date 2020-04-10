@@ -33,22 +33,22 @@ int AlsaMic::flight_register( Main* main )
 }
 
 
-Microphone* AlsaMic::Instanciate( Config* config, const std::string& object )
+Microphone* AlsaMic::Instanciate( Config* config, const string& object )
 {
 	return new AlsaMic( config, object );
 }
 
 
-AlsaMic::AlsaMic( Config* config, const std::string& conf_obj )
+AlsaMic::AlsaMic( Config* config, const string& conf_obj )
 	: Microphone()
 	, mRecordSyncCounter( 0 )
 	, mRecordStream( nullptr )
 	, mRecorderTrackId( 0 )
 {
 	int err = 0;
-	std::string device = config->string( conf_obj + ".device", "plughw:1,0" );
-	unsigned int rate = config->integer( conf_obj + ".sample_rate", 44100 );
-	unsigned int channels = config->integer( conf_obj + ".channels", 1 );
+	string device = config->String( conf_obj + ".device", "plughw:1,0" );
+	unsigned int rate = config->Integer( conf_obj + ".sample_rate", 44100 );
+	unsigned int channels = config->Integer( conf_obj + ".channels", 1 );
 	snd_pcm_hw_params_t* hw_params;
 
 	if ( ( err = snd_pcm_open( &mPCM, device.c_str(), SND_PCM_STREAM_CAPTURE, 0 ) ) < 0 ) {
@@ -176,6 +176,7 @@ bool AlsaMic::LiveThreadRun()
 		}
 	} else {
 		printf( "snd_pcm_readi error %ld\n", size / 2 );
+		gDebug() << "snd_pcm_readi error : " << ( size / 2 ) << "\n";
 		if ( size / 2 == -EPIPE ) {
 			snd_pcm_recover( mPCM, (int)size / 2, 0 );
 		} else {
@@ -203,11 +204,11 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 
 	if ( !mRecordStream ) {
 		char filename[256];
-		std::string file = Main::instance()->camera()->recordFilename();
+		string file = Main::instance()->camera()->recordFilename();
 		if ( file == "" ) {
 			return 0;
 		}
-		uint32_t fileid = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
+		uint32_t fileid = atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
 		sprintf( filename, "/var/VIDEO/audio_44100hz_1ch_%06u.mp3", fileid );
 		mRecordStream = fopen( filename, "wb" );
 	}

@@ -29,6 +29,7 @@
 #include "Thread.h"
 #include "BlackBox.h"
 #include "VideoEditor.h"
+#include "Qsci/qsciscintilla.h"
 
 namespace Ui {
 	class MainWindow;

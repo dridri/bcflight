@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <vector>
 
+using namespace std;
+
 class PWM
 {
 public:
@@ -71,6 +73,7 @@ private:
 		uint32_t periph_phys_base;
 		uint32_t mem_flag;
 
+		volatile uint32_t *pcm_reg;
 		volatile uint32_t *pwm_reg;
 		volatile uint32_t *clk_reg;
 		volatile uint32_t *dma_virt_base; /* base address of all PWM Channels */
@@ -117,7 +120,7 @@ private:
 	Channel* mChannel;
 	uint8_t mPin;
 
-	static std::vector< Channel* > mChannels;
+	static vector< Channel* > mChannels;
 	static bool mSigHandlerOk;
 
 };

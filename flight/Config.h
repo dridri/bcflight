@@ -23,8 +23,10 @@
 #include <vector>
 #include <map>
 
+using namespace STD;
+
 extern "C" {
-#include <luajit.h>
+// #include <luajit.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -33,39 +35,39 @@ extern "C" {
 class Config
 {
 public:
-	Config( const std::string& filename, const std::string& settings_filename = "" );
+	Config( const string& filename, const string& settings_filename = "" );
 	~Config();
 
 	void Reload();
 	void Apply();
 	void Save();
-	void Execute( const std::string& code );
+	void Execute( const string& code );
 
-	std::string string( const std::string& name, const std::string& def = "" );
-	int integer( const std::string& name, int def = 0 );
-	float number( const std::string& name, float def = 0.0f );
-	bool boolean( const std::string& name, bool def = false );
+	string String( const string& name, const string& def = "" );
+	int Integer( const string& name, int def = 0 );
+	float Number( const string& name, float def = 0.0f );
+	bool Boolean( const string& name, bool def = false );
 
-	std::vector<int> integerArray( const std::string& name );
+	vector<int> IntegerArray( const string& name );
 
-	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
-	int ArrayLength( const std::string& name );
+	string DumpVariable( const string& name, int index = -1, int indent = 0 );
+	int ArrayLength( const string& name );
 
-	void setBoolean( const std::string& name, const bool v );
-	void setInteger( const std::string& name, const int v );
-	void setNumber( const std::string& name, const float v );
-	void setString( const std::string& name, const std::string& v );
+	void setBoolean( const string& name, const bool v );
+	void setInteger( const string& name, const int v );
+	void setNumber( const string& name, const float v );
+	void setString( const string& name, const string& v );
 
-	std::string ReadFile();
-	void WriteFile( const std::string& content );
+	string ReadFile();
+	void WriteFile( const string& content );
 
 protected:
-	int LocateValue( const std::string& name );
+	int LocateValue( const string& name );
 
-	std::string mFilename;
-	std::string mSettingsFilename;
+	string mFilename;
+	string mSettingsFilename;
 	lua_State* L;
-	std::map< std::string, std::string > mSettings;
+	map< string, string > mSettings;
 };
 
 #endif // CONFIG_H

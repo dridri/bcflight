@@ -66,13 +66,13 @@ public:
 	void Disarm();
 	void ResetBattery();
 	void setFullTelemetry( bool fullt );
-	std::string getBoardInfos();
-	std::string getSensorsInfos();
-	std::string debugOutput();
-	std::vector< std::string > recordingsList();
+	string getBoardInfos();
+	string getSensorsInfos();
+	string debugOutput();
+	vector< string > recordingsList();
 
-	std::string getConfigFile();
-	void setConfigFile( const std::string& content );
+	string getConfigFile();
+	void setConfigFile( const string& content );
 	void UploadUpdateInit();
 	void UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t size );
 	void UploadUpdateProcess( const uint8_t* buf, uint32_t size );
@@ -94,9 +94,9 @@ public:
 	void VideoContrastDecrease();
 	void VideoSaturationIncrease();
 	void VideoSaturationDecrease();
-	std::string VideoWhiteBalance();
-	std::string VideoLockWhiteBalance();
-	std::string VideoExposureMode();
+	string VideoWhiteBalance();
+	string VideoLockWhiteBalance();
+	string VideoExposureMode();
 	int32_t VideoGetIso();
 	uint32_t VideoGetShutterSpeed();
 	void VideoIsoIncrease();
@@ -131,9 +131,9 @@ public:
 	DECL_RO_VAR( int32_t, DroneRxLevel, droneRxLevel );
 	DECL_RW_VAR( bool, NightMode, nightMode );
 	DECL_RO_VAR( uint32_t, StabilizerFrequency, stabilizerFrequency );
-	DECL_RO_VAR( std::vector<float>, MotorsSpeed, motorsSpeed );
+	DECL_RO_VAR( vector<float>, MotorsSpeed, motorsSpeed );
 
-	DECL_RO_VAR( std::string, Username, username );
+	DECL_RO_VAR( string, Username, username );
 
 	void MotorTest(uint32_t id);
 	
@@ -141,12 +141,12 @@ public:
 	DECL_RO_VAR( bool, CameraMissing, cameraMissing );
 
 	float acceleration() const;
-	std::list< vec4 > rpyHistory();
-	std::list< vec4 > ratesHistory();
-	std::list< vec4 > accelerationHistory();
-	std::list< vec4 > magnetometerHistory();
-	std::list< vec3 > outerPidHistory();
-	std::list< float > altitudeHistory();
+	list< vec4 > rpyHistory();
+	list< vec4 > ratesHistory();
+	list< vec4 > accelerationHistory();
+	list< vec4 > magnetometerHistory();
+	list< vec3 > outerPidHistory();
+	list< float > altitudeHistory();
 
 	float localBatteryVoltage() const;
 	virtual uint16_t rawThrust() { return 0; }
@@ -157,6 +157,7 @@ public:
 	virtual void SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
 	virtual void SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
 	virtual void SaveRollCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
+	virtual bool SimulatorMode( bool enabled ) { return false; }
 
 protected:
 	virtual float ReadThrust() { return 0.0f; }
@@ -171,7 +172,7 @@ protected:
 	uint32_t mUpdateFrequency;
 	bool mSpectate;
 	Packet mTxFrame;
-	std::mutex mXferMutex;
+	mutex mXferMutex;
 	uint64_t mTickBase;
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
@@ -184,18 +185,18 @@ protected:
 	Controls mControls;
 
 	HookThread<Controller>* mRxThread;
-	std::string mBoardInfos;
-	std::string mSensorsInfos;
-	std::string mConfigFile;
-	std::string mRecordingsList;
+	string mBoardInfos;
+	string mSensorsInfos;
+	string mConfigFile;
+	string mRecordingsList;
 	bool mUpdateUploadValid;
 	bool mConfigUploadValid;
 
 	uint32_t mTicks;
 	uint32_t mSwitches[8];
 	bool mVideoRecording;
-	std::string mVideoWhiteBalance;
-	std::string mVideoExposureMode;
+	string mVideoWhiteBalance;
+	string mVideoExposureMode;
 	int32_t mVideoIso;
 	int32_t mVideoShutterSpeed;
 	CameraLensShaderColor mCameraLensShaderR;
@@ -203,17 +204,17 @@ protected:
 	CameraLensShaderColor mCameraLensShaderB;
 
 	float mAcceleration;
-	std::list< vec4 > mRPYHistory;
-	std::list< vec4 > mRatesHistory;
-	std::list< vec4 > mAccelerationHistory;
-	std::list< vec4 > mMagnetometerHistory;
-	std::list< vec3 > mOuterPIDHistory;
-	std::list< float > mAltitudeHistory;
-	std::mutex mHistoryMutex;
+	list< vec4 > mRPYHistory;
+	list< vec4 > mRatesHistory;
+	list< vec4 > mAccelerationHistory;
+	list< vec4 > mMagnetometerHistory;
+	list< vec3 > mOuterPIDHistory;
+	list< float > mAltitudeHistory;
+	mutex mHistoryMutex;
 
 	float mLocalBatteryVoltage;
-	std::string mDebug;
-	std::mutex mDebugMutex;
+	string mDebug;
+	mutex mDebugMutex;
 };
 
 #endif // CONTROLLER_H

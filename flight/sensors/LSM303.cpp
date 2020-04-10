@@ -39,13 +39,13 @@ int LSM303::flight_register( Main* main )
 }
 
 
-Sensor* LSM303Mag::Instanciate( Config* config, const std::string& object )
+Sensor* LSM303Mag::Instanciate( Config* config, const string& object )
 {
 	return new LSM303Mag();
 }
 
 
-Sensor* LSM303Accel::Instanciate( Config* config, const std::string& object )
+Sensor* LSM303Accel::Instanciate( Config* config, const string& object )
 {
 	return new LSM303Accel();
 }
@@ -105,9 +105,9 @@ void LSM303Accel::Calibrate( float dt, bool last_pass )
 		mCalibrated = true;
 		gDebug() << "LSM303 SAVING CALIBRATED OFFSETS !\n";
 		aDebug( "Offset", mOffset.x, mOffset.y, mOffset.z );
-		Board::SaveRegister( "LSM303:Accelerometer:Offset:X", std::to_string( mOffset.x ) );
-		Board::SaveRegister( "LSM303:Accelerometer:Offset:Y", std::to_string( mOffset.y ) );
-		Board::SaveRegister( "LSM303:Accelerometer:Offset:Z", std::to_string( mOffset.z ) );
+		Board::SaveRegister( "LSM303:Accelerometer:Offset:X", to_string( mOffset.x ) );
+		Board::SaveRegister( "LSM303:Accelerometer:Offset:Y", to_string( mOffset.y ) );
+		Board::SaveRegister( "LSM303:Accelerometer:Offset:Z", to_string( mOffset.z ) );
 	}
 }
 

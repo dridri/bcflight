@@ -24,6 +24,8 @@
 #include <string>
 #include <map>
 
+using namespace STD;
+
 class Main;
 
 class Board
@@ -41,7 +43,7 @@ public:
 	Board( Main* main );
 	~Board();
 
-	static std::string infos();
+	static string infos();
 
 	static void InformLoading( int force_led = -1 );
 	static void LoadingDone();
@@ -49,15 +51,15 @@ public:
 	static void setLocalTimestamp( uint32_t t );
 	static Date localDate();
 
-	static const std::string LoadRegister( const std::string& name );
-	static const uint32_t LoadRegisterU32( const std::string& name, uint32_t def = 0 );
-	static const float LoadRegisterFloat( const std::string& name, float def = 0.0f );
-	static int SaveRegister( const std::string& name, const std::string& value );
+	static const string LoadRegister( const string& name );
+	static const uint32_t LoadRegisterU32( const string& name, uint32_t def = 0 );
+	static const float LoadRegisterFloat( const string& name, float def = 0.0f );
+	static int SaveRegister( const string& name, const string& value );
 
 	static uint64_t GetTicks();
 	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias = -500 );
 
-	static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" );
+	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
 
@@ -69,7 +71,7 @@ public:
 
 private:
 	static uint64_t mTicksBase;
-	static std::map< std::string, std::string > mRegisters;
+	static map< string, string > mRegisters;
 };
 
 #endif // BOARD_H

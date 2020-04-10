@@ -1,3 +1,5 @@
+#if ( BUILD_HUD == 1 )
+
 #include <Main.h>
 #include <RendererHUDNeo.h>
 #include "Camera.h"
@@ -5,17 +7,20 @@
 #include <Stabilizer.h>
 #include <IMU.h>
 #include <Link.h>
+#include <Config.h>
 
-HUD::HUD( const std::string& type )
+HUD::HUD( const string& type )
 	: Thread( "HUD" )
 	, mGLContext( nullptr )
 	, mRendererHUD( nullptr )
 	, mNightMode( false )
 	, mWaitTicks( 0 )
 	, mShowFrequency( false )
+	, mAccelerationAccum( 0.0f )
 {
-	mShowFrequency = Main::instance()->config()->boolean( "hud.show_frequency", false );
-	mHUDFramerate = Main::instance()->config()->integer( "hud.framerate", 60 );
+	mShowFrequency = Main::instance()->config()->Boolean( "hud.show_frequency", false );
+	mHUDFramerate = Main::instance()->config()->Integer( "hud.framerate", 60 );
+	setFrequency( mHUDFramerate );
 	Start();
 }
 
@@ -38,18 +43,18 @@ bool HUD::run()
 		mGLContext->Initialize( 1280, 720 );
 		mWidth = mGLContext->displayWidth();
 		mHeight = mGLContext->displayHeight();
-		mFrameRate = std::min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
+		mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
 		if ( camera ) {
-// 			mWidth = std::min( mWidth, camera->width() );
-// 			mHeight = std::min( mHeight, camera->height() );
+// 			mWidth = min( mWidth, camera->width() );
+// 			mHeight = min( mHeight, camera->height() );
 		}
 	}
 	if ( mRendererHUD == nullptr ) {
 		Config* config = Main::instance()->config();
-		Vector4i render_region = Vector4i( config->integer( "hud.top", 10 ), config->integer( "hud.bottom", 10 ), config->integer( "hud.left", 20 ), config->integer( "hud.right", 20 ) );
-		mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), config->number( "hud.ratio", 1.0f ), config->integer( "hud.font_size", 60 ), render_region, config->boolean( "hud.correction", false ) );
-		mRendererHUD->setStereo( config->boolean( "hud.stereo", false ) );
-		mRendererHUD->set3DStrength( config->number( "hud.stereo_strength", 0.004f ) );
+		Vector4i render_region = Vector4i( config->Integer( "hud.top", 10 ), config->Integer( "hud.bottom", 10 ), config->Integer( "hud.left", 20 ), config->Integer( "hud.right", 20 ) );
+		mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), config->Number( "hud.ratio", 1.0f ), config->Integer( "hud.font_size", 60 ), render_region, config->Boolean( "hud.correction", false ) );
+		mRendererHUD->setStereo( config->Boolean( "hud.stereo", false ) );
+		mRendererHUD->set3DStrength( config->Number( "hud.stereo_strength", 0.004f ) );
 		mRendererHUD->setStereo( false );
 		mRendererHUD->set3DStrength( 0.0f );
 	}
@@ -57,14 +62,14 @@ bool HUD::run()
 	if ( camera and camera->nightMode() != mNightMode ) {
 		mNightMode = camera->nightMode();
 		mRendererHUD->setNightMode( mNightMode );
-		mFrameRate = std::min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
+		mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
 	}
 
 	glClear( GL_COLOR_BUFFER_BIT );
 
 	DroneStats dronestats;
 	LinkStats linkStats;
-	memset( &dronestats, 0, sizeof(dronestats) - sizeof(std::string) - sizeof(std::vector<std::string>) );
+	memset( &dronestats, 0, sizeof(dronestats) - sizeof(string) - sizeof(vector<string>) );
 	memset( &linkStats, 0, sizeof(linkStats) );
 
 	dronestats.username = Main::instance()->username();
@@ -77,7 +82,8 @@ bool HUD::run()
 		dronestats.thrust = controller->thrust();
 	}
 	if ( imu ) {
-		dronestats.acceleration = imu->acceleration().length();
+		mAccelerationAccum = ( mAccelerationAccum * 0.95f + imu->acceleration().length() * 0.05f );
+		dronestats.acceleration = mAccelerationAccum;
 		dronestats.rpy = imu->RPY();
 	}
 	if ( powerThread ) {
@@ -101,6 +107,7 @@ bool HUD::run()
 	if ( camera ) {
 		strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
 		strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
+		video_stats.photo_id = camera->getLastPictureID();
 	}
 
 	mRendererHUD->PreRender();
@@ -116,7 +123,8 @@ bool HUD::run()
 		mRendererHUD->RenderText( 1280 * 0.5, 100, txt, 0xFFFFFFFF, 4.0f, true );
 	}
 
-	mGLContext->SwapBuffers();
-	mWaitTicks = Board::WaitTick( 1000 * 1000 / mHUDFramerate, mWaitTicks );
+// 	mGLContext->SwapBuffers();
 	return true;
 }
+
+#endif // ( BUILD_HUD == 1 )

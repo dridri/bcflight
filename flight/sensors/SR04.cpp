@@ -20,6 +20,7 @@
 #include <Debug.h>
 #include <GPIO.h>
 #include "SR04.h"
+#include "Config.h"
 
 
 int SR04::flight_register( Main* main )
@@ -33,9 +34,9 @@ int SR04::flight_register( Main* main )
 }
 
 
-Sensor* SR04::Instanciate( Config* config, const std::string& object )
+Sensor* SR04::Instanciate( Config* config, const string& object )
 {
-	SR04* sr04 = new SR04( config->integer( object + ".gpio_trigger" ), config->integer( object + ".gpio_echo" ) );
+	SR04* sr04 = new SR04( config->Integer( object + ".gpio_trigger" ), config->Integer( object + ".gpio_echo" ) );
 
 	return sr04;
 }
@@ -94,7 +95,7 @@ void SR04::Read( float* altitude )
 }
 
 
-std::string SR04::infos()
+string SR04::infos()
 {
 	return "";
 }

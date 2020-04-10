@@ -592,7 +592,7 @@ bool RF24::begin(void)
 	  }
     #endif
 	
-    _SPI.begin( "/dev/spidev0." + std::to_string(csn_pin) );
+    _SPI.begin( "/dev/spidev0." + to_string(csn_pin) );
 
 	pinMode(ce_pin,OUTPUT);
 	ce(LOW);    

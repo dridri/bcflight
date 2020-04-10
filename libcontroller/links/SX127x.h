@@ -33,6 +33,7 @@ public:
 		int32_t readTimeout;
 		int32_t bitrate;
 		int32_t bandwidth;
+		int32_t bandwidthAfc;
 		int32_t fdev;
 	} Config;
 
@@ -59,6 +60,7 @@ protected:
 		uint8_t block_id;
 		uint8_t packet_id;
 		uint8_t packets_count;
+		uint8_t crc;
 	} Header;
 
 	typedef struct RxConfig_t
@@ -120,6 +122,7 @@ protected:
 	int32_t mReadTimeout;
 	uint32_t mBitrate;
 	uint32_t mBandwidth;
+	uint32_t mBandwidthAfc;
 	uint32_t mFdev;
 	std::atomic_bool mSending;
 	std::atomic_bool mSendingEnd;
@@ -133,6 +136,9 @@ protected:
 	int32_t mPerfLastRxBlock;
 	int32_t mPerfValidBlocks;
 	int32_t mPerfInvalidBlocks;
+	int32_t mPerfBlocksPerSecond;
+	int32_t mPerfMaxBlocksPerSecond;
+	std::list< uint64_t > mPerfHistory; // [ticks]ValidBlocks
 
 	// TX
 	uint8_t mTXBlockID;

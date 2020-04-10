@@ -21,16 +21,17 @@
 #include <mutex>
 #include "Link.h"
 
+class Main;
+
 #if ( BUILD_RAWWIFI == 1 )
 
 #include <list>
 #include "../../librawwifi/rawwifi.h"
-class Main;
 
 class RawWifi : public Link
 {
 public:
-	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1, int read_timeout_ms = -1, bool blocking = true, bool drop_invalid_packets = false );
+	RawWifi( const string& device, int16_t out_port, int16_t in_port = -1, int read_timeout_ms = -1, bool blocking = true, bool drop_invalid_packets = false );
 	~RawWifi();
 
 	int Connect();
@@ -38,8 +39,8 @@ public:
 	void SetChannel( int chan );
 	void SetTxPower( int dBm );
 	int setBlocking( bool blocking );
-	void setCECMode( const std::string& mode );
-	void setBlockRecoverMode( const std::string& mode );
+	void setCECMode( const string& mode );
+	void setBlockRecoverMode( const string& mode );
 	void setRetriesCount( int retries );
 	void setMaxBlockSize( int max );
 	void setTXFlags( RAWWIFI_BLOCK_FLAGS flags );
@@ -53,17 +54,17 @@ public:
 	int retriesCount() const { return mRetries; }
 	virtual uint32_t fullReadSpeed();
 
-	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
 
 	static int flight_register( Main* main );
 
 protected:
-	static void Initialize( const std::string& device, uint32_t channel, uint32_t txpower );
-	static Link* Instanciate( Config* config, const std::string& lua_object );
+	static void Initialize( const string& device, uint32_t channel, uint32_t txpower );
+	static Link* Instanciate( Config* config, const string& lua_object );
 
 	rawwifi_t* mRawWifi;
-	std::string mDevice;
+	string mDevice;
 	int mReadTimeout;
 	int mMaxBlockSize;
 	int mChannel;
@@ -75,20 +76,18 @@ protected:
 	uint32_t mRetries;
 	RAWWIFI_BLOCK_FLAGS mSendFlags;
 
-	static std::mutex mInitializingMutex;
+	static mutex mInitializingMutex;
 	static bool mInitializing;
-	static std::list<std::string> mInitialized;
-	static std::map<std::string, std::list<int16_t> > mUsedPorts;
+	static list<string> mInitialized;
+	static map<string, list<int16_t> > mUsedPorts;
 };
+
 
 #else
 
-class RawWifi : public Link
-{
+class RawWifi {
 public:
-	RawWifi( const std::string& device, int16_t out_port, int16_t in_port = -1 ) {}
-	~RawWifi() {}
-	static int flight_register( Main* main ){ return 0; }
+	static int flight_register( Main* main ) { return 0; }
 };
 
 #endif // ( BUILD_RAWWIFI == 1 )

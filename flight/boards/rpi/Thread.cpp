@@ -23,23 +23,13 @@
 #include "Board.h"
 #include "Debug.h"
 
-std::list< Thread* > Thread::mThreads;
 
-Thread::Thread( const std::string& name )
-	: mName( name )
-	, mRunning( false )
-	, mStopped( false )
-	, mIsRunning( false )
-	, mFinished( false )
-	, mPriority( 0 )
-	, mSetPriority( 0 )
-	, mAffinity( -1 )
-	, mSetAffinity( -1 )
+Thread::Thread( const string& name )
+	: ThreadBase( name )
 {
-	mThreads.emplace_back( this );
-	gDebug() << "New thread : \"" << name << "\"\n";
 	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
 	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
+	mID = mThread;
 }
 
 
@@ -48,93 +38,47 @@ Thread::~Thread()
 }
 
 
-const std::string& Thread::name() const
-{
-	return mName;
-}
-
-
 Thread* Thread::currentThread()
 {
-	for ( Thread* th : mThreads ) {
-		if ( th->mThread == pthread_self() ) {
-			return th;
+	for ( ThreadBase* th : threads() ) {
+		if ( static_cast<Thread*>(th)->mThread == pthread_self() ) {
+			return static_cast<Thread*>(th);
 		}
 	}
 	return nullptr;
 }
 
 
-void Thread::StopAll()
-{
-	std::cerr << "Stopping all threads !\n";
-	for ( Thread* thread : mThreads ) {
-		if ( not thread->mStopped ) {
-			std::cerr << "Stopping thread \"" << thread->mName << "\"\n";
-			thread->Stop();
-			thread->Join();
-		}
-	}
-	std::cerr << "Stopped all threads !\n";
-}
-
-
-uint64_t Thread::GetTick()
-{
-	return Board::GetTicks();
-}
-
-
-float Thread::GetSeconds()
-{
-	return (float)( GetTick() / 1000 ) / 1000.0f;
-}
-
-
-void Thread::Start()
-{
-	mRunning = true;
-}
-
-
-void Thread::Pause()
-{
-	mRunning = false;
-}
-
-
-void Thread::Stop()
-{
-	mStopped = true;
-}
-
-
 void Thread::Join()
 {
+	uint64_t start_time = Board::GetTicks();
+
 	while ( !mFinished ) {
+		if ( Board::GetTicks() - start_time > 1000 * 1000 * 2 ) {
+			gDebug() << "thread \"" << mName << "\" join timeout (2s), force killing\n";
+			pthread_cancel( mThread );
+			break;
+		}
 		usleep( 1000 * 10 );
 	}
 }
 
 
-bool Thread::running()
+void Thread::Recover()
 {
-	return mIsRunning;
-}
+	gDebug() << "\e[93mRecovering thread \"" << mName << "\"\e[0m\n";
+	mRunning = false;
+	mStopped = false;
+	mIsRunning = false;
+	mFinished = false;
+	mPriority = 0;
+	mAffinity = -1;
 
+	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+	pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
+	mID = mThread;
 
-void Thread::setMainPriority( int p )
-{
-	piHiPri( p );
-}
-
-
-void Thread::setPriority( int p, int affinity )
-{
-	mSetPriority = p;
-	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
-		mSetAffinity = affinity;
-	}
+	mRunning = true;
 }
 
 
@@ -158,6 +102,9 @@ void Thread::ThreadEntry()
 				CPU_SET( mAffinity, &cpuset );
 				pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
 			}
+		}
+		if ( mFrequency > 0 ) {
+			mFrequencyTick = Board::WaitTick( 1000000 / mFrequency, mFrequencyTick );
 		}
 	} while ( not mStopped and run() );
 	mIsRunning = false;

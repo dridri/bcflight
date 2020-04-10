@@ -13,55 +13,35 @@
 
 SET(QSCINTILLA_FOUND FALSE)
 
-IF(QT4_FOUND)
-    # macosx specific tests for frameworks and include paths
-#    set (FRAMEWORK_INCLUDE_DIR "")
-#    if (APPLE)
-        # HACK to fixup macosx issue with QT_INCLUDE_DIR:
-        # QT_INCLUDE_DIR /opt/local/libexec/qt4-mac/include;/opt/local/libexec/qt4-mac/lib/QtCore.framework
-        # it should be only:
-        # QT_INCLUDE_DIR /opt/local/libexec/qt4-mac/include
-#        list(LENGTH QT_INCLUDE_DIR QT_INCLUDE_DIR_LENGTH)
-#        if (QT_INCLUDE_DIR_LENGTH)
-#            list(GET QT_INCLUDE_DIR 0 FRAMEWORK_INCLUDE_DIR) 
-#        endif (QT_INCLUDE_DIR_LENGTH)
-#    endif (APPLE)
+FOREACH(TOP_INCLUDE_PATH ${Qt5Widgets_INCLUDE_DIRS} ${FRAMEWORK_INCLUDE_DIR})
+	FIND_PATH(QSCINTILLA_INCLUDE_DIR qsciglobal.h ${TOP_INCLUDE_PATH}/Qsci)
+
+	IF(QSCINTILLA_INCLUDE_DIR)
+		BREAK()
+	ENDIF()
+ENDFOREACH()
+
+GET_TARGET_PROPERTY(QT5_WIDGETSLIBRARY Qt5::Widgets LOCATION)
+GET_FILENAME_COMPONENT(QT5_WIDGETSLIBRARYPATH ${QT5_WIDGETSLIBRARY} PATH)
 
 
-    FIND_PATH(QSCINTILLA_INCLUDE_DIR qsciglobal.h
-                # standard locations
-                /usr/include
-                /usr/include/Qsci
-                /usr/include/qt4/Qsci
-                # qt4 location except mac's frameworks
-                "${QT_INCLUDE_DIR}/Qsci"
-                # mac's frameworks
-                ${FRAMEWORK_INCLUDE_DIR}/Qsci
-    )
+set(QSCINTILLA_LIBRARY_NAMES
+    qscintilla2-qt5
+    qscintilla2_qt5
+    libqt5scintilla2
+    libqscintilla2-qt5
+    qt5scintilla2
+    libqscintilla2-qt5.dylib
+    qscintilla2
+)
 
-    SET(QSCINTILLA_NAMES ${QSCINTILLA_NAMES} qscintilla2 libqscintilla2)
-    FIND_LIBRARY(QSCINTILLA_LIBRARY
-        NAMES ${QSCINTILLA_NAMES}
-        PATHS ${QT_LIBRARY_DIR}
-    )
-ELSEIF(Qt5Widgets_FOUND)
-    FOREACH(TOP_INCLUDE_PATH ${Qt5Widgets_INCLUDE_DIRS} ${FRAMEWORK_INCLUDE_DIR})
-        FIND_PATH(QSCINTILLA_INCLUDE_DIR qsciglobal.h ${TOP_INCLUDE_PATH}/Qsci)
-
-        IF(QSCINTILLA_INCLUDE_DIR)
-            BREAK()
-        ENDIF()
-    ENDFOREACH()
-
-    SET(QSCINTILLA_NAMES ${QSCINTILLA_NAMES} qt5scintilla2 libqt5scintilla2 libqscintilla2-qt5 qscintilla2-qt5)
-    GET_TARGET_PROPERTY(QT5_WIDGETSLIBRARY Qt5::Widgets LOCATION)
-    GET_FILENAME_COMPONENT(QT5_WIDGETSLIBRARYPATH ${QT5_WIDGETSLIBRARY} PATH)
-
-    FIND_LIBRARY(QSCINTILLA_LIBRARY
-        NAMES ${QSCINTILLA_NAMES}
-        PATHS ${QT5_WIDGETSLIBRARYPATH}
-    )
-ENDIF()
+FIND_LIBRARY(QSCINTILLA_LIBRARY
+	NAMES ${QSCINTILLA_LIBRARY_NAMES}
+	PATHS ${QT5_WIDGETSLIBRARYPATH}
+		/usr/local/lib
+		/usr/local/lib/qt5
+		/usr/lib
+)
 
 IF (QSCINTILLA_LIBRARY AND QSCINTILLA_INCLUDE_DIR)
     SET(QSCINTILLA_LIBRARIES ${QSCINTILLA_LIBRARY})

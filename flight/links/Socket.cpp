@@ -55,11 +55,11 @@ int Socket::flight_register( Main* main )
 }
 
 
-Link* Socket::Instanciate( Config* config, const std::string& lua_object )
+Link* Socket::Instanciate( Config* config, const string& lua_object )
 {
 	PortType type = UDPLite; // Default to UDPLite
 
-	std::string stype = config->string( lua_object + ".type" );
+	string stype = config->String( lua_object + ".type" );
 	if ( stype == "TCP" ) {
 		type = TCP;
 	} else if ( stype == "UDP" ) {
@@ -70,9 +70,9 @@ Link* Socket::Instanciate( Config* config, const std::string& lua_object )
 		gDebug() << "FATAL ERROR : Unsupported Socket type \"" << stype << "\" !\n";
 	}
 
-	int port = config->integer( lua_object + ".port" );
-	bool broadcast = config->boolean( lua_object + ".broadcast" );
-	uint32_t timeout = config->integer( lua_object + ".read_timeout" );
+	int port = config->Integer( lua_object + ".port" );
+	bool broadcast = config->Boolean( lua_object + ".broadcast" );
+	uint32_t timeout = config->Integer( lua_object + ".read_timeout" );
 
 	return new Socket( port, type, broadcast, timeout );
 }
@@ -239,6 +239,7 @@ int Socket::Connect()
 		}
 	} else if ( mPortType == UDP or mPortType == UDPLite ) {
 		if ( not mBroadcast ) {
+			mClientSin.sin_family = AF_UNSPEC;
 			/*
 			uint32_t flag = 0;
 			uint32_t fromsize = sizeof( mClientSin );
@@ -264,7 +265,7 @@ int Socket::Connect()
 }
 
 
-int Socket::Read( void* buf, uint32_t len, int timeout )
+SyncReturn Socket::Read( void* buf, uint32_t len, int timeout )
 {
 	if ( !mConnected ) {
 		return -1;
@@ -295,7 +296,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 
 	if ( ret <= 0 ) {
 		if ( ( Board::GetTicks() - timebase >= timeout * 1000ULL ) or errno == 11 ) {
-			return LINK_ERROR_TIMEOUT;
+			return TIMEOUT;
 		}
 		gDebug() << "UDP disconnected ( " << ret << " : " << errno << ", " << strerror( errno ) << " )\n";
 		mConnected = false;
@@ -306,7 +307,7 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 }
 
 
-int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
+SyncReturn Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 {
 	if ( !mConnected ) {
 		return -1;
@@ -320,10 +321,13 @@ int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 			mClientSin.sin_port = htons( mPort );
 			mClientSin.sin_addr.s_addr = inet_addr( "192.168.32.255" );
 		}
+		if ( mClientSin.sin_family == AF_UNSPEC ) {
+			return 0;
+		}
 		uint32_t sendsize = sizeof( mClientSin );
 		ret = sendto( mSocket, buf, len, 0, (SOCKADDR *)&mClientSin, sendsize );
 	} else {
-		ret = send( mClientSocket, buf, len, 0 );
+		ret = send( mClientSocket, buf, len, MSG_NOSIGNAL );
 	}
 
 	if ( ret <= 0 and ( errno == EAGAIN or errno == -EAGAIN ) ) {

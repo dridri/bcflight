@@ -23,6 +23,8 @@
 #include <vector>
 #include <Thread.h>
 
+using namespace STD;
+
 class Main;
 class Sensor;
 
@@ -60,7 +62,7 @@ private:
 	Main* mMain;
 	float mLowVoltageValue;
 	int32_t mLowVoltageBuzzerPin;
-	std::vector< uint32_t > mLowVoltageBuzzerPattern;
+	vector< uint32_t > mLowVoltageBuzzerPattern;
 	uint64_t mLowVoltageTick;
 	uint32_t mLowVoltagePatternCase;
 
@@ -74,7 +76,9 @@ private:
 	float mBatteryLevel;
 	float mBatteryCapacity;
 
-	std::mutex mCapacityMutex;
+#ifdef SYSTEM_NAME_Linux
+	mutex mCapacityMutex;
+#endif
 	BatterySensor mVoltageSensor;
 	BatterySensor mCurrentSensor;
 };

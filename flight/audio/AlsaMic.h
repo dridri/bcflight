@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#if ( defined( BOARD_rpi ) )
-
 #ifndef ALSAMIC_H
 #define ALSAMIC_H
+
+#if ( defined( SYSTEM_NAME_Linux ) )
 
 #include <alsa/asoundlib.h>
 extern "C" {
@@ -35,7 +35,7 @@ class Link;
 class AlsaMic : public Microphone
 {
 public:
-	AlsaMic( Config* config, const std::string& conf_obj );
+	AlsaMic( Config* config, const string& conf_obj );
 	~AlsaMic();
 
 	static int flight_register( Main* main );
@@ -43,7 +43,7 @@ public:
 protected:
 	bool LiveThreadRun();
 	int RecordWrite( char* data, int datalen );
-	static Microphone* Instanciate( Config* config, const std::string& object );
+	static Microphone* Instanciate( Config* config, const string& object );
 
 	Link* mLink;
 	HookThread<AlsaMic>* mLiveThread;
@@ -57,6 +57,13 @@ protected:
 	shine_t mShine;
 };
 
-#endif // ALSAMIC_H
+#else
 
-#endif // BOARD_rpi
+class AlsaMic {
+public:
+	static int flight_register( Main* main ) { return 0; }
+};
+
+#endif // SYSTEM_NAME_Linux
+
+#endif // ALSAMIC_H

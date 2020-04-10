@@ -7,6 +7,7 @@
 #include "ui_calibrate.h"
 #include "ui_camera.h"
 #include "ui_network.h"
+#include "ui_settings.h"
 #include <links/Socket.h>
 #include <links/RawWifi.h>
 
@@ -99,7 +100,12 @@ MainWindow::MainWindow( Controller* controller )
 #endif
 	if ( static_cast<Socket*>(mController->link()) != nullptr ) {
 		uiPageNetwork->btnSocket->setChecked( true );
-	} 
+	}
+
+	uiPageSettings = new Ui::PageSettings;
+	mPageSettings = new QWidget();
+	uiPageSettings->setupUi( mPageSettings );
+	connect( uiPageSettings->simulatorMode, SIGNAL( toggled(bool) ), this, SLOT( SimulatorMode(bool) ) );
 
 	int id = QFontDatabase::addApplicationFont( "data/FreeMonoBold.ttf" );
 	QString family = QFontDatabase::applicationFontFamilies(id).at(0);
@@ -228,10 +234,12 @@ void MainWindow::Home()
 	mPageCalibrate->setVisible( false );
 	mPageCamera->setVisible( false );
 	mPageNetwork->setVisible( false );
+	mPageSettings->setVisible( false );
 	mPageMain->setVisible( true );
 	ui->centralLayout->removeWidget( mPageCalibrate );
 	ui->centralLayout->removeWidget( mPageCamera );
 	ui->centralLayout->removeWidget( mPageNetwork );
+	ui->centralLayout->removeWidget( mPageSettings );
 	ui->centralLayout->addWidget( mPageMain );
 }
 
@@ -247,10 +255,12 @@ void MainWindow::Calibrate()
 	mPageMain->setVisible( false );
 	mPageCamera->setVisible( false );
 	mPageNetwork->setVisible( false );
+	mPageSettings->setVisible( false );
 	mPageCalibrate->setVisible( true );
 	ui->centralLayout->removeWidget( mPageMain );
 	ui->centralLayout->removeWidget( mPageCamera );
 	ui->centralLayout->removeWidget( mPageNetwork );
+	ui->centralLayout->removeWidget( mPageSettings );
 	ui->centralLayout->addWidget( mPageCalibrate );
 	mController->Unlock();
 }
@@ -266,10 +276,12 @@ void MainWindow::Network()
 	mPageMain->setVisible( false );
 	mPageCalibrate->setVisible( false );
 	mPageCamera->setVisible( false );
+	mPageSettings->setVisible( false );
 	mPageNetwork->setVisible( true );
 	ui->centralLayout->removeWidget( mPageMain );
 	ui->centralLayout->removeWidget( mPageCalibrate );
 	ui->centralLayout->removeWidget( mPageCamera );
+	ui->centralLayout->removeWidget( mPageSettings );
 	ui->centralLayout->addWidget( mPageNetwork );
 }
 
@@ -284,10 +296,12 @@ void MainWindow::Camera()
 	mPageMain->setVisible( false );
 	mPageCalibrate->setVisible( false );
 	mPageNetwork->setVisible( false );
+	mPageSettings->setVisible( false );
 	mPageCamera->setVisible( true );
 	ui->centralLayout->removeWidget( mPageMain );
 	ui->centralLayout->removeWidget( mPageCalibrate );
 	ui->centralLayout->removeWidget( mPageNetwork );
+	ui->centralLayout->removeWidget( mPageSettings );
 	ui->centralLayout->addWidget( mPageCamera );
 	if ( mController and mController->isConnected() ) {
 		uiPageCamera->iso->setText( QString::number( mController->VideoGetIso() ) );
@@ -308,10 +322,12 @@ void MainWindow::Settings()
 	mPageCalibrate->setVisible( false );
 	mPageCamera->setVisible( false );
 	mPageNetwork->setVisible( false );
+	mPageSettings->setVisible( true );
 	ui->centralLayout->removeWidget( mPageMain );
 	ui->centralLayout->removeWidget( mPageCalibrate );
 	ui->centralLayout->removeWidget( mPageCamera );
 	ui->centralLayout->removeWidget( mPageNetwork );
+	ui->centralLayout->addWidget( mPageSettings );
 }
 
 
@@ -454,6 +470,12 @@ void MainWindow::VideoShutterSpeedIncrease()
 }
 
 
+void MainWindow::VideoShutterSpeedAuto()
+{
+	// TODO
+}
+
+
 void MainWindow::VideoWhiteBalance()
 {
 	if ( mController and mController->isConnected() ) {
@@ -473,7 +495,7 @@ void MainWindow::VideoLockWhiteBalance()
 void MainWindow::VideoExposureMode()
 {
 	if ( mController and mController->isConnected() ) {
-		uiPageCamera->white_balance->setText( "Exposure mode : \n" + QString::fromStdString(mController->VideoExposureMode()) );
+		uiPageCamera->exposure_mode->setText( "Exposure mode : \n" + QString::fromStdString(mController->VideoExposureMode()) );
 	}
 }
 
@@ -541,5 +563,14 @@ void MainWindow::CameraUpdateLensShader( bool send )
 
 	if ( send ) {
 		mController->setCameraLensShader( mCameraLensShader.r, mCameraLensShader.g, mCameraLensShader.b );
+	}
+}
+
+
+void MainWindow::SimulatorMode( bool enabled )
+{
+	bool ok = mController->SimulatorMode( enabled );
+	if ( not ok and enabled ) {
+		uiPageSettings->simulatorMode->setChecked( ok );
 	}
 }

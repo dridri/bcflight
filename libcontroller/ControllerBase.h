@@ -19,11 +19,13 @@
 #ifndef CONTROLLERBASE_H
 #define CONTROLLERBASE_H
 
-#include <unistd.h>
+#include <sys/unistd.h>
 #include <mutex>
 #include <list>
 #include <map>
 #include <Link.h>
+
+using namespace STD;
 
 class ControllerBase
 {
@@ -79,7 +81,7 @@ protected:
 	} Telemetry;
 
 // Short commands only have 1 byte to define command ID
-#define SHORT_COMMAND 0x80
+#define SHORT_COMMAND 0b10000000
 
 	typedef enum {
 		UNKNOWN = 0,
@@ -94,24 +96,24 @@ protected:
 		ACK_ID = 0x0600,
 
 		// Configure
-		CALIBRATE = 0x71,
-		CALIBRATING = 0x78,
-		SET_TIMESTAMP = 0x72,
-		ARM = 0x73,
-		DISARM = 0x74,
-		RESET_BATTERY = 0x75,
-		CALIBRATE_ESCS = 0x76,
-		SET_FULL_TELEMETRY = 0x77,
-		DEBUG_OUTPUT = 0x7A,
-		GET_BOARD_INFOS = 0x90,
-		GET_SENSORS_INFOS = 0x91,
-		GET_CONFIG_FILE = 0x92,
-		SET_CONFIG_FILE = 0x93,
-		UPDATE_UPLOAD_INIT = 0x9A,
-		UPDATE_UPLOAD_DATA = 0x9B,
-		UPDATE_UPLOAD_PROCESS = 0x9C,
-		ENABLE_TUN_DEVICE = 0x9E,
-		DISABLE_TUN_DEVICE = 0x9F,
+		CALIBRATE = 0x60,
+		CALIBRATING = 0x61,
+		SET_TIMESTAMP = 0x62,
+		ARM = 0x63,
+		DISARM = 0x64,
+		RESET_BATTERY = 0x65,
+		CALIBRATE_ESCS = 0x66,
+		SET_FULL_TELEMETRY = 0x67,
+		DEBUG_OUTPUT = 0x68,
+		GET_BOARD_INFOS = 0x69,
+		GET_SENSORS_INFOS = 0x6A,
+		GET_CONFIG_FILE = 0x6B,
+		SET_CONFIG_FILE = 0x6C,
+		UPDATE_UPLOAD_INIT = 0x6D,
+		UPDATE_UPLOAD_DATA = 0x6E,
+		UPDATE_UPLOAD_PROCESS = 0x6F,
+		ENABLE_TUN_DEVICE = 0x70,
+		DISABLE_TUN_DEVICE = 0x71,
 
 		// Getters
 		PRESSURE = 0x10,
@@ -166,20 +168,15 @@ protected:
 		SET_OUTER_PID_D = 0x5B,
 		SET_HORIZON_OFFSET = 0x5C,
 
-		// Video
+		// Video controls (all are SHORT_COMMAND)
 		VIDEO_PAUSE = 0xA0,
 		VIDEO_RESUME = 0xA1,
 		VIDEO_TAKE_PICTURE = 0xA2,
 		VIDEO_START_RECORD = 0xA3,
 		VIDEO_STOP_RECORD = 0xA4,
-		GET_RECORDINGS_LIST = 0xA5,
-		RECORD_DOWNLOAD = 0xA6,
-		RECORD_DOWNLOAD_INIT = 0xA7,
-		RECORD_DOWNLOAD_DATA = 0xA8,
-		RECORD_DOWNLOAD_PROCESS = 0xA9,
-		VIDEO_NIGHT_MODE = 0xAA,
-		// Video settings
-		VIDEO_BRIGHTNESS_INCR = 0xB1,
+		VIDEO_NIGHT_MODE = 0xA5,
+		// Video settings (all are SHORT_COMMAND)
+		VIDEO_BRIGHTNESS_INCR = 0xB0,
 		VIDEO_BRIGHTNESS_DECR = 0xB2,
 		VIDEO_CONTRAST_INCR = 0xB3,
 		VIDEO_CONTRAST_DECR = 0xB4,
@@ -196,9 +193,15 @@ protected:
 		VIDEO_LOCK_WHITE_BALANCE = 0xC3,
 		VIDEO_LENS_SHADER = 0xC5,
 		VIDEO_SET_LENS_SHADER = 0xC6,
+		// Recordings
+		GET_RECORDINGS_LIST = 0xD0,
+// 		RECORD_DOWNLOAD = 0xD1,
+// 		RECORD_DOWNLOAD_INIT = 0xD2,
+// 		RECORD_DOWNLOAD_DATA = 0xD3,
+// 		RECORD_DOWNLOAD_PROCESS = 0xD4,
 
 		// Testing
-		MOTOR_TEST = 0xD0,
+		MOTOR_TEST = SHORT_COMMAND | 0xE0,
 
 		// User datas - 0x1xxx
 		GET_USERNAME = 0x1001,
@@ -220,7 +223,7 @@ protected:
 	uint16_t mTXAckID;
 	uint16_t mRXAckID;
 
-	static std::map< Cmd, std::string > mCommandsNames;
+	static map< Cmd, string > mCommandsNames;
 };
 
 #endif // CONTROLLERBASE_H

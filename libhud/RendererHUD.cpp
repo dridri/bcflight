@@ -63,6 +63,9 @@ R"(	#define in varying
 
 	void main()
 	{
+		ge_FragColor = color * texture2D( ge_Texture0, ge_TextureCoord.xy );
+		return;
+
 // 		uniform float kernel[9] = float[]( 0, -1, 0, -1, 5, -1, 0, -1, 0 );
 		ge_FragColor = vec4(0.0);
 
@@ -75,7 +78,7 @@ R"(	#define in varying
 // 		ge_FragColor += texture2D( ge_Texture0, ge_TextureCoord.xy );
 
 		ge_FragColor *= color;
-		ge_FragColor.a = 1.0;
+// 		ge_FragColor.a = 1.0;
 
 		ge_FragColor.rgb = vec3(1.0) - exp( -ge_FragColor.rgb * vec3(exposure_value) );
 		ge_FragColor.rgb = pow( ge_FragColor.rgb, vec3( 1.0 / gamma_compensation ) );
@@ -197,8 +200,11 @@ RendererHUD::RendererHUD( int width, int height, float ratio, uint32_t fontsize,
 	, mFontSize( fontsize )
 	, mFontHeight( fontsize * 0.65f )
 	, mTextShader{ 0 }
-	, mWhiteBalance( "" )
+	, mWhiteBalance( "auto" )
+	, mExposureMode( "auto" )
 	, mWhiteBalanceTick( 0.0f )
+	, mLastPhotoID( 0 )
+	, mPhotoTick( 0.0f )
 {
 	mWidth *= ratio;
 	mBorderLeft *= ratio;
@@ -314,10 +320,10 @@ void RendererHUD::PreRender()
 }
 
 
-void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror, bool vmirror )
+void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror, bool vmirror, const Vector4f& color )
 {
 	glUseProgram( mFlatShader.mShader );
-	glUniform4f( mFlatShader.mColorID, 1.0f, 1.0f, 1.0f, 1.0f );
+	glUniform4f( mFlatShader.mColorID, color.x, color.y, color.z, color.w );
 	glUniform1f( mFlatShader.mScaleID, 1.0f );
 	glBindTexture( GL_TEXTURE_2D, textureID );
 

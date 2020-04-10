@@ -26,15 +26,15 @@
 #include "CurrentSensor.h"
 #include <Matrix.h>
 
-std::list< Sensor::Device > Sensor::mKnownDevices;
-std::list< Sensor* > Sensor::mDevices;
-std::list< Gyroscope* > Sensor::mGyroscopes;
-std::list< Accelerometer* > Sensor::mAccelerometers;
-std::list< Magnetometer* > Sensor::mMagnetometers;
-std::list< Altimeter* > Sensor::mAltimeters;
-std::list< GPS* > Sensor::mGPSes;
-std::list< Voltmeter* > Sensor::mVoltmeters;
-std::list< CurrentSensor* > Sensor::mCurrentSensors;
+list< Sensor::Device > Sensor::mKnownDevices;
+list< Sensor* > Sensor::mDevices;
+list< Gyroscope* > Sensor::mGyroscopes;
+list< Accelerometer* > Sensor::mAccelerometers;
+list< Magnetometer* > Sensor::mMagnetometers;
+list< Altimeter* > Sensor::mAltimeters;
+list< GPS* > Sensor::mGPSes;
+list< Voltmeter* > Sensor::mVoltmeters;
+list< CurrentSensor* > Sensor::mCurrentSensors;
 
 Sensor::Sensor()
 	: mCalibrated( false )
@@ -50,7 +50,7 @@ Sensor::~Sensor()
 }
 
 
-const std::list< std::string >& Sensor::names() const
+const list< string >& Sensor::names() const
 {
 	return mNames;
 }
@@ -88,9 +88,9 @@ void Sensor::ApplySwap( Vector3f& v )
 {
 	Vector3f tmp = Vector3f( v.x, v.y, v.z );
 	if ( mSwapMode == SwapModeAxis ) {
-		v[0] = tmp[ std::abs( mAxisSwap[0] ) - 1 ];
-		v[1] = tmp[ std::abs( mAxisSwap[1] ) - 1 ];
-		v[2] = tmp[ std::abs( mAxisSwap[2] ) - 1 ];
+		v[0] = tmp[ abs( mAxisSwap[0] ) - 1 ];
+		v[1] = tmp[ abs( mAxisSwap[1] ) - 1 ];
+		v[2] = tmp[ abs( mAxisSwap[2] ) - 1 ];
 		if ( mAxisSwap[0] < 0 ) {
 			v[0] = -v[0];
 		}
@@ -110,10 +110,10 @@ void Sensor::ApplySwap( Vector4f& v )
 {
 	Vector4f tmp = Vector4f( v.x, v.y, v.z, v.w );
 	if ( mSwapMode == SwapModeAxis ) {
-		v[0] = tmp[ std::abs( mAxisSwap[0] ) - 1 ];
-		v[1] = tmp[ std::abs( mAxisSwap[1] ) - 1 ];
-		v[2] = tmp[ std::abs( mAxisSwap[2] ) - 1 ];
-		v[3] = tmp[ std::abs( mAxisSwap[3] ) - 1 ];
+		v[0] = tmp[ abs( mAxisSwap[0] ) - 1 ];
+		v[1] = tmp[ abs( mAxisSwap[1] ) - 1 ];
+		v[2] = tmp[ abs( mAxisSwap[2] ) - 1 ];
+		v[3] = tmp[ abs( mAxisSwap[3] ) - 1 ];
 		if ( mAxisSwap[0] < 0 ) {
 			v[0] = -v[0];
 		}
@@ -139,7 +139,7 @@ void Sensor::AddDevice( Sensor* sensor )
 }
 
 
-void Sensor::RegisterDevice( int I2Caddr, const std::string& name )
+void Sensor::RegisterDevice( int I2Caddr, const string& name )
 {
 	for ( Device d : mKnownDevices ) {
 		if ( d.iI2CAddr == I2Caddr and ( name == "" or !strcmp( d.name, name.c_str() ) ) ) {
@@ -153,7 +153,7 @@ void Sensor::RegisterDevice( int I2Caddr, const std::string& name )
 }
 
 
-void Sensor::RegisterDevice( const std::string& name, Config* config, const std::string& object )
+void Sensor::RegisterDevice( const string& name, Config* config, const string& object )
 {
 	for ( Device d : mKnownDevices ) {
 		if ( d.iI2CAddr == 0 and !strcmp( d.name, name.c_str() ) ) {
@@ -167,61 +167,61 @@ void Sensor::RegisterDevice( const std::string& name, Config* config, const std:
 }
 
 
-const std::list< Sensor::Device >& Sensor::KnownDevices()
+const list< Sensor::Device >& Sensor::KnownDevices()
 {
 	return mKnownDevices;
 }
 
 
-std::list< Sensor* > Sensor::Devices()
+list< Sensor* > Sensor::Devices()
 {
 	return mDevices;
 }
 
 
-std::list< Gyroscope* > Sensor::Gyroscopes()
+list< Gyroscope* > Sensor::Gyroscopes()
 {
 	return mGyroscopes;
 }
 
 
-std::list< Accelerometer* > Sensor::Accelerometers()
+list< Accelerometer* > Sensor::Accelerometers()
 {
 	return mAccelerometers;
 }
 
 
-std::list< Magnetometer* > Sensor::Magnetometers()
+list< Magnetometer* > Sensor::Magnetometers()
 {
 	return mMagnetometers;
 }
 
 
-std::list< Altimeter* > Sensor::Altimeters()
+list< Altimeter* > Sensor::Altimeters()
 {
 	return mAltimeters;
 }
 
 
-std::list< GPS* > Sensor::GPSes()
+list< GPS* > Sensor::GPSes()
 {
 	return mGPSes;
 }
 
 
-std::list< Voltmeter* > Sensor::Voltmeters()
+list< Voltmeter* > Sensor::Voltmeters()
 {
 	return mVoltmeters;
 }
 
 
-std::list< CurrentSensor* > Sensor::CurrentSensors()
+list< CurrentSensor* > Sensor::CurrentSensors()
 {
 	return mCurrentSensors;
 }
 
 
-Gyroscope* Sensor::gyroscope( const std::string& name )
+Gyroscope* Sensor::gyroscope( const string& name )
 {
 	for ( auto it = mGyroscopes.begin(); it != mGyroscopes.end(); it++ ) {
 		Gyroscope* g = (*it);
@@ -235,7 +235,7 @@ Gyroscope* Sensor::gyroscope( const std::string& name )
 }
 
 
-Accelerometer* Sensor::accelerometer( const std::string& name )
+Accelerometer* Sensor::accelerometer( const string& name )
 {
 	for ( auto it = mAccelerometers.begin(); it != mAccelerometers.end(); it++ ) {
 		Accelerometer* a = (*it);
@@ -249,7 +249,7 @@ Accelerometer* Sensor::accelerometer( const std::string& name )
 }
 
 
-Magnetometer* Sensor::magnetometer( const std::string& name )
+Magnetometer* Sensor::magnetometer( const string& name )
 {
 	for ( auto it = mMagnetometers.begin(); it != mMagnetometers.end(); it++ ) {
 		Magnetometer* m = (*it);
@@ -263,7 +263,7 @@ Magnetometer* Sensor::magnetometer( const std::string& name )
 }
 
 
-GPS* Sensor::gps( const std::string& name )
+GPS* Sensor::gps( const string& name )
 {
 	for ( auto it = mGPSes.begin(); it != mGPSes.end(); it++ ) {
 		GPS* g = (*it);
@@ -277,7 +277,7 @@ GPS* Sensor::gps( const std::string& name )
 }
 
 
-Altimeter* Sensor::altimeter( const std::string& name )
+Altimeter* Sensor::altimeter( const string& name )
 {
 	for ( auto it = mAltimeters.begin(); it != mAltimeters.end(); it++ ) {
 		Altimeter* a = (*it);
@@ -291,7 +291,7 @@ Altimeter* Sensor::altimeter( const std::string& name )
 }
 
 
-Voltmeter* Sensor::voltmeter( const std::string& name )
+Voltmeter* Sensor::voltmeter( const string& name )
 {
 	for ( auto it = mVoltmeters.begin(); it != mVoltmeters.end(); it++ ) {
 		Voltmeter* v = (*it);
@@ -305,7 +305,7 @@ Voltmeter* Sensor::voltmeter( const std::string& name )
 }
 
 
-CurrentSensor* Sensor::currentSensor( const std::string& name )
+CurrentSensor* Sensor::currentSensor( const string& name )
 {
 	for ( auto it = mCurrentSensors.begin(); it != mCurrentSensors.end(); it++ ) {
 		CurrentSensor* c = (*it);
@@ -380,9 +380,9 @@ void Sensor::UpdateDevices()
 }
 
 
-std::string Sensor::infosAll()
+string Sensor::infosAll()
 {
-	std::stringstream ss;
+	stringstream ss;
 	ss << "Sensors = {\n";
 
 	ss << "\tGyroscopes = {\n";

@@ -23,6 +23,10 @@
 #include <Link.h>
 #include "../../ADCs/MCP320x.h"
 
+namespace rpi {
+	class Socket;
+}
+
 class ControllerClient : public Controller
 {
 public:
@@ -62,9 +66,11 @@ public:
 	void SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max );
 	void SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max );
 	void SaveRollCalibration( uint16_t min, uint16_t center, uint16_t max );
+	bool SimulatorMode( bool enabled );
 
 protected:
 	virtual bool run();
+	bool RunSimulator();
 
 	float ReadThrust();
 	float ReadRoll();
@@ -75,6 +81,11 @@ protected:
 	static Config* mConfig;
 	MCP320x* mADC;
 	Joystick mJoysticks[4];
+	bool mSimulatorEnabled;
+	HookThread<ControllerClient>* mSimulatorThread;
+	rpi::Socket* mSimulatorSocketServer;
+	rpi::Socket* mSimulatorSocket;
+	uint64_t mSimulatorTicks;
 };
 
 #endif // CONTROLLERPI_H

@@ -18,7 +18,50 @@
 
 #include <Main.h>
 
+#include <PWM.h>
+#include <DShot.h>
+#include <OneShot125.h>
+void Test( int, char** );
+
 int main( int ac, char** av )
 {
-	return Main::flight_entry( ac, av );
+// 	Test( ac, av );
+/*
+	DShot* test1 = new DShot( 26 );
+	DShot* test2 = new DShot( 13 );
+	DShot* test3 = new DShot( 6 );
+	DShot* test4 = new DShot( 5 );
+// 	test->SetPWMus( atoi(av[4]) );
+// 	test->Update();
+*/
+
+	OneShot125* test1 = new OneShot125( 26 );
+	OneShot125* test2 = new OneShot125( 13 );
+	OneShot125* test3 = new OneShot125( 6 );
+	OneShot125* test4 = new OneShot125( 5 );
+	test1->setSpeed( 0.0f );
+	test2->setSpeed( 0.0f );
+	test3->setSpeed( 0.0f );
+	test4->setSpeed( 0.0f, true );
+	usleep( 1000 * 1000 );
+	float sp = 0.0f;
+	while ( 1 ) {
+		sp += 0.01;
+		if ( sp > 1.0f ) {
+			sp = 0.0f;
+		}
+		printf( "sp : %.2f\n", sp );
+		test1->setSpeed( sp, true );
+		usleep( 500 * 1000 );
+	}
+
+	int ret = Main::flight_entry( ac, av );
+
+	if ( ret == 0 ) {
+		while ( 1 ) {
+			usleep( 1000 * 1000 * 100 );
+		}
+	}
+
+	return 0;
 }

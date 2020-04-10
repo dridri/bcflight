@@ -22,8 +22,12 @@ if ( ${RAWWIFI_ON} MATCHES 0 )
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_RAWWIFI" )
 endif()
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_GNU_SOURCE -D_BSD_SOURCE" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_DEFAULT_SOURCE" )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -std=c++11 -fpermissive -Wno-pmf-conversions" )
+
+if ( ${USE_MINISTD} MATCHES TRUE )
+	include_directories( ${CMAKE_SOURCE_DIR}/../libministd/include )
+endif()
 
 if ( RAWWIFI_ON MATCHES 1 )
 	add_subdirectory( ../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )
@@ -49,7 +53,7 @@ if ( ${RAWWIFI_ON} MATCHES 1 )
 	add_dependencies( controllerbase rawwifi )
 	target_link_libraries( controllerbase ${CMAKE_BINARY_DIR}/librawwifi/librawwifi.a -lz -liw )
 else()
-	target_link_libraries( controllerbase -lz -liw )
+# 	target_link_libraries( controllerbase -lz -liw )
 endif()
 
 target_link_libraries( controller controllerbase )

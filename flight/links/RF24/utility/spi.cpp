@@ -1,11 +1,15 @@
 #include "spi.h"
 #include <pthread.h>
 #include <string.h>
+#include <string>
 #include <SPI.h>
 
+
 static ::SPI* mSPI = nullptr;
-static std::string mSPIDevice = "";
+static string mSPIDevice = "";
+#ifdef SYSTEM_NAME_Linux
 static pthread_mutex_t spiMutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 nRF24::SPI::SPI()
 {
@@ -17,7 +21,7 @@ nRF24::SPI::~SPI()
 }
 
 
-void nRF24::SPI::begin( const std::string& device )
+void nRF24::SPI::begin( const string& device )
 {
 	mSPIDevice = device;
 }
@@ -80,13 +84,17 @@ void nRF24::SPI::beginTransaction( SPISettings settings )
 		mSPI = new ::SPI( mSPIDevice, speed );
 	}
 
+#ifdef SYSTEM_NAME_Linux
 	pthread_mutex_lock( &spiMutex );
+#endif
 }
 
 
 void nRF24::SPI::endTransaction()
 {
+#ifdef SYSTEM_NAME_Linux
 	pthread_mutex_unlock( &spiMutex );
+#endif
 }
 
 

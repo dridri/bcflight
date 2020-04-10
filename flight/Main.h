@@ -20,13 +20,17 @@
 #define MAIN_H
 
 #include <stdint.h>
-#include "Config.h"
 #include <Board.h>
 #include "Debug.h"
 #include "PowerThread.h"
 #include "BlackBox.h"
 #include "Vector.h"
+#include "string"
 
+using namespace STD;
+
+class Config;
+class Slave;
 class IMU;
 class Stabilizer;
 class Frame;
@@ -43,7 +47,7 @@ public:
 	Main();
 	~Main();
 
-	std::string getRecordingsList() const;
+	string getRecordingsList() const;
 
 	uint32_t loopFrequency() const;
 	Config* config() const;
@@ -58,10 +62,10 @@ public:
 	HUD* hud() const;
 	Microphone* microphone() const;
 	Recorder* recorder() const;
-	const std::string& cameraType() const;
-	const std::string& username() const;
+	const string& cameraType() const;
+	const string& username() const;
 
-	static std::string base64_encode( const uint8_t* buf, uint32_t size );
+	static string base64_encode( const uint8_t* buf, uint32_t size );
 	static Main* instance();
 
 private:
@@ -80,6 +84,8 @@ private:
 
 	Config* mConfig;
 	Board* mBoard;
+	Slave* mSlave;
+	vector< Slave* > mSlaves;
 	PowerThread* mPowerThread;
 	BlackBox* mBlackBox;
 	IMU* mIMU;
@@ -90,8 +96,8 @@ private:
 	HUD* mHUD;
 	Microphone* mMicrophone;
 	Recorder* mRecorder;
-	std::string mCameraType;
-	std::string mUsername;
+	string mCameraType;
+	string mUsername;
 };
 
 #endif

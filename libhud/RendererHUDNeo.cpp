@@ -17,21 +17,19 @@
 **/
 
 /* TODO Add :
- * night mode
- * white balance lock
  * picture taken indicator
  * altitude [altitude hold]
 */
-
-#define GL_GLEXT_PROTOTYPES
-#include <string.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 
 #include <cmath>
 #include <sstream>
 #include "RendererHUDNeo.h"
 #include "Controller.h"
+
+#define GL_GLEXT_PROTOTYPES
+#include <string.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 
 
 static const char hud_vertices_shader[] =
@@ -107,6 +105,9 @@ RendererHUDNeo::RendererHUDNeo( int width, int height, float ratio, uint32_t fon
 	, mColorShader{ 0 }
 	, mSpeedometerSize( 65 * fontsize / 28 )
 {
+	mIconNight = LoadTexture( "data/icon_night.png" );
+	mIconPhoto = LoadTexture( "data/icon_photo.png" );
+
 	LoadVertexShader( &mShader, hud_vertices_shader, sizeof(hud_vertices_shader) + 1 );
 	LoadFragmentShader( &mShader, hud_fragment_shader, sizeof(hud_fragment_shader) + 1 );
 	createPipeline( &mShader );
@@ -292,13 +293,36 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 1.0f, fps_str, Vector4f( 0.5f + 0.5f * fps_red, 1.0f - fps_red * 0.25f, 0.5f - fps_red * 0.5f, 1.0f ), 0.8f );
 		}
 
-		if ( std::string( videostats->whitebalance ) != mWhiteBalance ) {
-			mWhiteBalance = std::string( videostats->whitebalance );
-			mWhiteBalanceTick = Thread::GetSeconds();
+// 		if ( std::string( videostats->whitebalance ) != mWhiteBalance ) {
+// 			mWhiteBalance = std::string( videostats->whitebalance );
+// 			mWhiteBalanceTick = Thread::GetSeconds();
+// 		}
+// 		if ( Thread::GetSeconds() - mWhiteBalanceTick < 1.0f ) {
+// 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 3, mWhiteBalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, true );
+// 		}
+		FontMeasureString( videostats->whitebalance, &w, &h );
+		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 3.0f, videostats->whitebalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		FontMeasureString( videostats->exposure, &w, &h );
+		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 4.0f, videostats->exposure, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+
+		if ( mNightMode ) {
+			RenderQuadTexture( mIconNight->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.15, mWidth * 0.04f, mWidth * 0.035f, false, false, { 1.0f, 1.0f, 1.0f, 1.0f } );
+		} else {
+			RenderQuadTexture( mIconNight->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.15, mWidth * 0.04f, mWidth * 0.035f, false, false, { 0.5f, 0.5f, 0.5f, 0.5f } );
 		}
-		if ( Thread::GetSeconds() - mWhiteBalanceTick < 1.0f ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 3, mWhiteBalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, true );
+
+		float photo_alpha = 0.5f;
+		float photo_burn = 1.0f;
+		if ( videostats->photo_id != mLastPhotoID ) {
+			mLastPhotoID = videostats->photo_id;
+			mPhotoTick = Thread::GetSeconds();
 		}
+		if ( mPhotoTick != 0.0f and Thread::GetSeconds() - mPhotoTick < 0.5f ) {
+			float diff = Thread::GetSeconds() - mPhotoTick;
+			photo_alpha += 0.75f * 2.0f * ( 0.5f - diff );
+			photo_burn += 2.0f * 2.0f * ( 0.5f - diff );
+		}
+		RenderQuadTexture( mIconPhoto->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.07, mWidth * 0.04f, mWidth * 0.035f, false, false, { photo_burn, photo_burn, photo_burn, photo_alpha } );
 	}
 
 	// Latency
@@ -307,7 +331,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		float latency_red = std::min( 1.0f, ((float)dronestats->ping ) / 100.0f );
 		std::string latency_str = std::to_string( dronestats->ping ) + "ms";
 		FontMeasureString( latency_str, &w, &h );
-		RenderText( (float)mBorderRight - w, mBorderTop + mFontHeight * 2.0f, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ) );
+		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 2.0f, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ), 0.8f );
 		if ( dronestats->ping > 50 ) {
 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}

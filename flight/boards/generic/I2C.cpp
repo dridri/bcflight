@@ -93,9 +93,9 @@ int I2C::Write32( uint8_t reg, uint32_t value )
 }
 
 
-std::list< int > I2C::ScanAll()
+list< int > I2C::ScanAll()
 {
-	std::list< int > ret;
+	list< int > ret;
 	// See boards/rpi/I2C.cpp implementation
 	return ret;
 }

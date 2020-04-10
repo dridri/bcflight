@@ -1,5 +1,7 @@
 #include <unistd.h>
+#ifdef SYSTEM_NAME_Linux
 #include <dirent.h>
+#endif
 #include <Board.h>
 #include <Debug.h>
 #include "BlackBox.h"
@@ -9,13 +11,14 @@ BlackBox::BlackBox()
 	, mID( 0 )
 	, mFile( nullptr )
 {
+#ifdef SYSTEM_NAME_Linux
 	char filename[256];
 	DIR* dir;
 	struct dirent* ent;
 	if ( ( dir = opendir( "/var/BLACKBOX" ) ) != nullptr ) {
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
-			std::string file = std::string( ent->d_name );
-			uint32_t id = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
+			string file = string( ent->d_name );
+			uint32_t id = atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
 			if ( id >= mID ) {
 				mID = id + 1;
 			}
@@ -26,12 +29,16 @@ BlackBox::BlackBox()
 		mFile = fopen( filename, "wb" );
 		gDebug() << "mFile : " << mFile << ", filename : " << filename << "\n";
 	}
+#elif defined( SYSTEM_NAME_Generic )
+	// TODO
+#endif
 
 	if ( mFile == nullptr ) {
 		Board::defectivePeripherals()["BlackBox"] = true;
 		return;
 	}
 
+	setFrequency( 100 );
 	Start();
 }
 
@@ -51,29 +58,31 @@ const uint32_t BlackBox::id() const
 }
 
 
-void BlackBox::Enqueue( const std::string& data, const std::string& value )
+void BlackBox::Enqueue( const string& data, const string& value )
 {
-	return;
-	if ( this == nullptr ) {
+// 	if ( this == nullptr ) {
 		return;
-	}
+// 	}
 
+#ifdef SYSTEM_NAME_Linux
 	uint64_t time = Board::GetTicks();
-	std::string str = std::to_string(time) + "," + data + "," + value;
+	string str = to_string(time) + "," + data + "," + value;
 
 	mQueueMutex.lock();
 	mQueue.emplace_back( str );
 	mQueueMutex.unlock();
+#endif
 }
 
 
 bool BlackBox::run()
 {
-	std::string data;
+#ifdef SYSTEM_NAME_Linux
+	string data;
 
 	mQueueMutex.lock();
 	while ( mQueue.size() > 0 ) {
-		std::string str = mQueue.front();
+		string str = mQueue.front();
 		mQueue.pop_front();
 		mQueueMutex.unlock();
 		data += str + "\n";
@@ -93,7 +102,7 @@ bool BlackBox::run()
 			}
 		}
 	}
+#endif
 
-	usleep( 1000 * 1000 / 100 ); // 100Hz update
 	return true;
 }

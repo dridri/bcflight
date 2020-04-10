@@ -20,12 +20,15 @@
 #define THREAD_H
 
 #include <mutex>
+#include <functional>
 #include <pthread.h>
+
+using namespace STD;
 
 class Thread
 {
 public:
-	Thread( const std::string& name );
+	Thread( const string& name );
 	virtual ~Thread();
 	void setPriority( int32_t prio, int affinity = -1 );
 
@@ -46,7 +49,7 @@ protected:
 private:
 	static void sThreadEntry( void* argp );
 	void ThreadEntry();
-	std::string mName;
+	string mName;
 	bool mRunning;
 	bool mIsRunning;
 	bool mFinished;
@@ -57,7 +60,7 @@ private:
 	int mSetAffinity;
 	bool mTerminate;
 
-	static std::mutex mCriticalMutex;
+	static mutex mCriticalMutex;
 	static uint64_t mBaseTick;
 };
 
@@ -65,12 +68,12 @@ private:
 template<typename T> class HookThread : public ::Thread
 {
 public:
-	HookThread( const std::string& name, T* r, const std::function< bool( T* ) >& cb ) : Thread( name ), mT( r ), mCallback( cb ) {}
+	HookThread( const string& name, T* r, const function< bool( T* ) >& cb ) : Thread( name ), mT( r ), mCallback( cb ) {}
 protected:
 	virtual bool run() { return mCallback( mT ); }
 private:
 	T* mT;
-	const std::function< bool( T* ) > mCallback;
+	const function< bool( T* ) > mCallback;
 };
 
 

@@ -37,7 +37,7 @@ public:
 	Frame();
 	virtual ~Frame();
 
-	std::vector< Motor* >* motors();
+	vector< Motor* >* motors();
 
 	virtual void Arm() = 0;
 	virtual void Disarm() = 0;
@@ -49,17 +49,18 @@ public:
 	bool armed() const;
 	bool airMode() const;
 
-	static Frame* Instanciate( const std::string& name, Config* config );
-	static void RegisterFrame( const std::string& name, std::function< Frame* ( Config* ) > instanciate );
-	static const std::map< std::string, std::function< Frame* ( Config* ) > > knownFrames() { return mKnownFrames; }
+	static Frame* Instanciate( const string& name, Config* config );
+	static void RegisterFrame( const string& name, function< Frame* ( Config* ) > instanciate );
+	static const map< string, function< Frame* ( Config* ) > > knownFrames() { return mKnownFrames; }
 
 protected:
-	std::vector< Motor* > mMotors;
+
+	vector< Motor* > mMotors;
 	bool mArmed;
 	bool mAirMode;
 
 private:
-	static std::map< std::string, std::function< Frame* ( Config* ) > > mKnownFrames;
+	static map< string, function< Frame* ( Config* ) > > mKnownFrames;
 };
 
 #endif // FRAME_H

@@ -30,25 +30,25 @@ int MultiLink::flight_register( Main* main )
 }
 
 
-Link* MultiLink::Instanciate( Config* config, const std::string& lua_object )
+Link* MultiLink::Instanciate( Config* config, const string& lua_object )
 {
 	int senders_count = config->ArrayLength( lua_object + ".senders" );
 	int receivers_count = config->ArrayLength( lua_object + ".receivers" );
-	int read_timeout = config->integer( lua_object + ".read_timeout" );
+	int read_timeout = config->Integer( lua_object + ".read_timeout" );
 
 	if ( senders_count < 1 and receivers_count < 0 ) {
 		gDebug() << "WARNING : There should be at least 1 sender or receiver, cannot create Link !\n";
 		return nullptr;
 	}
 
-	std::list<Link*> senders;
+	list<Link*> senders;
 	for ( int i = 0; i < senders_count; i++ ) {
-		senders.emplace_back( Link::Create( config, lua_object + ".senders[" + std::to_string(i+1) + "]" ) );
+		senders.emplace_back( Link::Create( config, lua_object + ".senders[" + to_string(i+1) + "]" ) );
 	}
 
-	std::list<Link*> receivers;
+	list<Link*> receivers;
 	for ( int i = 0; i < receivers_count; i++ ) {
-		receivers.emplace_back( Link::Create( config, lua_object + ".receivers[" + std::to_string(i+1) + "]" ) );
+		receivers.emplace_back( Link::Create( config, lua_object + ".receivers[" + to_string(i+1) + "]" ) );
 	}
 
 	MultiLink* ret = new MultiLink( senders, receivers );
@@ -57,7 +57,7 @@ Link* MultiLink::Instanciate( Config* config, const std::string& lua_object )
 }
 
 
-MultiLink::MultiLink( std::list<Link*> senders, std::list<Link*> receivers )
+MultiLink::MultiLink( list<Link*> senders, list<Link*> receivers )
 	: Link()
 	, mBlocking( true )
 	, mReadTimeout( 2000 )
@@ -71,7 +71,7 @@ MultiLink::MultiLink( std::list<Link*> senders, std::list<Link*> receivers )
 
 
 MultiLink::MultiLink( std::initializer_list<Link*> senders, std::initializer_list<Link*> receivers )
-	: MultiLink( static_cast<std::list<Link*>>(senders), static_cast<std::list<Link*>>(receivers) )
+	: MultiLink( static_cast<list<Link*>>(senders), static_cast<list<Link*>>(receivers) )
 {
 }
 
@@ -158,7 +158,7 @@ uint32_t MultiLink::fullReadSpeed()
 }
 
 
-int MultiLink::Write( const void* buf, uint32_t len, bool ack, int32_t timeout )
+SyncReturn MultiLink::Write( const void* buf, uint32_t len, bool ack, int32_t timeout )
 {
 	int32_t ret = 0;
 
@@ -173,7 +173,7 @@ int MultiLink::Write( const void* buf, uint32_t len, bool ack, int32_t timeout )
 }
 
 
-int MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
+SyncReturn MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 {
 	int ret = 0;
 	int32_t hopping_timeout = 50;
@@ -197,12 +197,12 @@ int MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 		// If good, then return now
 		if ( ret > 0 ) {
 			return ret;
-		} else if ( ret == LINK_ERROR_TIMEOUT ) {
+		} else if ( ret == TIMEOUT ) {
 // 			gDebug() << front->Frequency() << " front timed out\n";
 		}
 
 		// Else, try with the others until one is responding
-		for ( std::list<Link*>::iterator it = mReceivers.begin(); it != mReceivers.end(); it++ ) {
+		for ( list<Link*>::iterator it = mReceivers.begin(); it != mReceivers.end(); it++ ) {
 			if ( (*it) != front ) {
 				ret = (*it)->Read( buf, len, hopping_timeout );
 				// If good, put this receiver in front, and return now
@@ -211,7 +211,7 @@ int MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 					mReceivers.front() = *it;
 					*it = tmp;
 					return ret;
-				} else if ( ret == LINK_ERROR_TIMEOUT ) {
+				} else if ( ret == TIMEOUT ) {
 // 					gDebug() << (*it)->Frequency() << " timed out\n";
 				} else {
 // 					gDebug() << (*it)->Frequency() << " error " << ret << "\n";
@@ -220,7 +220,7 @@ int MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 		}
 
 		if ( Board::GetTicks() - time_base >= (uint64_t)timeout * 1000llu ) {
-			return LINK_ERROR_TIMEOUT;
+			return TIMEOUT;
 		}
 	} while ( mBlocking );
 

@@ -93,6 +93,7 @@ private:
 	MainWindow* mMainWindow;
 	Link* mLink;
 	Link* mAudioLink;
+	uint32_t mSocketTellIPCounter;
 	ISVCDecoder* mDecoder;
 	uint32_t mWidth;
 	uint32_t mHeight;

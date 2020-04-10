@@ -21,7 +21,7 @@
 
 // This fil contains a pthread implementation (same as used in 'rpi' board)
 
-Thread::Thread( const std::string& name )
+Thread::Thread( const string& name )
 	: mRunning( false )
 	, mIsRunning( false )
 	, mFinished( false )
@@ -58,7 +58,7 @@ void Thread::Join()
 }
 
 
-bool Thread::running()
+bool Thread::running() const
 {
 	return mIsRunning;
 }

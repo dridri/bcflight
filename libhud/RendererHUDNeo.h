@@ -55,6 +55,9 @@ protected:
 	uint32_t mStaticLinesCountNoAttitude;
 
 	float mSpeedometerSize;
+
+	Texture* mIconNight;
+	Texture* mIconPhoto;
 };
 
 #endif // RENDERERHUDNEO_H

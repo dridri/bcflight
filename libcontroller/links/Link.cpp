@@ -96,6 +96,7 @@ int32_t Packet::Read( uint8_t* data, uint32_t bytes )
 		mReadOffset += bytes;
 		return bytes;
 	}
+	memset( data, 0, bytes );
 	return 0;
 }
 
@@ -107,6 +108,7 @@ uint32_t Packet::ReadU8( uint8_t* u )
 		mReadOffset += sizeof(uint8_t);
 		return sizeof(uint8_t);
 	}
+	*u = 0;
 	return 0;
 }
 
@@ -119,6 +121,7 @@ uint32_t Packet::ReadU16( uint16_t* u )
 		mReadOffset += sizeof(uint16_t);
 		return sizeof(uint16_t);
 	}
+	*u = 0;
 	return 0;
 }
 
@@ -130,6 +133,7 @@ uint32_t Packet::ReadU32( uint32_t* u )
 		mReadOffset += sizeof(uint32_t);
 		return sizeof(uint32_t);
 	}
+	*u = 0;
 	return 0;
 }
 

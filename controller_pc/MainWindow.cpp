@@ -466,7 +466,7 @@ void MainWindow::throttleChanged( int throttle )
 
 void MainWindow::LoadConfig()
 {
-	if ( mController/* and not mController->isSpectate()*/ ) {
+	if ( mController and not mController->isSpectate() ) {
 		std::string conf = mController->getConfigFile();
 		ui->config->setText( QString::fromStdString( conf ) );
 	}
@@ -475,7 +475,7 @@ void MainWindow::LoadConfig()
 
 void MainWindow::SaveConfig()
 {
-	if ( mController /*and not mController->isSpectate()*/ and ui->config->text().length() > 0 ) {
+	if ( mController and not mController->isSpectate() and ui->config->text().length() > 0 ) {
 		std::string conf = ui->config->text().toStdString();
 		mController->setConfigFile( conf );
 	}

@@ -21,6 +21,7 @@
 
 #include <execinfo.h>
 #include <signal.h>
+#include <sys/sysmacros.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +41,7 @@
 #include "mailbox.h"
 #include <Debug.h>
 #include "PWM.h"
+#include "GPIO.h"
 
 // pin2gpio array is not setup as empty to avoid locking all GPIO
 // inputs as PWM, they are set on the fly by the pin param passed.
@@ -59,6 +61,10 @@
 #define PWM_BASE		(periph_virt_base + PWM_BASE_OFFSET)
 #define PWM_PHYS_BASE	(periph_phys_base + PWM_BASE_OFFSET)
 #define PWM_LEN			0x28
+#define PCM_BASE_OFFSET	0x00203000
+#define PCM_BASE		(periph_virt_base + PCM_BASE_OFFSET)
+#define PCM_PHYS_BASE	(periph_phys_base + PCM_BASE_OFFSET)
+#define PCM_LEN			0x24
 #define CLK_BASE_OFFSET 0x00101000
 #define CLK_BASE		(periph_virt_base + CLK_BASE_OFFSET)
 #define CLK_LEN			0xA8
@@ -107,6 +113,18 @@
 #define PWMPWMC_ENAB		(1<<31)
 #define PWMPWMC_THRSHLD		((15<<8)|(15<<0))
 
+#define PCM_CS_A		(0x00/4)
+#define PCM_FIFO_A		(0x04/4)
+#define PCM_MODE_A		(0x08/4)
+#define PCM_RXC_A		(0x0c/4)
+#define PCM_TXC_A		(0x10/4)
+#define PCM_DREQ_A		(0x14/4)
+#define PCM_INTEN_A		(0x18/4)
+#define PCM_INT_STC_A		(0x1c/4)
+#define PCM_GRAY		(0x20/4)
+#define PCMCLK_CNTL		38
+#define PCMCLK_DIV	39
+
 #define BUS_TO_PHYS(x) ((x)&~0xC0000000)
 
 /* New Board Revision format: 
@@ -154,7 +172,7 @@ V revision (0-15)
 #define dprintf(...)
 #endif
 
-std::vector< PWM::Channel* > PWM::mChannels = std::vector< PWM::Channel* >();
+vector< PWM::Channel* > PWM::mChannels = vector< PWM::Channel* >();
 bool PWM::mSigHandlerOk = false;
 
 static void fatal( const char *fmt, ... )
@@ -176,7 +194,7 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 // 		static int sig_list[] = { 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 16, 19, 20 };
 		static int sig_list[] = { 2 };
 		uint32_t i;
-		for ( i = 0; i <= sizeof(sig_list)/sizeof(int); i++ ) {
+		for ( i = 0; i < sizeof(sig_list)/sizeof(int); i++ ) {
 			struct sigaction sa;
 			memset( &sa, 0, sizeof(sa) );
 			sa.sa_handler = &PWM::terminate;
@@ -278,6 +296,7 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 	/* set dma_reg to point to the PWM Channel we are using */
 	dma_reg = dma_virt_base + mChannel * ( DMA_CHAN_SIZE / sizeof(dma_reg) );
 	pwm_reg = (uint32_t*)map_peripheral( PWM_BASE, PWM_LEN );
+	pcm_reg = (uint32_t*)map_peripheral( PCM_BASE, PCM_LEN );
 	clk_reg = (uint32_t*)map_peripheral( CLK_BASE, CLK_LEN );
 	gpio_reg = (uint32_t*)map_peripheral( GPIO_BASE, GPIO_LEN );
 
@@ -340,7 +359,7 @@ void PWM::terminate( int sig )
 
 	dprintf("Freeing mbox memory...\n");
 	for ( j = 0; j < mChannels.size(); j++ ) {
-		if ( mChannels[j]->mMbox.virt_addr != NULL ) {
+		if ( mChannels[j] and mChannels[j]->mMbox.virt_addr != NULL ) {
 			unmapmem( mChannels[j]->mMbox.virt_addr, mChannels[j]->mNumPages * PAGE_SIZE );
 			if ( mChannels[j]->mMbox.handle <= 2 ) {
 				mChannels[j]->mMbox.handle = mChannels[j]->mbox_open();
@@ -348,8 +367,11 @@ void PWM::terminate( int sig )
 			mem_unlock( mChannels[j]->mMbox.handle, mChannels[j]->mMbox.mem_ref );
 			mem_free( mChannels[j]->mMbox.handle, mChannels[j]->mMbox.mem_ref );
 // 			mChannels[j]->mbox_close( mChannels[j]->mMbox.handle );
+			mChannels[j] = nullptr;
 		}
 	}
+
+	mChannels.clear();
 
 	dprintf("Unlink %s...\n", DEVFILE_MBOX);
 	unlink(DEVFILE_MBOX);
@@ -375,6 +397,9 @@ void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
 		mPinsCount += 1;
 		mPins[i] = pin;
 		mPinsMask = mPinsMask | ( 1 << pin );
+
+		GPIO::setPUD( pin, GPIO::PullDown );
+		GPIO::setMode( pin, GPIO::Output );
 
 		gpio_reg[GPIO_CLR0] = 1 << pin;
 		uint32_t fsel = gpio_reg[GPIO_FSEL0 + pin/10];
@@ -544,7 +569,10 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 	uint32_t mask;
 	uint32_t i;
 
-	phys_fifo_addr = PWM_PHYS_BASE + 0x18;
+// 	uint32_t map = DMA_PER_MAP(5);
+// 	phys_fifo_addr = PWM_PHYS_BASE + 0x18;
+	uint32_t map = DMA_PER_MAP(2);
+	phys_fifo_addr = PCM_PHYS_BASE + 0x04;
 	memset( ctl->sample, 0, sizeof(uint32_t)*mNumSamples );
 
 	mask = 0;
@@ -600,7 +628,7 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 			cbp++;
 		}
 		// Timer trigger command
-		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5);
+		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | map;
 // 		cbp->info = DMA_NO_WIDE_BURSTS | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_TDMODE;
 		cbp->src = mem_virt_to_phys(ctl->sample);	// Any data will do
 		cbp->dst = phys_fifo_addr;
@@ -633,11 +661,16 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 	dprintf( "Ok\n" );
 }
 
+static bool _init_ok = false;
 
 void PWM::Channel::init_hardware( uint32_t time_base )
 {
+	if ( _init_ok ) {
+		return;
+	}
+	_init_ok = true;
+/*
 	dprintf("Initializing PWM HW...\n");
-
 	// Initialise PWM
 	pwm_reg[PWM_CTL] = 0;
 	usleep(10);
@@ -656,14 +689,39 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	usleep(10);
 	pwm_reg[PWM_CTL] = PWMCTL_USEF1 | PWMCTL_PWEN1;
 	usleep(10);
+*/
 
-	// Initialise the PWM
+
+	dprintf("Initializing PCM HW...\n");
+	// Initialise PCM
+	pcm_reg[PCM_CS_A] = 1;				// Disable Rx+Tx, Enable PCM block
+	usleep(100);
+	clk_reg[PCMCLK_CNTL] = 0x5A000006;		// Source=PLLD (500MHz)
+	usleep(100);
+	clk_reg[PCMCLK_DIV] = 0x5A000000 | ( ( 500000000 / time_base ) << 12 );
+	usleep(100);
+	clk_reg[PCMCLK_CNTL] = 0x5A000016;		// Source=PLLD and enable
+	usleep(100);
+	pcm_reg[PCM_TXC_A] = 0<<31 | 1<<30 | 0<<20 | 0<<16; // 1 channel, 8 bits
+	usleep(100);
+	pcm_reg[PCM_MODE_A] = (mSampleTime - 1) << 10;
+	usleep(100);
+	pcm_reg[PCM_CS_A] |= 1<<4 | 1<<3;		// Clear FIFOs
+	usleep(100);
+	pcm_reg[PCM_DREQ_A] = 64<<24 | 64<<8;		// DMA Req when one slot is free?
+	usleep(100);
+	pcm_reg[PCM_CS_A] |= 1<<9; // Enable DMA
+
+
+	// Initialise the DMA
 	dma_reg[DMA_CS] = DMA_RESET;
 	usleep(10);
 	dma_reg[DMA_CS] = DMA_INT | DMA_END;
 	dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(mCtls[0].cb);
 	dma_reg[DMA_DEBUG] = 7; // clear debug error flags
 	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
+
+	pcm_reg[PCM_CS_A] |= 1<<2;			// Enable Tx
 	dprintf( "Ok\n" );
 }
 
@@ -727,7 +785,7 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 		case 3:
 			periph_virt_base = 0x3f000000;
 			periph_phys_base = 0x7e000000;
-			mem_flag         = MEM_FLAG_L1_NONALLOCATING | MEM_FLAG_ZERO; 
+			mem_flag         = MEM_FLAG_L1_NONALLOCATING | MEM_FLAG_ZERO;
 			break;
 		default:
 			fatal( "Unable to detect Board Model from board revision: %#x", mbox_board_rev );

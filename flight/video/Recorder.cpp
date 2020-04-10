@@ -1,3 +1,5 @@
+#ifdef SYSTEM_NAME_Linux
+
 #include <dirent.h>
 #include <string.h>
 #include "Recorder.h"
@@ -8,14 +10,30 @@ Recorder::Recorder()
 	, mRecordId( 0 )
 	, mRecordSyncCounter( 0 )
 {
+}
+
+
+Recorder::~Recorder()
+{
+}
+
+
+bool Recorder::recording() const
+{
+	return Thread::running();
+}
+
+
+void Recorder::Start()
+{
 	uint32_t fileid = 0;
 	DIR* dir;
 	struct dirent* ent;
 	if ( ( dir = opendir( "/var/VIDEO" ) ) != nullptr ) {
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
-			std::string file = std::string( ent->d_name );
+			string file = string( ent->d_name );
 			if ( file.find( "record_" ) != file.npos ) {
-				uint32_t id = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
+				uint32_t id = atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
 				if ( id >= fileid ) {
 					fileid = id + 1;
 				}
@@ -31,46 +49,82 @@ Recorder::Recorder()
 	fprintf( mRecordFile, "# new_track,track_id,type(video/audio),filename\n" );
 	fprintf( mRecordFile, "# track_id,record_time,pos_in_file,frame_size\n" );
 
-	Start();
+	Thread::Start();
 }
 
 
-Recorder::~Recorder()
+void Recorder::Stop()
 {
+	Thread::Stop();
+	Thread::Join();
+
+	for ( auto sample : mPendingSamples ) {
+		delete sample->buf;
+		delete sample;
+	}
+	mPendingSamples.clear();
+
+	for ( auto track : mTracks ) {
+		fclose( track->file );
+		track->file = nullptr;
+	}
 }
 
 
-uint32_t Recorder::AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const std::string& extension )
+uint32_t Recorder::AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const string& extension )
 {
+	Track* track = (Track*)malloc( sizeof(Track) );
+	memset( track, 0, sizeof(Track) );
+
+	track->type = TrackTypeVideo;
+	track->width = width;
+	track->height = height;
+	track->average_fps = average_fps;
+	strcpy( track->extension, extension.c_str() );
+
+	track->id = mTracks.size();
+	mTracks.emplace_back( track );
+/*
 	Track* track = new Track;
 	track->type = TrackTypeVideo;
 	sprintf( track->filename, "video_%ux%u_%02ufps_%06u.%s", width, height, average_fps, mRecordId, extension.c_str() );
-	track->file = fopen( ( std::string("/var/VIDEO/") + std::string(track->filename) ).c_str(), "wb" );
+	track->file = fopen( ( string("/var/VIDEO/") + string(track->filename) ).c_str(), "wb" );
 
 	mWriteMutex.lock();
 	track->id = mTracks.size();
 	fprintf( mRecordFile, "new_track,%u,video,%s\n", track->id, track->filename );
 	mTracks.emplace_back( track );
 	mWriteMutex.unlock();
-
+*/
 	return track->id;
 }
 
 
 
-uint32_t Recorder::AddAudioTrack( uint32_t channels, uint32_t sample_rate, const std::string& extension )
+uint32_t Recorder::AddAudioTrack( uint32_t channels, uint32_t sample_rate, const string& extension )
 {
+	Track* track = (Track*)malloc( sizeof(Track) );
+	memset( track, 0, sizeof(Track) );
+
+	track->type = TrackTypeAudio;
+	track->channels = channels;
+	track->sample_rate = sample_rate;
+	strcpy( track->extension, extension.c_str() );
+
+	track->id = mTracks.size();
+	mTracks.emplace_back( track );
+/*
 	Track* track = new Track;
 	track->type = TrackTypeAudio;
 	sprintf( track->filename, "audio_%uhz_%uch_%06u.%s", sample_rate, channels, mRecordId, extension.c_str() );
-	track->file = fopen( ( std::string("/var/VIDEO/") + std::string(track->filename) ).c_str(), "wb" );
+	track->file = fopen( ( string("/var/VIDEO/") + string(track->filename) ).c_str(), "wb" );
 
 	mWriteMutex.lock();
 	track->id = mTracks.size();
 	fprintf( mRecordFile, "new_track,%u,audio,%s\n", track->id, track->filename );
 	mTracks.emplace_back( track );
 	mWriteMutex.unlock();
-
+*/
 	return track->id;
 }
 
@@ -104,6 +158,18 @@ bool Recorder::run()
 	mPendingSamples.pop_front();
 	mWriteMutex.unlock();
 
+	if ( sample->track->file == nullptr ) {
+		Track* track = sample->track;
+		if ( track->type == TrackTypeVideo ) {
+			sprintf( track->filename, "video_%ux%u_%02ufps_%06u.%s", track->width, track->height, track->average_fps, mRecordId, track->extension );
+			fprintf( mRecordFile, "new_track,%u,video,%s\n", track->id, track->filename );
+		} else if ( track->type == TrackTypeAudio ) {
+			sprintf( track->filename, "audio_%uhz_%uch_%06u.%s", track->sample_rate, track->channels, mRecordId, track->extension );
+			fprintf( mRecordFile, "new_track,%u,audio,%s\n", track->id, track->filename );
+		}
+		track->file = fopen( ( string("/var/VIDEO/") + string(track->filename) ).c_str(), "wb" );
+	}
+
 	uint32_t pos = ftell( sample->track->file );
 	if ( fwrite( sample->buf, 1, sample->buflen, sample->track->file ) != sample->buflen ) {
 		goto err;
@@ -131,3 +197,6 @@ end:
 	delete sample;
 	return true;
 }
+
+
+#endif // SYSTEM_NAME_Linux

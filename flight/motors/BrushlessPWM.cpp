@@ -19,10 +19,29 @@
 #include <cmath>
 #include <Debug.h>
 #include "BrushlessPWM.h"
+#include "Config.h"
+
+#ifdef BUILD_BrushlessPWM
+
+int BrushlessPWM::flight_register( Main* main )
+{
+	RegisterMotor( "PWM", BrushlessPWM::Instanciate );
+	return 0;
+}
+
+
+Motor* BrushlessPWM::Instanciate( Config* config, const string& object )
+{
+	int fl_pin = config->Integer( object + ".pin" );
+	int fl_min = config->Integer( object + ".minimum_us", 1020 );
+	int fl_max = config->Integer( object + ".maximum_us", 1860 );
+	return new BrushlessPWM( fl_pin, fl_min, fl_max );
+}
+
 
 BrushlessPWM::BrushlessPWM( uint32_t pin, int us_min, int us_max )
 	: Motor()
-	, mPWM( new PWM( pin, 1000000, 2000, 2 ) )
+// 	, mPWM( new PWM( pin, 1000000, 2000, 2 ) )
 	, mMinUS( us_min )
 	, mMaxUS( us_max )
 {
@@ -47,24 +66,25 @@ void BrushlessPWM::setSpeedRaw( float speed, bool force_hw_update )
 	}
 
 	uint32_t us = mMinUS + (uint32_t)( ( mMaxUS - mMinUS ) * speed );
-	mPWM->SetPWMus( us );
+// 	mPWM->SetPWMus( us );
 
 	if ( force_hw_update ) {
-		mPWM->Update();
+// 		mPWM->Update();
 	}
 }
 
 
 void BrushlessPWM::Disarm()
 {
-	mPWM->SetPWMus( (uint32_t)( mMinUS * 0.8f ) );
-	mPWM->Update();
+// 	mPWM->SetPWMus( mMinUS - 1 );
+// 	mPWM->Update();
 }
 
 
 void BrushlessPWM::Disable()
 {
-	mPWM->SetPWMus( 0 );
-	mPWM->Update();
+// 	mPWM->SetPWMus( 0 );
+// 	mPWM->Update();
 }
 
+#endif // BUILD_BrushlessPWM

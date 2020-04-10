@@ -15,34 +15,54 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
+
 #include "Main.h"
-#include "Controller.h"
 #include "Debug.h"
+#if ( CONTROLLER == 1)
+	#include "Controller.h"
+#endif
 
-std::string Debug::sBufferedData;
-std::string Debug::sBufferedBlackBox;
-std::mutex Debug::mMutex;
 
-void Debug::SendControllerOutput( const std::string& s )
+static string sBufferedData;
+static string sBufferedBlackBox;
+#ifdef SYSTEM_NAME_Linux
+static mutex mMutex;
+#endif
+
+
+void Debug::SendControllerOutput( const string& s )
 {
+#ifdef SYSTEM_NAME_Linux
 	mMutex.lock();
+#endif
 	sBufferedData += s;
-	sBufferedBlackBox += s;
 
-	if ( sBufferedBlackBox.find('\n') != sBufferedData.npos and Main::instance() ) {
+#ifdef SYSTEM_NAME_Linux
+	sBufferedBlackBox += s;
+	if ( sBufferedBlackBox.find('\n') != sBufferedBlackBox.npos ) {
 		if ( sBufferedBlackBox[sBufferedBlackBox.length()-1] == '\n' ) {
 			sBufferedBlackBox = sBufferedBlackBox.substr( 0, sBufferedBlackBox.length() - 1 );
 		}
-		Main::instance()->blackbox()->Enqueue( "log", sBufferedBlackBox );
+		if ( Main::instance() ) {
+			Main::instance()->blackbox()->Enqueue( "log", sBufferedBlackBox );
+		}
 		sBufferedBlackBox = "";
 	}
+#endif
 
-	if ( sBufferedData.find('\n') != sBufferedData.npos and Main::instance() ) {
-		Controller* ctrl = Main::instance()->controller();
-		if ( ctrl and ctrl->connected() ) {
-			ctrl->SendDebug( sBufferedData );
-			sBufferedData = "";
+	if ( sBufferedData.find('\n') != sBufferedData.npos ) {
+#if ( CONTROLLER == 1)
+		if ( Main::instance() ) {
+			Controller* ctrl = Main::instance()->controller();
+			if ( ctrl and ctrl->connected() ) {
+				ctrl->SendDebug( sBufferedData );
+			}
 		}
+#else
+		sBufferedData = "";
+#endif
 	}
+#ifdef SYSTEM_NAME_Linux
 	mMutex.unlock();
+#endif
 }

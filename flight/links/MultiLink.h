@@ -28,7 +28,7 @@ class Config;
 class MultiLink : public Link
 {
 public:
-	MultiLink( std::list<Link*> senders, std::list<Link*> receivers );
+	MultiLink( list<Link*> senders, list<Link*> receivers );
 	MultiLink( std::initializer_list<Link*> senders, std::initializer_list<Link*> receivers );
 	~MultiLink();
 
@@ -43,18 +43,18 @@ public:
 	int32_t RxLevel();
 	uint32_t fullReadSpeed();
 
-	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
-	int Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
 
 	static int flight_register( Main* main );
 
 protected:
-	static Link* Instanciate( Config* config, const std::string& lua_object );
+	static Link* Instanciate( Config* config, const string& lua_object );
 
 	bool mBlocking;
 	uint32_t mReadTimeout;
-	std::list< Link* > mSenders;
-	std::list< Link* > mReceivers;
+	list< Link* > mSenders;
+	list< Link* > mReceivers;
 };
 
 #endif // MULTILINK_H

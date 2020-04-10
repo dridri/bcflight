@@ -2,7 +2,7 @@
 #define SX127X_H
 
 #include <atomic>
-#include <mutex>
+#include <Mutex.h>
 #include <list>
 #include "Link.h"
 
@@ -17,7 +17,7 @@ public:
 		LoRa,
 	} Modem;
 
-	SX127x( Config* config, const std::string& lua_object );
+	SX127x( Config* config, const string& lua_object );
 	~SX127x();
 
 	int Connect();
@@ -31,19 +31,20 @@ public:
 	int32_t RxLevel();
 	uint32_t fullReadSpeed();
 
-	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
-	int Read( void* buf, uint32_t len, int32_t timeout );
-	int32_t WriteAck( const void* buf, uint32_t len );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn WriteAck( const void* buf, uint32_t len );
 
 	static int flight_register( Main* main );
 
 protected:
-	static Link* Instanciate( Config* config, const std::string& lua_object );
+	static Link* Instanciate( Config* config, const string& lua_object );
 
 	typedef struct __attribute__((packed)) {
 		uint8_t block_id;
 		uint8_t packet_id;
 		uint8_t packets_count;
+		uint8_t crc;
 	} Header;
 
 	typedef struct RxConfig_t
@@ -75,28 +76,33 @@ protected:
 		uint32_t timeout;
 	} TxConfig_t;
 
-	void SetupRX( const RxConfig_t& conf );
-	void SetupTX( const TxConfig_t& conf );
-	void Interrupt();
+	int32_t Setup( SPI* spi );
+	void SetupRX( SPI* spi, const RxConfig_t& conf );
+	void SetupTX( SPI* spi, const TxConfig_t& conf );
+	void Interrupt( SPI* spi );
 	void reset();
-	bool ping();
-	void startReceiving();
+	bool ping( SPI* spi = nullptr );
+	void setFrequency( SPI* spi, float f );
+	void startReceiving( SPI* spi = nullptr );
 	void startTransmitting();
-	void setModem( Modem modem );
-	uint32_t getOpMode();
-	bool setOpMode( uint32_t mode );
+	void setModem( SPI* spi, Modem modem );
+	uint32_t getOpMode( SPI* spi );
+	bool setOpMode( SPI* spi, uint32_t mode );
 	uint8_t readRegister( uint8_t reg );
 	bool writeRegister( uint8_t reg, uint8_t value );
+	uint8_t readRegister( SPI* spi, uint8_t reg );
+	bool writeRegister( SPI* spi, uint8_t reg, uint8_t value );
 
 	SPI* mSPI;
 
-	std::string mDevice;
+	string mDevice;
 	int32_t mResetPin;
 	int32_t mTXPin;
 	int32_t mRXPin;
 	int32_t mIRQPin;
 	bool mBlocking;
 	bool mDropBroken;
+	bool mEnableTCXO;
 	Modem mModem;
 	uint32_t mFrequency;
 	int32_t mInputPort;
@@ -105,19 +111,32 @@ protected:
 	int32_t mReadTimeout;
 	uint32_t mBitrate;
 	uint32_t mBandwidth;
+	uint32_t mBandwidthAfc;
 	uint32_t mFdev;
-	std::atomic_bool mSending;
-	std::atomic_bool mSendingEnd;
+	atomic_bool mSending;
+	atomic_bool mSendingEnd;
 	uint64_t mSendTime;
 
 	void PerfUpdate();
-	std::mutex mPerfMutex;
+	Mutex mPerfMutex;
 	int32_t mRSSI;
 	int32_t mRxQuality;
 	int32_t mPerfTicks;
 	int32_t mPerfLastRxBlock;
 	int32_t mPerfValidBlocks;
 	int32_t mPerfInvalidBlocks;
+	int32_t mPerfBlocksPerSecond;
+	int32_t mPerfMaxBlocksPerSecond;
+	list< uint64_t > mPerfHistory; // [ticks]ValidBlocks
+
+	typedef struct {
+		SPI* spi;
+		string device;
+		int32_t resetPin;
+		int32_t irqPin;
+	} Diversity;
+	Diversity* mDiversity;
+	Mutex mInterruptMutex;
 
 	// TX
 	uint8_t mTXBlockID;
@@ -136,8 +155,8 @@ protected:
 		bool received;
 	} Block;
 	Block mRxBlock;
-	std::list<std::pair<uint8_t*, uint32_t>> mRxQueue;
-	std::mutex mRxQueueMutex;
+	list<pair<uint8_t*, uint32_t>> mRxQueue;
+	Mutex mRxQueueMutex;
 };
 
 #endif // SX127X_H

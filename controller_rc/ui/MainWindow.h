@@ -11,6 +11,7 @@ namespace Ui {
 	class PageCalibrate;
 	class PageCamera;
 	class PageNetwork;
+	class PageSettings;
 }
 
 class MainWindow : public QMainWindow
@@ -46,8 +47,12 @@ public slots:
 	void VideoExposureMode();
 	void VideoIsoIncrease();
 	void VideoIsoDecrease();
+// 	void VideoIsoAuto();
 	void VideoShutterSpeedIncrease();
 	void VideoShutterSpeedDecrease();
+	void VideoShutterSpeedAuto();
+
+	void SimulatorMode( bool enabled );
 
 private:
 	void CameraUpdateLensShader( bool send = true );
@@ -59,10 +64,12 @@ private:
 	Ui::PageCalibrate* uiPageCalibrate;
 	Ui::PageCamera* uiPageCamera;
 	Ui::PageNetwork* uiPageNetwork;
+	Ui::PageSettings* uiPageSettings;
 	QWidget* mPageMain;
 	QWidget* mPageCalibrate;
 	QWidget* mPageCamera;
 	QWidget* mPageNetwork;
+	QWidget* mPageSettings;
 
 	typedef struct {
 		uint16_t min;

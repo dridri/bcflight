@@ -13,6 +13,8 @@
 #include <string>
 #include <stdio.h>
 
+using namespace STD;
+
 typedef enum
 {
     BCM2835_SPI_CS0 = 0,     /*!< Chip Select 0 */
@@ -114,7 +116,7 @@ public:
 	static void transfernb(char* tbuf, char* rbuf, uint32_t len);
 	static void transfern(char* buf, uint32_t len);  
 
-	static void begin( const std::string& device );
+	static void begin( const string& device );
 	static void end();
 
 	static void setBitOrder(uint8_t bit_order);

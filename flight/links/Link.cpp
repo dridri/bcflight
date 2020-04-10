@@ -20,7 +20,7 @@
 #include <Debug.h>
 #include <Config.h>
 
-std::map< std::string, std::function< Link* ( Config*, const std::string& ) > > Link::mKnownLinks;
+map< string, function< Link* ( Config*, const string& ) > > Link::mKnownLinks;
 
 Link::Link()
 	: mConnected( false )
@@ -63,7 +63,7 @@ void Packet::WriteU16( uint16_t v )
 		uint16_t u;
 		uint8_t b[2];
 	} u;
-	u.u = htons( v );
+	u.u = board_htons( v );
 	mData.insert( mData.end(), u.b, u.b + sizeof(uint16_t) );
 }
 
@@ -74,12 +74,12 @@ void Packet::WriteU32( uint32_t v )
 		uint32_t u;
 		uint8_t b[4];
 	} u;
-	u.u = htonl( v );
+	u.u = board_htonl( v );
 	mData.insert( mData.end(), u.b, u.b + sizeof(uint32_t) );
 }
 
 
-void Packet::WriteString( const std::string& str )
+void Packet::WriteString( const string& str )
 {
 	Write( (const uint8_t*)str.c_str(), str.length() );
 }
@@ -92,6 +92,7 @@ uint32_t Packet::Read( uint8_t* data, uint32_t bytes )
 		mReadOffset += bytes;
 		return bytes;
 	}
+	memset( data, 0, bytes );
 	return 0;
 }
 
@@ -103,6 +104,7 @@ uint32_t Packet::ReadU8( uint8_t* u )
 		mReadOffset += sizeof(uint8_t);
 		return sizeof(uint8_t);
 	}
+	*u = 0;
 	return 0;
 }
 
@@ -111,10 +113,11 @@ uint32_t Packet::ReadU16( uint16_t* u )
 {
 	if ( mReadOffset + sizeof(uint16_t) <= mData.size() ) {
 		*u = ((uint16_t*)(mData.data() + mReadOffset))[0];
-		*u = ntohs( *u );
+		*u = board_ntohs( *u );
 		mReadOffset += sizeof(uint16_t);
 		return sizeof(uint16_t);
 	}
+	*u = 0;
 	return 0;
 }
 
@@ -123,10 +126,11 @@ uint32_t Packet::ReadU32( uint32_t* u )
 {
 	if ( mReadOffset + sizeof(uint32_t) <= mData.size() ) {
 		*u = ((uint32_t*)(mData.data() + mReadOffset))[0];
-		*u = ntohl( *u );
+		*u = board_ntohl( *u );
 		mReadOffset += sizeof(uint32_t);
 		return sizeof(uint32_t);
 	}
+	*u = 0;
 	return 0;
 }
 
@@ -172,9 +176,9 @@ float Packet::ReadFloat()
 }
 
 
-std::string Packet::ReadString()
+string Packet::ReadString()
 {
-	std::string res = "";
+	string res = "";
 	uint32_t i = 0;
 
 	for ( i = 0; mReadOffset + i < mData.size(); i++ ) {
@@ -191,7 +195,7 @@ std::string Packet::ReadString()
 }
 
 
-int32_t Link::Read( Packet* p, int32_t timeout )
+SyncReturn Link::Read( Packet* p, int32_t timeout )
 {
 	uint8_t buffer[8192] = { 0 };
 	int32_t ret = Read( buffer, 8192, timeout );
@@ -202,7 +206,7 @@ int32_t Link::Read( Packet* p, int32_t timeout )
 }
 
 
-int32_t Link::Write( const Packet* p, bool ack, int32_t timeout )
+SyncReturn Link::Write( const Packet* p, bool ack, int32_t timeout )
 {
 	return Write( p->data().data(), p->data().size(), ack, timeout );
 }
@@ -214,15 +218,15 @@ bool Link::isConnected() const
 }
 
 
-Link* Link::Create( Config* config, const std::string& lua_object )
+Link* Link::Create( Config* config, const string& lua_object )
 {
-	Link* instance = (Link*)strtoull( config->string( lua_object + "._instance" ).c_str(), nullptr, 10 );
+	Link* instance = (Link*)strtoull( config->String( lua_object + "._instance" ).c_str(), nullptr, 10 );
 	if ( instance ) {
 		gDebug() << "Reselecting already existing Link\n";
 		return instance;
 	}
 
-	std::string type = config->string( lua_object + ".link_type", "" );
+	string type = config->String( lua_object + ".link_type", "" );
 	Link* ret = nullptr;
 
 
@@ -231,7 +235,7 @@ Link* Link::Create( Config* config, const std::string& lua_object )
 	}
 
 	if ( ret != nullptr ) {
-		config->Execute( lua_object + "._instance = \"" + std::to_string( (uintptr_t)ret ) + "\"" );
+		config->Execute( lua_object + "._instance = \"" + to_string( (uintptr_t)ret ) + "\"" );
 		return ret;
 	}
 
@@ -240,7 +244,7 @@ Link* Link::Create( Config* config, const std::string& lua_object )
 } // -- Socket{ type = "TCP/UDP/UDPLite", port = port_number[, broadcast = true/false] } <= broadcast is false by default
 
 
-void Link::RegisterLink( const std::string& name, std::function< Link* ( Config*, const std::string& ) > instanciate )
+void Link::RegisterLink( const string& name, function< Link* ( Config*, const string& ) > instanciate )
 {
 	fDebug( name );
 	mKnownLinks[ name ] = instanciate;

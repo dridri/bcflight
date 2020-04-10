@@ -42,11 +42,11 @@ Board::~Board()
 }
 
 
-static std::string readproc( const std::string& filename, const std::string& entry = "", const std::string& delim = ":" )
+static string readproc( const string& filename, const string& entry = "", const string& delim = ":" )
 {
 	char buf[1024] = "";
-	std::string res = "";
-	std::ifstream file( filename );
+	string res = "";
+	ifstream file( filename );
 
 	if ( entry.length() == 0 or entry == "" ) {
 		file.readsome( buf, sizeof( buf ) );
@@ -62,7 +62,7 @@ static std::string readproc( const std::string& filename, const std::string& ent
 				char* end = s;
 				while ( *end != '\n' and *end++ );
 				*end = 0;
-				res = std::string( s );
+				res = string( s );
 				break;
 			}
 		}
@@ -74,10 +74,10 @@ static std::string readproc( const std::string& filename, const std::string& ent
 }
 
 
-static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" )
+static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" )
 {
 	char buf[1024] = "";
-	std::string res = "";
+	string res = "";
 	FILE* fp = popen( cmd.c_str(), "rb" );
 
 	if ( entry.length() == 0 or entry == "" ) {
@@ -92,15 +92,15 @@ static std::string readcmd( const std::string& cmd, const std::string& entry = "
 }
 
 
-std::string Board::infos()
+string Board::infos()
 {
-	std::string res = "";
+	string res = "";
 
 	res += "Type:" BOARD "\n";
 	res += "Firmware version:" VERSION_STRING "\n";
-	res += "CPU:" + readproc( "/proc/cpuinfo", "model name" ) + std::string( "\n" );
-	res += "CPU frequency:" + std::to_string( std::atoi( readproc( "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ).c_str() ) / 1000 ) + std::string( "MHz\n" );
-	res += "CPU cores count:" + std::to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + std::string( "\n" );
+	res += "CPU:" + readproc( "/proc/cpuinfo", "model name" ) + string( "\n" );
+	res += "CPU frequency:" + to_string( atoi( readproc( "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ).c_str() ) / 1000 ) + string( "MHz\n" );
+	res += "CPU cores count:" + to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + string( "\n" );
 
 	return res;
 }
@@ -134,27 +134,27 @@ Board::Date Board::localDate()
 
 
 
-const uint32_t Board::LoadRegisterU32( const std::string& name, uint32_t def )
+const uint32_t Board::LoadRegisterU32( const string& name, uint32_t def )
 {
-	std::string str = LoadRegister( name );
+	string str = LoadRegister( name );
 	if ( str != "" and str.length() > 0 ) {
-		return std::strtoul( str.c_str(), nullptr, 10 );
+		return strtoul( str.c_str(), nullptr, 10 );
 	}
 	return def;
 }
 
 
-const float Board::LoadRegisterFloat( const std::string& name, float def )
+const float Board::LoadRegisterFloat( const string& name, float def )
 {
-	std::string str = LoadRegister( name );
+	string str = LoadRegister( name );
 	if ( str != "" and str.length() > 0 ) {
-		return std::atof( str.c_str() );
+		return atof( str.c_str() );
 	}
 	return def;
 }
 
 
-const std::string Board::LoadRegister( const std::string& name )
+const string Board::LoadRegister( const string& name )
 {
 	if ( mRegisters.find( name ) != mRegisters.end() ) {
 		return mRegisters[ name ];
@@ -163,7 +163,7 @@ const std::string Board::LoadRegister( const std::string& name )
 }
 
 
-int Board::SaveRegister( const std::string& name, const std::string& value )
+int Board::SaveRegister( const string& name, const string& value )
 {
 	mRegisters[ name ] = value;
 
@@ -203,10 +203,10 @@ uint64_t Board::WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t s
 }
 
 
-std::string Board::readcmd( const std::string& cmd, const std::string& entry, const std::string& delim )
+string Board::readcmd( const string& cmd, const string& entry, const string& delim )
 {
 	char buf[1024] = "";
-	std::string res = "";
+	string res = "";
 	FILE* fp = popen( cmd.c_str(), "r" );
 	if ( !fp ) {
 		printf( "popen failed : %s\n", strerror( errno ) );
@@ -226,7 +226,7 @@ std::string Board::readcmd( const std::string& cmd, const std::string& entry, co
 				char* end = s;
 				while ( *end != '\n' and *end++ );
 				*end = 0;
-				res = std::string( s );
+				res = string( s );
 				break;
 			}
 		}

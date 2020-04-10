@@ -25,14 +25,14 @@
 class Thread
 {
 public:
-	Thread( const std::string& name = "flight" );
+	Thread( const string& name = "flight" );
 	virtual ~Thread();
 
 	void Start();
 	void Pause();
 	void Stop();
 	void Join();
-	bool running();
+	bool running() const;
 	void setPriority( int p, int affinity = -1 );
 	static void setMainPriority( int p );
 
@@ -53,12 +53,12 @@ private:
 template<typename T> class HookThread : public Thread
 {
 public:
-	HookThread( const std::string& name, T* r, const std::function< bool( T* ) >& cb ) : Thread( name ), mT( r ), mCallback( cb ) {}
+	HookThread( const string& name, T* r, const function< bool( T* ) >& cb ) : Thread( name ), mT( r ), mCallback( cb ) {}
 protected:
 	virtual bool run() { return mCallback( mT ); }
 private:
 	T* mT;
-	const std::function< bool( T* ) > mCallback;
+	const function< bool( T* ) > mCallback;
 };
 
 

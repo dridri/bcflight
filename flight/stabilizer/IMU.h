@@ -73,7 +73,9 @@ protected:
 	uint64_t mSensorsThreadTickRate;
 	uint32_t mSensorsUpdateSlow;
 	bool mPositionUpdate;
-	std::mutex mPositionUpdateMutex;
+#ifdef SYSTEM_NAME_Linux
+	mutex mPositionUpdateMutex;
+#endif
 
 	// Running states
 	State mState;

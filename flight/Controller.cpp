@@ -15,10 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
+
 #include <unistd.h>
 #include <stdio.h>
+#include <arpa/inet.h>
 #include <algorithm>
 #include "Main.h"
+#include "Config.h"
 #include "Controller.h"
 #include <Link.h>
 #include <IMU.h>
@@ -29,8 +32,6 @@
 #include <Stabilizer.h>
 #include <Frame.h>
 #include "video/Camera.h"
-
-#include <netinet/in.h>
 
 Controller::Controller( Main* main, Link* link )
 	: ControllerBase( link )
@@ -46,15 +47,15 @@ Controller::Controller( Main* main, Link* link )
 	, mTelemetryTick( 0 )
 	, mTelemetryCounter( 0 )
 	, mEmergencyTick( 0 )
-	, mTelemetryFull( main->config()->boolean( "controller.full_telemetry", false ) )
+	, mTelemetryFull( main->config()->Boolean( "controller.full_telemetry", false ) )
 {
-	mTelemetryFrequency = main->config()->integer( "controller.telemetry_rate", 20 );
+	mTelemetryFrequency = main->config()->Integer( "controller.telemetry_rate", 20 );
 
 	mExpo = Vector4f();
-	mExpo.x = main->config()->number( "controller.expo.roll" );
-	mExpo.y = main->config()->number( "controller.expo.pitch" );
-	mExpo.z = main->config()->number( "controller.expo.yaw" );
-	mExpo.w = main->config()->number( "controller.expo.thrust" );
+	mExpo.x = main->config()->Number( "controller.expo.roll" );
+	mExpo.y = main->config()->Number( "controller.expo.pitch" );
+	mExpo.z = main->config()->Number( "controller.expo.yaw" );
+	mExpo.w = main->config()->Number( "controller.expo.thrust" );
 	if ( mExpo.x < 0.01f ) {
 		mExpo.x = 0.01f;
 	}
@@ -84,12 +85,13 @@ Controller::Controller( Main* main, Link* link )
 	Start();
 	if ( mTelemetryFrequency > 0 ) {
 		gDebug() << "Starting telemetry thread\n";
+		mTelemetryThread->setFrequency( mTelemetryFrequency );
 		mTelemetryThread->Start();
 	}
-	gDebug() << "Waiting link to be ready\n";
-	while ( !mLink->isConnected() ) {
-		usleep( 1000 * 100 );
-	}
+// 	gDebug() << "Waiting link to be ready\n";
+// 	while ( !mLink->isConnected() ) {
+// 		usleep( 1000 * 100 );
+// 	}
 	gDebug() << "Controller ready !\n";
 }
 
@@ -156,7 +158,7 @@ void Controller::UpdateSmoothControl( const float& dt )
 }
 
 
-void Controller::SendDebug( const std::string& s )
+void Controller::SendDebug( const string& s )
 {
 /*
 	Packet packet( DEBUG_OUTPUT );
@@ -172,9 +174,9 @@ void Controller::SendDebug( const std::string& s )
 void Controller::setRoll( float value )
 {
 	if ( value >= 0.0f ) {
-		value = ( std::exp( value * mExpo.x ) - 1.0f ) / ( std::exp( mExpo.x ) - 1.0f );
+		value = ( exp( value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
 	} else {
-		value = -( std::exp( -value * mExpo.x ) - 1.0f ) / ( std::exp( mExpo.x ) - 1.0f );
+		value = -( exp( -value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
 	}
 	mRPY.x = value;
 }
@@ -183,9 +185,9 @@ void Controller::setRoll( float value )
 void Controller::setPitch( float value )
 {
 	if ( value >= 0.0f ) {
-		value = ( std::exp( value * mExpo.y ) - 1.0f ) / ( std::exp( mExpo.y ) - 1.0f );
+		value = ( exp( value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
 	} else {
-		value = -( std::exp( -value * mExpo.y ) - 1.0f ) / ( std::exp( mExpo.y ) - 1.0f );
+		value = -( exp( -value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
 	}
 	mRPY.y = value;
 }
@@ -193,13 +195,13 @@ void Controller::setPitch( float value )
 
 void Controller::setYaw( float value )
 {
-	if ( std::abs( value ) < 0.05f ) {
+	if ( abs( value ) < 0.05f ) {
 		value = 0.0f;
 	}
 	if ( value >= 0.0f ) {
-		value = ( std::exp( value * mExpo.z ) - 1.0f ) / ( std::exp( mExpo.z ) - 1.0f );
+		value = ( exp( value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
 	} else {
-		value = -( std::exp( -value * mExpo.z ) - 1.0f ) / ( std::exp( mExpo.z ) - 1.0f );
+		value = -( exp( -value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
 	}
 	mRPY.z = value;
 }
@@ -207,15 +209,15 @@ void Controller::setYaw( float value )
 
 void Controller::setThrust( float value )
 {
-	if ( std::abs( value ) < 0.05f ) {
+	if ( abs( value ) < 0.05f ) {
 		value = 0.0f;
 	}
 	if ( not mMain->stabilizer()->altitudeHold() ) {
-		value = std::log( value * ( mExpo.z - 1.0f ) + 1.0f ) / std::log( mExpo.z );
-		if ( value < 0.0f or std::isnan( value ) or ( std::isinf( value ) and value < 0.0f ) ) {
+		value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
+		if ( value < 0.0f or isnan( value ) or ( isinf( value ) and value < 0.0f ) ) {
 			value = 0.0f;
 		}
-		if ( value > 1.0f or std::isinf( value ) ) {
+		if ( value > 1.0f or isinf( value ) ) {
 			value = 1.0f;
 		}
 		mThrust = value;
@@ -250,6 +252,10 @@ bool Controller::run()
 {
 	char stmp[64];
 
+	if ( !mLink ) {
+		return true;
+	}
+
 	if ( !mLink->isConnected() ) {
 		mConnected = false;
 		mRPY.x = 0.0f;
@@ -266,9 +272,9 @@ bool Controller::run()
 		return true;
 	}
 
-	int readret = 0;
+	SyncReturn readret = CONTINUE;
 	Packet command;
-	if ( ( readret = mLink->Read( &command, 0 ) ) == LINK_ERROR_TIMEOUT ) {
+	if ( ( readret = mLink->Read( &command, 0 ) ) == TIMEOUT ) {
 		if ( not mTimedOut ) {
 			mMain->blackbox()->Enqueue( "Controller:connected", "false" );
 		}
@@ -284,6 +290,8 @@ bool Controller::run()
 			gDebug() << "STONE MODE !\n";
 			return true;
 		}
+	} else if ( readret == CONTINUE ) {
+		return true;
 	} else {
 		if ( mTimedOut ) {
 			if ( mConnected ) {
@@ -293,7 +301,7 @@ bool Controller::run()
 		}
 	}
 
-	mMain->blackbox()->Enqueue( "Link:quality", std::to_string(mLink->RxQuality()) + "% @" + std::to_string(mLink->RxLevel()) + "dBm" );
+	mMain->blackbox()->Enqueue( "Link:quality", to_string(mLink->RxQuality()) + "% @" + to_string(mLink->RxLevel()) + "dBm" );
 
     auto ReadCmd = []( Packet* command, Cmd* cmd ) {
 		uint8_t part1 = 0;
@@ -315,7 +323,7 @@ bool Controller::run()
 	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-// 			std::cout << "Received command (" << std::hex << (int)cmd << std::dec << ") : " << mCommandsNames[(cmd)] << "\n";
+// 			cout << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)] << "\n";
 // 		}
 		bool do_response = false;
 		Packet response;
@@ -336,23 +344,29 @@ bool Controller::run()
 			continue;
 		}
 
+		if ( not mConnected ) {
+			if ( cmd == PING ) {
+				gDebug() << "Controller connected !\n";
+				mConnected = true;
+				mConnectionEstablished = true;
+				mMain->blackbox()->Enqueue( "Controller:connected", "true" );
+				mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
+			} else {
+				gDebug() << "Ignoring command " << hex << (int)cmd << dec << "\n";
+				continue;
+			}
+		}
+
 		switch ( cmd )
 		{
 			case PING : {
-				if ( not mConnected ) {
-					gDebug() << "Controller connected !\n";
-					mConnected = true;
-					mConnectionEstablished = true;
-					mMain->blackbox()->Enqueue( "Controller:connected", "true" );
-					mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
-				}
 				uint16_t ticks = 0;
 				if ( command.ReadU16( &ticks ) == sizeof(uint16_t) ) {
 					response.WriteU16( ticks );
 					uint16_t last = command.ReadU16();
 					mPing = last;
 					response.WriteU16( last ); // Copy-back reported ping
-					mMain->blackbox()->Enqueue( "Controller:ping", std::to_string(mPing) + "ms" );
+					mMain->blackbox()->Enqueue( "Controller:ping", to_string(mPing) + "ms" );
 
 					// Send status
 					uint32_t status = 0;
@@ -400,7 +414,7 @@ bool Controller::run()
 					if ( controls.arm and not mArmed and mMain->imu()->state() == IMU::Running ) {
 						Arm();
 						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
-					} else if ( not controls.arm ) {
+					} else if ( not controls.arm and mArmed ) {
 						Disarm();
 						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
 					}
@@ -416,19 +430,19 @@ bool Controller::run()
 				break;
 			}
 			case GET_BOARD_INFOS : {
-				std::string res = mMain->board()->infos();
+				string res = mMain->board()->infos();
 				response.WriteString( res );
 				do_response = true;
 				break;
 			}
 			case GET_SENSORS_INFOS : {
-				std::string res = Sensor::infosAll();
+				string res = Sensor::infosAll();
 				response.WriteString( res );
 				do_response = true;
 				break;
 			}
 			case GET_CONFIG_FILE : {
-				std::string conf = mMain->config()->ReadFile();
+				string conf = mMain->config()->ReadFile();
 				response.WriteU32( crc32( (uint8_t*)conf.c_str(), conf.length() ) );
 				response.WriteString( conf );
 				do_response = true;
@@ -436,13 +450,17 @@ bool Controller::run()
 			}
 			case SET_CONFIG_FILE : {
 				uint32_t crc = command.ReadU32();
-				std::string conf = command.ReadString();
+				string conf = command.ReadString();
 				if ( crc32( (uint8_t*)conf.c_str(), conf.length() ) == crc ) {
 					gDebug() << "Received new configuration : " << conf << "\n";
 					response.WriteU32( 0 );
+#ifdef SYSTEM_NAME_Linux
 					mSendMutex.lock();
+#endif
 					mLink->Write( &response );
+#ifdef SYSTEM_NAME_Linux
 					mSendMutex.unlock();
+#endif
 					mMain->config()->WriteFile( conf );
 					mMain->board()->Reset();
 				} else {
@@ -474,9 +492,13 @@ bool Controller::run()
 						uint32_t local_crc = crc32( buf, size );
 						if ( local_crc == crc ) {
 							response.WriteU32( 1 );
+#ifdef SYSTEM_NAME_Linux
 							mSendMutex.lock();
+#endif
 							mLink->Write( &response );
+#ifdef SYSTEM_NAME_Linux
 							mSendMutex.unlock();
+#endif
 							Board::UpdateFirmwareData( buf, offset, size );
 						} else {
 							gDebug() << "Firmware upload CRC32 is invalid (corrupted WiFi frame ?)\n";
@@ -683,7 +705,7 @@ bool Controller::run()
 
 			case SET_ROLL_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setRollP( value );
@@ -693,7 +715,7 @@ bool Controller::run()
 			}
 			case SET_ROLL_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setRollI( value );
@@ -703,7 +725,7 @@ bool Controller::run()
 			}
 			case SET_ROLL_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setRollD( value );
@@ -721,7 +743,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchP( value );
@@ -731,7 +753,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchI( value );
@@ -741,7 +763,7 @@ bool Controller::run()
 			}
 			case SET_PITCH_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setPitchD( value );
@@ -759,7 +781,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setYawP( value );
@@ -769,7 +791,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setYawI( value );
@@ -779,7 +801,7 @@ bool Controller::run()
 			}
 			case SET_YAW_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 1.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 1.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setYawD( value );
@@ -806,7 +828,7 @@ bool Controller::run()
 
 			case SET_OUTER_PID_P : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 50.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterP( value );
@@ -816,7 +838,7 @@ bool Controller::run()
 			}
 			case SET_OUTER_PID_I : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 50.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterI( value );
@@ -826,7 +848,7 @@ bool Controller::run()
 			}
 			case SET_OUTER_PID_D : {
 				float value;
-				if ( command.ReadFloat( &value ) == 0 or std::abs(value) > 50.0f ) {
+				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setOuterD( value );
@@ -852,7 +874,7 @@ bool Controller::run()
 			}
 			case SET_HORIZON_OFFSET : {
 				Vector3f v;
-				if ( command.ReadFloat( &v.x ) == 0 or command.ReadFloat( &v.y ) == 0 or std::abs(v.x) > 45.0f or std::abs(v.y) > 45.0f ) {
+				if ( command.ReadFloat( &v.x ) == 0 or command.ReadFloat( &v.y ) == 0 or abs(v.x) > 45.0f or abs(v.y) > 45.0f ) {
 					break;
 				}
 				mMain->stabilizer()->setHorizonOffset( v );
@@ -1047,19 +1069,21 @@ bool Controller::run()
 					}
 					return (float)( value >> 5 ) + (float)( value & 0b00011111 ) / 32.0f;
 				};
-				mMain->config()->setNumber( "camera.lens_shading.r.base", int35_float( r.base ) );
-				mMain->config()->setInteger( "camera.lens_shading.r.radius", r.radius );
-				mMain->config()->setNumber( "camera.lens_shading.r.strength", int35_float( r.strength ) );
-				mMain->config()->setNumber( "camera.lens_shading.g.base", int35_float( g.base ) );
-				mMain->config()->setInteger( "camera.lens_shading.g.radius", g.radius );
-				mMain->config()->setNumber( "camera.lens_shading.g.strength", int35_float( g.strength ) );
-				mMain->config()->setNumber( "camera.lens_shading.b.base", int35_float( b.base ) );
-				mMain->config()->setInteger( "camera.lens_shading.b.radius", b.radius );
-				mMain->config()->setNumber( "camera.lens_shading.b.strength", int35_float( b.strength ) );
-				mMain->config()->Save();
-				Camera* cam = mMain->camera();
-				if ( cam ) {
-					cam->setLensShader( r, g, b );
+				if ( r.base != 0 and g.base != 0 and b.base != 0 and r.strength != 0 and g.strength != 0 and b.strength != 0 ) {
+					mMain->config()->setNumber( "camera.lens_shading.r.base", int35_float( r.base ) );
+					mMain->config()->setInteger( "camera.lens_shading.r.radius", r.radius );
+					mMain->config()->setNumber( "camera.lens_shading.r.strength", int35_float( r.strength ) );
+					mMain->config()->setNumber( "camera.lens_shading.g.base", int35_float( g.base ) );
+					mMain->config()->setInteger( "camera.lens_shading.g.radius", g.radius );
+					mMain->config()->setNumber( "camera.lens_shading.g.strength", int35_float( g.strength ) );
+					mMain->config()->setNumber( "camera.lens_shading.b.base", int35_float( b.base ) );
+					mMain->config()->setInteger( "camera.lens_shading.b.radius", b.radius );
+					mMain->config()->setNumber( "camera.lens_shading.b.strength", int35_float( b.strength ) );
+					mMain->config()->Save();
+					Camera* cam = mMain->camera();
+					if ( cam ) {
+						cam->setLensShader( r, g, b );
+					}
 				}
 				break;
 			}
@@ -1076,7 +1100,7 @@ bool Controller::run()
 			}
 			case VIDEO_EXPOSURE_MODE : {
 				Camera* cam = mMain->camera();
-				std::string ret = "(none)";
+				string ret = "(none)";
 				if ( cam ) {
 					if ( acknowledged ) {
 						ret = cam->exposureMode();
@@ -1091,7 +1115,7 @@ bool Controller::run()
 			}
 			case VIDEO_WHITE_BALANCE : {
 				Camera* cam = mMain->camera();
-				std::string ret = "(none)";
+				string ret = "(none)";
 				if ( cam ) {
 					if ( acknowledged ) {
 						ret = cam->whiteBalance();
@@ -1106,7 +1130,7 @@ bool Controller::run()
 			}
 			case VIDEO_LOCK_WHITE_BALANCE : {
 				Camera* cam = mMain->camera();
-				std::string ret = "(none)";
+				string ret = "(none)";
 				if ( cam ) {
 					if ( acknowledged ) {
 						ret = cam->whiteBalance();
@@ -1120,18 +1144,19 @@ bool Controller::run()
 				break;
 			}
 			case GET_RECORDINGS_LIST : {
-				std::string rec = mMain->getRecordingsList();
+				string rec = mMain->getRecordingsList();
 				response.WriteU32( crc32( (uint8_t*)rec.c_str(), rec.length() ) );
 				response.WriteString( rec );
 				do_response = true;
 				break;
 			}
+/*
 			case RECORD_DOWNLOAD : {
-				std::string file = command.ReadString();
+				string file = command.ReadString();
 // 				mMain->UploadFile( filename ); // TODO
 				break;
 			}
-
+*/
 			case GET_USERNAME : {
 				if ( mMain->username() != "" ) {
 					response.WriteString( mMain->username() );
@@ -1149,9 +1174,13 @@ bool Controller::run()
 		}
 
 		if ( do_response ) {
+#ifdef SYSTEM_NAME_Linux
 			mSendMutex.lock();
+#endif
 			mLink->Write( &response );
+#ifdef SYSTEM_NAME_Linux
 			mSendMutex.unlock();
+#endif
 		}
 	}
 
@@ -1172,7 +1201,7 @@ bool Controller::TelemetryRun()
 		telemetry.WriteU16( STABILIZER_FREQUENCY );
 		telemetry.WriteU32( mMain->loopFrequency() );
 
-		std::vector< Motor* >* motors = mMain->frame()->motors();
+		vector< Motor* >* motors = mMain->frame()->motors();
 		if ( motors ) {
 			telemetry.WriteU16( MOTORS_SPEED );
 			telemetry.WriteU32( motors->size() );
@@ -1245,10 +1274,14 @@ bool Controller::TelemetryRun()
 		telemetry.WriteFloat( mMain->imu()->magnetometer().z );
 	}
 
+#ifdef SYSTEM_NAME_Linux
 	mSendMutex.lock();
+#endif
 	mLink->Write( &telemetry );
+#ifdef SYSTEM_NAME_Linux
 	mSendMutex.unlock();
-	mTelemetryTick = Board::WaitTick( 1000000 / mTelemetryFrequency, mTelemetryTick );
+#endif
+// 	mTelemetryTick = Board::WaitTick( 1000000 / mTelemetryFrequency, mTelemetryTick );
 	mTelemetryCounter++;
 	return true;
 }

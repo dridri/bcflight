@@ -306,7 +306,7 @@ static int ieee80211_channel_to_frequency( int chan, enum nl80211_band band )
 
 int phymactoindex( const char* hwaddr )
 {
-	char path[256] = "";
+	char path[1024] = "";
 	char buf[64] = "";
 	struct dirent* ent;
 	DIR* dir = opendir( "/sys/class/ieee80211" );

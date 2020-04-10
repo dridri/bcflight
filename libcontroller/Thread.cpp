@@ -28,10 +28,10 @@
 #endif
 #include "Thread.h"
 
-std::mutex Thread::mCriticalMutex;
+mutex Thread::mCriticalMutex;
 uint64_t Thread::mBaseTick = 0;
 
-Thread::Thread( const std::string& name )
+Thread::Thread( const string& name )
 	: mName( name )
 	, mRunning( false )
 	, mIsRunning( false )

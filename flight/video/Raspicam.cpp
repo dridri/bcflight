@@ -24,6 +24,7 @@
 #include <Debug.h>
 #include <Link.h>
 #include <RawWifi.h>
+#include <Socket.h>
 #include <GPIO.h>
 #include "Raspicam.h"
 #include <Board.h>
@@ -33,17 +34,17 @@
 #include <IL/OMX_Broadcom.h>
 
 
-Raspicam::Raspicam( Config* config, const std::string& conf_obj )
+Raspicam::Raspicam( Config* config, const string& conf_obj )
 	: ::Camera()
-	, CAM_INTF::Camera( config->integer( conf_obj + ".width", 1280 ), config->integer( conf_obj + ".height", 720 ), 0, true, config->integer( conf_obj + ".sensor_mode", 0 ), true )
+	, CAM_INTF::Camera( config->Integer( conf_obj + ".width", 1280 ), config->Integer( conf_obj + ".height", 720 ), 0, true, config->Integer( conf_obj + ".sensor_mode", 0 ), true )
 	, mConfig( config )
 	, mConfigObject( conf_obj )
 	, mLink( nullptr )
-	, mDirectMode( config->boolean( conf_obj + ".direct_mode", false ) )
+	, mDirectMode( config->Boolean( conf_obj + ".direct_mode", false ) )
 	, mWidth( 0 )
 	, mHeight( 0 )
-	, mISO( mConfig->integer( mConfigObject + ".iso", 0 ) )
-	, mShutterSpeed( mConfig->integer( mConfigObject + ".shutter_speed", 0 ) )
+	, mISO( mConfig->Integer( mConfigObject + ".iso", 0 ) )
+	, mShutterSpeed( mConfig->Integer( mConfigObject + ".shutter_speed", 0 ) )
 	, mLiveFrameCounter( 0 )
 	, mLedTick( 0 )
 	, mHeadersTick( 0 )
@@ -58,6 +59,7 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	, mEncoderRecord( nullptr )
 	, mRecordThread( nullptr )
 	, mTakingPicture( false )
+	, mLastPictureID( 0 )
 	, mRecordStream( nullptr )
 	, mRecorderTrackId( 0 )
 {
@@ -74,56 +76,67 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	// TODO : remove this
 	mRecording = true;
 
-	mBetterRecording = ( config->integer( conf_obj + ".record_kbps", config->integer( conf_obj + ".kbps", 1024 ) ) != config->integer( conf_obj + ".kbps", 1024 ) );
+	mBetterRecording = ( config->Integer( conf_obj + ".record_kbps", config->Integer( conf_obj + ".kbps", 1024 ) ) != config->Integer( conf_obj + ".kbps", 1024 ) );
 	gDebug() << "Camera splitted encoders : " << mBetterRecording << "\n";
 
-	if ( mConfig->boolean( mConfigObject + ".disable_lens_shading", false ) ) {
+	if ( mConfig->Boolean( mConfigObject + ".disable_lens_shading", false ) ) {
 		CAM_INTF::Camera::disableLensShading();
 	}
 
 	if ( mConfig->ArrayLength( conf_obj + ".lens_shading" ) > 0 ) {
-		if ( mConfig->number( conf_obj + ".lens_shading.r.base", -10.0f ) != -10.0f ) {
+		if ( mConfig->Number( conf_obj + ".lens_shading.r.base", -10.0f ) != -10.0f ) {
 			auto convert = [](float f) {
 				bool neg = ( f < 0.0f );
 				float ipart;
-				return ((int)f * 32) + ( neg ? -1 : 1 ) * (int)( std::modf( neg ? -f : f, &ipart ) * 32.0f );
+				return ((int)f * 32) + ( neg ? -1 : 1 ) * (int)( modf( neg ? -f : f, &ipart ) * 32.0f );
 			};
-			mLensShaderR.base = convert( mConfig->number( conf_obj + ".lens_shading.r.base", 2.0f ) );
-			mLensShaderR.radius =  mConfig->integer( conf_obj + ".lens_shading.r.radius", 0 );
-			mLensShaderR.strength = convert( mConfig->number( conf_obj + ".lens_shading.r.strength", 0.0f ) );
-			mLensShaderG.base = convert( mConfig->number( conf_obj + ".lens_shading.g.base", 2.0f ) );
-			mLensShaderG.radius =  mConfig->integer( conf_obj + ".lens_shading.g.radius", 0 );
-			mLensShaderG.strength = convert( mConfig->number( conf_obj + ".lens_shading.g.strength", 0.0f ) );
-			mLensShaderB.base = convert( mConfig->number( conf_obj + ".lens_shading.b.base", 2.0f ) );
-			mLensShaderB.radius =  mConfig->integer( conf_obj + ".lens_shading.b.radius", 0 );
-			mLensShaderB.strength = convert( mConfig->number( conf_obj + ".lens_shading.b.strength", 0.0f ) );
+			mLensShaderR.base = convert( mConfig->Number( conf_obj + ".lens_shading.r.base", 2.0f ) );
+			mLensShaderR.radius =  mConfig->Integer( conf_obj + ".lens_shading.r.radius", 0 );
+			mLensShaderR.strength = convert( mConfig->Number( conf_obj + ".lens_shading.r.strength", 0.0f ) );
+			mLensShaderG.base = convert( mConfig->Number( conf_obj + ".lens_shading.g.base", 2.0f ) );
+			mLensShaderG.radius =  mConfig->Integer( conf_obj + ".lens_shading.g.radius", 0 );
+			mLensShaderG.strength = convert( mConfig->Number( conf_obj + ".lens_shading.g.strength", 0.0f ) );
+			mLensShaderB.base = convert( mConfig->Number( conf_obj + ".lens_shading.b.base", 2.0f ) );
+			mLensShaderB.radius =  mConfig->Integer( conf_obj + ".lens_shading.b.radius", 0 );
+			mLensShaderB.strength = convert( mConfig->Number( conf_obj + ".lens_shading.b.strength", 0.0f ) );
 			setLensShader_internal( mLensShaderR, mLensShaderG, mLensShaderB );
 		} else {
-			auto r = mConfig->integerArray( conf_obj + ".lens_shading.r" );
-			auto g = mConfig->integerArray( conf_obj + ".lens_shading.g" );
-			auto b = mConfig->integerArray( conf_obj + ".lens_shading.b" );
+			vector< int32_t > gr, gb;
+			auto r = mConfig->IntegerArray( conf_obj + ".lens_shading.r" );
+			auto b = mConfig->IntegerArray( conf_obj + ".lens_shading.b" );
+			if ( mConfig->ArrayLength( conf_obj + ".lens_shading.g" ) > 0 ) {
+				gr = mConfig->IntegerArray( conf_obj + ".lens_shading.g" );
+				gb = gr;
+			} else {
+				gr = mConfig->IntegerArray( conf_obj + ".lens_shading.gr" );
+				gb = mConfig->IntegerArray( conf_obj + ".lens_shading.gb" );
+			}
 			uint8_t* grid = new uint8_t[52 * 39 * 4];
-			memcpy( &grid[52 * 39 * 0], r.data(), 52 * 39 );
-			memcpy( &grid[52 * 39 * 1], g.data(), 52 * 39 );
-			memcpy( &grid[52 * 39 * 2], g.data(), 52 * 39 );
-			memcpy( &grid[52 * 39 * 3], b.data(), 52 * 39 );
+			for ( int32_t y = 0; y < 39; y++ ) {
+				for ( int32_t x = 0; x < 52; x++ ) {
+					grid[ 52 * 39 * 0 + y * 52 + x ] = r.data()[y * 52 + x];
+					grid[ 52 * 39 * 1 + y * 52 + x ] = gr.data()[y * 52 + x];
+					grid[ 52 * 39 * 2 + y * 52 + x ] = gb.data()[y * 52 + x];
+					grid[ 52 * 39 * 3 + y * 52 + x ] = b.data()[y * 52 + x];
+				}
+			}
 			CAM_INTF::Camera::setLensShadingGrid( 64, 52, 39, 3, grid );
 		}
 	}
 
-	mWidth = config->integer( conf_obj + ".video_width", config->integer( conf_obj + ".width", 1280 ) );
-	mHeight = config->integer( conf_obj + ".video_height", config->integer( conf_obj + ".height", 720 ) );
+	mWidth = config->Integer( conf_obj + ".video_width", config->Integer( conf_obj + ".width", 1280 ) );
+	mHeight = config->Integer( conf_obj + ".video_height", config->Integer( conf_obj + ".height", 720 ) );
 	CAM_INTF::Camera::setResolution( mWidth, mHeight, 71 );
-	CAM_INTF::Camera::setMirror( mConfig->boolean( mConfigObject + ".hflip", false ), mConfig->boolean( mConfigObject + ".vflip", false ) );
+	CAM_INTF::Camera::setMirror( mConfig->Boolean( mConfigObject + ".hflip", false ), mConfig->Boolean( mConfigObject + ".vflip", false ) );
 	CAM_INTF::Camera::setWhiteBalanceControl( CAM_INTF::Camera::WhiteBalControlAuto );
 	CAM_INTF::Camera::setExposureControl( CAM_INTF::Camera::ExposureControlAuto );
-	CAM_INTF::Camera::setExposureValue( mConfig->integer( mConfigObject + ".exposure", 0 ), mConfig->integer( mConfigObject + ".aperture", 2.8f ), mConfig->integer( mConfigObject + ".iso", 0 ), mConfig->integer( mConfigObject + ".shutter_speed", 0 ) );
-	CAM_INTF::Camera::setSharpness( mConfig->integer( mConfigObject + ".sharpness", 100 ) );
-	CAM_INTF::Camera::setFramerate( mConfig->integer( mConfigObject + ".fps", 60 ) );
-	CAM_INTF::Camera::setBrightness( mConfig->integer( mConfigObject + ".brightness", 55 ) );
-	CAM_INTF::Camera::setSaturation( mConfig->integer( mConfigObject + ".saturation", 8 ) );
-	CAM_INTF::Camera::setContrast( mConfig->integer( mConfigObject + ".contrast", 0 ) );
-	CAM_INTF::Camera::setFrameStabilisation( mConfig->boolean( mConfigObject + ".stabilisation", false ) );
+	CAM_INTF::Camera::setExposureValue( CAM_INTF::Camera::ExposureMeteringModeSpot, mConfig->Integer( mConfigObject + ".exposure", 0 ), mConfig->Integer( mConfigObject + ".iso", 0 ), mConfig->Integer( mConfigObject + ".shutter_speed", 0 ) );
+	CAM_INTF::Camera::setSharpness( mConfig->Integer( mConfigObject + ".sharpness", 100 ) );
+	CAM_INTF::Camera::setFramerate( mConfig->Integer( mConfigObject + ".fps", 60 ) );
+	CAM_INTF::Camera::setBrightness( mConfig->Integer( mConfigObject + ".brightness", 55 ) );
+	CAM_INTF::Camera::setSaturation( mConfig->Integer( mConfigObject + ".saturation", 8 ) );
+	CAM_INTF::Camera::setContrast( mConfig->Integer( mConfigObject + ".contrast", 0 ) );
+	CAM_INTF::Camera::setFrameStabilisation( mConfig->Boolean( mConfigObject + ".stabilisation", false ) );
 	printf( "============+> FILTER A\n" );
 // 	CAM_INTF::Camera::setImageFilter( CAM_INTF::Camera::ImageFilterDeInterlaceFast );
 	printf( "============+> FILTER B\n" );
@@ -135,11 +148,11 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 	CAM_INTF::Camera::SetupTunnelImage( mImageEncoder );
 	mTakePictureThread = new HookThread<Raspicam>( "cam_still", this, &Raspicam::TakePictureThreadRun );
 
-	mEncoder = new CAM_INTF::VideoEncode( mConfig->integer( mConfigObject + ".kbps", 1024 ), CAM_INTF::VideoEncode::CodingAVC, not mDirectMode, false );
+	mEncoder = new CAM_INTF::VideoEncode( mConfig->Integer( mConfigObject + ".kbps", 1024 ), CAM_INTF::VideoEncode::CodingAVC, not mDirectMode, false );
 
 	if ( mBetterRecording ) {
 		mSplitter = new CAM_INTF::VideoSplitter( true );
-// 		mEncoderRecord = new CAM_INTF::VideoEncode( mConfig->integer( mConfigObject + ".record_kbps", 16384 ), CAM_INTF::VideoEncode::CodingAVC, true );
+// 		mEncoderRecord = new CAM_INTF::VideoEncode( mConfig->Integer( mConfigObject + ".record_kbps", 16384 ), CAM_INTF::VideoEncode::CodingAVC, true );
 		CAM_INTF::Camera::SetupTunnelVideo( mSplitter );
 		mSplitter->SetupTunnel( mEncoder );
 // 		mSplitter->SetupTunnel( mEncoderRecord );
@@ -188,9 +201,23 @@ Raspicam::Raspicam( Config* config, const std::string& conf_obj )
 // 	}
 
 	mRecordThread = new HookThread<Raspicam>( "cam_record", this, &Raspicam::RecordThreadRun );
-	mRecordThread->Start();
+// 	mRecordThread->Start();
 
 	mTakePictureThread->Start();
+
+/*
+	// TEST
+	mWhiteBalance = WhiteBalControlOff;
+	CAM_INTF::Camera::setWhiteBalanceControl( mWhiteBalance );
+
+	OMX_CONFIG_CUSTOMAWBGAINSTYPE awb;
+	OMX_INIT_STRUCTURE( awb );
+	awb.xGainR = 65535 * 1.2;
+	awb.xGainB = 65535 * 1.7;
+	CAM_INTF::Camera::SetConfig( OMX_IndexConfigCustomAwbGains, &awb );
+	printf( "locked (R:%.2f, B:%.2f)\n", ((float)awb.xGainR) / 65535.0f, ((float)awb.xGainB) / 65535.0f );
+	// TEST
+*/
 }
 
 
@@ -199,7 +226,7 @@ Raspicam::~Raspicam()
 }
 
 
-void Raspicam::DebugOutput( int level, const std::string fmt, ... )
+void Raspicam::DebugOutput( int level, const string fmt, ... )
 {
 	(void)level;
 	va_list opt;
@@ -254,7 +281,7 @@ const bool Raspicam::nightMode()
 }
 
 
-const std::string Raspicam::whiteBalance()
+const string Raspicam::whiteBalance()
 {
 	if ( mWhiteBalanceLock != "" ) {
 		return mWhiteBalanceLock;
@@ -296,7 +323,7 @@ const std::string Raspicam::whiteBalance()
 }
 
 
-const std::string Raspicam::exposureMode()
+const string Raspicam::exposureMode()
 {
 	switch( mExposureMode ) {
 		case ExposureControlOff:
@@ -351,13 +378,19 @@ const std::string Raspicam::exposureMode()
 }
 
 
+uint32_t Raspicam::getLastPictureID()
+{
+	return mLastPictureID;
+}
+
+
 const bool Raspicam::recording()
 {
 	return ( mRecording and not mPaused );
 }
 
 
-const std::string Raspicam::recordFilename()
+const string Raspicam::recordFilename()
 {
 	return mRecordFilename;
 }
@@ -384,7 +417,7 @@ void Raspicam::setSaturation( int32_t value )
 void Raspicam::setISO( int32_t value )
 {
 	mISO = value;
-	CAM_INTF::Camera::setExposureValue( 0, 2.8f, mISO, mShutterSpeed );
+	CAM_INTF::Camera::setExposureValue( CAM_INTF::Camera::ExposureMeteringModeMatrix, 0, mISO, mShutterSpeed );
 }
 
 
@@ -393,23 +426,23 @@ void Raspicam::setNightMode( bool night_mode )
 	if ( mNightMode != night_mode ) {
 		mNightMode = night_mode;
 		if ( mNightMode ) {
-			CAM_INTF::Camera::setFramerate( mConfig->integer( mConfigObject + ".night_fps", mConfig->integer( mConfigObject + ".fps", 60 ) ) );
-			CAM_INTF::Camera::setExposureValue( 0, 2.8f, ( mISO = mConfig->integer( mConfigObject + ".night_iso", 0 ) ), mShutterSpeed );
-			CAM_INTF::Camera::setBrightness( mConfig->integer( mConfigObject + ".night_brightness", 80 ) );
-			CAM_INTF::Camera::setContrast( mConfig->integer( mConfigObject + ".night_contrast", 100 ) );
-			CAM_INTF::Camera::setSaturation( mConfig->integer( mConfigObject + ".night_saturation", -25 ) );
+			CAM_INTF::Camera::setFramerate( mConfig->Integer( mConfigObject + ".night_fps", mConfig->Integer( mConfigObject + ".fps", 60 ) ) );
+			CAM_INTF::Camera::setExposureValue( CAM_INTF::Camera::ExposureMeteringModeMatrix, 0, ( mISO = mConfig->Integer( mConfigObject + ".night_iso", 0 ) ), mShutterSpeed );
+			CAM_INTF::Camera::setBrightness( mConfig->Integer( mConfigObject + ".night_brightness", 80 ) );
+			CAM_INTF::Camera::setContrast( mConfig->Integer( mConfigObject + ".night_contrast", 100 ) );
+			CAM_INTF::Camera::setSaturation( mConfig->Integer( mConfigObject + ".night_saturation", -25 ) );
 		} else {
-			CAM_INTF::Camera::setFramerate( mConfig->integer( mConfigObject + ".fps", 60 ) );
-			CAM_INTF::Camera::setExposureValue( 0, 2.8f, ( mISO = mConfig->integer( mConfigObject + ".iso", 0 ) ), mShutterSpeed );
-			CAM_INTF::Camera::setBrightness( mConfig->integer( mConfigObject + ".brightness", 55 ) );
-			CAM_INTF::Camera::setContrast( mConfig->integer( mConfigObject + ".contrast", 0 ) );
-			CAM_INTF::Camera::setSaturation( mConfig->integer( mConfigObject + ".saturation", 8 ) );
+			CAM_INTF::Camera::setFramerate( mConfig->Integer( mConfigObject + ".fps", 60 ) );
+			CAM_INTF::Camera::setExposureValue( CAM_INTF::Camera::ExposureMeteringModeMatrix, 0, ( mISO = mConfig->Integer( mConfigObject + ".iso", 0 ) ), mShutterSpeed );
+			CAM_INTF::Camera::setBrightness( mConfig->Integer( mConfigObject + ".brightness", 55 ) );
+			CAM_INTF::Camera::setContrast( mConfig->Integer( mConfigObject + ".contrast", 0 ) );
+			CAM_INTF::Camera::setSaturation( mConfig->Integer( mConfigObject + ".saturation", 8 ) );
 		}
 	}
 }
 
 
-std::string Raspicam::switchWhiteBalance()
+string Raspicam::switchWhiteBalance()
 {
 	mWhiteBalanceLock = "";
 	mWhiteBalance = (CAM_INTF::Camera::WhiteBalControl)( ( mWhiteBalance + 1 ) % ( WhiteBalControlHorizon + 1 ) );
@@ -418,7 +451,7 @@ std::string Raspicam::switchWhiteBalance()
 }
 
 
-std::string Raspicam::lockWhiteBalance()
+string Raspicam::lockWhiteBalance()
 {
 	// TODO : move it to OpenMaxIL++
 #if ( CAM_USE_MMAL == 1 )
@@ -440,13 +473,13 @@ std::string Raspicam::lockWhiteBalance()
 
 	char ret[64];
 	sprintf( ret, "locked (R:%.2f, B:%.2f)", ((float)awb.xGainR) / 65535.0f, ((float)awb.xGainB) / 65535.0f );
-	mWhiteBalanceLock = std::string(ret);
+	mWhiteBalanceLock = string(ret);
 	return mWhiteBalanceLock;
 #endif
 }
 
 
-std::string Raspicam::switchExposureMode()
+string Raspicam::switchExposureMode()
 {
 	mExposureMode = (CAM_INTF::Camera::ExposureControl)( mExposureMode + 1 );
 	if ( mExposureMode == CAM_INTF::Camera::ExposureControlSmallAperture + 1 ) {
@@ -464,7 +497,7 @@ std::string Raspicam::switchExposureMode()
 void Raspicam::setShutterSpeed( uint32_t value )
 {
 	mShutterSpeed = value;
-	CAM_INTF::Camera::setExposureValue( 0, 2.8f, mISO, mShutterSpeed );
+	CAM_INTF::Camera::setExposureValue( CAM_INTF::Camera::ExposureMeteringModeMatrix, 0, mISO, mShutterSpeed );
 }
 
 
@@ -476,18 +509,18 @@ void Raspicam::setLensShader_internal( const LensShaderColor& R, const LensShade
 			int32_t r = R.base;
 			int32_t g = G.base;
 			int32_t b = B.base;
-			int32_t dist = std::sqrt( ( x - 52 / 2 ) * ( x - 52 / 2 ) + ( y - 39 / 2 ) * ( y - 39 / 2 ) );
+			int32_t dist = sqrt( ( x - 52 / 2 ) * ( x - 52 / 2 ) + ( y - 39 / 2 ) * ( y - 39 / 2 ) );
 			if ( R.radius > 0 ) {
-				float dot_r = (float)std::max( 0, R.radius - dist ) / (float)R.radius;
-				r = std::max( 0, std::min( 255, r + (int32_t)( dot_r * R.strength ) ) );
+				float dot_r = (float)max( 0, R.radius - dist ) / (float)R.radius;
+				r = max( 0, min( 255, r + (int32_t)( dot_r * R.strength ) ) );
 			}
 			if ( G.radius > 0 ) {
-				float dot_g = (float)std::max( 0, G.radius - dist ) / (float)G.radius;
-				g = std::max( 0, std::min( 255, g + (int32_t)( dot_g * G.strength ) ) );
+				float dot_g = (float)max( 0, G.radius - dist ) / (float)G.radius;
+				g = max( 0, min( 255, g + (int32_t)( dot_g * G.strength ) ) );
 			}
 			if ( B.radius > 0 ) {
-				float dot_b = (float)std::max( 0, B.radius - dist ) / (float)B.radius;
-				b = std::max( 0, std::min( 255, b + (int32_t)( dot_b * B.strength ) ) );
+				float dot_b = (float)max( 0, B.radius - dist ) / (float)B.radius;
+				b = max( 0, min( 255, b + (int32_t)( dot_b * B.strength ) ) );
 			}
 			grid[ (x + y * 52) + ( 52 * 39 ) * 0 ] = r;
 			grid[ (x + y * 52) + ( 52 * 39 ) * 1 ] = g;
@@ -544,6 +577,10 @@ void Raspicam::Resume()
 void Raspicam::StartRecording()
 {
 	if ( not mRecording ) {
+		Recorder* recorder = Main::instance()->recorder();
+		if ( recorder ) {
+			recorder->Start();
+		}
 		mRecording = true;
 	}
 }
@@ -558,6 +595,10 @@ void Raspicam::StopRecording()
 			fclose( mRecordStream );
 			mRecordStream = nullptr;
 		}
+		Recorder* recorder = Main::instance()->recorder();
+		if ( recorder ) {
+			recorder->Stop();
+		}
 	}
 }
 
@@ -567,7 +608,7 @@ void Raspicam::TakePicture()
 	if ( mTakingPicture ) {
 		return;
 	}
-	std::unique_lock<std::mutex> locker( mTakePictureMutex );
+	unique_lock<mutex> locker( mTakePictureMutex );
 	mTakingPicture = true;
 	mTakePictureCond.notify_all();
 }
@@ -575,10 +616,10 @@ void Raspicam::TakePicture()
 
 bool Raspicam::TakePictureThreadRun()
 {
-	std::unique_lock<std::mutex> locker( mTakePictureMutex );
-	std::cv_status timeout = mTakePictureCond.wait_for( locker, std::chrono::milliseconds( 1 * 1000 ) );
+	unique_lock<mutex> locker( mTakePictureMutex );
+	cv_status timeout = mTakePictureCond.wait_for( locker, chrono::milliseconds( 1 * 1000 ) );
 	locker.unlock();
-	if ( timeout == std::cv_status::timeout ) {
+	if ( timeout == cv_status::timeout ) {
 		return true;
 	}
 
@@ -598,8 +639,8 @@ bool Raspicam::TakePictureThreadRun()
 	struct dirent* ent;
 	if ( ( dir = opendir( "/var/PHOTO" ) ) != nullptr ) {
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
-			std::string file = std::string( ent->d_name );
-			uint32_t id = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
+			string file = string( ent->d_name );
+			uint32_t id = atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
 			if ( id >= fileid ) {
 				fileid = id + 1;
 			}
@@ -613,6 +654,7 @@ bool Raspicam::TakePictureThreadRun()
 
 	gDebug() << "Picture taken !\n";
 	delete[] buf;
+	mLastPictureID = fileid;
 	mTakingPicture = false;
 	return true;
 }
@@ -651,6 +693,10 @@ bool Raspicam::LiveThreadRun()
 	if ( (int32_t)datalen > 0 ) {
 		mLiveFrameCounter++;
 		if ( not mDirectMode ) {
+			if ( dynamic_cast<Socket*>(mLink) ) {
+				uint32_t dummy = 0;
+				mLink->Read( &dummy, sizeof(dummy), 0 ); // Dummy Read to get sockaddr_t from client
+			}
 			LiveSend( (char*)mLiveBuffer, datalen );
 		}
 		if ( mRecording and not mBetterRecording ) {
@@ -658,10 +704,10 @@ bool Raspicam::LiveThreadRun()
 		}
 	}
 
-	// Send video headers every 10 seconds
-	if ( Board::GetTicks() - mHeadersTick >= 1000 * 1000 * 10 ) {
+	// Send video headers every 5 seconds
+	if ( Board::GetTicks() - mHeadersTick >= 1000 * 1000 * 5 ) {
 		mHeadersTick = Board::GetTicks();
-		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
+		const map< uint32_t, uint8_t* > headers = mEncoder->headers();
 		if ( headers.size() > 0 ) {
 			for ( auto hdr : headers ) {
 				if ( not mDirectMode ) {
@@ -690,10 +736,10 @@ bool Raspicam::RecordThreadRun()
 		return true;
 	}
 
+	mRecordStreamMutex.lock();
 	if ( mRecordStream ) {
-		mRecordStreamMutex.lock();
 		while ( mRecordStreamQueue.size() > 0 ) {
-			std::pair< uint8_t*, uint32_t > frame = mRecordStreamQueue.front();
+			pair< uint8_t*, uint32_t > frame = mRecordStreamQueue.front();
 			mRecordStreamQueue.pop_front();
 			mRecordStreamMutex.unlock();
 			if ( fwrite( frame.first, 1, frame.second, mRecordStream ) != frame.second ) {
@@ -713,8 +759,8 @@ bool Raspicam::RecordThreadRun()
 			usleep( 1000 );
 			mRecordStreamMutex.lock();
 		}
-		mRecordStreamMutex.unlock();
 	}
+	mRecordStreamMutex.unlock();
 
 	if ( mEncoderRecord ) {
 		uint8_t data[65536*2];
@@ -762,8 +808,8 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 		struct dirent* ent;
 		if ( ( dir = opendir( "/var/VIDEO" ) ) != nullptr ) {
 			while ( ( ent = readdir( dir ) ) != nullptr ) {
-				std::string file = std::string( ent->d_name );
-				uint32_t id = std::atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
+				string file = string( ent->d_name );
+				uint32_t id = atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
 				if ( id >= fileid ) {
 					fileid = id + 1;
 				}
@@ -771,9 +817,9 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 			closedir( dir );
 		}
 		sprintf( filename, "/var/VIDEO/video_%02dfps_%06u.h264", CAM_INTF::Camera::framerate(), fileid );
-		mRecordFilename = std::string( filename );
+		mRecordFilename = string( filename );
 		FILE* stream = fopen( filename, "wb" );
-		const std::map< uint32_t, uint8_t* > headers = mEncoder->headers();
+		const map< uint32_t, uint8_t* > headers = mEncoder->headers();
 		if ( headers.size() > 0 ) {
 			for ( auto hdr : headers ) {
 				fwrite( hdr.second, 1, hdr.first, stream );
@@ -782,7 +828,7 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 		mRecordStream = stream;
 	}
 
-	std::pair< uint8_t*, uint32_t > frame;
+	pair< uint8_t*, uint32_t > frame;
 	frame.first = new uint8_t[datalen];
 	frame.second = datalen;
 	memcpy( frame.first, data, datalen );
@@ -794,14 +840,14 @@ int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 }
 
 
-uint32_t* Raspicam::getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp )
+uint32_t* Raspicam::getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp )
 {
 	uint32_t* data = nullptr;
 	*width = 0;
 	*height = 0;
 	*bpp = 0;
 
-	std::ifstream file( filename, std::ios_base::in | std::ios_base::binary );
+	ifstream file( filename, ios_base::in | ios_base::binary );
 	if ( file.is_open() ) {
 		CAM_INTF::VideoDecode* decoder = new CAM_INTF::VideoDecode( 60, CAM_INTF::VideoDecode::CodingAVC, true );
 		decoder->setRGB565Mode( true );
@@ -809,7 +855,7 @@ uint32_t* Raspicam::getFileSnapshot( const std::string& filename, uint32_t* widt
 		uint32_t frame = 0;
 		decoder->SetState( CAM_INTF::Component::StateExecuting );
 		while ( not file.eof() and ( not decoder->valid() or frame < 32 ) ) {
-			std::streamsize sz = file.readsome( (char*)buf, sizeof(buf) );
+			streamsize sz = file.readsome( (char*)buf, sizeof(buf) );
 			decoder->fillInput( (uint8_t*)buf, sz );
 			if ( decoder->valid() ) {
 				frame++;

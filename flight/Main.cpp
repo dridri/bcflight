@@ -17,10 +17,15 @@
 
 #include <unistd.h>
 #include <stdio.h>
+
+#ifdef SYSTEM_NAME_Linux
 #include <dirent.h>
+#endif
 #include <sys/stat.h>
 #include "Main.h"
+#include "Config.h"
 #include "Controller.h"
+#include "Slave.h"
 #include <I2C.h>
 #include <IMU.h>
 #include <Sensor.h>
@@ -62,67 +67,15 @@ Main* Main::instance()
 
 int Main::flight_entry( int ac, char** av )
 {
-	Main* main = new Main();
-	delete main;
+	new Main();
 	return 0;
-}
-
-
-#include <OneShot125.h>
-#include <BrushlessPWM.h>
-#include "video/Camera.h"
-
-void Test()
-{
-	Motor* os125 = new OneShot125( 18 );
-	Motor* os125_2 = new OneShot125( 23 );
-	Motor* os125_3 = new OneShot125( 24 );
-	Motor* os125_4 = new OneShot125( 25 );
-	float s = 0.0f;
-	const float v = 0.005f;
-	float w = v;
-
-	printf( "s = 1.0\n" ); fflush(stdout);
-	os125->setSpeed( 1.0f, true );
-	os125_2->setSpeed( 1.0f, true );
-	os125_3->setSpeed( 1.0f, true );
-	os125_4->setSpeed( 1.0f, true );
-	usleep( 1000 * 1000 * 8 );
-
-	printf( "s = 0.0\n" ); fflush(stdout);
-	os125->setSpeed( 0.0f, true );
-	os125_2->setSpeed( 0.0f, true );
-	os125_3->setSpeed( 0.0f, true );
-	os125_4->setSpeed( 0.0f, true );
-	usleep( 1000 * 1000 * 8 );
-
-	while ( 1 ) {
-		printf( "s = %.4f\n", s ); fflush(stdout);
-		os125->setSpeed( s, true );
-		os125_2->setSpeed( s, true );
-		os125_3->setSpeed( s, true );
-		os125_4->setSpeed( s, true );
-		usleep( 1000 * 25 );
-		s += w;
-		if ( s >= 1.0f ) {
-			w = -v;
-			s = 1.0f;
-		} else if ( s <= 0.1f ) {
-			w = v;
-			s = 0.1f;
-			os125->Disarm();
-			os125_2->Disarm();
-			os125_3->Disarm();
-			os125_4->Disarm();
-			usleep(1000*1000);
-		}
-	}
 }
 
 
 Main::Main()
 	: mLPS( 0 )
 	, mLPSCounter( 0 )
+	, mSlave( nullptr )
 	, mBlackBox( nullptr )
 	, mController( nullptr )
 	, mCamera( nullptr )
@@ -138,35 +91,53 @@ Main::Main()
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
 
+#ifdef BUILD_blackbox
 	mBlackBox = new BlackBox();
 	Board::InformLoading();
+#endif
 
 	mBoard = new Board( this );
 	flight_register();
 	Board::InformLoading();
 
-// 	Test();
-
 #ifdef BOARD_generic
 	mConfig = new Config( "config.lua", "settings.lua" );
-#else
+#elif defined( SYSTEM_NAME_Linux )
 	mConfig = new Config( "/var/flight/config.lua", "/var/flight/settings.lua" );
+#else
+// 	mConfig = new Config( "#0xADDRESS+length", "" ); // Access to config buffer at addess 0xADDRESS with length specified
+	mConfig = new Config( "", "" );
 #endif
 	Board::InformLoading();
-	mConfig->DumpVariable( "username" );
-	mConfig->DumpVariable( "board" );
-	mConfig->DumpVariable( "frame" );
-	mConfig->DumpVariable( "battery" );
-	mConfig->DumpVariable( "controller" );
-	mConfig->DumpVariable( "camera" );
-	mConfig->DumpVariable( "hud" );
-	mConfig->DumpVariable( "accelerometers" );
-	mConfig->DumpVariable( "gyroscopes" );
-	mConfig->DumpVariable( "magnetometers" );
-	mConfig->DumpVariable( "user_sensors" );
 
-	if ( mConfig->string( "board.type", BOARD ) != std::string( BOARD ) ) {
-		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->string( "board.type" ) << "\" ) differs from board currently in use ( \"" << BOARD << "\" ) !\n";
+#ifdef FLIGHT_SLAVE
+	mConfig->Execute( "_slave = " FLIGHT_SLAVE_CONFIG );
+	gDebug() << mConfig->DumpVariable( "_slave" );
+	mSlave = new Slave( mConfig, "_slave" );
+#endif // FLIGHT_SLAVE
+
+	if ( mConfig->ArrayLength( "slaves" ) > 0 ) {
+		uint32_t len = mConfig->ArrayLength( "slaves" );
+		for ( uint32_t i = 0; i < len; i++ ) {
+			Slave* slave = new Slave( mConfig, "slaves[" + to_string(i) + "]", true );
+			mSlaves.push_back( slave );
+		}
+	}
+
+	gDebug() << mConfig->DumpVariable( "username" );
+	gDebug() << mConfig->DumpVariable( "board" );
+	gDebug() << mConfig->DumpVariable( "frame" );
+	gDebug() << mConfig->DumpVariable( "battery" );
+	gDebug() << mConfig->DumpVariable( "controller" );
+	gDebug() << mConfig->DumpVariable( "camera" );
+	gDebug() << mConfig->DumpVariable( "hud" );
+	gDebug() << mConfig->DumpVariable( "accelerometers" );
+	gDebug() << mConfig->DumpVariable( "gyroscopes" );
+	gDebug() << mConfig->DumpVariable( "magnetometers" );
+	gDebug() << mConfig->DumpVariable( "user_sensors" );
+
+	if ( mConfig->String( "board.type", BOARD ) != string( BOARD ) ) {
+		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->String( "board.type" ) << "\" ) does not match board currently in use ( \"" << BOARD << "\" ) !\n";
 		return;
 	}
 
@@ -174,35 +145,47 @@ Main::Main()
 	DetectDevices();
 	Board::InformLoading();
 
-	std::string frameName = mConfig->string( "frame.type" );
+#ifdef BUILD_frame
+	string frameName = mConfig->String( "frame.type" );
 	auto knownFrames = Frame::knownFrames();
 	if ( knownFrames.find( frameName ) == knownFrames.end() ) {
 		gDebug() << "ERROR : unknown frame \"" << frameName << "\" !\n";
 	}
+#endif
 
 	Board::InformLoading();
 	mConfig->Apply();
 	Board::InformLoading();
 
-	mUsername = mConfig->string( "username" );
+	mUsername = mConfig->String( "username" );
 
+#ifdef BUILD_power
 	mPowerThread = new PowerThread( this );
+	mPowerThread->setFrequency( 20 );
 	mPowerThread->Start();
 	mPowerThread->setPriority( 97 );
 	Board::InformLoading();
+#endif
 
+#ifdef BUILD_stabilizer
 	mIMU = new IMU( this );
 	Board::InformLoading();
+#endif
 
+#ifdef BUILD_frame
 	mFrame = Frame::Instanciate( frameName, mConfig );
 	Board::InformLoading();
+#endif
 
+#ifdef BUILD_stabilizer
 	mStabilizer = new Stabilizer( this, mFrame );
 	Board::InformLoading();
+#endif
 
 	mRecorder = new Recorder();
+	mRecorder->Start();
 
-	mCameraType = mConfig->string( "camera.type" );
+	mCameraType = mConfig->String( "camera.type" );
 #ifdef CAMERA
 	if ( mCameraType != "" ) {
 		mCamera = new CAMERA( mConfig, "camera" );
@@ -214,62 +197,74 @@ Main::Main()
 	mCamera = nullptr;
 #endif
 
-	if ( mConfig->string( "microphone.type" ) != "" ) {
+
+#ifdef BUILD_audio
+	if ( mConfig->String( "microphone.type" ) != "" ) {
 		mMicrophone = Microphone::Create( mConfig, "microphone" );
 	}
 	Board::InformLoading();
+#endif
 
-	if ( mConfig->boolean( "hud.enabled", false ) ) {
+	if ( mConfig->Boolean( "hud.enabled", false ) ) {
 		mHUD = new HUD();
 	}
 	Board::InformLoading();
 
+#ifdef BUILD_controller
+#ifdef BUILD_link
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
+#else
+	Link* controllerLink = nullptr;
+#endif
 	mController = new Controller( this, controllerLink );
 	mController->setPriority( 98 );
 	Board::InformLoading();
+#endif
 
-	mLoopTime = mConfig->integer( "stabilizer.loop_time", 2000 );
+#ifdef BUILD_stabilizer
+	mLoopTime = mConfig->Integer( "stabilizer.loop_time", 2000 );
 	mTicks = 0;
 	mWaitTicks = 0;
 	mLPSTicks = 0;
 	mLPS = 0;
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
+	mStabilizerThread->setFrequency( 100 );
 	mStabilizerThread->Start();
 	mStabilizerThread->setPriority( 99 );
+#endif // BUILD_stabilizer
 
 	// Must be the very last atexit() call
 	atexit( &Thread::StopAll );
 
 	Thread::setMainPriority( 1 );
-	while ( 1 ) {
-		usleep( 1000 * 1000 * 100 );
-	}
 }
 
 
 bool Main::StabilizerThreadRun()
 {
+#ifdef BUILD_stabilizer
 	float dt = ((float)( mBoard->GetTicks() - mTicks ) ) / 1000000.0f;
 	mTicks = mBoard->GetTicks();
 
-	if ( std::abs( dt ) >= 1.0 ) {
+	if ( abs( dt ) >= 1.0 ) {
 		gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
 // 		mFrame->Disarm();
 		return true;
 	}
 
 	mIMU->Loop( dt );
-	if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
+	if ( mIMU->state() == IMU::Off ) {
+		// Nothing to do
+	} else if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
+		mStabilizerThread->setFrequency( 0 ); // Calibrate as fast as possible
 		Board::InformLoading();
 		mFrame->WarmUp();
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
+		mStabilizerThread->setFrequency( 1000000 / mLoopTime ); // Set frequency only when calibration is done
 	} else {
-// 		if ( mIMU->state() == IMU::Running ) {
-			mStabilizer->Update( mIMU, mController, dt );
-// 		}
-		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
+		mStabilizer->Update( mIMU, mController, dt );
+// 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
 	}
 
 	mLPSCounter++;
@@ -277,9 +272,13 @@ bool Main::StabilizerThreadRun()
 		mLPS = mLPSCounter;
 		mLPSCounter = 0;
 		mLPSTicks = mBoard->GetTicks();
-		mBlackBox->Enqueue( "Stabilizer:lps", std::to_string(mLPS) );
+		mBlackBox->Enqueue( "Stabilizer:lps", to_string(mLPS) );
 	}
+
 	return true;
+#else // BUILD_stabilizer
+	return false;
+#endif // BUILD_stabilizer
 }
 
 
@@ -288,29 +287,32 @@ Main::~Main()
 }
 
 
-std::string Main::getRecordingsList() const
+string Main::getRecordingsList() const
 {
-	std::string ret;
+	string ret;
+
+#ifdef SYSTEM_NAME_Linux
 	DIR* dir;
 	struct dirent* ent;
 
 	if ( ( dir = opendir( "/var/VIDEO/" ) ) != nullptr ) {
 		while ( ( ent = readdir( dir ) ) != nullptr ) {
 			struct stat st;
-			stat( ( "/var/VIDEO/" + std::string( ent->d_name ) ).c_str(), &st );
+			stat( ( "/var/VIDEO/" + string( ent->d_name ) ).c_str(), &st );
 			/*if ( mCamera ) {
 				uint32_t width = 0;
 				uint32_t height = 0;
 				uint32_t bpp = 0;
-				uint32_t* data = mCamera->getFileSnapshot( "/var/VIDEO/" + std::string( ent->d_name ), &width, &height, &bpp );
-				std::string b64_data = base64_encode( (uint8_t*)data, width * height * ( bpp / 8 ) );
-				ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ":" + std::to_string( width ) + ":" + std::to_string( height ) + ":" + std::to_string( bpp ) + ":" + b64_data + ";";
+				uint32_t* data = mCamera->getFileSnapshot( "/var/VIDEO/" + string( ent->d_name ), &width, &height, &bpp );
+				string b64_data = base64_encode( (uint8_t*)data, width * height * ( bpp / 8 ) );
+				ret += string( ent->d_name ) + ":" + to_string( st.st_size ) + ":" + to_string( width ) + ":" + to_string( height ) + ":" + to_string( bpp ) + ":" + b64_data + ";";
 			} else */{
-				ret += std::string( ent->d_name ) + ":" + std::to_string( st.st_size ) + ":::;";
+				ret += string( ent->d_name ) + ":" + to_string( st.st_size ) + ":::;";
 			}
 		}
 		closedir( dir );
 	}
+#endif
 
 	if ( ret.length() == 0 or ret == "" ) {
 		ret = ";";
@@ -398,13 +400,13 @@ Recorder* Main::recorder() const
 }
 
 
-const std::string& Main::cameraType() const
+const string& Main::cameraType() const
 {
 	return mCameraType;
 }
 
 
-const std::string& Main::username() const
+const string& Main::username() const
 {
 	return mUsername;
 }
@@ -412,6 +414,7 @@ const std::string& Main::username() const
 
 void Main::DetectDevices()
 {
+#ifdef BUILD_sensors
 	int countGyro = 0;
 	int countAccel = 0;
 	int countMagn = 0;
@@ -421,22 +424,22 @@ void Main::DetectDevices()
 	int countCurrent = 0;
 
 	{
-		std::list< Sensor::Device > knownDevices = Sensor::KnownDevices();
+		list< Sensor::Device > knownDevices = Sensor::KnownDevices();
 		gDebug() << "Supported sensors :\n";
 		for ( Sensor::Device dev : knownDevices ) {
-			if ( std::string(dev.name) != "" ) {
-				gDebug() << "    " << dev.name;
+			if ( string(dev.name) != "" ) {
+				Debug() << "    " << dev.name;
 				if ( dev.iI2CAddr != 0 ) {
-					gDebug() << " [I2C 0x" << std::hex << dev.iI2CAddr << "]";
+					Debug() << " [I2C 0x" << hex << dev.iI2CAddr << "]";
 				}
-				gDebug() << "\n";
+				Debug() << "\n";
 			}
 		}
 	}
 
-	std::list< int > I2Cdevs = I2C::ScanAll();
+	list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
-		std::string name = mConfig->string( "sensors_map_i2c[" + std::to_string(dev) + "]", "" );
+		string name = mConfig->String( "sensors_map_i2c[" + to_string(dev) + "]", "" );
 		Sensor::RegisterDevice( dev, name );
 	}
 	// TODO : register SPI/1-wire/.. devices
@@ -514,15 +517,16 @@ void Main::DetectDevices()
 			gDebug() << "    " << s->names().front() << "\n";
 		}
 	}
+#endif // BUILD_sensors
 }
 
-static const std::string base64_chars = 
+static const string base64_chars = 
 			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 			"abcdefghijklmnopqrstuvwxyz"
 			"0123456789+/";
-std::string Main::base64_encode( const uint8_t* buf, uint32_t size )
+string Main::base64_encode( const uint8_t* buf, uint32_t size )
 {
-	std::string ret;
+	string ret;
 	int i = 0;
 	int j = 0;
 	unsigned char char_array_3[3];

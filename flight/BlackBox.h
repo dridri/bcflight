@@ -4,6 +4,9 @@
 #include <Thread.h>
 #include <mutex>
 
+using namespace STD;
+
+
 class BlackBox : public Thread
 {
 public:
@@ -11,15 +14,17 @@ public:
 	~BlackBox();
 
 	const uint32_t id() const;
-	void Enqueue( const std::string& data, const std::string& value );
+	void Enqueue( const string& data, const string& value );
 
 protected:
 	virtual bool run();
 
 	uint32_t mID;
 	FILE* mFile;
-	std::mutex mQueueMutex;
-	std::list< std::string > mQueue;
+#ifdef SYSTEM_NAME_Linux
+	mutex mQueueMutex;
+#endif
+	list< string > mQueue;
 };
 
 #endif // BLACKBOX_H

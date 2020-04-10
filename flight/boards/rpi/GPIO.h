@@ -23,6 +23,7 @@
 #include <list>
 #include <map>
 #include <functional>
+#include "Thread.h"
 
 class GPIO
 {
@@ -32,20 +33,39 @@ public:
 		Output,
 	} Mode;
 	typedef enum {
+		PullOff = 0,
+		PullDown = 1,
+		PullUp = 2,
+	} PUDMode;
+	typedef enum {
 		Falling = 1,
 		Rising = 2,
 		Both = 3,
 	} ISRMode;
 
+	static void setPUD( int pin, PUDMode mode );
 	static void setMode( int pin, Mode mode );
 	static void setPWM( int pin, int initialValue, int pwmRange );
 	static void Write( int pin, bool en );
 	static bool Read( int pin );
-	static void SetupInterrupt( int pin, GPIO::ISRMode mode, std::function<void()> fct );
+	static void SetupInterrupt( int pin, GPIO::ISRMode mode, function<void()> fct );
 
 private:
-	static std::map< int, std::list<std::pair<std::function<void()>,GPIO::ISRMode>> > mInterrupts;
-	static void* ISR( void* argp );
+	class ISR : public Thread {
+	public:
+		ISR( int pin, int fd ) : Thread( "GPIO::ISR_" + to_string(pin) ), mPin( pin ), mFD( fd ), mReady( false ) {}
+		~ISR() {}
+	protected:
+		virtual bool run();
+	private:
+		int mPin;
+		int mFD;
+		bool mReady;
+	};
+
+	static map< int, list<pair<function<void()>,GPIO::ISRMode>> > mInterrupts;
+	static map< int, ISR* > mThreads;
+// 	static void* ISR( void* argp );
 };
 
 #endif // GPIO_H

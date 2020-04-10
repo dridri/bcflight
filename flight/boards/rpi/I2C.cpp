@@ -30,8 +30,9 @@ int I2C::mFD = -1;
 int I2C::mCurrAddr = -1;
 pthread_mutex_t I2C::mMutex = PTHREAD_MUTEX_INITIALIZER;
 
-I2C::I2C( int addr )
-	: mAddr( addr )
+I2C::I2C( int addr, bool slave )
+	: Bus()
+	, mAddr( addr )
 {
 	pthread_mutex_lock( &mMutex );
 	if ( mFD < 0 ) {
@@ -53,13 +54,51 @@ const int I2C::address() const
 }
 
 
-int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
+int I2C::Read( void* buf, uint32_t len )
 {
 	pthread_mutex_lock( &mMutex );
 
-	if ( mCurrAddr != addr ) {
-		mCurrAddr = addr;
-		if ( ioctl( mFD, I2C_SLAVE, addr ) != 0 ) {
+	if ( mCurrAddr != mAddr ) {
+		mCurrAddr = mAddr;
+		if ( ioctl( mFD, I2C_SLAVE, mAddr ) != 0 ) {
+			return 0;
+		}
+	}
+
+	int ret = read( mFD, buf, len );
+
+	pthread_mutex_unlock( &mMutex );
+	return ret;
+}
+
+
+int I2C::Write( const void* buf, uint32_t len )
+{
+	int ret;
+
+	pthread_mutex_lock( &mMutex );
+
+	if ( mCurrAddr != mAddr ) {
+		mCurrAddr = mAddr;
+		if ( ioctl( mFD, I2C_SLAVE, mAddr ) != 0 ) {
+			return 0;
+		}
+	}
+
+	ret = write( mFD, buf, len );
+
+	pthread_mutex_unlock( &mMutex );
+	return ret;
+}
+
+
+int I2C::Read( uint8_t reg, void* buf, uint32_t len )
+{
+	pthread_mutex_lock( &mMutex );
+
+	if ( mCurrAddr != mAddr ) {
+		mCurrAddr = mAddr;
+		if ( ioctl( mFD, I2C_SLAVE, mAddr ) != 0 ) {
 			return 0;
 		}
 	}
@@ -72,18 +111,18 @@ int I2C::_Read( int addr, uint8_t reg, void* buf, uint32_t len )
 }
 
 
-int I2C::_Write( int addr, uint8_t reg, void* _buf, uint32_t len )
+int I2C::Write( uint8_t reg, const void* _buf, uint32_t len )
 {
 	int ret;
-	char buf[256];
+	char buf[1024];
 	buf[0] = reg;
 	memcpy( buf + 1, _buf, len );
 
 	pthread_mutex_lock( &mMutex );
 
-	if ( mCurrAddr != addr ) {
-		mCurrAddr = addr;
-		if ( ioctl( mFD, I2C_SLAVE, addr ) != 0 ) {
+	if ( mCurrAddr != mAddr ) {
+		mCurrAddr = mAddr;
+		if ( ioctl( mFD, I2C_SLAVE, mAddr ) != 0 ) {
 			return 0;
 		}
 	}
@@ -95,74 +134,9 @@ int I2C::_Write( int addr, uint8_t reg, void* _buf, uint32_t len )
 }
 
 
-
-int I2C::Read( uint8_t reg, void* buf, uint32_t len )
+list< int > I2C::ScanAll()
 {
-	return _Read( mAddr, reg, buf, len );
-}
-
-
-int I2C::Write( uint8_t reg, void* buf, uint32_t len )
-{
-	return _Write( mAddr, reg, buf, len );
-}
-
-
-int I2C::Read8( uint8_t reg, uint8_t* value )
-{
-	return Read( reg, value, 1 );
-}
-
-
-int I2C::Read16( uint8_t reg, uint16_t* value, bool big_endian )
-{
-	int ret = Read( reg, value, 2 );
-	if ( big_endian ) {
-		*value = __bswap_16( *value );
-	}
-	return ret;
-}
-
-
-int I2C::Read16( uint8_t reg, int16_t* value, bool big_endian )
-{
-	union {
-		uint16_t u;
-		int16_t s;
-	} v;
-	int ret = Read16( reg, &v.u, big_endian );
-	*value = v.s;
-	return ret;
-}
-
-
-int I2C::Read32( uint8_t reg, uint32_t* value )
-{
-	return Read( reg, value, 4 );
-}
-
-
-int I2C::Write8( uint8_t reg, uint8_t value )
-{
-	return Write( reg, &value, 1 );
-}
-
-
-int I2C::Write16( uint8_t reg, uint16_t value )
-{
-	return Write( reg, &value, 2 );
-}
-
-
-int I2C::Write32( uint8_t reg, uint32_t value )
-{
-	return Write( reg, &value, 4 );
-}
-
-
-std::list< int > I2C::ScanAll()
-{
-	std::list< int > ret;
+	list< int > ret;
 	int fd = open( "/dev/i2c-1", O_RDWR );
 	int res = 0;
 	int byte_ = 0;

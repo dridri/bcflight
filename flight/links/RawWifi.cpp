@@ -26,11 +26,12 @@
 #include "../Config.h"
 #include <Board.h>
 #include <algorithm>
+#include <iostream>
 
-std::mutex RawWifi::mInitializingMutex;
+mutex RawWifi::mInitializingMutex;
 bool RawWifi::mInitializing = false;
-std::list< std::string> RawWifi::mInitialized;
-std::map<std::string, std::list<int16_t> > RawWifi::mUsedPorts;
+list< string> RawWifi::mInitialized;
+map<string, list<int16_t> > RawWifi::mUsedPorts;
 
 
 int RawWifi::flight_register( Main* main )
@@ -40,26 +41,26 @@ int RawWifi::flight_register( Main* main )
 }
 
 
-Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
+Link* RawWifi::Instanciate( Config* config, const string& lua_object )
 {
-	std::string device = config->string( lua_object + ".device", "wlan0" );
-	int output_port = config->integer( lua_object + ".output_port", 1 );
-	int input_port = config->integer( lua_object + ".input_port", 0 );
-	int timeout = config->integer( lua_object + ".read_timeout", 2000 );
-	bool blocking = config->boolean( lua_object + ".blocking", true );
-	bool drop = config->boolean( lua_object + ".drop", true );
+	string device = config->String( lua_object + ".device", "wlan0" );
+	int output_port = config->Integer( lua_object + ".output_port", 1 );
+	int input_port = config->Integer( lua_object + ".input_port", 0 );
+	int timeout = config->Integer( lua_object + ".read_timeout", 2000 );
+	bool blocking = config->Boolean( lua_object + ".blocking", true );
+	bool drop = config->Boolean( lua_object + ".drop", true );
 
 	if ( mUsedPorts.find( device ) != mUsedPorts.end() ) {
-		if ( output_port >= 0 and std::find( mUsedPorts[device].begin(), mUsedPorts[device].end(), output_port ) != mUsedPorts[device].end() ) {
+		if ( output_port >= 0 and find( mUsedPorts[device].begin(), mUsedPorts[device].end(), output_port ) != mUsedPorts[device].end() ) {
 			gDebug() << "ERROR : Port " << output_port << " already used on interface \"" << device << "\" !\n";
 			return nullptr;
 		}
-		if ( input_port >= 0 and std::find( mUsedPorts[device].begin(), mUsedPorts[device].end(), input_port ) != mUsedPorts[device].end() ) {
+		if ( input_port >= 0 and find( mUsedPorts[device].begin(), mUsedPorts[device].end(), input_port ) != mUsedPorts[device].end() ) {
 			gDebug() << "ERROR : Port " << input_port << " already used on interface \"" << device << "\" !\n";
 			return nullptr;
 		}
 	} else {
-		mUsedPorts.insert( std::make_pair( device, std::list<int16_t>() ) );
+		mUsedPorts.insert( make_pair( device, list<int16_t>() ) );
 	}
 	if ( output_port >= 0 ) {
 		mUsedPorts[device].emplace_back( output_port );
@@ -69,18 +70,18 @@ Link* RawWifi::Instanciate( Config* config, const std::string& lua_object )
 	}
 
 	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
-	static_cast< RawWifi* >( link )->setRetriesCount( config->integer( lua_object + ".retries", 1 ) );
-	static_cast< RawWifi* >( link )->setCECMode( config->string( lua_object + ".cec_mode", "none" ) );
-	static_cast< RawWifi* >( link )->SetChannel( config->integer( lua_object + ".channel", 11 ) );
-	static_cast< RawWifi* >( link )->setMaxBlockSize( config->integer( lua_object + ".max_block_size", 0 ) );
-	if ( config->boolean( lua_object + ".hamming84", false ) ) {
+	static_cast< RawWifi* >( link )->setRetriesCount( config->Integer( lua_object + ".retries", 1 ) );
+	static_cast< RawWifi* >( link )->setCECMode( config->String( lua_object + ".cec_mode", "none" ) );
+	static_cast< RawWifi* >( link )->SetChannel( config->Integer( lua_object + ".channel", 11 ) );
+	static_cast< RawWifi* >( link )->setMaxBlockSize( config->Integer( lua_object + ".max_block_size", 0 ) );
+	if ( config->Boolean( lua_object + ".hamming84", false ) ) {
 		static_cast< RawWifi* >( link )->setTXFlags( RAWWIFI_BLOCK_FLAGS_HAMMING84 );
 	}
 	return link;
 }
 
 
-RawWifi::RawWifi( const std::string& device, int16_t out_port, int16_t in_port, int read_timeout_ms, bool blocking, bool drop_invalid_packets )
+RawWifi::RawWifi( const string& device, int16_t out_port, int16_t in_port, int read_timeout_ms, bool blocking, bool drop_invalid_packets )
 	: Link()
 	, mRawWifi( nullptr )
 	, mDevice( device )
@@ -110,7 +111,7 @@ int RawWifi::setBlocking( bool blocking )
 }
 
 
-void RawWifi::setCECMode( const std::string& mode )
+void RawWifi::setCECMode( const string& mode )
 {
 	if ( mRawWifi ) {
 		if ( mode == "weighted" ) {
@@ -207,25 +208,25 @@ uint32_t RawWifi::fullReadSpeed()
 }
 
 
-void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t txpower )
+void RawWifi::Initialize( const string& device, uint32_t channel, uint32_t txpower )
 {
 	mInitializingMutex.lock();
 	while ( mInitializing ) {
 		usleep( 1000 * 100 );
 	}
-	if ( std::find( std::begin(mInitialized), std::end(mInitialized), device) == std::end(mInitialized) ) {
+	if ( find( begin(mInitialized), end(mInitialized), device) == end(mInitialized) ) {
 		mInitializing = true;
 		mInitialized.emplace_back( device );
 
 		rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
 /*
-		std::stringstream ss;
+		stringstream ss;
 
 		(void)system( "ifconfig" );
 		usleep( 1000 * 250 );
 		(void)system( "iwconfig" );
 		usleep( 1000 * 250 );
-		if ( Board::readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == std::string::npos ) {
+		if ( Board::readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == string::npos ) {
 			ss << "ifconfig " << device << " down && sleep 0.5";
 			ss << " && iw dev " << device << " set monitor otherbss fcsfail && sleep 0.5";
 			ss << " && ifconfig " << device << " up && sleep 0.5 && ";
@@ -236,7 +237,7 @@ void RawWifi::Initialize( const std::string& device, uint32_t channel, uint32_t 
 			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 );
 		}
 
-		std::cout << "executing : " << ss.str().c_str() << "\n";
+		cout << "executing : " << ss.str().c_str() << "\n";
 		(void)system( ss.str().c_str() );
 		usleep( 1000 * 250 );
 		(void)system( "ifconfig" );
@@ -268,7 +269,7 @@ int RawWifi::Connect()
 }
 
 
-int RawWifi::Read( void* buf, uint32_t len, int timeout )
+SyncReturn RawWifi::Read( void* buf, uint32_t len, int timeout )
 {
 	if ( !mConnected or mInputPort < 0 ) {
 		return -1;
@@ -278,8 +279,8 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
 
 	if ( ret == -3 ) {
-		std::cout << "WARNING : Read timeout\n";
-		return LINK_ERROR_TIMEOUT;
+		cout << "WARNING : Read timeout\n";
+		return TIMEOUT;
 	}
 
 	if ( ret < 0 ) {
@@ -287,17 +288,17 @@ int RawWifi::Read( void* buf, uint32_t len, int timeout )
 	}
 	if ( ret > 0 and not valid ) {
 		if ( mDrop ) {
-			std::cout << "WARNING : Received corrupt packets, dropping\n";
+			cout << "WARNING : Received corrupt packets, dropping\n";
 			return 0;
 		} else {
-			std::cout << "WARNING : Received corrupt packets\n";
+			cout << "WARNING : Received corrupt packets\n";
 		}
 	}
 	return ret;
 }
 
 
-int RawWifi::Write( const void* buf, uint32_t len, bool ack, int timeout )
+SyncReturn RawWifi::Write( const void* buf, uint32_t len, bool ack, int timeout )
 {
 	if ( !mConnected or mOutputPort < 0 ) {
 		return -1;

@@ -23,27 +23,29 @@
 #include "nRF24L01.h"
 #include <GPIO.h>
 
-#define CONTINUE -2
+
+#define min( a, b ) ( ( (a) < (b) ) ? (a) : (b) )
+#define max( a, b ) ( ( (a) > (b) ) ? (a) : (b) )
 
 
 int nRF24L01::flight_register( Main* main )
 {
-	RegisterLink( "nRF24L01", &nRF24L01::Instanciate );
+	RegisterLink( "RF24", &nRF24L01::Instanciate );
 	return 0;
 }
 
 
-Link* nRF24L01::Instanciate( Config* config, const std::string& lua_object )
+Link* nRF24L01::Instanciate( Config* config, const string& lua_object )
 {
-	std::string device = config->string( lua_object + ".device", "/dev/spidev0.0" );
-	int cspin = config->integer( lua_object + ".cspin", -1 );
-	int cepin = config->integer( lua_object + ".cepin", -1 );
-	int irqpin = config->integer( lua_object + ".irqpin", -1 );
-	int channel = config->integer( lua_object + ".channel", 100 );
-	int input_port = config->integer( lua_object + ".input_port", 0 );
-	int output_port = config->integer( lua_object + ".output_port", 1 );
-	bool blocking = config->boolean( lua_object + ".blocking", true );
-	bool drop = config->boolean( lua_object + ".drop", true );
+	string device = config->String( lua_object + ".device", "/dev/spidev0.0" );
+	int cspin = config->Integer( lua_object + ".cspin", -1 );
+	int cepin = config->Integer( lua_object + ".cepin", -1 );
+	int irqpin = config->Integer( lua_object + ".irqpin", -1 );
+	int channel = config->Integer( lua_object + ".channel", 100 );
+	int input_port = config->Integer( lua_object + ".input_port", 0 );
+	int output_port = config->Integer( lua_object + ".output_port", 1 );
+	bool blocking = config->Boolean( lua_object + ".blocking", true );
+	bool drop = config->Boolean( lua_object + ".drop", true );
 
 	if ( cspin < 0 ) {
 		gDebug() << "WARNING : No CS-pin specified for nRF24L01, cannot create link !\n";
@@ -65,7 +67,7 @@ Link* nRF24L01::Instanciate( Config* config, const std::string& lua_object )
 }
 
 
-nRF24L01::nRF24L01( const std::string& device, uint8_t cspin, uint8_t cepin, uint8_t channel, uint32_t input_port, uint32_t output_port, bool drop_invalid_packets )
+nRF24L01::nRF24L01( const string& device, uint8_t cspin, uint8_t cepin, uint8_t channel, uint32_t input_port, uint32_t output_port, bool drop_invalid_packets )
 	: Link()
 	, mDevice( device )
 	, mCSPin( cspin )
@@ -73,7 +75,7 @@ nRF24L01::nRF24L01( const std::string& device, uint8_t cspin, uint8_t cepin, uin
 	, mRadio( nullptr )
 	, mBlocking( true )
 	, mDropBroken( drop_invalid_packets )
-	, mChannel( std::max( 1u, std::min( 126u, (uint32_t)channel ) ) )
+	, mChannel( max( 1u, min( 126u, (uint32_t)channel ) ) )
 	, mInputPort( input_port )
 	, mOutputPort( output_port )
 	, mRetries( 1 )
@@ -199,7 +201,7 @@ void nRF24L01::PerfUpdate()
 }
 
 
-int nRF24L01::Read( void* pRet, uint32_t len, int32_t timeout )
+SyncReturn nRF24L01::Read( void* pRet, uint32_t len, int32_t timeout )
 {
 	bool timedout = false;
 	uint64_t started_waiting_at = Board::GetTicks();
@@ -237,13 +239,13 @@ int nRF24L01::Read( void* pRet, uint32_t len, int32_t timeout )
 	if ( mRxQueue.size() == 0 ) {
 		mRxQueueMutex.unlock();
 		if ( timedout ) {
-// 			std::cout << "WARNING : Read timeout\n";
-			return LINK_ERROR_TIMEOUT;
+// 			cout << "WARNING : Read timeout\n";
+			return TIMEOUT;
 		}
 		return 0;
 	}
 
-	std::pair< uint8_t*, uint32_t > data = mRxQueue.front();
+	pair< uint8_t*, uint32_t > data = mRxQueue.front();
 	mRxQueue.pop_front();
 	mRxQueueMutex.unlock();
 	memcpy( pRet, data.first, data.second );
@@ -252,7 +254,7 @@ int nRF24L01::Read( void* pRet, uint32_t len, int32_t timeout )
 }
 
 
-int32_t nRF24L01::WriteAck( const void* data, uint32_t len )
+SyncReturn nRF24L01::WriteAck( const void* data, uint32_t len )
 {
 	if ( len > 32 - sizeof(Header) ) {
 		len = 32 - sizeof(Header);
@@ -275,7 +277,7 @@ int32_t nRF24L01::WriteAck( const void* data, uint32_t len )
 }
 
 
-int nRF24L01::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
+SyncReturn nRF24L01::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 {
 	if ( len > 255 * ( 32 - sizeof(Header) ) ) {
 		return 0;
@@ -295,7 +297,7 @@ int nRF24L01::Send( const void* data, uint32_t len, bool ack )
 	Header* header = (Header*)buf;
 
 	header->block_id = ++mTXBlockID;
-	header->packets_count = (uint8_t)std::ceil( (float)len / (float)( 32 - sizeof(Header) ) );
+	header->packets_count = (uint8_t)ceil( (float)len / (float)( 32 - sizeof(Header) ) );
 
 	static uint32_t send_id = 0;
 
@@ -397,13 +399,14 @@ int nRF24L01::Receive( void* pRet, uint32_t len )
 
 
 void nRF24L01::Interrupt()
-{	while ( mRadio->available() ) {
+{
+	while ( mRadio->available() ) {
 		uint8_t* buf = new uint8_t[32768];
 		int ret = Receive( buf, 32768 );
 		if ( ret > 0 ) {
 // 			printf( "Received %d bytes\n", ret );
 			mRxQueueMutex.lock();
-			mRxQueue.emplace_back( std::make_pair( buf, ret ) );
+			mRxQueue.emplace_back( make_pair( buf, ret ) );
 			mRxQueueMutex.unlock();
 		} else {
 			delete buf;

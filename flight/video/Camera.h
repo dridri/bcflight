@@ -47,23 +47,24 @@ public:
 	virtual const int32_t ISO() = 0;
 	virtual const uint32_t shutterSpeed() = 0;
 	virtual const bool nightMode() = 0;
-	virtual const std::string whiteBalance() = 0;
-	virtual const std::string exposureMode() = 0;
+	virtual const string whiteBalance() = 0;
+	virtual const string exposureMode() = 0;
 	virtual const bool recording() = 0;
-	virtual const std::string recordFilename() = 0;
+	virtual const string recordFilename() = 0;
 	virtual void setBrightness( uint32_t value ) = 0;
 	virtual void setContrast( int32_t value ) = 0;
 	virtual void setSaturation( int32_t value ) = 0;
 	virtual void setISO( int32_t value ) = 0;
 	virtual void setShutterSpeed( uint32_t value ) = 0;
 	virtual void setNightMode( bool night_mode ) = 0;
-	virtual std::string switchWhiteBalance() = 0;
-	virtual std::string lockWhiteBalance() = 0;
-	virtual std::string switchExposureMode() = 0;
+	virtual string switchWhiteBalance() = 0;
+	virtual string lockWhiteBalance() = 0;
+	virtual string switchExposureMode() = 0;
 	virtual void setLensShader( const LensShaderColor& r, const LensShaderColor& g, const LensShaderColor& b ) = 0;
 	virtual void getLensShader( LensShaderColor* r, LensShaderColor* g, LensShaderColor* b ) = 0;
+	virtual uint32_t getLastPictureID() = 0;
 
-	virtual uint32_t* getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp ) = 0;
+	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp ) = 0;
 };
 
 

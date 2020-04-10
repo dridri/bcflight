@@ -75,26 +75,26 @@ public:
 
 private:
 	void ApplyDeadBand( Vector3f& error ) {
-		if ( std::abs( error.x ) < mDeadBand.x ) {
+		if ( abs( error.x ) < mDeadBand.x ) {
 			error.x = 0.0f;
 		}
-		if ( std::abs( error.y ) < mDeadBand.y ) {
+		if ( abs( error.y ) < mDeadBand.y ) {
 			error.y = 0.0f;
 		}
-		if ( std::abs( error.z ) < mDeadBand.z ) {
+		if ( abs( error.z ) < mDeadBand.z ) {
 			error.z = 0.0f;
 		}
 	}
 	void ApplyDeadBand( Vector2f& error ) {
-		if ( std::abs( error.x ) < mDeadBand.x ) {
+		if ( abs( error.x ) < mDeadBand.x ) {
 			error.x = 0.0f;
 		}
-		if ( std::abs( error.y ) < mDeadBand.y ) {
+		if ( abs( error.y ) < mDeadBand.y ) {
 			error.y = 0.0f;
 		}
 	}
 	void ApplyDeadBand( float& error ) {
-		if ( std::abs( error ) < mDeadBand ) {
+		if ( abs( error ) < mDeadBand ) {
 			error = 0.0f;
 		}
 	}

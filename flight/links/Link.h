@@ -19,17 +19,16 @@
 #ifndef LINK_H
 #define LINK_H
 
-#include <netinet/in.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <string>
 #include <map>
 #include <functional>
 #include <vector>
+#include <Board.h>
+#include <ThreadBase.h>
 
 class Config;
-
-#define LINK_ERROR_TIMEOUT -3
 
 
 class Packet
@@ -42,7 +41,7 @@ public:
 	void WriteU16( uint16_t v );
 	void WriteU32( uint32_t v );
 	void WriteFloat( float v ) { union { float f; uint32_t u; } u; u.f = v; WriteU32( u.u ); }
-	void WriteString( const std::string& str );
+	void WriteString( const string& str );
 
 	uint32_t Read( uint8_t* data, uint32_t bytes );
 	uint32_t ReadU8( uint8_t* u );
@@ -53,12 +52,12 @@ public:
 	uint16_t ReadU16();
 	uint32_t ReadU32();
 	float ReadFloat();
-	std::string ReadString();
+	string ReadString();
 
-	const std::vector< uint8_t >& data() const { return mData; }
+	const vector< uint8_t >& data() const { return mData; }
 
 private:
-	std::vector< uint8_t > mData;
+	vector< uint8_t > mData;
 	uint32_t mReadOffset;
 };
 
@@ -66,7 +65,7 @@ private:
 class Link
 {
 public:
-	static Link* Create( Config* config, const std::string& config_object );
+	static Link* Create( Config* config, const string& config_object );
 	Link();
 	virtual ~Link();
 
@@ -81,19 +80,21 @@ public:
 	virtual int32_t RxQuality() { return 100; }
 	virtual int32_t RxLevel() { return -1; }
 
-	int32_t Read( Packet* p, int32_t timeout = -1 );
-	int32_t Write( const Packet* p, bool ack = false, int32_t timeout = -1 );
-	virtual int Read( void* buf, uint32_t len, int32_t timeout ) = 0;
-	virtual int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 ) = 0;
+	SyncReturn Read( Packet* p, int32_t timeout = -1 );
+	SyncReturn Write( const Packet* p, bool ack = false, int32_t timeout = -1 );
+	virtual SyncReturn Read( void* buf, uint32_t len, int32_t timeout ) = 0;
+	virtual SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 ) = 0;
 
-	virtual int32_t WriteAck( const void* buf, uint32_t len ) { return Write( buf, len, false, -1 ); }
+	virtual SyncReturn WriteAck( const void* buf, uint32_t len ) { return Write( buf, len, false, -1 ); }
+
+	static const map< string, function< Link* ( Config*, const string& ) > >& knownLinks() { return mKnownLinks; }
 
 protected:
 	bool mConnected;
 
 
-	static void RegisterLink( const std::string& name, std::function< Link* ( Config*, const std::string& ) > instanciate );
-	static std::map< std::string, std::function< Link* ( Config*, const std::string& ) > > mKnownLinks;
+	static void RegisterLink( const string& name, function< Link* ( Config*, const string& ) > instanciate );
+	static map< string, function< Link* ( Config*, const string& ) > > mKnownLinks;
 };
 
 #endif // LINK_H

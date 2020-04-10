@@ -21,58 +21,38 @@
 
 #include <thread>
 #include <list>
+#include <functional>
 #include <pthread.h>
+#include "../common/ThreadBase.h"
 
-class Thread
+class Thread : public ThreadBase
 {
 public:
-	Thread( const std::string& name = "_thead_" );
+	Thread( const string& name = "_thead_" );
 	virtual ~Thread();
 
-	void Start();
-	void Pause();
-	void Stop();
 	void Join();
-	bool running();
-	void setPriority( int p, int affinity = -1 );
-	const std::string& name() const;
-
+	void Recover();
 	static Thread* currentThread();
-	static void setMainPriority( int p );
-	static uint64_t GetTick();
-	static float GetSeconds();
-	static void StopAll();
-	static void EnterCritical() {/* mCriticalMutex.lock();*/ }
-	static void ExitCritical() {/* mCriticalMutex.unlock();*/ }
 
 protected:
 	virtual bool run() = 0;
 
 private:
 	void ThreadEntry();
-	std::string mName;
-	bool mRunning;
-	bool mStopped;
-	bool mIsRunning;
-	bool mFinished;
 	pthread_t mThread;
-	int mPriority;
-	int mSetPriority;
-	int mAffinity;
-	int mSetAffinity;
-	static std::list< Thread* > mThreads;
 };
 
 
 template<typename T> class HookThread : public Thread
 {
 public:
-	HookThread( const std::string& name, T* r, const std::function< bool( T* ) >& cb ) : Thread( name ), mT( r ), mCallback( cb ) {}
+	HookThread( const string& name, T* r, const function< bool( T* ) >& cb ) : Thread( name ), mT( r ), mCallback( cb ) {}
 protected:
 	virtual bool run() { return mCallback( mT ); }
 private:
 	T* mT;
-	const std::function< bool( T* ) > mCallback;
+	const function< bool( T* ) > mCallback;
 };
 
 

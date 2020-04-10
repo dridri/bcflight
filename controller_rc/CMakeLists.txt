@@ -11,7 +11,7 @@ endif()
 project( controller_rc )
 
 # Set compiler options
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -ggdb3 -O0 -D_GNU_SOURCE -D_BSD_SOURCE" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -ggdb3 -O0 -D_DEFAULT_SOURCE" )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -ggdb3 -O0 -std=c++11 -DGE_LINUX -DGE_EGL -fpermissive -Wno-pmf-conversions" )
 
 # Check chosen board
@@ -43,6 +43,11 @@ include_directories( boards/${board} )
 include_directories( ${CMAKE_SOURCE_DIR} )
 include_directories( ${CMAKE_BINARY_DIR} )
 add_definitions( -DBOARD="${board}" -DBOARD_${board} )
+if ( ${USE_MINISTD} MATCHES TRUE )
+	add_definitions( -DSTD=ministd )
+else()
+	add_definitions( -DSTD=std )
+endif()
 
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )
@@ -57,6 +62,7 @@ add_custom_target( ui_headers COMMAND
 	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/calibrate.ui > ${CMAKE_BINARY_DIR}/ui_calibrate.h
 	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/camera.ui > ${CMAKE_BINARY_DIR}/ui_camera.h
 	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/network.ui > ${CMAKE_BINARY_DIR}/ui_network.h
+	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/settings.ui > ${CMAKE_BINARY_DIR}/ui_settings.h
 )
 
 add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/rc_data.cpp COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )

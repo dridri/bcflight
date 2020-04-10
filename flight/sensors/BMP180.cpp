@@ -17,7 +17,6 @@
 **/
 
 #include <unistd.h>
-#include <byteswap.h>
 #include <cmath>
 #include "BMP180.h"
 
@@ -41,7 +40,7 @@ int BMP180::flight_register( Main* main )
 }
 
 
-Sensor* BMP180::Instanciate( Config* config, const std::string& object )
+Sensor* BMP180::Instanciate( Config* config, const string& object )
 {
 	return new BMP180();
 }
@@ -84,7 +83,7 @@ BMP180::BMP180()
 	p2 = 3038.0 * 100.0 * pow( 2, -36 );
 
 // 	mBasePressure = ReadPressure();
-	mBasePressure = 1013.45 / std::pow( 1 - ( 65.0 / 44330.0 ), 5.255 );
+	mBasePressure = 1013.45 / pow( 1 - ( 65.0 / 44330.0 ), 5.255 );
 }
 
 
@@ -149,5 +148,5 @@ float BMP180::ReadPressure()
 
 void BMP180::Read( float* altitude )
 {
-	*altitude = 44330.0 * ( 1.0 - std::pow( ReadPressure() / mBasePressure, 1 / 5.255 ) );
+	*altitude = 44330.0 * ( 1.0 - pow( ReadPressure() / mBasePressure, 1 / 5.255 ) );
 }

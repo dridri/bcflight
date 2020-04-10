@@ -22,11 +22,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <termios.h>
-#include <mutex>
+#include <Mutex.h>
 #include <functional>
 #include <atomic>
-#include <condition_variable>
 
 #include "Link.h"
 #include "RF24/RF24.h"
@@ -47,7 +45,7 @@ class Config;
 class nRF24L01 : public Link
 {
 public:
-	nRF24L01( const std::string& device, uint8_t cspin, uint8_t cepin, uint8_t channel = 100, uint32_t input_port = 0, uint32_t output_port = 1, bool drop_invalid_packets = false );
+	nRF24L01( const string& device, uint8_t cspin, uint8_t cepin, uint8_t channel = 100, uint32_t input_port = 0, uint32_t output_port = 1, bool drop_invalid_packets = false );
 	~nRF24L01();
 
 	int Connect();
@@ -60,10 +58,10 @@ public:
 	int32_t RxLevel();
 	uint32_t fullReadSpeed();
 
-	int Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
-	int Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
 
-	int32_t WriteAck( const void* buf, uint32_t len );
+	SyncReturn WriteAck( const void* buf, uint32_t len );
 
 	static int flight_register( Main* main );
 
@@ -92,11 +90,11 @@ protected:
 		bool received;
 	} Block;
 
-	static Link* Instanciate( Config* config, const std::string& lua_object );
+	static Link* Instanciate( Config* config, const string& lua_object );
 	int Send( const void* buf, uint32_t len, bool ack );
 	int Receive( void* buf, uint32_t len );
 
-	std::string mDevice;
+	string mDevice;
 	uint8_t mCSPin;
 	uint8_t mCEPin;
 	nRF24::RF24* mRadio;
@@ -107,18 +105,18 @@ protected:
 	uint32_t mOutputPort;
 	uint32_t mRetries;
 	uint32_t mReadTimeout;
-	std::mutex mInterruptMutex;
+	Mutex mInterruptMutex;
 
 	// TX
 	uint8_t mTXBlockID;
 
 	// RX
 	Block mRxBlock;
-	std::list<std::pair<uint8_t*, uint32_t>> mRxQueue;
-	std::mutex mRxQueueMutex;
+	list<pair<uint8_t*, uint32_t>> mRxQueue;
+	Mutex mRxQueueMutex;
 
 	// Perfs
-	std::mutex mPerfMutex;
+	Mutex mPerfMutex;
 	bool mRPD;
 	float mSmoothRPD;
 	int32_t mRxQuality;

@@ -24,10 +24,9 @@
 //#include <netinet/in.h>
 //#include <netinet/tcp.h>
 #include <stdio.h>
-#include <iostream>
 #include "ControllerBase.h"
 
-std::map< ControllerBase::Cmd, std::string > ControllerBase::mCommandsNames = {
+map< ControllerBase::Cmd, string > ControllerBase::mCommandsNames = {
 	{ ControllerBase::UNKNOWN, "Unknown" },
 	// Configure
 	{ ControllerBase::STATUS, "Status" },

@@ -25,13 +25,13 @@
 class Microphone
 {
 public:
-	static Microphone* Create( Config* config, const std::string& lua_object );
+	static Microphone* Create( Config* config, const string& lua_object );
 	Microphone();
 	~Microphone();
 
 protected:
-	static void RegisterMicrophone( const std::string& name, std::function< Microphone* ( Config*, const std::string& ) > instanciate );
-	static std::map< std::string, std::function< Microphone* ( Config*, const std::string& ) > > mKnownMicrophones;
+	static void RegisterMicrophone( const string& name, function< Microphone* ( Config*, const string& ) > instanciate );
+	static map< string, function< Microphone* ( Config*, const string& ) > > mKnownMicrophones;
 };
 
 #endif // MICROPHONE_H

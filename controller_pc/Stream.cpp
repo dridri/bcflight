@@ -24,6 +24,7 @@
 #include "MainWindow.h"
 #include "ControllerPC.h"
 #include "ui_mainWindow.h"
+#include "Socket.h"
 
 
 #if ( defined(WIN32) && !defined(glActiveTexture) )
@@ -37,6 +38,7 @@ Stream::Stream( QWidget* parent )
 	, mMainWindow( nullptr )
 	, mLink( nullptr )
 	, mAudioLink( nullptr )
+	, mSocketTellIPCounter( 0 )
 	, mWidth( 0 )
 	, mHeight( 0 )
 	, mShader( nullptr )
@@ -343,16 +345,22 @@ bool Stream::run()
 			sched.sched_priority = sched_get_priority_max( SCHED_RR );
 			sched_setscheduler( 0, SCHED_RR, &sched );
 			mFpsTimer.start();
-// 			uint32_t uid = htonl( 0x12345678 );
-// 			mLink->Write( &uid, sizeof(uid), 0 );
 		} else {
 			usleep( 1000 * 500 );
 		}
 		return true;
 	}
 
+	if ( ( mSocketTellIPCounter = ( ( mSocketTellIPCounter + 1 ) % 16 ) ) == 1 ) {
+		// Dummy write to tell own IP address in case of Socket
+		if ( dynamic_cast<Socket*>( mLink ) ) {
+			uint32_t uid = htonl( 0x12345678 );
+			mLink->Write( &uid, sizeof(uid), 0, -1 );
+		}
+	}
+
 	uint8_t data[65536] = { 0 };
-	int32_t size = mLink->Read( data, sizeof( data ), 0 );
+	int32_t size = mLink->Read( data, sizeof( data ), 50 );
 	if ( size > 0 ) {
 		DecodeFrame( data, size );
 		if ( size > 41 ) {

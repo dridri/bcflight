@@ -8,6 +8,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_GNU_SOURCE -D_BSD_SOU
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -std=c++11 -DGE_LINUX -DGE_EGL -fpermissive -Wno-pmf-conversions -Wfatal-errors" )
 set( CMAKE_AUTOMOC ON )
 set( CMAKE_AUTORCC ON )
+set( OpenGL_GL_PREFERENCE LEGACY )
 
 find_package( Nasm )
 find_package( Qt5Widgets )

@@ -35,7 +35,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
-	std::string infos();
+	string infos();
 
 private:
 	I2C* mI2C;
@@ -53,7 +53,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	int Read( Vector3f* v, bool raw = false );
 
-	std::string infos();
+	string infos();
 
 private:
 	I2C* mI2C;
@@ -71,13 +71,17 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
-	std::string infos();
+	string infos();
 
 private:
 	I2C* mI2C9150;
 	I2C* mI2C;
 	int mState;
 	uint8_t mData[6];
+	float mCalibrationData[3];
+	float mBias[3];
+	int16_t mBiasMin[3];
+	int16_t mBiasMax[3];
 };
 
 
@@ -86,7 +90,7 @@ class MPU6050 : public Sensor
 public:
 	static int flight_register( Main* main );
 
-	static Sensor* Instanciate( uint8_t i2c_addr, Config* config, const std::string& object );
+	static Sensor* Instanciate( uint8_t i2c_addr, Config* config, const string& object );
 
 protected:
 	MPU6050( I2C* i2c );
@@ -182,6 +186,9 @@ protected:
 #define MPU_6050_HZH                    0x08    // Mag Z axis High
 #define MPU_6050_ST2                    0x09    // Magnetometer status 2
 #define MPU_6050_CNTL                   0x0A    // Magnetometer control
+#define AK8963_ASAX                     0x10    // Fuse ROM x-axis sensitivity adjustment value
+#define AK8963_ASAY                     0x11    // Fuse ROM y-axis sensitivity adjustment value
+#define AK8963_ASAZ                     0x12    // Fuse ROM z-axis sensitivity adjustment value
 
 
 #endif // MPU6050_H

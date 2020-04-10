@@ -19,6 +19,8 @@
 #include <cmath>
 #include "Motor.h"
 
+map< string, function< Motor* ( Config*, const string& ) > > Motor::mKnownMotors;
+
 Motor::Motor()
 	: mSpeed( -1 )
 {
@@ -53,4 +55,19 @@ void Motor::setSpeed( float speed, bool force_hw_update )
 */
 	setSpeedRaw( speed, force_hw_update );
 	mSpeed = speed;
+}
+
+
+Motor* Motor::Instanciate( const string& name, Config* config, const string& object )
+{
+	if ( mKnownMotors.find( name ) != mKnownMotors.end() ) {
+		return mKnownMotors[ name ]( config, object );
+	}
+	return nullptr;
+}
+
+
+void Motor::RegisterMotor( const string& name, function< Motor* ( Config*, const string& ) > instanciate )
+{
+	mKnownMotors[ name ] = instanciate;
 }

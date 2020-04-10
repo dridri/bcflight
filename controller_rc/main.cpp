@@ -25,14 +25,49 @@
 #include "ui/GlobalUI.h"
 #include "Config.h"
 #include <RawWifi.h>
-#include <Socket.h>
+#include <links/Socket.h>
 #include <nRF24L01.h>
 #include <SX127x.h>
+
+
+void SegFaultHandler( int sig )
+{
+	std::string msg;
+	char name[64] = "";
+
+	pthread_getname_np( pthread_self(), name, sizeof(name) );
+	if ( name[0] == '\0' or !strcmp( name, "flight" ) ) {
+		msg = "Thread <unknown> crashed !";
+	} else {
+		msg = "Thread \"" + std::string(name) + "\" crashed !";
+	}
+
+	std::cout << "\e[0;41m" << msg << "\e[0m\n";
+
+	void* array[16];
+	size_t size;
+	size = backtrace( array, 16 );
+	fprintf( stderr, "Error: signal %d :\n", sig );
+	char** trace = backtrace_symbols( array, size );
+	std::cout << "\e[91mStack trace :\e[0m\n";
+	for ( size_t j = 0; j < size; j++ ) {
+		std::cout << "\e[91m" << trace[j] << "\e[0m\n";
+	}
+
+	while ( 1 ) {
+		usleep( 1000 * 1000 * 10 );
+	}
+}
 
 int main( int ac, char** av )
 {
 	Controller* controller = nullptr;
 	Link* controller_link = nullptr;
+
+	struct sigaction sa;
+	memset( &sa, 0, sizeof(sa) );
+	sa.sa_handler = &SegFaultHandler;
+	sigaction( 11, &sa, NULL );
 
 	if ( ac <= 1 ) {
 		std::cout << "FATAL ERROR : No config file specified !\n";
@@ -84,6 +119,7 @@ int main( int ac, char** av )
 		conf.retries = config->integer( "controller.link.retries", 1 );
 		conf.bitrate = config->integer( "controller.link.bitrate", 76800 );
 		conf.bandwidth = config->integer( "controller.link.bandwidth", 250000 );
+		conf.bandwidthAfc = config->integer( "controller.link.bandwidthAfc", 500000 );
 		conf.fdev = config->integer( "controller.link.fdev", 20000 );
 		conf.modem = config->string( "controller.link.modem", "FSK" ) == "LoRa" ? SX127x::LoRa : SX127x::FSK;
 		controller_link = new SX127x( conf );

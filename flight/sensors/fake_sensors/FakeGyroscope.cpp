@@ -42,7 +42,7 @@ void FakeGyroscope::Calibrate( float dt, bool last_pass )
 int FakeGyroscope::Read( Vector3f* v, bool raw )
 {
 	for ( int i = 0; i < mAxisCount; i++ ) {
-		v->operator[](0) = 0.0f * std::sin( mSinCounter + 3.14 / 2 ) + mNoiseGain[0] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
+		v->operator[](0) = 0.0f * sin( mSinCounter + 3.14 / 2 ) + mNoiseGain[0] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
 		v->operator[](1) = mNoiseGain[1] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
 		v->operator[](2) = mNoiseGain[2] * ( (float)( rand() % 65536 ) - 32768.0f ) / 32768.0f;
 	}
@@ -53,7 +53,7 @@ int FakeGyroscope::Read( Vector3f* v, bool raw )
 }
 
 
-std::string FakeGyroscope::infos()
+string FakeGyroscope::infos()
 {
 	return "Resolution = \"32 bits float\", Scale = \"16g\"";
 }

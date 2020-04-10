@@ -31,6 +31,7 @@ typedef struct VideoStats {
 	int width;
 	int height;
 	int fps;
+	uint32_t photo_id;
 	char whitebalance[32];
 	char exposure[32];
 } VideoStats;
@@ -79,7 +80,7 @@ public:
 	virtual void Compute() = 0;
 	virtual void Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats ) = 0;
 
-	void RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror = false, bool vmirror = false );
+	void RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror = false, bool vmirror = false, const Vector4f& color = { 1.0f, 1.0f, 1.0f, 1.0f } );
 	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, bool hcenter = false );
 	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, bool hcenter = false );
 	Vector2f VR_Distort( const Vector2f& coords );
@@ -165,7 +166,10 @@ protected:
 	int mTextAdv[256];
 
 	std::string mWhiteBalance;
+	std::string mExposureMode;
 	float mWhiteBalanceTick;
+	uint32_t mLastPhotoID;
+	float mPhotoTick;
 };
 
 #endif // RENDERERHUD_H

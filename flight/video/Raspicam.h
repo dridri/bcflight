@@ -52,7 +52,7 @@ class Link;
 class Raspicam : public Camera, protected CAM_INTF::Camera
 {
 public:
-	Raspicam( Config* config, const std::string& conf_obj );
+	Raspicam( Config* config, const string& conf_obj );
 	~Raspicam();
 
 	virtual void Pause();
@@ -68,23 +68,24 @@ public:
 	virtual const int32_t ISO();
 	virtual const uint32_t shutterSpeed();
 	virtual const bool nightMode();
-	virtual const std::string whiteBalance();
-	virtual const std::string exposureMode();
+	virtual const string whiteBalance();
+	virtual const string exposureMode();
 	virtual const bool recording();
-	virtual const std::string recordFilename();
+	virtual const string recordFilename();
 	virtual void setBrightness( uint32_t value );
 	virtual void setContrast( int32_t value );
 	virtual void setSaturation( int32_t value );
 	virtual void setISO( int32_t value );
 	virtual void setShutterSpeed( uint32_t value );
 	virtual void setNightMode( bool night_mode );
-	virtual std::string switchWhiteBalance();
-	virtual std::string lockWhiteBalance();
-	virtual std::string switchExposureMode();
+	virtual string switchWhiteBalance();
+	virtual string lockWhiteBalance();
+	virtual string switchExposureMode();
 	virtual void setLensShader( const LensShaderColor& R, const LensShaderColor& G, const LensShaderColor& B );
 	virtual void getLensShader( LensShaderColor* r, LensShaderColor* g, LensShaderColor* b );
+	virtual uint32_t getLastPictureID();
 
-	virtual uint32_t* getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
+	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
 protected:
 	bool LiveThreadRun();
@@ -96,7 +97,7 @@ protected:
 	void setLensShader_internal( const LensShaderColor& R, const LensShaderColor& G, const LensShaderColor& B );
 
 	Config* mConfig;
-	std::string mConfigObject;
+	string mConfigObject;
 	Link* mLink;
 	bool mDirectMode;
 	uint32_t mWidth;
@@ -116,7 +117,7 @@ protected:
 	bool mPaused;
 	CAM_INTF::Camera::WhiteBalControl mWhiteBalance;
 	CAM_INTF::Camera::ExposureControl mExposureMode;
-	std::string mWhiteBalanceLock;
+	string mWhiteBalanceLock;
 	uint8_t* mLiveBuffer;
 	LensShaderColor mLensShaderR;
 	LensShaderColor mLensShaderG;
@@ -125,7 +126,7 @@ protected:
 	// Record
 	bool mBetterRecording;
 	bool mRecording;
-	std::string mRecordFilename;
+	string mRecordFilename;
 	char* mRecordFrameData;
 	int mRecordFrameDataSize;
 	int mRecordFrameSize;
@@ -138,15 +139,16 @@ protected:
 	bool mTakingPicture;
 	HookThread<Raspicam>* mTakePictureThread;
 	CAM_INTF::ImageEncode* mImageEncoder;
-	std::mutex mTakePictureMutex;
-	std::condition_variable mTakePictureCond;
+	mutex mTakePictureMutex;
+	condition_variable mTakePictureCond;
+	uint32_t mLastPictureID;
 
 	FILE* mRecordStream; // TODO : use board-specific file instead
-	std::mutex mRecordStreamMutex;
-	std::list< std::pair< uint8_t*, uint32_t > > mRecordStreamQueue;
+	mutex mRecordStreamMutex;
+	list< pair< uint8_t*, uint32_t > > mRecordStreamQueue;
 	uint32_t mRecorderTrackId;
 
-	static void DebugOutput( int level, const std::string fmt, ... );
+	static void DebugOutput( int level, const string fmt, ... );
 };
 
 #endif // RASPICAM_H

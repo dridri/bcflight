@@ -19,6 +19,7 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include <byteswap.h>
 #include <stdint.h>
 #include <list>
 #include <string>
@@ -47,7 +48,7 @@ public:
 	Board( Main* main );
 	~Board();
 
-	static std::string infos();
+	static string infos();
 
 	static void InformLoading( int force_led = -1 );
 	static void LoadingDone();
@@ -55,22 +56,22 @@ public:
 	static void setLocalTimestamp( uint32_t t );
 	static Date localDate();
 
-	static const std::string LoadRegister( const std::string& name );
-	static const uint32_t LoadRegisterU32( const std::string& name, uint32_t def = 0 );
-	static const float LoadRegisterFloat( const std::string& name, float def = 0.0f );
-	static int SaveRegister( const std::string& name, const std::string& value );
+	static const string LoadRegister( const string& name );
+	static const uint32_t LoadRegisterU32( const string& name, uint32_t def = 0 );
+	static const float LoadRegisterFloat( const string& name, float def = 0.0f );
+	static int SaveRegister( const string& name, const string& value );
 
 	static uint64_t GetTicks();
 	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias = -500 );
 
-	static std::string readcmd( const std::string& cmd, const std::string& entry = "", const std::string& delim = ":" );
+	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
 	static uint32_t FreeDiskSpace();
 	static void setDiskFull();
 
-	static std::vector< std::string > messages();
-	static std::map< std::string, bool >& defectivePeripherals();
+	static vector< string > messages();
+	static map< string, bool >& defectivePeripherals();
 
 	static void EnableTunDevice();
 	static void DisableTunDevice();
@@ -83,7 +84,7 @@ private:
 	static void SegFaultHandler( int sig );
 
 	static uint64_t mTicksBase;
-	static std::map< std::string, std::string > mRegisters;
+	static map< string, string > mRegisters;
 	static uint64_t mLastWorkJiffies;
 	static uint64_t mLastTotalJiffies;
 	static bool mUpdating;
@@ -99,8 +100,13 @@ private:
 	static uint32_t mCPUTemp;
 	static bool mDiskFull;
 
-	static std::vector< std::string > mBoardMessages;
-	static std::map< std::string, bool > mDefectivePeripherals;
+	static vector< string > mBoardMessages;
+	static map< string, bool > mDefectivePeripherals;
 };
+
+uint16_t board_htons( uint16_t );
+uint16_t board_ntohs( uint16_t );
+uint32_t board_htonl( uint32_t );
+uint32_t board_ntohl( uint32_t );
 
 #endif // BOARD_H
