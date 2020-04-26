@@ -47,6 +47,10 @@ This video was recorded on 22-nov-2018 during an FPV session
 # Current test setup
 
 Racer :
+
+<a href="https://ibb.co/N1bwd0m"><img src="https://i.ibb.co/vsR26NQ/20200426-140237.jpg" alt="20200426-140237" border="0" /></a>
+
+(Black coating on the PCB is Plasti-Dip, protecting it from dust and moisture. More recently, the Raspberry was coated with KF-1282 anti-corrosion spray)
 * ZMR250 frame
 * Raspberry Pi 3 A+
 * Raspberry Pi Camera v2.1 (8MP, Sony IMX219 sensor) + M12 wide-angle lens
