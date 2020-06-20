@@ -41,7 +41,7 @@
 #include <fake_sensors/FakeGyroscope.h>
 #include <Servo.h>
 #include <Stabilizer.h>
-#include <StabilizerProxy.h>
+// #include <StabilizerProxy.h>
 #include <Frame.h>
 #include <Microphone.h>
 #include <Recorder.h>
@@ -168,7 +168,7 @@ Main::Main()
 	mPowerThread->setPriority( 97 );
 	Board::InformLoading();
 #endif
-
+/*
 	string slavetype = mConfig->String( "stabilizer.proxy.type" );
 	Bus* slaveBus = nullptr;
 	if ( slavetype != "" ) {
@@ -178,25 +178,27 @@ Main::Main()
 		// TODO : handle other types of busses
 // 		mIMU = new IMUProxy(); // TODO + create Slave class for slave-device, then periodically ask IMU values from master ( at max(10, telemetry_rate) )
 	} else {
+*/
 #ifdef BUILD_stabilizer
 		mIMU = new IMU( this );
 		Board::InformLoading();
 #endif
-	}
+// 	}
 
 #ifdef BUILD_frames
 	mFrame = Frame::Instanciate( frameName, mConfig );
 	Board::InformLoading();
 #endif
-
+/*
 	if ( slaveBus ) {
 		mStabilizer = new StabilizerProxy( this, slaveBus );
 	} else {
+*/
 #ifdef BUILD_stabilizer
 		mStabilizer = new Stabilizer( this, mFrame );
 		Board::InformLoading();
 #endif
-	}
+// 	}
 
 #ifdef CAMERA
 	mRecorder = new Recorder();
@@ -461,7 +463,8 @@ void Main::DetectDevices()
 	list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
 		string name = mConfig->String( "sensors_map_i2c[" + to_string(dev) + "]", "" );
-		Sensor::RegisterDevice( dev, name, mConfig, "" );
+// 		Sensor::RegisterDevice( dev, name, mConfig, "" );
+		Sensor::RegisterDevice( dev, name );
 	}
 	// TODO : register SPI/1-wire/.. devices
 
