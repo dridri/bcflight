@@ -33,7 +33,7 @@ HUD::~HUD()
 bool HUD::run()
 {
 	Controller* controller = Main::instance()->controller();
-	Stabilizer* stablizer = Main::instance()->stabilizer();
+	Stabilizer* stabilizer = Main::instance()->stabilizer();
 	IMU* imu = Main::instance()->imu();
 	PowerThread* powerThread = Main::instance()->powerThread();
 	Camera* camera = Main::instance()->camera();
@@ -75,11 +75,11 @@ bool HUD::run()
 	dronestats.username = Main::instance()->username();
 	dronestats.messages = Board::messages();
 	dronestats.blackBoxId = Main::instance()->blackbox()->id();
-	if ( controller ) {
-		dronestats.armed = controller->armed();
-		dronestats.mode = (DroneMode)stablizer->mode();
+	if ( controller and stabilizer ) {
+		dronestats.armed = stabilizer->armed();
+		dronestats.mode = (DroneMode)stabilizer->mode();
 		dronestats.ping = controller->ping();
-		dronestats.thrust = controller->thrust();
+		dronestats.thrust = stabilizer->thrust();
 	}
 	if ( imu ) {
 		mAccelerationAccum = ( mAccelerationAccum * 0.95f + imu->acceleration().length() * 0.05f );
@@ -123,7 +123,7 @@ bool HUD::run()
 		mRendererHUD->RenderText( 1280 * 0.5, 100, txt, 0xFFFFFFFF, 4.0f, true );
 	}
 
-// 	mGLContext->SwapBuffers();
+ 	mGLContext->SwapBuffers();
 	return true;
 }
 

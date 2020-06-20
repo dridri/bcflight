@@ -70,14 +70,28 @@ Raspicam::Raspicam( Config* config, const string& conf_obj )
 		return;
 	}
 
+	CAM_INTF::Camera::Infos infos = CAM_INTF::Camera::getInfos();
+	if ( infos.name.substr( 0, 5 ) == "testc" ) {
+		mName = "hq";
+	}
+	gDebug() << "Camera name : " << mName << "\n";
+	int mode = config->Integer( conf_obj + "." + mName + ".sensor_mode", config->Integer( conf_obj + ".sensor_mode", 0 ) );
+	CAM_INTF::Camera::setSensorMode( mode );
+
+	gDebug() << "A\n";
+
 // 	setDebugOutputCallback( &Raspicam::DebugOutput );
 
 	// TEST : record everytime
 	// TODO : remove this
 	mRecording = true;
+	gDebug() << "B\n";
 
 	mBetterRecording = ( config->Integer( conf_obj + ".record_kbps", config->Integer( conf_obj + ".kbps", 1024 ) ) != config->Integer( conf_obj + ".kbps", 1024 ) );
+	gDebug() << "C\n";
 	gDebug() << "Camera splitted encoders : " << mBetterRecording << "\n";
+
+	gDebug() << "C\n";
 
 	if ( mConfig->Boolean( mConfigObject + ".disable_lens_shading", false ) ) {
 		CAM_INTF::Camera::disableLensShading();
@@ -124,10 +138,10 @@ Raspicam::Raspicam( Config* config, const string& conf_obj )
 		}
 	}
 
-	mWidth = config->Integer( conf_obj + ".video_width", config->Integer( conf_obj + ".width", 1280 ) );
-	mHeight = config->Integer( conf_obj + ".video_height", config->Integer( conf_obj + ".height", 720 ) );
+	mWidth = config->Integer( conf_obj + "." + mName + ".video_width", config->Integer( conf_obj + ".video_width", config->Integer( conf_obj + "." + mName + ".width", config->Integer( conf_obj + ".width", 1280 ) ) ) );
+	mHeight = config->Integer( conf_obj + "." + mName + ".video_height", config->Integer( conf_obj + ".video_height", config->Integer( conf_obj + "." + mName + ".height", config->Integer( conf_obj + ".height", 720 ) ) ) );
 	CAM_INTF::Camera::setResolution( mWidth, mHeight, 71 );
-	CAM_INTF::Camera::setMirror( mConfig->Boolean( mConfigObject + ".hflip", false ), mConfig->Boolean( mConfigObject + ".vflip", false ) );
+	CAM_INTF::Camera::setMirror( mConfig->Boolean( mConfigObject + "." + mName + ".hflip", mConfig->Boolean( mConfigObject + ".hflip", false ) ), mConfig->Boolean( mConfigObject + "." + mName + ".vflip", mConfig->Boolean( mConfigObject + ".vflip", false ) ) );
 	CAM_INTF::Camera::setWhiteBalanceControl( CAM_INTF::Camera::WhiteBalControlAuto );
 	CAM_INTF::Camera::setExposureControl( CAM_INTF::Camera::ExposureControlAuto );
 	CAM_INTF::Camera::setExposureValue( CAM_INTF::Camera::ExposureMeteringModeSpot, mConfig->Integer( mConfigObject + ".exposure", 0 ), mConfig->Integer( mConfigObject + ".iso", 0 ), mConfig->Integer( mConfigObject + ".shutter_speed", 0 ) );
@@ -140,6 +154,31 @@ Raspicam::Raspicam( Config* config, const string& conf_obj )
 	printf( "============+> FILTER A\n" );
 // 	CAM_INTF::Camera::setImageFilter( CAM_INTF::Camera::ImageFilterDeInterlaceFast );
 	printf( "============+> FILTER B\n" );
+
+	string whitebal = mConfig->String( mConfigObject + "." + mName + ".white_balance", mConfig->String( mConfigObject + ".white_balance", "auto" ) );
+	WhiteBalControl wbcontrol = WhiteBalControlAuto;
+	if ( whitebal == "off" ) {
+		wbcontrol = WhiteBalControlOff;
+	} else if ( whitebal == "sunlight" ) {
+		wbcontrol = WhiteBalControlSunLight;
+	} else if ( whitebal == "cloudy" ) {
+		wbcontrol = WhiteBalControlCloudy;
+	} else if ( whitebal == "shade" ) {
+		wbcontrol = WhiteBalControlShade;
+	} else if ( whitebal == "tungsten" ) {
+		wbcontrol = WhiteBalControlTungsten;
+	} else if ( whitebal == "fluorescent" ) {
+		wbcontrol = WhiteBalControlFluorescent;
+	} else if ( whitebal == "incandescent" ) {
+		wbcontrol = WhiteBalControlIncandescent;
+	} else if ( whitebal == "flash" ) {
+		wbcontrol = WhiteBalControlFlash;
+	} else if ( whitebal == "horizon" ) {
+		wbcontrol = WhiteBalControlHorizon;
+	} else if ( whitebal == "greyworld" or whitebal == "grayworld" ) {
+		wbcontrol = WhiteBalControlGreyWorld;
+	}
+	CAM_INTF::Camera::setWhiteBalanceControl( wbcontrol );
 
 	mRender = new CAM_INTF::VideoRender();
 	CAM_INTF::Camera::SetupTunnelPreview( mRender );
@@ -318,6 +357,9 @@ const string Raspicam::whiteBalance()
 		case WhiteBalControlHorizon:
 			return "horizon";
 			break;
+		case WhiteBalControlGreyWorld:
+			return "greyworld";
+			break;
 	}
 	return "none";
 }
@@ -445,7 +487,7 @@ void Raspicam::setNightMode( bool night_mode )
 string Raspicam::switchWhiteBalance()
 {
 	mWhiteBalanceLock = "";
-	mWhiteBalance = (CAM_INTF::Camera::WhiteBalControl)( ( mWhiteBalance + 1 ) % ( WhiteBalControlHorizon + 1 ) );
+	mWhiteBalance = (CAM_INTF::Camera::WhiteBalControl)( ( mWhiteBalance + 1 ) % ( WhiteBalControlGreyWorld + 1 ) );
 	CAM_INTF::Camera::setWhiteBalanceControl( mWhiteBalance );
 	return whiteBalance();
 }

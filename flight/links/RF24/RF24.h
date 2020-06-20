@@ -17,7 +17,10 @@
 
 #include "RF24_config.h"
 #include "utility/includes.h"
+#ifndef ARDUINO
 #include "utility/spi.h"
+#else
+#endif // ARDUINO
 
 namespace nRF24 {
 
@@ -55,7 +58,9 @@ private:
   SPIUARTClass uspi;
 #endif
 
-#if defined (RF24_LINUX) || defined (XMEGA_D3) /* XMEGA can use SPI class */
+#ifdef ARDUINO
+  SPI spi;
+#elif defined (RF24_LINUX) || defined (XMEGA_D3) /* XMEGA can use SPI class */
   nRF24::SPI spi;
 #endif
 #if defined (MRAA)

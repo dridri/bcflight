@@ -6,6 +6,8 @@
  version 2 as published by the Free Software Foundation.
  */
 
+#ifdef BUILD_nRF24L01
+
 #include <string>
 #include <Board.h>
 #include <GPIO.h>
@@ -1594,3 +1596,5 @@ void SPIClass::setClockDivider(uint8_t rate){}
 
 
 #endif
+
+#endif // BUILD_nRF24L01

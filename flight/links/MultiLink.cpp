@@ -1,3 +1,5 @@
+#ifdef BUILD_MultiLink
+
 #include <../links/Link.h>
 #include <../links/Link.h>
 #include <../links/Link.h>
@@ -226,3 +228,5 @@ SyncReturn MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 
 	return ret;
 }
+
+#endif // BUILD_MultiLink

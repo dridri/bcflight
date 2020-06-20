@@ -19,10 +19,11 @@
     #define RF24_SPI_TRANSACTIONS
   #endif	
   // GCC a Arduino Missing
+#ifndef ARDUINO
   #define _BV(x) (1<<(x))
   #define pgm_read_word(p) (*(p))
   #define pgm_read_byte(p) (*(p))
-  
+
   //typedef uint16_t prog_uint16_t;
   #define PSTR(x) (x)
   #define printf_P printf
@@ -39,5 +40,6 @@
   #define digitalWrite(pin, value) GPIO::Write(pin, value)
   #define pinMode(pin,value) GPIO::setMode(pin,value);
   #define OUTPUT GPIO::Output
+#endif // ARDUINO
   
 #endif

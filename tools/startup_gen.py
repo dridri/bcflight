@@ -19,7 +19,9 @@ for f in output:
 		classes.append( f )
 
 for classname in classes:
-	final += "#include <" + classname + ".h>\n";
+	final += "#ifdef BUILD_" + classname + "\n"
+	final += "#include <" + classname + ".h>\n"
+	final += "#endif\n"
 
 final += "\n"
 
@@ -27,9 +29,9 @@ final += "\nint Main::flight_register()\n{\n\tint ret = 0;\n"
 
 
 for classname in classes:
-		final += "#ifdef BUILD_" + classname + "\n"
-		final += "\tif ( ( ret = " + classname + "::flight_register( this ) ) < 0 ) {\n\t\tgDebug() << \"Module \\\"" + classname + "\\\" failed to initialize (\" << ret << \")\\n\";\n\t}\n";
-		final += "#endif\n"
+	final += "#ifdef BUILD_" + classname + "\n"
+	final += "\tif ( ( ret = " + classname + "::flight_register( this ) ) < 0 ) {\n\t\tgDebug() << \"Module \\\"" + classname + "\\\" failed to initialize (\" << ret << \")\\n\";\n\t}\n";
+	final += "#endif\n"
 
 final += "\treturn ret;\n}\n";
 target.write( final )

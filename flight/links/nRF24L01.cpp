@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#ifdef BUILD_nRF24L01
+
 #include <cmath>
 #include <Main.h>
 #include <Config.h>
@@ -413,3 +415,5 @@ void nRF24L01::Interrupt()
 		}
 	}
 }
+
+#endif // BUILD_nRF24L01

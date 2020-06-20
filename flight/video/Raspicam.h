@@ -100,6 +100,7 @@ protected:
 	string mConfigObject;
 	Link* mLink;
 	bool mDirectMode;
+	string mName;
 	uint32_t mWidth;
 	uint32_t mHeight;
 	int32_t mISO;

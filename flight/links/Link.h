@@ -19,8 +19,10 @@
 #ifndef LINK_H
 #define LINK_H
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <math.h>
 #include <string>
 #include <map>
 #include <functional>
