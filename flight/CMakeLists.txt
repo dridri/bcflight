@@ -147,7 +147,7 @@ endif()
 # endif()
 
 file( GLOB BOARD_SOURCES_AUTO boards/common/*.cpp boards/${board}/*.cpp boards/${board}/*.c )
-+if ( NOT ${camera} MATCHES OFF OR NOT ${camera} MATCHES 0 )
+if ( NOT ${camera} MATCHES OFF OR NOT ${camera} MATCHES 0 )
 	message( WARNING remove )
 	list( FILTER BOARD_SOURCES_AUTO EXCLUDE REGEX ".*GL.*" )
 	message( WARNING ${BOARD_SOURCES_AUTO} )
