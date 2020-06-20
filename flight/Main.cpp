@@ -26,6 +26,7 @@
 #include "Config.h"
 #include "Controller.h"
 #include "Slave.h"
+#include <SPI.h>
 #include <I2C.h>
 #include <IMU.h>
 #include <Sensor.h>
@@ -40,6 +41,7 @@
 #include <fake_sensors/FakeGyroscope.h>
 #include <Servo.h>
 #include <Stabilizer.h>
+#include <StabilizerProxy.h>
 #include <Frame.h>
 #include <Microphone.h>
 #include <Recorder.h>
@@ -145,7 +147,7 @@ Main::Main()
 	DetectDevices();
 	Board::InformLoading();
 
-#ifdef BUILD_frame
+#ifdef BUILD_frames
 	string frameName = mConfig->String( "frame.type" );
 	auto knownFrames = Frame::knownFrames();
 	if ( knownFrames.find( frameName ) == knownFrames.end() ) {
@@ -167,23 +169,39 @@ Main::Main()
 	Board::InformLoading();
 #endif
 
+	string slavetype = mConfig->String( "stabilizer.proxy.type" );
+	Bus* slaveBus = nullptr;
+	if ( slavetype != "" ) {
+		if ( slavetype == "SPI" ) {
+			slaveBus = new SPI( mConfig->String( "stabilizer.proxy.address" ), mConfig->Integer( "stabilizer.proxy.speed", 500000 ) );
+		}
+		// TODO : handle other types of busses
+// 		mIMU = new IMUProxy(); // TODO + create Slave class for slave-device, then periodically ask IMU values from master ( at max(10, telemetry_rate) )
+	} else {
 #ifdef BUILD_stabilizer
-	mIMU = new IMU( this );
-	Board::InformLoading();
+		mIMU = new IMU( this );
+		Board::InformLoading();
 #endif
+	}
 
-#ifdef BUILD_frame
+#ifdef BUILD_frames
 	mFrame = Frame::Instanciate( frameName, mConfig );
 	Board::InformLoading();
 #endif
 
+	if ( slaveBus ) {
+		mStabilizer = new StabilizerProxy( this, slaveBus );
+	} else {
 #ifdef BUILD_stabilizer
-	mStabilizer = new Stabilizer( this, mFrame );
-	Board::InformLoading();
+		mStabilizer = new Stabilizer( this, mFrame );
+		Board::InformLoading();
 #endif
+	}
 
+#ifdef CAMERA
 	mRecorder = new Recorder();
 	mRecorder->Start();
+#endif
 
 	mCameraType = mConfig->String( "camera.type" );
 #ifdef CAMERA
@@ -211,7 +229,7 @@ Main::Main()
 	Board::InformLoading();
 
 #ifdef BUILD_controller
-#ifdef BUILD_link
+#ifdef BUILD_links
 	Link* controllerLink = Link::Create( mConfig, "controller.link" );
 #else
 	Link* controllerLink = nullptr;
@@ -220,6 +238,7 @@ Main::Main()
 	mController->setPriority( 98 );
 	Board::InformLoading();
 #endif
+
 
 #ifdef BUILD_stabilizer
 	mLoopTime = mConfig->Integer( "stabilizer.loop_time", 2000 );
@@ -233,8 +252,10 @@ Main::Main()
 	mStabilizerThread->setPriority( 99 );
 #endif // BUILD_stabilizer
 
+#ifdef SYSTEM_NAME_Linux
 	// Must be the very last atexit() call
 	atexit( &Thread::StopAll );
+#endif
 
 	Thread::setMainPriority( 1 );
 }
@@ -440,7 +461,7 @@ void Main::DetectDevices()
 	list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
 		string name = mConfig->String( "sensors_map_i2c[" + to_string(dev) + "]", "" );
-		Sensor::RegisterDevice( dev, name );
+		Sensor::RegisterDevice( dev, name, mConfig, "" );
 	}
 	// TODO : register SPI/1-wire/.. devices
 

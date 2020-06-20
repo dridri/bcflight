@@ -78,7 +78,9 @@ VCHI_CONNECTION_T* Board::global_connection = nullptr;
 Board::Board( Main* main )
 {
 	bcm_host_init();
+#ifdef CAMERA
 	OMX_Init();
+#endif
 	vc_gencmd_init();
 // 	VCOSInit();
 
