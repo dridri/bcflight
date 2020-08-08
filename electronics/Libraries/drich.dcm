@@ -1,0 +1,17 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP Antenna_uFL
+D Antenna with extra pin for shielding
+K antenna
+F ~
+$ENDCMP
+#
+$CMP BlueSkyUBEC
+D Bluesky 5V/12V UBEC
+$ENDCMP
+#
+$CMP Lora1276F30
+D NiceRF Lora1276F30
+$ENDCMP
+#
+#End Doc Library
