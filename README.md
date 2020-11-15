@@ -2,7 +2,11 @@ View this project on [CADLAB.io](https://cadlab.io/project/23184).
 
 (this project is not dead, just paused due to financial reasons)
 
-[12-03-2019] Current roadmap is to create (and maybe sell) a drone-specific board for the RaspberryPi Compute Module, allowing reduced weight by stacking every peripherals on it. This also enables the possibility to use an STM32Fx to control IMU and motors, as the RaspberryPi's DMA can only produce 500Hz PWM but not oneshot/multishot/dshot
+~~[12-03-2019] Current roadmap is to create (and maybe sell) a drone-specific board for the RaspberryPi Compute Module, allowing reduced weight by stacking every peripherals on it. This also enables the possibility to use an STM32Fx to control IMU and motors, as the RaspberryPi's DMA can only produce 500Hz PWM but not oneshot/multishot/dshot~~
+
+[05-11-2020] Since Raspberry Pi Foundation just released a new Compute Module with a smaller form factor, better CPU and 4 PWM outputs, it is now possible to have a very small looptime and high frequency motors update directly on the Pi itself. I'm now working on a carrier board with all the necessary hardware (gyroscope, accelerometer, magnetometer, barometer, 4 PWM outputs, radio modules [RFM95W with external antenna plugs] & SBUS input [with dedicated uart inverter], ADC, USB & UART pins [for GPS/other modules], I2C pins [for external sensors], TVOUT [compatible with any VTXs], 4 GPIO pins, dual camera port, microSD plug, 5V3A UBEC). Total size is 66x40mm
+
+<img src="https://raw.githubusercontent.com/dridri/bcflight/master/images/cm4-fc-front.png" width="49%" /> <img src="https://raw.githubusercontent.com/dridri/bcflight/master/images/cm4-fc-back.png" width="49%" />
 
 # BeyondChaos Flight
 This project aims to create open-source flight controller and ground controller for Linux based drones.
