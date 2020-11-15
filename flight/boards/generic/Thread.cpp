@@ -17,19 +17,18 @@
 **/
 
 #include <unistd.h>
+#include <wiringPi.h>
+#include <iostream>
 #include "Thread.h"
+#include "Board.h"
+#include "Debug.h"
 
-// This fil contains a pthread implementation (same as used in 'rpi' board)
 
 Thread::Thread( const string& name )
-	: mRunning( false )
-	, mIsRunning( false )
-	, mFinished( false )
-	, mPriority( 0 )
-	, mSetPriority( 0 )
+	: ThreadBase( name )
+	, mSpawned( false )
 {
-	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
-	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
+	mID = mThread;
 }
 
 
@@ -40,55 +39,96 @@ Thread::~Thread()
 
 void Thread::Start()
 {
+	if ( not mSpawned ) {
+		pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+		pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
+		mSpawned = true;
+	}
 	mRunning = true;
 }
 
 
-void Thread::Pause()
+Thread* Thread::currentThread()
 {
-	mRunning = false;
+	for ( ThreadBase* th : threads() ) {
+		if ( static_cast<Thread*>(th)->mThread == pthread_self() ) {
+			return static_cast<Thread*>(th);
+		}
+	}
+	return nullptr;
 }
 
 
 void Thread::Join()
 {
+	uint64_t start_time = Board::GetTicks();
+
 	while ( !mFinished ) {
+		if ( Board::GetTicks() - start_time > 1000 * 1000 * 2 ) {
+			gDebug() << "thread \"" << mName << "\" join timeout (2s), force killing\n";
+			pthread_cancel( mThread );
+			break;
+		}
 		usleep( 1000 * 10 );
 	}
 }
 
 
-bool Thread::running() const
+void Thread::Recover()
 {
-	return mIsRunning;
-}
+	gDebug() << "\e[93mRecovering thread \"" << mName << "\"\e[0m\n";
+	mRunning = false;
+	mStopped = false;
+	mIsRunning = false;
+	mFinished = false;
+	mPriority = 0;
+	mAffinity = -1;
 
+	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+	pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
+	mID = mThread;
 
-void Thread::setMainPriority( int p )
-{
-	// set priority of main thread here
-}
-
-
-void Thread::setPriority( int p, int affinity )
-{
-	mSetPriority = p;
+	mRunning = true;
 }
 
 
 void Thread::ThreadEntry()
 {
 	do {
-		while ( !mRunning ) {
+		while ( not mRunning and not mStopped ) {
 			mIsRunning = false;
-			usleep( 1000 * 10 );
+			usleep( 1000 * 100 );
 		}
-		mIsRunning = true;
-		if ( mSetPriority != mPriority ) {
-			mPriority = mSetPriority;
-			// set priority here
+		if ( mRunning ) {
+			mIsRunning = true;
+			if ( mSetPriority != mPriority ) {
+				mPriority = mSetPriority;
+			//	piHiPri( mPriority ); TODO : set priority here
+			}
+			if ( mSetAffinity >= 0 and mSetAffinity != mAffinity ) {
+				mAffinity = mSetAffinity;
+				cpu_set_t cpuset;
+				CPU_ZERO( &cpuset );
+				CPU_SET( mAffinity, &cpuset );
+				pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
+			}
 		}
-	} while ( run() ); // A thread should return 'true' to keep looping on it, or 'false' for one-shot mode or to exit
+		if ( mFrequency > 0 ) {
+			mFrequencyTick = Board::WaitTick( 1000000 / mFrequency, mFrequencyTick );
+		}
+	} while ( not mStopped and run() );
 	mIsRunning = false;
 	mFinished = true;
+}
+
+
+void Thread::msleep( uint32_t ms )
+{
+	::usleep( ms * 1000 );
+}
+
+
+void Thread::usleep( uint32_t us )
+{
+	::usleep( us );
 }

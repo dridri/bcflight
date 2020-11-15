@@ -329,17 +329,23 @@ void IMU::Calibrate( float dt, bool all )
 	switch ( mCalibrationStep ) {
 		case 0 : {
 			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors\n";
+			gDebug() << "calibrate " << mCalibrationStep << " " << 0 << "\n";
 			mMain->blackbox()->Enqueue( "IMU:state", "Calibrating" );
+			gDebug() << "calibrate " << mCalibrationStep << " " << 1 << "\n";
 			mCalibrationStep++;
 			mCalibrationTimer = Board::GetTicks();
+			gDebug() << "calibrate " << mCalibrationStep << " " << 2 << "\n";
 			break;
 		}
 		case 1 : {
+			gDebug() << "calibrate " << mCalibrationStep << " " << 0 << "\n";
 			for ( auto dev : Sensor::Devices() ) {
 				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
+					gDebug() << "calibrate " << dev->names().front();
 					dev->Calibrate( dt, false );
 				}
 			}
+			gDebug() << "calibrate " << mCalibrationStep << " " << 1 << "\n";
 			if ( Board::GetTicks() - mCalibrationTimer >= 1000 * 1000 * 2 ) {
 				mCalibrationStep++;
 			}
@@ -402,6 +408,7 @@ void IMU::Recalibrate()
 		}
 	}
 	if ( cal_all ) {
+		gDebug() << "Full recalibration needed...\n";
 		RecalibrateAll();
 		return;
 	}

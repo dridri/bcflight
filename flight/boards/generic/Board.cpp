@@ -21,12 +21,14 @@
 #include <sys/time.h>
 #include <fstream>
 #include <Main.h>
+#include <netinet/in.h>
 #include "Board.h"
 #include "I2C.h"
 
 
 uint64_t Board::mTicksBase = 0;
 decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
+map< string, bool > Board::mDefectivePeripherals;
 
 
 Board::Board( Main* main )
@@ -89,6 +91,12 @@ static string readcmd( const string& cmd, const string& entry = "", const string
 
 	pclose( fp );
 	return res;
+}
+
+
+map< string, bool >& Board::defectivePeripherals()
+{
+	return mDefectivePeripherals;
 }
 
 
@@ -271,4 +279,34 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 
 void Board::Reset()
 {
+}
+
+
+extern "C" uint32_t _mem_usage()
+{
+	return 0; // TODO
+}
+
+
+uint16_t board_htons( uint16_t v )
+{
+	return htons( v );
+}
+
+
+uint16_t board_ntohs( uint16_t v )
+{
+	return ntohs( v );
+}
+
+
+uint32_t board_htonl( uint32_t v )
+{
+	return htonl( v );
+}
+
+
+uint32_t board_ntohl( uint32_t v )
+{
+	return ntohl( v );
 }

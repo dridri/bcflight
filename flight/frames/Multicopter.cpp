@@ -67,7 +67,7 @@ Multicopter::~Multicopter()
 
 void Multicopter::Arm()
 {
-	fDebug0();
+	fDebug();
 	char stmp[256] = "\"";
 	uint32_t spos = 1;
 
@@ -84,7 +84,7 @@ void Multicopter::Arm()
 
 void Multicopter::Disarm()
 {
-	fDebug0();
+	fDebug();
 	char stmp[256] = "\"";
 	uint32_t spos = 1;
 

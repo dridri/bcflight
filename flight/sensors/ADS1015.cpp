@@ -30,8 +30,9 @@ int ADS1015::flight_register( Main* main )
 }
 
 
-Sensor* ADS1015::Instanciate( Config* config, const string& object )
+Sensor* ADS1015::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : use bus
 	return new ADS1015();
 }
 

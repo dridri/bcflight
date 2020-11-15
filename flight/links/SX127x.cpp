@@ -200,6 +200,7 @@ SX127x::SX127x( Config* config, const string& lua_object )
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
 	GPIO::setMode( mIRQPin, GPIO::Input );
+// 	GPIO::setPUD( mIRQPin, GPIO::PullDown );
 	GPIO::SetupInterrupt( mIRQPin, GPIO::Rising, [this](){/* printf( "module 0\n" );*/ this->Interrupt( mSPI ); } );
 	if ( mTXPin >= 0 ) {
 		GPIO::Write( mTXPin, false );
@@ -893,6 +894,8 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 
 void SX127x::Interrupt( SPI* spi )
 {
+// 	fDebug();
+
 	int32_t rssi = 0;
 	// Take RSSI first, before the value becomes invalidated
 	if ( mModem == FSK ) {

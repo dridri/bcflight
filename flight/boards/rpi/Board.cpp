@@ -84,6 +84,7 @@ Board::Board( Main* main )
 	vc_gencmd_init();
 // 	VCOSInit();
 
+	wiringPiSetup();
 	wiringPiSetupGpio();
 
 	system( "mount -o remount,rw /var" );

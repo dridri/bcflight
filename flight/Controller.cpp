@@ -18,8 +18,8 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <algorithm>
+#include <cmath>
 #include "Main.h"
 #include "Config.h"
 #include "Controller.h"
@@ -33,15 +33,19 @@
 #include <Frame.h>
 #include "video/Camera.h"
 
+inline uint16_t ntohs( uint16_t x ) {
+	return ( ( x & 0xff ) << 8 ) | ( x >> 8 );
+}
+
 Controller::Controller( Main* main, Link* link )
 	: ControllerBase( link )
 	, Thread( "controller" )
 	, mMain( main )
 	, mTimedOut( false )
-	, mArmed( false )
+// 	, mArmed( false )
 	, mPing( 0 )
-	, mRPY( Vector3f() )
-	, mThrust( 0.0f )
+// 	, mRPY( Vector3f() )
+// 	, mThrust( 0.0f )
 	, mTicks( 0 )
 	, mTelemetryThread( new HookThread< Controller >( "telemetry", this, &Controller::TelemetryRun ) )
 	, mTelemetryTick( 0 )
@@ -112,19 +116,19 @@ bool Controller::connected() const
 	return isConnected();
 }
 
-
+/*
 bool Controller::armed() const
 {
 	return mArmed;
 }
-
+*/
 
 uint32_t Controller::ping() const
 {
 	return mPing;
 }
 
-
+/*
 float Controller::thrust() const
 {
 	return mThrust;
@@ -136,18 +140,19 @@ const Vector3f& Controller::RPY() const
 // 	return mSmoothRPY;
 	return mRPY;
 }
-
+*/
 
 void Controller::Emergency()
 {
 	gDebug() << "EMERGENCY MODE !\n";
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->frame()->Disarm();
-	mThrust = 0.0f;
-	mSmoothRPY = Vector3f();
-	mRPY = Vector3f();
+// 	mThrust = 0.0f;
+// 	mSmoothRPY = Vector3f();
+// 	mRPY = Vector3f();
 	mMain->stabilizer()->Reset( 0.0f );
-	mMain->frame()->Disarm();
+	mMain->stabilizer()->Disarm();
+// 	mArmed = false;
 }
 
 
@@ -171,48 +176,58 @@ void Controller::SendDebug( const string& s )
 }
 
 
-void Controller::setRoll( float value )
+void Controller::setRoll( float value, bool raw )
 {
-	if ( value >= 0.0f ) {
-		value = ( exp( value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
-	} else {
-		value = -( exp( -value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
+	if ( not raw ) {
+		if ( value >= 0.0f ) {
+			value = ( exp( value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
+		} else {
+			value = -( exp( -value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
+		}
 	}
-	mRPY.x = value;
+// 	mRPY.x = value;
+	mMain->stabilizer()->setRoll( value );
 }
 
 
-void Controller::setPitch( float value )
+void Controller::setPitch( float value, bool raw )
 {
-	if ( value >= 0.0f ) {
-		value = ( exp( value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
-	} else {
-		value = -( exp( -value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
+	if ( not raw ) {
+		if ( value >= 0.0f ) {
+			value = ( exp( value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
+		} else {
+			value = -( exp( -value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
+		}
 	}
-	mRPY.y = value;
+// 	mRPY.y = value;
+	mMain->stabilizer()->setPitch( value );
 }
 
 
-void Controller::setYaw( float value )
+void Controller::setYaw( float value, bool raw )
 {
 	if ( abs( value ) < 0.05f ) {
 		value = 0.0f;
 	}
-	if ( value >= 0.0f ) {
-		value = ( exp( value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
-	} else {
-		value = -( exp( -value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
+	if ( not raw ) {
+		if ( value >= 0.0f ) {
+			value = ( exp( value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
+		} else {
+			value = -( exp( -value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
+		}
 	}
-	mRPY.z = value;
+// 	mRPY.z = value;
+	mMain->stabilizer()->setYaw( value );
 }
 
 
-void Controller::setThrust( float value )
+void Controller::setThrust( float value, bool raw )
 {
 	if ( abs( value ) < 0.05f ) {
 		value = 0.0f;
 	}
-	if ( not mMain->stabilizer()->altitudeHold() ) {
+//	if ( not mMain->stabilizer()->altitudeHold() ) {
+	if ( not raw ) {
 		value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
 		if ( value < 0.0f or isnan( value ) or ( isinf( value ) and value < 0.0f ) ) {
 			value = 0.0f;
@@ -220,8 +235,10 @@ void Controller::setThrust( float value )
 		if ( value > 1.0f or isinf( value ) ) {
 			value = 1.0f;
 		}
-		mThrust = value;
+// 		mThrust = value;
 	}
+		mMain->stabilizer()->setThrust( value );
+//	}
 }
 
 
@@ -230,20 +247,22 @@ void Controller::Arm() {
 	mMain->imu()->ResetYaw();
 	mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
 	mMain->frame()->Arm();
-	mRPY.x = 0.0f;
-	mRPY.y = 0.0f;
-	mRPY.z = 0.0f;
-	mArmed = true;
+// 	mRPY.x = 0.0f;
+// 	mRPY.y = 0.0f;
+// 	mRPY.z = 0.0f;
+// 	mArmed = true;
+	mMain->stabilizer()->Arm();
 }
 
 
 void Controller::Disarm() {
 	gDebug() << "Disarming\n";
-	mArmed = false;
-	mThrust = 0.0f;
+	mMain->stabilizer()->Disarm();
+// 	mArmed = false;
+// 	mThrust = 0.0f;
 	mMain->stabilizer()->Reset( 0.0f );
-	mRPY = Vector3f();
-	mSmoothRPY = Vector3f();
+// 	mRPY = Vector3f();
+// 	mSmoothRPY = Vector3f();
 	mMain->frame()->Disarm();
 }
 
@@ -253,13 +272,17 @@ bool Controller::run()
 	char stmp[64];
 
 	if ( !mLink ) {
+		gDebug() << "Controller no link\n";
+		usleep( 1000 * 250 );
 		return true;
 	}
 
 	if ( !mLink->isConnected() ) {
 		mConnected = false;
-		mRPY.x = 0.0f;
-		mRPY.y = 0.0f;
+// 		mRPY.x = 0.0f;
+// 		mRPY.y = 0.0f;
+		mMain->stabilizer()->setRoll( 0.0f );
+		mMain->stabilizer()->setPitch( 0.0f );
 
 		gDebug() << "Link not up, connecting...\n";
 		mLink->Connect();
@@ -279,14 +302,16 @@ bool Controller::run()
 			mMain->blackbox()->Enqueue( "Controller:connected", "false" );
 		}
 		mTimedOut = true;
-		if ( mArmed ) {
+// 		if ( mArmed ) {
+		if ( mMain->stabilizer()->armed() ) {
 			gDebug() << "Controller connection lost !\n";
-			mThrust = 0.0f;
+// 			mThrust = 0.0f;
+			mMain->stabilizer()->Disarm();
 			mMain->stabilizer()->Reset( 0.0f );
 			mMain->frame()->Disarm();
-			mRPY = Vector3f();
-			mSmoothRPY = Vector3f();
-			mArmed = false;
+// 			mRPY = Vector3f();
+// 			mSmoothRPY = Vector3f();
+// 			mArmed = false;
 			gDebug() << "STONE MODE !\n";
 			return true;
 		}
@@ -319,11 +344,26 @@ bool Controller::run()
 		return 0;
 	};
 
+	if ( not mConnected ) {
+		for ( uint32_t i = 0; i < readret; i++ ) {
+			uint8_t part1 = 0;
+			if ( command.ReadU8( &part1 ) == sizeof(uint8_t) ) {
+				if ( part1 == PING ) {
+					gDebug() << "Controller connected !\n";
+					mConnected = true;
+					mConnectionEstablished = true;
+				}
+			}
+		}
+		usleep( 1000 * 100 );
+		return true;
+	}
+
 	Cmd cmd = (Cmd)0;
 	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-// 			cout << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)] << "\n";
+// 			gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)] << "\n";
 // 		}
 		bool do_response = false;
 		Packet response;
@@ -350,9 +390,9 @@ bool Controller::run()
 				mConnected = true;
 				mConnectionEstablished = true;
 				mMain->blackbox()->Enqueue( "Controller:connected", "true" );
-				mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
+				mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 			} else {
-				gDebug() << "Ignoring command " << hex << (int)cmd << dec << "\n";
+				gDebug() << "Ignoring command " << hex << (int)cmd << dec << "(size : " << readret << ")" << "\n";
 				continue;
 			}
 		}
@@ -370,7 +410,7 @@ bool Controller::run()
 
 					// Send status
 					uint32_t status = 0;
-					if ( mArmed ) {
+					if ( mMain->stabilizer()->armed() ) {
 						status |= STATUS_ARMED;
 					}
 					if ( mMain->imu()->state() == IMU::Running ) {
@@ -411,20 +451,22 @@ bool Controller::run()
 				}
 				Controls controls = { 0, 0, 0, 0, 0, 0, 0, 0 };
 				if ( command.Read( (uint8_t*)&controls, sizeof(controls) ) == sizeof(controls) ) {
-					if ( controls.arm and not mArmed and mMain->imu()->state() == IMU::Running ) {
+					if ( controls.arm and not mMain->stabilizer()->armed() and mMain->imu()->state() == IMU::Running ) {
 						Arm();
-						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
-					} else if ( not controls.arm and mArmed ) {
+						mMain->stabilizer()->Arm();
+						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
+					} else if ( not controls.arm and mMain->stabilizer()->armed() ) {
 						Disarm();
-						mMain->blackbox()->Enqueue( "Controller:armed", mArmed ? "true" : "false" );
+						mMain->stabilizer()->Disarm();
+						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 					}
-					if ( mArmed ) {
+					if ( mMain->stabilizer()->armed() ) {
 						setThrust( ((float)controls.thrust) / 127.0f );
 						setRoll( ((float)controls.roll) / 128.0f );
 						setPitch( ((float)controls.pitch) / 128.0f );
 						setYaw( ((float)controls.yaw) / 128.0f );
-						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
-						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
+// 						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
+// 						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
 					}
 				}
 				break;
@@ -538,7 +580,7 @@ bool Controller::run()
 				uint32_t full_recalibration = 0;
 				float curr_altitude = 0.0f;
 				if ( command.ReadU32( &full_recalibration ) == sizeof(uint32_t) and command.ReadFloat( &curr_altitude ) == sizeof(float) ) {
-					if ( mArmed ) {
+					if ( mMain->stabilizer()->armed() ) {
 						response.WriteU32( 0xFFFFFFFF );
 					} else {
 						if ( full_recalibration ) {
@@ -556,7 +598,7 @@ bool Controller::run()
 			}
 			case CALIBRATE_ESCS : {
 				// TODO : Abort ESC calibration if already done once, or if drone has been armed before
-				if ( not mArmed ) {
+				if ( not mMain->stabilizer()->armed() ) {
 					mMain->stabilizer()->CalibrateESCs();
 				}
 				break;
@@ -564,7 +606,7 @@ bool Controller::run()
 			case MOTOR_TEST : {
 				// test motors
 				uint32_t id = command.ReadU32();
-				if ( not mArmed ) {
+				if ( not mMain->stabilizer()->armed() ) {
 					mMain->stabilizer()->MotorTest(id);
 				}
 			}
@@ -625,8 +667,8 @@ bool Controller::run()
 					break;
 				}
 				setRoll( value );
-				sprintf( stmp, "%.4f", mRPY.x );
-				mMain->blackbox()->Enqueue( "Controller:roll", stmp );
+// 				sprintf( stmp, "%.4f", mRPY.x );
+// 				mMain->blackbox()->Enqueue( "Controller:roll", stmp );
 				break;
 			}
 			case SET_PITCH : {
@@ -635,8 +677,8 @@ bool Controller::run()
 					break;
 				}
 				setPitch( value );
-				sprintf( stmp, "%.4f", mRPY.y );
-				mMain->blackbox()->Enqueue( "Controller:pitch", stmp );
+// 				sprintf( stmp, "%.4f", mRPY.y );
+// 				mMain->blackbox()->Enqueue( "Controller:pitch", stmp );
 				break;
 			}
 
@@ -646,8 +688,8 @@ bool Controller::run()
 					break;
 				}
 				setYaw( value );
-				sprintf( stmp, "%.4f", mRPY.z );
-				mMain->blackbox()->Enqueue( "Controller:yaw", stmp );
+// 				sprintf( stmp, "%.4f", mRPY.z );
+// 				mMain->blackbox()->Enqueue( "Controller:yaw", stmp );
 				break;
 			}
 
@@ -657,16 +699,17 @@ bool Controller::run()
 					break;
 				}
 				setThrust( value );
-				sprintf( stmp, "%.4f", mThrust );
-				mMain->blackbox()->Enqueue( "Controller:thrust", stmp );
+// 				sprintf( stmp, "%.4f", mThrust );
+// 				mMain->blackbox()->Enqueue( "Controller:thrust", stmp );
 				break;
 			}
 
 			case RESET_MOTORS : {
-				mThrust = 0.0f;
+// 				mThrust = 0.0f;
+				mMain->stabilizer()->Disarm();
 				mMain->stabilizer()->Reset( 0.0f );
 				mMain->frame()->Disarm();
-				mRPY = Vector3f();
+// 				mRPY = Vector3f();
 				break;
 			}
 
@@ -675,16 +718,18 @@ bool Controller::run()
 				if( command.ReadU32( &mode ) == sizeof(uint32_t) ) {
 					gDebug() << "SET_MODE : " << mode << "\n";
 					mMain->stabilizer()->setMode( mode );
-					mRPY.x = 0.0f;
-					mRPY.y = 0.0f;
+// 					mRPY.x = 0.0f;
+// 					mRPY.y = 0.0f;
+					setRoll( 0.0f, true );
+					setPitch( 0.0f, true );
 					if ( mode == (uint32_t)Stabilizer::Rate ) {
 						mMain->imu()->setRateOnly( true );
-						mRPY.z = 0.0f;
+						setYaw( 0.0f, true );
 						mMain->blackbox()->Enqueue( "Controller:mode", "Rate" );
 					} else if ( mode == (uint32_t)Stabilizer::Stabilize ) {
 						mMain->imu()->setRateOnly( false );
 						mMain->imu()->ResetRPY();
-						mRPY.z = mMain->imu()->RPY().z;
+						setYaw( mMain->imu()->RPY().z, true );
 						mMain->blackbox()->Enqueue( "Controller:mode", "Stabilize" );
 					}
 					response.WriteU32( mMain->stabilizer()->mode() );
@@ -1177,6 +1222,7 @@ bool Controller::run()
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.lock();
 #endif
+// 			gDebug() << "Responding with " << response.data().size() << " bytes\n";
 			mLink->Write( &response );
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.unlock();
@@ -1244,12 +1290,12 @@ bool Controller::TelemetryRun()
 	}
 
 	telemetry.WriteU16( SET_THRUST );
-	telemetry.WriteFloat( mThrust );
+	telemetry.WriteFloat( mMain->stabilizer()->thrust() );
 
 	telemetry.WriteU16( ROLL_PITCH_YAW );
-		telemetry.WriteFloat( mMain->imu()->RPY().x );
-		telemetry.WriteFloat( mMain->imu()->RPY().y );
-		telemetry.WriteFloat( mMain->imu()->RPY().z );
+	telemetry.WriteFloat( mMain->imu()->RPY().x );
+	telemetry.WriteFloat( mMain->imu()->RPY().y );
+	telemetry.WriteFloat( mMain->imu()->RPY().z );
 
 	telemetry.WriteU16( CURRENT_ACCELERATION );
 	telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
@@ -1259,9 +1305,9 @@ bool Controller::TelemetryRun()
 
 	if ( mTelemetryFull ) {
 		telemetry.WriteU16( GYRO );
-		telemetry.WriteFloat( mMain->imu()->gyroscope().x );
-		telemetry.WriteFloat( mMain->imu()->gyroscope().y );
-		telemetry.WriteFloat( mMain->imu()->gyroscope().z );
+		telemetry.WriteFloat( mMain->imu()->rate().x );
+		telemetry.WriteFloat( mMain->imu()->rate().y );
+		telemetry.WriteFloat( mMain->imu()->rate().z );
 
 		telemetry.WriteU16( ACCEL );
 		telemetry.WriteFloat( mMain->imu()->acceleration().x );

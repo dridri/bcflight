@@ -23,6 +23,7 @@
 #include <list>
 #include <string>
 #include <map>
+#include <vector>
 
 using namespace STD;
 
@@ -62,6 +63,11 @@ public:
 	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
+	static uint32_t FreeDiskSpace();
+	static void setDiskFull();
+
+	static vector< string > messages();
+	static map< string, bool >& defectivePeripherals();
 
 	static void EnableTunDevice();
 	static void DisableTunDevice();
@@ -72,6 +78,12 @@ public:
 private:
 	static uint64_t mTicksBase;
 	static map< string, string > mRegisters;
+	static map< string, bool > mDefectivePeripherals;
 };
+
+uint16_t board_htons( uint16_t );
+uint16_t board_ntohs( uint16_t );
+uint32_t board_htonl( uint32_t );
+uint32_t board_ntohl( uint32_t );
 
 #endif // BOARD_H

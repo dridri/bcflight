@@ -23,6 +23,8 @@
 #include <list>
 #include <functional>
 
+using namespace std;
+
 class GPIO
 {
 public:

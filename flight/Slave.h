@@ -19,6 +19,29 @@ public:
 		MOTOR_DISABLE = 0x10, // [u8]motor_id
 		MOTOR_DISARM = 0x11, // [u8]motor_id
 		MOTOR_SET = 0x13, // [u8]motor_id, [u16]speed (setting speed to 0 means arming)
+
+		STAB_ROLL_P = 0x60,
+		STAB_ROLL_I = 0x61,
+		STAB_ROLL_D = 0x62,
+		STAB_PITCH_P = 0x63,
+		STAB_PITCH_I = 0x64,
+		STAB_PITCH_D = 0x65,
+		STAB_YAW_P = 0x66,
+		STAB_YAW_I = 0x67,
+		STAB_YAW_D = 0x68,
+		STAB_OUTER_P = 0x69,
+		STAB_OUTER_I = 0x6a,
+		STAB_OUTER_D = 0x6b,
+		STAB_HORIZ_OFFSET = 0x6c,
+		STAB_MODE = 0x6d,
+		STAB_ALTI_HOLD = 0x6e,
+		STAB_ARM = 0x6f,
+		STAB_ROLL = 0x70,
+		STAB_PITCH = 0x71,
+		STAB_YAW = 0x72,
+		STAB_THRUST = 0x73,
+		STAB_CALIBRATE_ESCS = 0x74,
+		STAB_RESET = 0x75,
 	} Cmd;
 
 

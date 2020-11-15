@@ -63,8 +63,26 @@ bool GPIO::Read( int pin )
 }
 
 
+// std::map< int, function<void()> > isrs;
+// static bool ok = false;
+
 void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, function<void()> fct )
 {
+/*
+	isrs[pin] = fct;
+#define ISR( pin ) \
+	wiringPiISR( pin, INT_EDGE_RISING, [](){ \
+		if ( isrs[pin] ) { \
+			isrs[pin](); \
+		} \
+	});
+
+	if ( not ok ) {
+		ISR( 22 );
+		ISR( 27 );
+		ok = true;
+	}
+*/
 	if ( mInterrupts.find( pin ) != mInterrupts.end() ) {
 		mInterrupts.at( pin ).emplace_back( make_pair( fct, mode ) );
 	} else {

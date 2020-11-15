@@ -29,7 +29,7 @@
 class MPU6050Accel : public Accelerometer
 {
 public:
-	MPU6050Accel( int addr );
+	MPU6050Accel( Bus* bus );
 	~MPU6050Accel();
 
 	void Calibrate( float dt, bool last_pass = false );
@@ -38,7 +38,7 @@ public:
 	string infos();
 
 private:
-	I2C* mI2C;
+	Bus* mBus;
 	Vector4f mCalibrationAccum;
 	Vector3f mOffset;
 };
@@ -47,7 +47,7 @@ private:
 class MPU6050Gyro : public Gyroscope
 {
 public:
-	MPU6050Gyro( int addr );
+	MPU6050Gyro( Bus* bus );
 	~MPU6050Gyro();
 
 	void Calibrate( float dt, bool last_pass = false );
@@ -56,7 +56,7 @@ public:
 	string infos();
 
 private:
-	I2C* mI2C;
+	Bus* mBus;
 	Vector4f mCalibrationAccum;
 	Vector3f mOffset;
 };
@@ -65,7 +65,7 @@ private:
 class MPU6050Mag : public Magnetometer
 {
 public:
-	MPU6050Mag( int addr );
+	MPU6050Mag( Bus* bus );
 	~MPU6050Mag();
 
 	void Calibrate( float dt, bool last_pass = false );
@@ -75,7 +75,7 @@ public:
 
 private:
 	I2C* mI2C9150;
-	I2C* mI2C;
+	Bus* mBus;
 	int mState;
 	uint8_t mData[6];
 	float mCalibrationData[3];
@@ -90,7 +90,7 @@ class MPU6050 : public Sensor
 public:
 	static int flight_register( Main* main );
 
-	static Sensor* Instanciate( uint8_t i2c_addr, Config* config, const string& object );
+	static Sensor* Instanciate( Bus* bus, Config* config, const string& object );
 
 protected:
 	MPU6050( I2C* i2c );

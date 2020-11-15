@@ -18,31 +18,22 @@
 
 #include <Main.h>
 
+#include <BrushlessPWM.h>
 #include <PWM.h>
 #include <DShot.h>
+#include <OneShot42.h>
 #include <OneShot125.h>
+#include <GPIO.h>
+#include <wiringPi.h>
 void Test( int, char** );
 
 int main( int ac, char** av )
 {
-// 	Test( ac, av );
-/*
-	DShot* test1 = new DShot( 26 );
-	DShot* test2 = new DShot( 13 );
-	DShot* test3 = new DShot( 6 );
-	DShot* test4 = new DShot( 5 );
-// 	test->SetPWMus( atoi(av[4]) );
-// 	test->Update();
-*/
+	wiringPiSetupGpio();
+	PWM::EnableTruePWM();
 
-	OneShot125* test1 = new OneShot125( 26 );
-	OneShot125* test2 = new OneShot125( 13 );
-	OneShot125* test3 = new OneShot125( 6 );
-	OneShot125* test4 = new OneShot125( 5 );
+	OneShot42* test1 = new OneShot42( 12 );
 	test1->setSpeed( 0.0f );
-	test2->setSpeed( 0.0f );
-	test3->setSpeed( 0.0f );
-	test4->setSpeed( 0.0f, true );
 	usleep( 1000 * 1000 );
 	float sp = 0.0f;
 	while ( 1 ) {
@@ -54,6 +45,70 @@ int main( int ac, char** av )
 		test1->setSpeed( sp, true );
 		usleep( 500 * 1000 );
 	}
+/*
+	wiringPiSetupGpio();
+
+	BrushlessPWM* test1 = new BrushlessPWM( 26 );
+	BrushlessPWM* test2 = new BrushlessPWM( 13 );
+	BrushlessPWM* test3 = new BrushlessPWM( 6 );
+	BrushlessPWM* test4 = new BrushlessPWM( 5 );
+// 	test1->setSpeed( 1.0f );
+// 	test2->setSpeed( 1.0f );
+// 	test3->setSpeed( 1.0f );
+// 	test4->setSpeed( 1.0f, true );
+// 	usleep( 10000 * 1000 );
+	test1->setSpeed( 0.0f );
+	test2->setSpeed( 0.0f );
+	test3->setSpeed( 0.0f );
+	test4->setSpeed( 0.0f, true );
+	usleep( 10000 * 1000 );
+	float sp = 0.0f;
+	while ( 1 ) {
+		sp += 0.01;
+		if ( sp > 1.0f ) {
+			sp = 0.0f;
+		}
+		printf( "sp : %.2f\n", sp );
+		test1->setSpeed( sp, true );
+		test2->setSpeed( sp, true );
+		test3->setSpeed( sp, true );
+		test4->setSpeed( sp, true );
+		usleep( 500 * 1000 );
+	}
+*/
+// 	Test( ac, av );
+/*
+	DShot* test1 = new DShot( 26 );
+	DShot* test2 = new DShot( 13 );
+	DShot* test3 = new DShot( 6 );
+	DShot* test4 = new DShot( 5 );
+// 	test->SetPWMus( atoi(av[4]) );
+// 	test->Update();
+*/
+/*
+	OneShot125* test1 = new OneShot125( 26 );
+	OneShot125* test2 = new OneShot125( 13 );
+	OneShot125* test3 = new OneShot125( 6 );
+	OneShot125* test4 = new OneShot125( 5 );
+	test1->setSpeed( 0.0f );
+	test2->setSpeed( 0.0f );
+	test3->setSpeed( 0.0f );
+	test4->setSpeed( 0.0f, true );
+	usleep( 1000 * 1000 );
+	float sp = 0.0f;
+	while ( 1 ) {
+		sp += 0.05;
+		if ( sp > 1.0f ) {
+			sp = 0.0f;
+		}
+		printf( "sp : %.2f\n", sp );
+		test1->setSpeed( sp, false );
+		test1->setSpeed( sp, false );
+		test2->setSpeed( sp, false );
+		test3->setSpeed( sp, true );
+		usleep( 500 * 1000 );
+	}
+*/
 
 	int ret = Main::flight_entry( ac, av );
 

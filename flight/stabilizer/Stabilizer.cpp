@@ -27,7 +27,8 @@
 #include "Stabilizer.h"
 
 Stabilizer::Stabilizer( Main* main, Frame* frame )
-	: mFrame( frame )
+	: mMain( main )
+	, mFrame( frame )
 	, mMode( Rate )
 	, mAltitudeHold( false )
 	, mRateRollPID( PID<float>() )
@@ -36,6 +37,7 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	, mHorizonPID( PID<Vector3f>() )
 	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
+	, mArmed( false )
 	, mLockState( 0 )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
@@ -91,6 +93,11 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	mHorizonMaxRate.x = main->config()->Number( "stabilizer.horizon_max_rate.x", 300.0f );
 	mHorizonMaxRate.y = main->config()->Number( "stabilizer.horizon_max_rate.y", 300.0f );
 	mHorizonMaxRate.z = main->config()->Number( "stabilizer.horizon_max_rate.z", 300.0f );
+}
+
+
+Stabilizer::~Stabilizer()
+{
 }
 
 
@@ -250,12 +257,70 @@ bool Stabilizer::altitudeHold() const
 }
 
 
+void Stabilizer::Arm()
+{
+	mArmed = true;
+}
+
+
+void Stabilizer::Disarm()
+{
+	mArmed = false;
+}
+
+
+bool Stabilizer::armed() const
+{
+	return mArmed;
+}
+
+
+float Stabilizer::thrust() const
+{
+	return mThrust;
+}
+
+
+const Vector3f& Stabilizer::RPY() const
+{
+	return mRPY;
+}
+
+
 void Stabilizer::Reset( const float& yaw )
 {
 	mRateRollPID.Reset();
 	mRatePitchPID.Reset();
 	mRateYawPID.Reset();
 	mHorizonPID.Reset();
+	mRPY.x = 0.0f;
+	mRPY.y = 0.0f;
+	mRPY.z = 0.0f;
+	mThrust = 0.0f;
+}
+
+
+void Stabilizer::setRoll( float value )
+{
+	mRPY.x = value;
+}
+
+
+void Stabilizer::setPitch( float value )
+{
+	mRPY.y = value;
+}
+
+
+void Stabilizer::setYaw( float value )
+{
+	mRPY.z = value;
+}
+
+
+void Stabilizer::setThrust( float value )
+{
+	mThrust = value;
 }
 
 
@@ -268,26 +333,29 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		return;
 	}
 
-	if ( not ctrl->armed() ) {
+// 	if ( not ctrl->armed() ) {
+	if ( not mArmed ) {
 		return;
 	}
 
 	// We didn't take off yet (or really close to ground just after take-off), so we bypass stabilization, and just return
-	if ( mFrame->airMode() == false and ctrl->thrust() <= 0.15f ) {
-		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), ctrl->thrust() );
+// 	if ( mFrame->airMode() == false and ctrl->thrust() <= 0.15f ) {
+// 		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), ctrl->thrust() );
+	if ( mFrame->airMode() == false and mThrust <= 0.15f ) {
+		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), mThrust );
 		return;
 	}
 
 	switch ( mMode ) {
 		case Rate : {
-			rate_control = ctrl->RPY() * mRateFactor;
+			rate_control = mRPY * mRateFactor;
 			break;
 		}
 		case ReturnToHome :
 		case Follow :
 		case Stabilize :
 		default : {
-			Vector3f control_angles = ctrl->RPY();
+			Vector3f control_angles = mRPY;
 			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
 			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting
@@ -304,7 +372,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	mRatePitchPID.Process( rate_control.y, imu->rate().y, dt );
 	mRateYawPID.Process( rate_control.z, imu->rate().z, dt );
 
-	float thrust = ctrl->thrust();
+	float thrust = mThrust;
 	if ( mAltitudeHold ) {
 		thrust = thrust * 2.0f - 1.0f;
 		if ( abs( thrust ) < 0.1f ) {
@@ -326,6 +394,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", ratePID.x, ratePID.y, ratePID.z );
 	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", stmp );
 	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
+		gDebug() << "stab error\n";
 		Reset( mHorizonPID.state().z );
 	}
 }
@@ -343,9 +412,11 @@ void Stabilizer::MotorTest(uint32_t id) {
 
 void Stabilizer::CalibrateESCs()
 {
-	mLockState = 1;
-	while ( mLockState != 2 ) {
-		usleep( 1000 * 10 );
+	if ( mMain->imu()->state() != IMU::Off ) {
+		mLockState = 1;
+		while ( mLockState != 2 ) {
+			usleep( 1000 * 10 );
+		}
 	}
 
 	mFrame->CalibrateESCs();

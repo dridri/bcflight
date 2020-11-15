@@ -25,6 +25,7 @@
 #include "Voltmeter.h"
 #include "CurrentSensor.h"
 #include <Matrix.h>
+#include "I2C.h"
 
 list< Sensor::Device > Sensor::mKnownDevices;
 list< Sensor* > Sensor::mDevices;
@@ -139,11 +140,11 @@ void Sensor::AddDevice( Sensor* sensor )
 }
 
 
-void Sensor::RegisterDevice( int I2Caddr, const string& name )
+void Sensor::RegisterDevice( int I2Caddr, const string& name, Config* config, const string& object )
 {
 	for ( Device d : mKnownDevices ) {
 		if ( d.iI2CAddr == I2Caddr and ( name == "" or !strcmp( d.name, name.c_str() ) ) ) {
-			Sensor* dev = d.fInstanciate( nullptr, "" );
+			Sensor* dev = d.fInstanciate( config, object, new I2C(d.iI2CAddr) );
 			if ( dev ) {
 				mDevices.push_back( dev );
 				UpdateDevices();
@@ -157,7 +158,7 @@ void Sensor::RegisterDevice( const string& name, Config* config, const string& o
 {
 	for ( Device d : mKnownDevices ) {
 		if ( d.iI2CAddr == 0 and !strcmp( d.name, name.c_str() ) ) {
-			Sensor* dev = d.fInstanciate( config, object );
+			Sensor* dev = d.fInstanciate( config, object, nullptr /* TODO : instanciate Bus by using config[object] settings */ );
 			if ( dev ) {
 				mDevices.push_back( dev );
 				UpdateDevices();

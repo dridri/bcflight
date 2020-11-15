@@ -16,32 +16,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef I2C_H
-#define I2C_H
+#ifndef SPI_H
+#define SPI_H
 
 #include <stdint.h>
-#include <pthread.h>
 #include <list>
+#include <mutex>
+#include <string>
 #include "../common/Bus.h"
 
-using namespace std;
-
-class I2C : public Bus
+class SPI : public Bus
 {
 public:
-	I2C( int addr, bool slave = false );
-	~I2C();
-	const int address() const;
+	SPI( const string& device, uint32_t speed_hz = 500000 ); // setting speed to 0 means slave-mode
+	~SPI();
+	const string& device() const;
 
+	int Transfer( void* tx, void* rx, uint32_t len );
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
-	static list< int > ScanAll();
 
 private:
-	int mAddr;
+	string mDevice;
+	int mFD;
+	int mBitsPerWord;
+	mutex mTransferMutex;
 };
 
 #endif

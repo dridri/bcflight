@@ -31,9 +31,13 @@ public:
 	Thread( const string& name = "_thead_" );
 	virtual ~Thread();
 
+	void Start();
 	void Join();
 	void Recover();
+
 	static Thread* currentThread();
+	static void msleep( uint32_t ms );
+	static void usleep( uint32_t us );
 
 protected:
 	virtual bool run() = 0;
@@ -41,6 +45,7 @@ protected:
 private:
 	void ThreadEntry();
 	pthread_t mThread;
+	bool mSpawned;
 };
 
 

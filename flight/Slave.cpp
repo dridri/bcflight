@@ -12,10 +12,11 @@
 Slave::Slave( Config* config, const string& object, bool is_master )
 	: mBus( nullptr )
 {
-	string port = config->String( object + ".port" );
-	if ( port.substr(0,3) == "spi" or port.substr(0,3) == "SPI" ) {
-		mBus = new SPI( port, 0 );
-	} else if ( port.substr(0,3) == "i2c" or port.substr(0,3) == "I2C" ) {
+	/*
+	string bus = config->String( object + ".bus" );
+	if ( bus.find("spi") != string::npos or bus.find("SPI") != string::npos ) {
+		mBus = new SPI( bus, 0 );
+	} else if ( bus.find("i2c") != string::npos or bus.find("I2C") != string::npos ) {
 		mBus = new I2C( config->Integer( object + ".address" ), true );
 	}
 
@@ -73,6 +74,7 @@ Slave::Slave( Config* config, const string& object, bool is_master )
 		mThread->setFrequency( 1000000 / config->Integer( "loop_time" ) );
 		mThread->Start();
 	}
+	*/
 }
 
 
@@ -89,6 +91,8 @@ int32_t Slave::Write( Cmd cmd, const uint8_t* data, uint32_t len )
 
 bool Slave::run()
 {
+	return false;
+	/*
 	uint8_t cmd = 0;
 	uint8_t buf[128] = { 0 };
 
@@ -119,4 +123,5 @@ bool Slave::run()
 	}
 
 	return true;
+	*/
 }

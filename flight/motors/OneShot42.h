@@ -1,16 +1,16 @@
-#ifndef ONESHOT125_H
-#define ONESHOT125_H
+#ifndef ONESHOT42_H
+#define ONESHOT42_H
 
 #include <PWM.h>
 #include "Motor.h"
 
 class Main;
 
-class OneShot125 : public Motor
+class OneShot42 : public Motor
 {
 public:
-	OneShot125( uint32_t pin, int us_min = 125, int us_max = 250-8 );
-	~OneShot125();
+	OneShot42( uint32_t pin, int us_min = 42, int us_max = 84-4 );
+	~OneShot42();
 
 	virtual void Disarm();
 	virtual void Disable();
@@ -24,7 +24,8 @@ protected:
 	uint32_t mPin;
 	uint32_t mMinUS;
 	uint32_t mMaxUS;
-	uint32_t mScale;
+	uint32_t mMinValue;
+	float mScale;
 };
 
-#endif // ONESHOT125_H
+#endif // ONESHOT42_H

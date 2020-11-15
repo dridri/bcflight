@@ -31,8 +31,9 @@ int L3GD20H::flight_register( Main* main )
 }
 
 
-Gyroscope* L3GD20H::Instanciate( Config* config, const string& object )
+Gyroscope* L3GD20H::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : use bus
 	return new L3GD20H();
 }
 

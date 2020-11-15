@@ -33,7 +33,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
-	static Sensor* Instanciate( Config* config, const string& object );
+	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
 
 private:
 	I2C* mI2C;
@@ -51,7 +51,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
-	static Sensor* Instanciate( Config* config, const string& object );
+	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
 
 private:
 	I2C* mI2C;

@@ -34,10 +34,10 @@ int SR04::flight_register( Main* main )
 }
 
 
-Sensor* SR04::Instanciate( Config* config, const string& object )
+Sensor* SR04::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : handle bus ?
 	SR04* sr04 = new SR04( config->Integer( object + ".gpio_trigger" ), config->Integer( object + ".gpio_echo" ) );
-
 	return sr04;
 }
 

@@ -56,8 +56,9 @@ int BMP280::flight_register( Main* main )
 }
 
 
-Sensor* BMP280::Instanciate( Config* config, const string& object )
+Sensor* BMP280::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : use bus
 	return new BMP280();
 }
 

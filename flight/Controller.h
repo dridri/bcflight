@@ -37,10 +37,10 @@ public:
 	Link* link() const;
 
 	bool connected() const;
-	bool armed() const;
+// 	bool armed() const;
 	uint32_t ping() const;
-	float thrust() const;
-	const Vector3f& RPY() const;
+// 	float thrust() const;
+// 	const Vector3f& RPY() const;
 
 	void UpdateSmoothControl( const float& dt );
 	void Emergency();
@@ -54,22 +54,23 @@ protected:
 
 	void Arm();
 	void Disarm();
-	void setRoll( float value );
-	void setPitch( float value );
-	void setYaw( float value );
-	void setThrust( float value );
-
+	void setRoll( float value, bool raw = false );
+	void setPitch( float value, bool raw = false );
+	void setYaw( float value, bool raw = false );
+	void setThrust( float value, bool raw = false );
 	Main* mMain;
 #ifdef SYSTEM_NAME_Linux
 	mutex mSendMutex;
 #endif
 	bool mTimedOut;
-	bool mArmed;
+//	bool mArmed;
 	uint32_t mPing;
 	Vector4f mExpo;
+/*
 	Vector3f mRPY;
 	float mThrust;
 	float mThrustAccum;
+*/
 	Vector3f mSmoothRPY;
 	uint64_t mTicks;
 	HookThread< Controller >* mTelemetryThread;

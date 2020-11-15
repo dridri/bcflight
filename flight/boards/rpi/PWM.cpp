@@ -57,10 +57,18 @@
 #define DMA_BASE		(periph_virt_base + 0x00007000)
 #define DMA_CHAN_SIZE	0x100 /* size of register space for a single DMA channel */
 #define DMA_CHAN_MAX	14  /* number of DMA Channels we have... actually, there are 15... but channel fifteen is mapped at a different DMA_BASE, so we leave that one alone */
-#define PWM_BASE_OFFSET 0x0020C000
-#define PWM_BASE		(periph_virt_base + PWM_BASE_OFFSET)
-#define PWM_PHYS_BASE	(periph_phys_base + PWM_BASE_OFFSET)
-#define PWM_LEN			0x28
+#define PWM0_BASE_OFFSET 0x0020C000
+#define PWM0_BASE		(periph_virt_base + PWM0_BASE_OFFSET)
+#define PWM0_PHYS_BASE	(periph_phys_base + PWM0_BASE_OFFSET)
+#define PWM0_LEN			0x28
+#define PWM1_BASE_OFFSET 0x0020C800
+#define PWM1_BASE		(periph_virt_base + PWM1_BASE_OFFSET)
+#define PWM1_PHYS_BASE	(periph_phys_base + PWM1_BASE_OFFSET)
+#define PWM1_LEN			0x28
+#define PWM_BASE_OFFSET PWM0_BASE_OFFSET
+#define PWM_BASE PWM0_BASE
+#define PWM_PHYS_BASE PWM0_PHYS_BASE
+#define PWM_LEN PWM0_LEN
 #define PCM_BASE_OFFSET	0x00203000
 #define PCM_BASE		(periph_virt_base + PCM_BASE_OFFSET)
 #define PCM_PHYS_BASE	(periph_phys_base + PCM_BASE_OFFSET)
@@ -94,21 +102,41 @@
 #define GPIO_PULLEN		(0x94/4)
 #define GPIO_PULLCLK		(0x98/4)
 
-#define GPIO_MODE_IN		0
-#define GPIO_MODE_OUT		1
+#define GPIO_MODE_IN	0b000
+#define GPIO_MODE_OUT	0b001
+#define GPIO_MODE_ALT0	0b100
+#define GPIO_MODE_ALT1	0b101
+#define GPIO_MODE_ALT2	0b110
+#define GPIO_MODE_ALT3	0b111
+#define GPIO_MODE_ALT4	0b011
+#define GPIO_MODE_ALT5	0b010
 
 #define PWM_CTL			(0x00/4)
 #define PWM_PWMC		(0x08/4)
 #define PWM_RNG1		(0x10/4)
+#define PWM_DAT1		(0x14/4)
 #define PWM_FIFO		(0x18/4)
+#define PWM_RNG2		(0x20/4)
+#define PWM_DAT2		(0x24/4)
 
 #define PWMCLK_CNTL		40
 #define PWMCLK_DIV		41
 
-#define PWMCTL_MODE1		(1<<1)
-#define PWMCTL_PWEN1		(1<<0)
+#define PWMCTL_PWEN1	(1<<0)
+#define PWMCTL_MODE1	(1<<1)
+#define PWMCTL_RPTL1	(1<<2)
+#define PWMCTL_SBIT1	(1<<3)
+#define PWMCTL_POLA1	(1<<4)
+#define PWMCTL_USEF1	(1<<5)
 #define PWMCTL_CLRF		(1<<6)
-#define PWMCTL_USEF1		(1<<5)
+#define PWMCTL_MSEN1	(1<<7)
+#define PWMCTL_PWEN2	(1<<8)
+#define PWMCTL_MODE2	(1<<9)
+#define PWMCTL_RPTL2	(1<<10)
+#define PWMCTL_SBIT2	(1<<11)
+#define PWMCTL_POLA2	(1<<12)
+#define PWMCTL_USEF2	(1<<13)
+#define PWMCTL_MSEN2	(1<<15)
 
 #define PWMPWMC_ENAB		(1<<31)
 #define PWMPWMC_THRSHLD		((15<<8)|(15<<0))
@@ -156,9 +184,14 @@ V revision (0-15)
 #define BOARD_REVISION_TYPE_PI1_A_PLUS (2 << 4)
 #define BOARD_REVISION_TYPE_PI1_B_PLUS (3 << 4)
 #define BOARD_REVISION_TYPE_PI2_B (4 << 4)
-#define BOARD_REVISION_TYPE_PI3_B (8 << 4)
 #define BOARD_REVISION_TYPE_ALPHA (5 << 4)
+#define BOARD_REVISION_TYPE_PI3_B (8 << 4)
+#define BOARD_REVISION_TYPE_PI3_BP (0xD << 4)
+#define BOARD_REVISION_TYPE_PI3_AP (0x7 << 5)
 #define BOARD_REVISION_TYPE_CM (6 << 4)
+#define BOARD_REVISION_TYPE_CM3 (10 << 4)
+#define BOARD_REVISION_TYPE_PI4_B (0x11 << 4)
+// #define BOARD_REVISION_TYPE_CM4 (?? << 4)
 #define BOARD_REVISION_REV_MASK (0xF)
 
 #define LENGTH(x)  (sizeof(x) / sizeof(x[0]))
@@ -174,6 +207,7 @@ V revision (0-15)
 
 vector< PWM::Channel* > PWM::mChannels = vector< PWM::Channel* >();
 bool PWM::mSigHandlerOk = false;
+bool PWM::sTruePWM = false;
 
 static void fatal( const char *fmt, ... )
 {
@@ -185,10 +219,37 @@ static void fatal( const char *fmt, ... )
 }
 
 
+void PWM::EnableTruePWM()
+{
+	int handle = open( DEVFILE_VCIO, 0 );
+	if ( handle < 0 ) {
+		printf("Failed to open mailbox\n");
+		return;
+	}
+	uint32_t mbox_board_rev = get_board_revision( handle );
+	close( handle );
+
+	const uint32_t type = ( mbox_board_rev & BOARD_REVISION_TYPE_MASK );
+	if ( type != BOARD_REVISION_TYPE_PI4_B ) {
+		gDebug() << "WARNING : TruePWM can only be enabled on Raspberry Pi >=4 models (older models only has 2 PWM channels)";
+		return;
+	}
+
+	sTruePWM = true;
+}
+
+
+bool PWM::HasTruePWM()
+{
+	return sTruePWM;
+}
+
+
 PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sample_time, PWMMode mode, bool loop )
 	: mChannel( nullptr )
 	, mPin( pin )
 {
+	fDebug( pin, time_base, period_time, sample_time, mode, loop );
 	if ( not mSigHandlerOk ) {
 		mSigHandlerOk = true;
 // 		static int sig_list[] = { 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 16, 19, 20 };
@@ -202,20 +263,43 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 		}
 	}
 
-	uint8_t channel = 13;
-	for ( Channel* chan : mChannels ) {
-		if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time and chan->mLoop == loop ) {
-			mChannel = chan;
-			break;
+	if ( sTruePWM ) {
+		int8_t engine = -1;
+		if ( mPin == 12 or mPin == 13 or mPin == 18 or mPin == 19 or mPin == 45 ) {
+			engine = 0;
+		} else if ( mPin == 40 or mPin == 41 ) {
+			engine = 1;
+		} else {
+			return;
 		}
-		channel = chan->mChannel - 1;
-	}
-	if ( not mChannel ) {
-		mChannel = new Channel( channel, time_base, period_time, sample_time, mode, loop );
-		mChannels.emplace_back( mChannel );
+		for ( Channel* chan_ : mChannels ) {
+			PWMChannel* chan = dynamic_cast< PWMChannel* >( chan_ );
+			if ( chan->mEngine == engine ) {
+				mChannel = chan;
+			}
+		}
+		if ( not mChannel ) {
+			mChannel = new PWMChannel( engine, time_base, period_time, mode, loop );
+			mChannels.emplace_back( mChannel );
+		}
+	} else {
+	// 	uint8_t channel = 13;
+		uint8_t channel = 6; // DMA channels 7+ use LITE DMA engine, so we should use lowest channels
+		for ( Channel* chan_ : mChannels ) {
+			DMAChannel* chan = dynamic_cast< DMAChannel* >( chan_ );
+			if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time and chan->mLoop == loop ) {
+				mChannel = chan;
+				break;
+			}
+			channel = chan->mChannel - 1;
+		}
+		if ( not mChannel ) {
+			mChannel = new DMAChannel( channel, time_base, period_time, sample_time, mode, loop );
+			mChannels.emplace_back( mChannel );
+		}
 	}
 
-	mChannel->SetPWMus( mPin, 0 );
+	mChannel->SetPWMValue( mPin, 0 );
 }
 
 
@@ -223,12 +307,12 @@ PWM::~PWM()
 {
 }
 
-void PWM::SetPWMus( uint32_t width_us )
+void PWM::SetPWMus( uint32_t width )
 {
 	if ( not mChannel ) {
 		return;
 	}
-	mChannel->SetPWMus( mPin, width_us );
+	mChannel->SetPWMValue( mPin, width );
 }
 
 
@@ -250,7 +334,123 @@ void PWM::Update()
 }
 
 
-PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time, uint32_t sample_time, PWMMode mode, bool loop )
+static inline uint32_t hzToDivider( uint64_t plldfreq_mhz, uint64_t hz )
+{
+	fDebug( plldfreq_mhz, hz );
+	const uint64_t pll = plldfreq_mhz * 1000000;
+	const uint64_t ipart = pll / hz;
+	const uint64_t fpart = ( pll * 2048 / hz ) - ipart * 2048;
+	return ( ipart << 12 ) | fpart;
+}
+
+
+PWM::PWMChannel::~PWMChannel()
+{
+}
+
+
+PWM::PWMChannel::PWMChannel( uint8_t engine, uint32_t time_base, uint32_t period, PWM::PWMMode mode, bool loop )
+	: mMode( mode )
+	, mLoop( loop )
+{
+	fDebug( (int)engine, time_base, period, mode, loop );
+	mMbox.handle = mbox_open();
+	if ( mMbox.handle < 0 ) {
+		fatal("Failed to open mailbox\n");
+	}
+	uint32_t mbox_board_rev = get_board_revision( mMbox.handle );
+	gDebug() << "MBox Board Revision: " << mbox_board_rev << "\n";
+	get_model(mbox_board_rev);
+
+	clk_reg = (uint32_t*)map_peripheral( CLK_BASE, CLK_LEN );
+	gpio_reg = (uint32_t*)map_peripheral( GPIO_BASE, GPIO_LEN );
+	if ( engine == 0 ) {
+		pwm_reg = (uint32_t*)map_peripheral( PWM0_BASE, PWM0_LEN );
+	} else if ( engine == 1 ) {
+		pwm_reg = (uint32_t*)map_peripheral( PWM1_BASE, PWM1_LEN );
+	} else {
+		return;
+	}
+
+	pwm_reg[PWM_CTL] = 0;
+	usleep(10);
+
+	clk_reg[PWMCLK_CNTL] = 0x5A000006; // Source=PLLD (plldfreq_mhz MHz)
+	usleep(100);
+	clk_reg[PWMCLK_DIV] = 0x5A000000 | hzToDivider( plldfreq_mhz, time_base );
+
+	usleep(100);
+	clk_reg[PWMCLK_CNTL] = 0x5A000016; // Source=PLLD (plldfreq_mhz MHz) and enable
+	usleep(100);
+	pwm_reg[PWM_RNG1] = period;
+	usleep(10);
+	pwm_reg[PWM_RNG2] = period;
+	usleep(10);
+	pwm_reg[PWM_DAT1] = 0;
+	usleep(10);
+	pwm_reg[PWM_DAT2] = 0;
+	usleep(10);
+	pwm_reg[PWM_PWMC] = 0;
+	usleep(10);
+	pwm_reg[PWM_CTL] = PWMCTL_CLRF;
+	usleep(10);
+
+	pwm_reg[PWM_CTL] = mPwmCtl = PWMCTL_MSEN1 | PWMCTL_MSEN2 | ( (mode == MODE_BUFFER) ? (PWMCTL_USEF1 | PWMCTL_USEF2) : 0 );
+	usleep(10);
+}
+
+
+void PWM::PWMChannel::SetPWMValue( uint32_t pin, uint32_t width )
+{
+	uint8_t chan = 0;
+
+	if ( pin == 13 or pin == 19 or pin == 41 or pin == 45 ) {
+		chan = 1;
+	} else if ( pin != 12 and pin != 18 and pin != 40 ) {
+		return;
+	}
+
+	if ( chan == 0 ) {
+		if ( !( mPwmCtl & PWMCTL_PWEN1 ) ) {
+			const uint32_t alt = ( ( pin == 18 or pin == 19 ) ? GPIO_MODE_ALT5 : GPIO_MODE_ALT0 );
+			gpio_reg[GPIO_FSEL0 + pin/10] &= ~(7 << ((pin % 10) * 3));
+			gpio_reg[GPIO_FSEL0 + pin/10] |= alt << ((pin % 10) * 3);
+			gpio_reg[GPIO_CLR0] = 1 << pin;
+			pwm_reg[PWM_CTL] = mPwmCtl |= PWMCTL_PWEN1;
+			usleep(10);
+		}
+		pwm_reg[PWM_DAT1] = width;
+	} else {
+		if ( !( mPwmCtl & PWMCTL_PWEN2 ) ) {
+			pwm_reg[PWM_CTL] = mPwmCtl |= PWMCTL_PWEN2;
+			usleep(10);
+		}
+		pwm_reg[PWM_DAT2] = width;
+	}
+}
+
+
+void PWM::PWMChannel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
+{
+	// TODO (used by DSHOT)
+}
+
+
+void PWM::PWMChannel::Update()
+{
+	// Nothing to do
+}
+
+
+void PWM::PWMChannel::Reset()
+{
+	pwm_reg[PWM_CTL] &= ~( PWMCTL_PWEN1 | PWMCTL_PWEN2 );
+	pwm_reg[PWM_DAT1] = 0;
+	pwm_reg[PWM_DAT2] = 0;
+}
+
+
+PWM::DMAChannel::DMAChannel( uint8_t channel, uint32_t time_base, uint32_t period_time, uint32_t sample_time, PWMMode mode, bool loop )
 	: mChannel( channel )
 	, mMode( mode )
 	, mLoop( loop )
@@ -328,8 +528,30 @@ PWM::Channel::Channel( uint8_t channel, uint32_t time_base, uint32_t period_time
 }
 
 
-PWM::Channel::~Channel()
+void PWM::DMAChannel::Reset()
 {
+	if ( dma_reg && mMbox.virt_addr ) {
+// 		for ( i = 0; i < mPinsCount; i++ ) {
+// 			mPinsPWM[i] = 0.0;
+// 		}
+// 		update_pwm();
+// 		usleep( mCycleTime * 2 );
+		dma_reg[DMA_CS] = DMA_RESET;
+	}
+}
+
+
+PWM::DMAChannel::~DMAChannel()
+{
+	if ( mMbox.virt_addr != NULL ) {
+		unmapmem( mMbox.virt_addr, mNumPages * PAGE_SIZE );
+		if ( mMbox.handle <= 2 ) {
+			mMbox.handle = mbox_open();
+		}
+		mem_unlock( mMbox.handle, mMbox.mem_ref );
+		mem_free( mMbox.handle, mMbox.mem_ref );
+// 		mbox_close( mMbox.handle );
+	}
 }
 
 
@@ -344,29 +566,18 @@ void PWM::terminate( int sig )
 	fprintf( stderr, "Error: signal %d :\n", sig );
 	char** trace = backtrace_symbols( array, size );
 
-	dprintf( "Resetting DMA (%d)...\n", mChannels.size() );
+	dprintf( "Resetting PWM/DMA (%u)...\n", (uint32_t)mChannels.size() );
 	for ( j = 0; j < mChannels.size(); j++ ) {
-		if ( mChannels[j] and mChannels[j]->dma_reg && mChannels[j]->mMbox.virt_addr ) {
-// 			for ( i = 0; i < mChannels[j]->mPinsCount; i++ ) {
-// 				mChannels[j]->mPinsPWM[i] = 0.0;
-// 			}
-// 			mChannels[j]->update_pwm();
-// 			usleep( mChannels[j]->mCycleTime * 2 );
-			mChannels[j]->dma_reg[DMA_CS] = DMA_RESET;
+		if ( mChannels[j] ) {
+			mChannels[j]->Reset();
 			usleep(10);
 		}
 	}
 
 	dprintf("Freeing mbox memory...\n");
 	for ( j = 0; j < mChannels.size(); j++ ) {
-		if ( mChannels[j] and mChannels[j]->mMbox.virt_addr != NULL ) {
-			unmapmem( mChannels[j]->mMbox.virt_addr, mChannels[j]->mNumPages * PAGE_SIZE );
-			if ( mChannels[j]->mMbox.handle <= 2 ) {
-				mChannels[j]->mMbox.handle = mChannels[j]->mbox_open();
-			}
-			mem_unlock( mChannels[j]->mMbox.handle, mChannels[j]->mMbox.mem_ref );
-			mem_free( mChannels[j]->mMbox.handle, mChannels[j]->mMbox.mem_ref );
-// 			mChannels[j]->mbox_close( mChannels[j]->mMbox.handle );
+		if ( mChannels[j] ) {
+			delete mChannels[j];
 			mChannels[j] = nullptr;
 		}
 	}
@@ -382,7 +593,7 @@ void PWM::terminate( int sig )
 }
 
 
-void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
+void PWM::DMAChannel::SetPWMValue( uint32_t pin, uint32_t width )
 {
 	bool found = false;
 	uint32_t i = 0;
@@ -408,12 +619,12 @@ void PWM::Channel::SetPWMus( uint32_t pin, uint32_t width_us )
 		gpio_reg[GPIO_FSEL0 + pin/10] = fsel;
 	}
 
-	mPinsPWMf[i] = (float)width_us / (float)mCycleTime;
-	mPinsPWM[i] = width_us * mNumSamples / mCycleTime;
+	mPinsPWMf[i] = (float)width / (float)mCycleTime;
+	mPinsPWM[i] = width * mNumSamples / mCycleTime;
 }
 
 
-void PWM::Channel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
+void PWM::DMAChannel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
 {
 	bool found = false;
 	uint32_t i = 0;
@@ -448,7 +659,7 @@ void PWM::Channel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
 }
 
 
-void PWM::Channel::Update()
+void PWM::DMAChannel::Update()
 {
 	if ( mMode == MODE_PWM ) {
 		update_pwm();
@@ -458,12 +669,13 @@ void PWM::Channel::Update()
 }
 
 
-void PWM::Channel::update_pwm()
+void PWM::DMAChannel::update_pwm()
 {
 	uint32_t i, j;
 // 	uint32_t cmd_count = 2;// + ( mLoop == false );
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+	uint32_t phys_gplev0 = GPIO_PHYS_BASE + 0x34;
 	uint32_t mask;
 	dma_ctl_t ctl = mCtls[0];
 	if ( mLoop ) {
@@ -504,7 +716,7 @@ void PWM::Channel::update_pwm()
 }
 
 
-void PWM::Channel::update_pwm_buffer()
+void PWM::DMAChannel::update_pwm_buffer()
 {
 // 	uint32_t cmd_count = 3;// + ( mLoop == false );
 // 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
@@ -551,7 +763,7 @@ void PWM::Channel::update_pwm_buffer()
 }
 
 
-void PWM::Channel::init_ctrl_data()
+void PWM::DMAChannel::init_ctrl_data()
 {
 	dprintf( "Initializing PWM ...\n" );
 	init_dma_ctl( &mCtls[0] );
@@ -560,19 +772,20 @@ void PWM::Channel::init_ctrl_data()
 }
 
 
-void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
+void PWM::DMAChannel::init_dma_ctl( dma_ctl_t* ctl )
 {
 	dma_cb_t* cbp = ctl->cb;
 	uint32_t phys_fifo_addr;
 	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
 	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+	uint32_t phys_gplev0 = GPIO_PHYS_BASE + 0x34;
 	uint32_t mask;
 	uint32_t i;
 
-// 	uint32_t map = DMA_PER_MAP(5);
-// 	phys_fifo_addr = PWM_PHYS_BASE + 0x18;
-	uint32_t map = DMA_PER_MAP(2);
-	phys_fifo_addr = PCM_PHYS_BASE + 0x04;
+	uint32_t map = DMA_PER_MAP(5);
+	phys_fifo_addr = PWM_PHYS_BASE + 0x18;
+// 	uint32_t map = DMA_PER_MAP(2);
+// 	phys_fifo_addr = PCM_PHYS_BASE + 0x04;
 	memset( ctl->sample, 0, sizeof(uint32_t)*mNumSamples );
 
 	mask = 0;
@@ -663,20 +876,20 @@ void PWM::Channel::init_dma_ctl( dma_ctl_t* ctl )
 
 static bool _init_ok = false;
 
-void PWM::Channel::init_hardware( uint32_t time_base )
+void PWM::DMAChannel::init_hardware( uint32_t time_base )
 {
 	if ( _init_ok ) {
 		return;
 	}
 	_init_ok = true;
-/*
+
 	dprintf("Initializing PWM HW...\n");
 	// Initialise PWM
 	pwm_reg[PWM_CTL] = 0;
 	usleep(10);
-	clk_reg[PWMCLK_CNTL] = 0x5A000006;		// Source=PLLD (500MHz)
+	clk_reg[PWMCLK_CNTL] = 0x5A000006; // Source=PLLD (500MHz)
 	usleep(100);
-	clk_reg[PWMCLK_DIV] = 0x5A000000 | ( ( 500000000 / time_base ) << 12 ); // // setting pwm div to 500 gives 1MHz
+	clk_reg[PWMCLK_DIV] = 0x5A000000 | ( ( 500000000 / time_base ) << 12 ); // setting pwm div to 500 gives 1MHz
 
 	usleep(100);
 	clk_reg[PWMCLK_CNTL] = 0x5A000016;		// Source=PLLD and enable
@@ -689,9 +902,9 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	usleep(10);
 	pwm_reg[PWM_CTL] = PWMCTL_USEF1 | PWMCTL_PWEN1;
 	usleep(10);
-*/
 
 
+/*
 	dprintf("Initializing PCM HW...\n");
 	// Initialise PCM
 	pcm_reg[PCM_CS_A] = 1;				// Disable Rx+Tx, Enable PCM block
@@ -711,7 +924,7 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	pcm_reg[PCM_DREQ_A] = 64<<24 | 64<<8;		// DMA Req when one slot is free?
 	usleep(100);
 	pcm_reg[PCM_CS_A] |= 1<<9; // Enable DMA
-
+*/
 
 	// Initialise the DMA
 	dma_reg[DMA_CS] = DMA_RESET;
@@ -721,7 +934,7 @@ void PWM::Channel::init_hardware( uint32_t time_base )
 	dma_reg[DMA_DEBUG] = 7; // clear debug error flags
 	dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
 
-	pcm_reg[PCM_CS_A] |= 1<<2;			// Enable Tx
+// 	pcm_reg[PCM_CS_A] |= 1<<2;			// Enable Tx
 	dprintf( "Ok\n" );
 }
 
@@ -760,12 +973,20 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 	int board_model = 0;
 
 	if ( ( mbox_board_rev & BOARD_REVISION_SCHEME_MASK ) == BOARD_REVISION_SCHEME_NEW ) {
-		if ( ( mbox_board_rev & BOARD_REVISION_TYPE_MASK ) == BOARD_REVISION_TYPE_PI2_B ) {
+		if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_PI2_B) {
 			board_model = 2;
-		} else if ( ( mbox_board_rev & BOARD_REVISION_TYPE_MASK ) == BOARD_REVISION_TYPE_PI3_B ) {
+		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_PI3_B) {
 			board_model = 3;
+		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_PI3_BP) {
+			board_model = 3;
+		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_PI3_AP) {
+			board_model = 3;
+		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_CM3) {
+			board_model = 3;
+		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_PI4_B) {
+			board_model = 4;
 		} else {
-			// no Pi 2 nor Pi 3, we assume a Pi 1
+			// no Pi 2, we assume a Pi 1
 			board_model = 1;
 		}
 	} else {
@@ -775,6 +996,7 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 
 	gDebug() << "board_model : " << board_model << "\n";
 
+	plldfreq_mhz = 500;
 	switch ( board_model ) {
 		case 1:
 			periph_virt_base = 0x20000000;
@@ -785,6 +1007,13 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 		case 3:
 			periph_virt_base = 0x3f000000;
 			periph_phys_base = 0x7e000000;
+			mem_flag         = MEM_FLAG_L1_NONALLOCATING | MEM_FLAG_ZERO;
+			break;
+		case 4:
+			periph_virt_base = 0xfe000000;
+			periph_phys_base = 0x7e000000;
+			plldfreq_mhz = 750;
+		//	max chan: 7
 			mem_flag         = MEM_FLAG_L1_NONALLOCATING | MEM_FLAG_ZERO;
 			break;
 		default:

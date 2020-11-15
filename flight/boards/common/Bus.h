@@ -2,6 +2,7 @@
 #define BUS_H
 
 #include <stdint.h>
+#include "Vector.h"
 
 class Bus
 {
@@ -22,6 +23,8 @@ public:
 	int Write8( uint8_t reg, uint8_t value );
 	int Write16( uint8_t reg, uint16_t value );
 	int Write32( uint8_t reg, uint32_t value );
+	int WriteFloat( uint8_t reg, float value );
+	int WriteVector3f( uint8_t reg, const Vector3f& vec );
 };
 
 #endif // BUS_H

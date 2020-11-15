@@ -80,9 +80,9 @@ static inline string className(const string& prettyFunction)
 
 #pragma GCC system_header // HACK Disable unused-function warnings
 static string self_thread() {
-	static pthread_t main_thid = 0;
 	stringstream ret;
 #ifdef SYSTEM_NAME_Linux
+	static pthread_t main_thid = 0;
 	if ( main_thid == 0 ) {
 		main_thid = pthread_self();
 	}

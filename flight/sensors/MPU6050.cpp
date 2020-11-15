@@ -19,6 +19,8 @@
 #include <cmath>
 #include <unistd.h>
 #include "MPU6050.h"
+#include "Config.h"
+#include "SPI.h"
 
 int MPU6050::flight_register( Main* main )
 {
@@ -27,11 +29,11 @@ int MPU6050::flight_register( Main* main )
 
 	dev1.iI2CAddr = 0x68;
 	dev1.name = "MPU6050";
-	dev1.fInstanciate = []( Config* config, const string& object ) { return MPU6050::Instanciate( 0x68, config, object ); };
+	dev1.fInstanciate = []( Config* config, const string& object, Bus* bus ) { return MPU6050::Instanciate( bus, config, object ); };
 
 	dev2.iI2CAddr = 0x69;
 	dev2.name = "MPU6050";
-	dev2.fInstanciate = []( Config* config, const string& object ) { return MPU6050::Instanciate( 0x69, config, object ); };
+	dev2.fInstanciate = []( Config* config, const string& object, Bus* bus ) { return MPU6050::Instanciate( bus, config, object ); };
 
 	mKnownDevices.push_back( dev1 );
 	mKnownDevices.push_back( dev2 );
@@ -39,16 +41,16 @@ int MPU6050::flight_register( Main* main )
 }
 
 
-Sensor* MPU6050::Instanciate( uint8_t i2c_addr, Config* config, const string& object )
+Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 {
-	I2C* i2c = new I2C( i2c_addr );
+	I2C* i2c = static_cast<I2C*>(bus);
 
 	uint8_t whoami = 0x00;
 	i2c->Read8( MPU_6050_WHO_AM_I, &whoami );
 	bool mpu9250 = ( whoami == 0x71 or whoami == 0x73 );
 	bool icm20608 = ( whoami == 0xAF );
 
-	gDebug() << "whoami [0x" << hex << (int)i2c_addr << "]0x" << hex << (int)whoami << "\n";
+	gDebug() << "whoami [0x" << hex << (int)i2c->address() << "]0x" << hex << (int)whoami << "\n";
 
 	if ( mpu9250 ) {
 		gDebug() << "I2C module at address 0x" << hex << (int)i2c->address() << " is MPU9250\n";
@@ -87,22 +89,105 @@ Sensor* MPU6050::Instanciate( uint8_t i2c_addr, Config* config, const string& ob
 		delete mpu;
 		exit(0);
 	}
-	delete i2c;
+// 	delete i2c;
 
 	// Manually add sensors to mDevices since they use the same address
-	Sensor* mag = new MPU6050Mag( i2c_addr );
-	Sensor* gyro = new MPU6050Gyro( i2c_addr );
-	Sensor* accel = new MPU6050Accel( i2c_addr );
+	Sensor* mag = new MPU6050Mag( i2c );
+	Sensor* gyro = new MPU6050Gyro( i2c );
+	Sensor* accel = new MPU6050Accel( i2c );
 	mDevices.push_back( mag );
 	mDevices.push_back( accel );
 
 	return gyro;
+
+/*
+	uint8_t read_reg = 0;
+	if ( dynamic_cast<SPI*>(bus) != nullptr ) {
+		read_reg = 0x80;
+	}
+
+	uint8_t whoami = 0x00;
+	bus->Read8( read_reg | MPU_6050_WHO_AM_I, &whoami );
+	bool mpu9250 = ( whoami == 0x71 or whoami == 0x73 );
+	bool icm20608 = ( whoami == 0xAF );
+
+	gDebug() << "whoami : 0x" << hex << (int)whoami << "\n";
+
+	if ( mpu9250 ) {
+		// TODO : put back these logs
+// 		gDebug() << "I2C module at address 0x" << hex << (int)bus->address() << " is MPU9250\n";
+	} else if ( icm20608 ) {
+// 		gDebug() << "I2C module at address 0x" << hex << (int)bus->address() << " is ICM28608\n";
+	}
+
+	// No power management, internal clock source: 0b00000000
+	bus->Write8( MPU_6050_PWR_MGMT_1, 0b00000000 );
+	// Disable all interrupts: 0b00000000
+	bus->Write8( MPU_6050_INT_ENABLE, 0b00000000 );
+	// Disable all FIFOs: 0b00000000
+	bus->Write8( MPU_6050_FIFO_EN, 0b00000000 );
+	// Gyro range at +/-2000 °/s
+	bus->Write8( MPU_6050_GYRO_CONFIG, 0b00011000 );
+	// Accel range at +/-16g
+	bus->Write8( MPU_6050_ACCEL_CONFIG, 0b00011000 );
+	// Set sample_rate divider
+// 	const uint32_t rate = 1000000 / config->Integer( "stabilizer.loop_time", 2000 );
+// 	bus->Write8( MPU_6050_SMPRT_DIV, 8000 / min(8000U, rate) - 1 );
+	if ( config && config->Boolean( "gyroscopes.MPU6050.DLPF", true ) ) { // Enable DLPF
+		if ( mpu9250 or icm20608 ) {
+			// No ext sync, DLPF at 98Hz for the gyro
+			bus->Write8( MPU_6050_DEFINE, 0b00000010 );
+		} else {
+			// MPU6050 : No ext sync, DLPF at 94Hz for the accel and 98Hz for the gyro: 0b00000010) (~200Hz: 0b00000001)
+			bus->Write8( MPU_6050_DEFINE, 0b00000010 );
+		}
+// 		// 1 kHz sampling rate: 0b00000000
+// 		bus->Write8( MPU_6050_SMPRT_DIV, 0b00000000 );
+	} else {
+		// No ext sync, no DLPF
+		bus->Write8( MPU_6050_DEFINE, 0b00000000 );
+// 		if ( ( mpu9250 or icm20608 ) and rate > 8000 ) {
+// 			bus->Write8( MPU_6050_GYRO_CONFIG, 0b00011011 );
+// 		}
+	}
+	if ( config && ( mpu9250 or icm20608 ) and config->Boolean( "accelerometers.MPU6050.DLPF", true ) ) { // Enable DLPF
+		// DLPF at 99Hz for the accel
+		bus->Write8( MPU_6050_ACCEL_CONFIG_2, 0b00000010 );
+	}
+	// Bypass mode enabled: 0b00000010
+	bus->Write8( MPU_6050_INT_PIN_CFG, 0b00000010 );
+	// No FIFO and no I2C slaves: 0b00000000
+	if ( dynamic_cast<SPI*>(bus) != nullptr ) {
+		bus->Write8( MPU_6050_USER_CTRL, 0b00010000 ); // Force SPI mode
+	} else {
+		bus->Write8( MPU_6050_USER_CTRL, 0b00000000 );
+	}
+
+
+	// TODO : use config ('use_dmp')
+	// TODO : see https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050_6Axis_MotionApps20.h
+	if ( false ) {
+// 		MPU6050* mpu = new MPU6050( bus );
+// 		delete mpu;
+// 		exit(0);
+	}
+// 	delete i2c;
+
+	// Manually add sensors to mDevices since they use the same address
+	Sensor* mag = new MPU6050Mag( bus );
+	Sensor* gyro = new MPU6050Gyro( bus );
+	Sensor* accel = new MPU6050Accel( bus );
+	mDevices.push_back( mag );
+	mDevices.push_back( accel );
+
+	return gyro;
+*/
 }
 
 
-MPU6050Accel::MPU6050Accel( int addr )
+MPU6050Accel::MPU6050Accel( Bus* bus )
 	: Accelerometer()
-	, mI2C( new I2C( addr ) )
+	, mBus( bus )
 	, mCalibrationAccum( Vector4f() )
 	, mOffset( Vector3f() )
 {
@@ -117,9 +202,9 @@ MPU6050Accel::MPU6050Accel( int addr )
 }
 
 
-MPU6050Gyro::MPU6050Gyro( int addr )
+MPU6050Gyro::MPU6050Gyro( Bus* bus )
 	: Gyroscope()
-	, mI2C( new I2C( addr ) )
+	, mBus( bus )
 	, mCalibrationAccum( Vector4f() )
 	, mOffset( Vector3f() )
 {
@@ -127,10 +212,11 @@ MPU6050Gyro::MPU6050Gyro( int addr )
 }
 
 
-MPU6050Mag::MPU6050Mag( int addr )
+MPU6050Mag::MPU6050Mag( Bus* bus )
 	: Magnetometer()
-	, mI2C9150( new I2C( addr ) )
-	, mI2C( new I2C( MPU_6050_I2C_MAGN_ADDRESS ) )
+// 	, mI2C9150( new I2C( addr ) )
+// 	, mI2C( new I2C( MPU_6050_I2C_MAGN_ADDRESS ) )
+	, mBus( bus )
 	, mState( 0 )
 	, mData{ 0 }
 	, mCalibrationData{ 0.0f }
@@ -140,29 +226,31 @@ MPU6050Mag::MPU6050Mag( int addr )
 {
 	mNames = { "MPU6050" };
 
+	// TODO : talk to mag accros SPI if using SPI
+
 	uint8_t id = 0;
-	int ret = mI2C->Read8( MPU_6050_WIA, &id );
+	int ret = mBus->Read8( MPU_6050_WIA | 0x80, &id );
 	if ( ret < 0 or id != MPU_6050_AKM_ID ) {
 		return;
 	}
 
-	mI2C->Write8( MPU_6050_CNTL, 0x00 );
+	mBus->Write8( MPU_6050_CNTL, 0x00 );
 	usleep( 1000 * 10 );
-	mI2C->Write8( MPU_6050_CNTL, 0x0F ); // Enter Fuse ROM access mode
+	mBus->Write8( MPU_6050_CNTL, 0x0F ); // Enter Fuse ROM access mode
 	usleep( 1000 * 10 );
 	uint8_t rawData[3];  // x/y/z gyro calibration data stored here
-	mI2C->Read( AK8963_ASAX, rawData, 3 );
+	mBus->Read( AK8963_ASAX, rawData, 3 );
 	mCalibrationData[0] = (float)(rawData[0] - 128)/256.0f + 1.0f;
 	mCalibrationData[1] = (float)(rawData[1] - 128)/256.0f + 1.0f;
 	mCalibrationData[2] = (float)(rawData[2] - 128)/256.0f + 1.0f;
-	mI2C->Write8( MPU_6050_CNTL, 0x00 );
+	mBus->Write8( MPU_6050_CNTL, 0x00 );
 	// Configure the magnetometer for continuous read and highest resolution
 	// set Mscale bit 4 to 1 (0) to enable 16 (14) bit resolution in CNTL register,
 	// and enable continuous mode data acquisition Mmode (bits [3:0]), 0010 for 8 Hz and 0110 for 100 Hz sample rates
-	mI2C->Write8( MPU_6050_CNTL, 0x01 << 4 | 0x06 ); // Set magnetometer data resolution and sample ODR
+	mBus->Write8( MPU_6050_CNTL, 0x01 << 4 | 0x06 ); // Set magnetometer data resolution and sample ODR
 
 	// Single measurement mode: 0b00000001
-// 	mI2C->Write8( MPU_6050_CNTL, 0b00000001 );
+// 	mBus->Write8( MPU_6050_CNTL, 0b00000001 );
 	usleep( 100 * 1000 );
 }
 
@@ -234,9 +322,9 @@ void MPU6050Mag::Calibrate( float dt, bool last_pass )
 	uint8_t state = 0;
 	uint8_t rawData[7];  // x/y/z gyro register data, ST2 register stored here, must read ST2 at end of data acquisition
 
-	mI2C->Read8( MPU_6050_ST1, &state );
+	mBus->Read8( MPU_6050_ST1, &state );
 	if ( state & 0x01 ) { // wait for magnetometer data ready bit to be set
-		mI2C->Read( MPU_6050_HXL, rawData, 7 );  // Read the six raw data and ST2 registers sequentially into data array
+		mBus->Read( MPU_6050_HXL, rawData, 7 );  // Read the six raw data and ST2 registers sequentially into data array
 		uint8_t c = rawData[6]; // End data read by reading ST2 register
 		if ( !( c & 0x08 ) ) { // Check if magnetic sensor overflow set, if not then report data
 			raw_vec[0] = ((int16_t)rawData[1] << 8) | rawData[0];  // Turn the MSB and LSB into a signed 16-bit value
@@ -264,7 +352,7 @@ void MPU6050Accel::Read( Vector3f* v, bool raw )
 	int16_t curr[3] = { 0 };
 	uint8_t saccel[6] = { 0 };
 
-	mI2C->Read( MPU_6050_ACCEL_XOUT_H | 0x80, saccel, sizeof(saccel) );
+	mBus->Read( MPU_6050_ACCEL_XOUT_H | 0x80, saccel, sizeof(saccel) );
 
 	curr[0] = (int16_t)( saccel[0] << 8 | saccel[1] );
 	curr[1] = (int16_t)( saccel[2] << 8 | saccel[3] );
@@ -289,7 +377,7 @@ int MPU6050Gyro::Read( Vector3f* v, bool raw )
 // 	int16_t sgyro[3] = { 0 };
 	uint8_t sgyro[6] = { 0 };
 
-	if ( mI2C->Read( MPU_6050_GYRO_XOUT_H | 0x80, sgyro, sizeof(sgyro) ) != sizeof(sgyro) ) {
+	if ( mBus->Read( MPU_6050_GYRO_XOUT_H | 0x80, sgyro, sizeof(sgyro) ) != sizeof(sgyro) ) {
 		return -1;
 	}
 	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
@@ -316,9 +404,9 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 	uint8_t state = 0;
 	uint8_t rawData[7];  // x/y/z gyro register data, ST2 register stored here, must read ST2 at end of data acquisition
 
-	mI2C->Read8( MPU_6050_ST1, &state );
+	mBus->Read8( MPU_6050_ST1, &state );
 	if ( state & 0x01 ) { // wait for magnetometer data ready bit to be set
-		mI2C->Read( MPU_6050_HXL, rawData, 7 );  // Read the six raw data and ST2 registers sequentially into data array
+		mBus->Read( MPU_6050_HXL, rawData, 7 );  // Read the six raw data and ST2 registers sequentially into data array
 		uint8_t c = rawData[6]; // End data read by reading ST2 register
 		if ( !( c & 0x08 ) ) { // Check if magnetic sensor overflow set, if not then report data
 			raw_vec[0] = ((int16_t)rawData[1] << 8) | rawData[0];  // Turn the MSB and LSB into a signed 16-bit value
@@ -338,7 +426,7 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 		case 0 : {
 			// Check if data is ready.
 			uint8_t status = 0;
-			mI2C->Read8( MPU_6050_ST1, &status );
+			mBus->Read8( MPU_6050_ST1, &status );
 			if ( status & 0x01 ) {
 				mState = 1;
 			}
@@ -350,7 +438,7 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 		case 1 : {
 			// Read X axis
 			for ( int i = 0; i < 2; i++ ) {
-				mI2C->Read8( MPU_6050_HXL + i, &mData[i] );
+				mBus->Read8( MPU_6050_HXL + i, &mData[i] );
 			}
 			mState = 2;
 
@@ -362,7 +450,7 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 		case 2 : {
 			// Read Y axis
 			for ( int i = 2; i < 4; i++ ) {
-				mI2C->Read8( MPU_6050_HXL + i, &mData[i] );
+				mBus->Read8( MPU_6050_HXL + i, &mData[i] );
 			}
 			mState = 3;
 
@@ -374,7 +462,7 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 		case 3 : {
 			// Read Z axis
 			for ( int i = 4; i < 6; i++ ) {
-				mI2C->Read8( MPU_6050_HXL + i, &mData[i] );
+				mBus->Read8( MPU_6050_HXL + i, &mData[i] );
 			}
 
 			v->x = (float)( (int16_t)( mData[1] << 8 | mData[0] ) ) * 0.3001221001221001f;
@@ -384,7 +472,7 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 			mLastValues = *v;
 			
 			// Re-arm single measurement mode
-			mI2C->Write8( MPU_6050_CNTL, 0b00000001 );
+			mBus->Write8( MPU_6050_CNTL, 0b00000001 );
 			mState = 0;
 			break;
 		}
@@ -399,17 +487,23 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 
 string MPU6050Gyro::infos()
 {
-	return "I2Caddr = " + to_string( mI2C->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"2000°/s\"";
+	return "";
+// TODO
+// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"2000°/s\"";
 }
 
 
 string MPU6050Accel::infos()
 {
-	return "I2Caddr = " + to_string( mI2C->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"16g\"";
+	return "";
+// TODO
+// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"16g\"";
 }
 
 
 string MPU6050Mag::infos()
 {
-	return "I2Caddr = " + to_string( mI2C->address() ) + ", " + "Resolution = \"13 bits\", " + "Scale = \"1200μT\"";
+	return "";
+// TODO
+// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"13 bits\", " + "Scale = \"1200μT\"";
 }

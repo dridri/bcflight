@@ -30,7 +30,7 @@ public:
 	~ADS1015();
 
 	static int flight_register( Main* main );
-	static Sensor* Instanciate( Config* config, const string& object );
+	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
 
 	void Calibrate( float dt, bool last_pass = false );
 	float Read( int channel );

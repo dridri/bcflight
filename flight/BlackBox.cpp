@@ -35,11 +35,13 @@ BlackBox::BlackBox()
 
 	if ( mFile == nullptr ) {
 		Board::defectivePeripherals()["BlackBox"] = true;
+		Stop();
 		return;
 	}
 
 	setFrequency( 100 );
-	Start();
+// 	Start();
+	Stop();
 }
 
 
@@ -50,9 +52,9 @@ BlackBox::~BlackBox()
 
 const uint32_t BlackBox::id() const
 {
-	if ( this == nullptr ) {
+// 	if ( this == nullptr ) {
 		return 0;
-	}
+// 	}
 
 	return mID;
 }
@@ -77,6 +79,8 @@ void BlackBox::Enqueue( const string& data, const string& value )
 
 bool BlackBox::run()
 {
+	exit(0);
+	return false;
 #ifdef SYSTEM_NAME_Linux
 	string data;
 

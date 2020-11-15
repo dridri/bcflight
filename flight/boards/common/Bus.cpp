@@ -1,5 +1,6 @@
 #include "Bus.h"
 #include <Board.h>
+#include <Debug.h>
 
 Bus::Bus()
 {
@@ -77,4 +78,31 @@ int Bus::Write16( uint8_t reg, uint16_t value )
 int Bus::Write32( uint8_t reg, uint32_t value )
 {
 	return Write( reg, &value, 4 );
+}
+
+
+int Bus::WriteFloat( uint8_t reg, float value )
+{
+	union {
+		uint32_t u;
+		float f;
+	} v;
+	v.f = value;
+	return Write( reg, &v.u, 4 );
+}
+
+
+int Bus::WriteVector3f( uint8_t reg, const Vector3f& vec )
+{
+	typedef union {
+		uint32_t u;
+		float f;
+	} v;
+	struct {
+		v x, y, z;
+	} __attribute__((packed)) uvec;
+	uvec.x.f = vec.x;
+	uvec.y.f = vec.y;
+	uvec.z.f = vec.z;
+	return Write( reg, &uvec.x.u, 4 * 3 );
 }

@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#ifdef BOARD_generic
+
 #include <cmath>
 #include "FakeGyroscope.h"
 
@@ -57,3 +59,5 @@ string FakeGyroscope::infos()
 {
 	return "Resolution = \"32 bits float\", Scale = \"16g\"";
 }
+
+#endif // BOARD_generic

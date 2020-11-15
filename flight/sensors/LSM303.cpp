@@ -39,14 +39,16 @@ int LSM303::flight_register( Main* main )
 }
 
 
-Sensor* LSM303Mag::Instanciate( Config* config, const string& object )
+Sensor* LSM303Mag::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : use bus
 	return new LSM303Mag();
 }
 
 
-Sensor* LSM303Accel::Instanciate( Config* config, const string& object )
+Sensor* LSM303Accel::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : use bus
 	return new LSM303Accel();
 }
 

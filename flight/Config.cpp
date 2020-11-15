@@ -106,6 +106,7 @@ string Config::String( const string& name, const string& def )
 {
 	gDebug() << "Config::string( " << name << " )";
 
+	lua_settop( L, 0 );
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
 		return def;
@@ -121,6 +122,7 @@ int Config::Integer( const string& name, int def )
 {
 	gDebug() << "Config::integer( " << name << " )";
 
+	lua_settop( L, 0 );
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
 		return def;
@@ -136,6 +138,7 @@ float Config::Number( const string& name, float def )
 {
 	gDebug() << "Config::number( " << name << " )";
 
+	lua_settop( L, 0 );
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
 		return def;
@@ -151,6 +154,7 @@ bool Config::Boolean( const string& name, bool def )
 {
 	gDebug() << "Config::boolean( " << name << " )";
 
+	lua_settop( L, 0 );
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
 		return def;
@@ -165,6 +169,8 @@ bool Config::Boolean( const string& name, bool def )
 vector<int> Config::IntegerArray( const string& name )
 {
 	gDebug() << "Config::integerArray( " << name << " )";
+
+	lua_settop( L, 0 );
 	if ( LocateValue( name ) < 0 ) {
 		Debug() << " => not found !\n";
 		return vector<int>();
@@ -182,6 +188,37 @@ vector<int> Config::IntegerArray( const string& name )
 	}
 	lua_pop( L, 1 );
 	Debug() << " => Ok\n";
+	return ret;
+}
+
+
+int Config::ArrayLength( const string& name )
+{
+	gDebug() << "Config::ArrayLength( " << name << " )\n";
+
+	lua_settop( L, 0 );
+	if ( LocateValue( name ) < 0 ) {
+// 		Debug() << " => not found !\n";
+		return -1;
+	}
+
+	int ret = -1;
+
+	if ( lua_istable( L, -1 ) ) {
+		ret = 0;
+		size_t len = lua_objlen( L, -1 );
+		if ( len > 0 ) {
+			ret = len;
+		} else {
+			lua_pushnil( L );
+			while( lua_next( L, -2 ) != 0 ) {
+				ret++;
+				lua_pop( L, 1 );
+			}
+		}
+	}
+
+// 	Debug() << " => Ok\n";
 	return ret;
 }
 
@@ -261,35 +298,14 @@ int Config::LocateValue( const string& _name )
 }
 
 
-int Config::ArrayLength( const string& name )
-{
-	if ( LocateValue( name ) < 0 ) {
-		return -1;
-	}
-
-	int ret = -1;
-
-	if ( lua_istable( L, -1 ) ) {
-		ret = 0;
-		size_t len = lua_objlen( L, -1 );
-		if ( len > 0 ) {
-			ret = len;
-		} else {
-			lua_pushnil( L );
-			while( lua_next( L, -2 ) != 0 ) {
-				ret++;
-				lua_pop( L, 1 );
-			}
-		}
-	}
-
-	return ret;
-}
-
-
 string Config::DumpVariable( const string& name, int index, int indent )
 {
+	gDebug() << "Config::DumpVariable( " << name << ", " << index << ", " << indent << " )\n";
+
 	stringstream ret;
+	if ( indent == 0 ) {
+		lua_settop( L, 0 );
+	}
 
 	for ( int i = 0; i < indent; i++ ) {
 		ret << "    ";
@@ -394,7 +410,7 @@ void Config::Reload()
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "frame = { motors = {} }" );
 	LUAdostring( "battery = {}" );
-	LUAdostring( "camera = {}" );
+	LUAdostring( "camera = { v1 = {}, v2 = {}, hq = {} }" );
 	LUAdostring( "hud = {}" );
 	LUAdostring( "microphone = {}" );
 	LUAdostring( "controller = {}" );
@@ -410,6 +426,7 @@ void Config::Reload()
 	LUAdostring( "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
 	LUAdostring( "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" ); // TODO : remove this
 	LUAdostring( "function Voltmeter( params ) params.type = \"Voltemeter\" ; return params end" );
+	LUAdostring( "function SPI( address, speed ) return { type = 'SPI', address = address, speed = speed } end" );
 	gDebug() << "Reload 2 : " << _mem_usage() << "\n";
 
 #ifdef BUILD_motors

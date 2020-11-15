@@ -17,6 +17,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <wiringPi.h>
 
 #ifdef SYSTEM_NAME_Linux
 #include <dirent.h>
@@ -87,14 +88,16 @@ Main::Main()
 	, mCameraType( "" )
 {
 	mInstance = this;
+#ifdef BUILD_sensors
 #ifdef BOARD_generic
 #pragma message "Adding noisy fake accelerometer and gyroscope"
 	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
 	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 #endif
+#endif
 
 #ifdef BUILD_blackbox
-	mBlackBox = new BlackBox();
+// 	mBlackBox = new BlackBox();
 	Board::InformLoading();
 #endif
 
@@ -111,7 +114,7 @@ Main::Main()
 	mConfig = new Config( "", "" );
 #endif
 	Board::InformLoading();
-
+/*
 #ifdef FLIGHT_SLAVE
 	mConfig->Execute( "_slave = " FLIGHT_SLAVE_CONFIG );
 	gDebug() << mConfig->DumpVariable( "_slave" );
@@ -125,7 +128,7 @@ Main::Main()
 			mSlaves.push_back( slave );
 		}
 	}
-
+*/
 	gDebug() << mConfig->DumpVariable( "username" );
 	gDebug() << mConfig->DumpVariable( "board" );
 	gDebug() << mConfig->DumpVariable( "frame" );

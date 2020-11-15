@@ -31,7 +31,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( float* altitude );
 
-	static Sensor* Instanciate( Config* config, const string& object );
+	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
 	static int flight_register( Main* main );
 
 private:

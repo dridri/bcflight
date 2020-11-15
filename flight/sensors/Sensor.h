@@ -27,6 +27,7 @@
 #include <Mutex.h>
 
 class Config;
+class Bus;
 class Gyroscope;
 class Accelerometer;
 class Magnetometer;
@@ -42,7 +43,7 @@ public:
 	public:
 		int iI2CAddr;//defaultI2Caddr;
 		const char* name;
-		function< Sensor* ( Config*, const string& ) > fInstanciate;
+		function< Sensor* ( Config*, const string&, Bus* ) > fInstanciate;
 		Device() : iI2CAddr(0), name("") {}
 	};
 
@@ -58,7 +59,7 @@ public:
 	virtual void Calibrate( float dt, bool last_pass = false ) = 0;
 
 	static void AddDevice( Sensor* sensor );
-	static void RegisterDevice( int I2Caddr, const string& name = "" );
+	static void RegisterDevice( int I2Caddr, const string& name = "", Config* config = nullptr, const string& object = "" );
 	static void RegisterDevice( const string& name, Config* config, const string& object );
 	static const list< Device >& KnownDevices();
 	static list< Sensor* > Devices();

@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 #include <unistd.h>
+#include <algorithm>
 #include "Main.h"
 #include "PowerThread.h"
 #include "Config.h"
@@ -48,19 +49,52 @@ PowerThread::PowerThread( Main* main )
 	}
 
 	{
-		string sensorType = main->config()->String( "battery.voltage.sensor_type" );
+		string /*sensorType*/sensorName = main->config()->String( "battery.voltage.sensor_type" );
+		for ( auto it : Sensor::Voltmeters() ) {
+			list< string > names = it->names();
+			if ( find( names.begin(), names.end(), sensorName ) != names.end() ) {
+				mVoltageSensor.type = VOLTAGE;
+				mVoltageSensor.sensor = it;
+				break;
+			}
+		}
+		if ( mVoltageSensor.sensor == nullptr ) {
+			gDebug() << "FATAL ERROR : Unsupported sensor ( " << sensorName << " ) for battery voltage !\n";
+		}
+		/*
 		if ( sensorType == "Voltmeter" ) {
 			mVoltageSensor.type = VOLTAGE;
 			mVoltageSensor.sensor = Sensor::voltmeter( main->config()->String( "battery.voltage.device" ) );
 		} else {
 			gDebug() << "FATAL ERROR : Unsupported sensor type ( " << sensorType << " ) for battery voltage !\n";
 		}
+		*/
 		mVoltageSensor.channel = main->config()->Integer( "battery.voltage.channel" );
 		mVoltageSensor.shift = main->config()->Number( "battery.voltage.shift" );
 		mVoltageSensor.multiplier = main->config()->Number( "battery.voltage.multiplier" );
 	}
 	{
-		string sensorType = main->config()->String( "battery.current.sensor_type" );
+		string /*sensorType*/sensorName = main->config()->String( "battery.current.sensor_type" );
+		for ( auto it : Sensor::Voltmeters() ) {
+			list< string > names = it->names();
+			if ( find( names.begin(), names.end(), sensorName ) != names.end() ) {
+				mCurrentSensor.type = VOLTAGE;
+				mCurrentSensor.sensor = it;
+				break;
+			}
+		}
+		for ( auto it : Sensor::CurrentSensors() ) {
+			list< string > names = it->names();
+			if ( find( names.begin(), names.end(), sensorName ) != names.end() ) {
+				mCurrentSensor.type = CURRENT;
+				mCurrentSensor.sensor = it;
+				break;
+			}
+		}
+		if ( mCurrentSensor.sensor == nullptr ) {
+			gDebug() << "FATAL ERROR : Unsupported sensor ( " << sensorName << " ) for battery current !\n";
+		}
+		/*
 		if ( sensorType == "Voltmeter" ) {
 			mCurrentSensor.type = VOLTAGE;
 			mCurrentSensor.sensor = Sensor::voltmeter( main->config()->String( "battery.current.device" ) );
@@ -70,6 +104,7 @@ PowerThread::PowerThread( Main* main )
 		} else {
 			gDebug() << "WARNING : Unsupported sensor type ( " << sensorType << " ) for battery current !\n";
 		}
+		*/
 		mCurrentSensor.channel = main->config()->Integer( "battery.current.channel" );
 		mCurrentSensor.shift = main->config()->Number( "battery.current.shift" );
 		mCurrentSensor.multiplier = main->config()->Number( "battery.current.multiplier" );

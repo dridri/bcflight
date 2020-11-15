@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#ifdef BOARD_generic
+
 #include <cmath>
 #include "FakeAccelerometer.h"
 
@@ -56,3 +58,5 @@ string FakeAccelerometer::infos()
 {
 	return "Resolution = \"32 bits float\", Scale = \"16g\"";
 }
+
+#endif // BOARD_generic

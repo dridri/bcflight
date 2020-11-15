@@ -16,35 +16,40 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef BMP180_H
-#define BMP180_H
+#ifndef SBUS_H
+#define SBUS_H
 
-#include <I2C.h>
-#include "Altimeter.h"
+#include "Link.h"
+#include "Serial.h"
 
-class BMP180 : public Altimeter
+class Main;
+
+class SBUS : public Link
 {
 public:
-	BMP180();
-	~BMP180();
+	SBUS( const string& device, int speed = 9600 );
+	virtual ~SBUS();
 
-	void Calibrate( float dt, bool last_pass = false );
-	void Read( float* altitude );
+	int Connect();
+	int setBlocking( bool blocking );
+	void setRetriesCount( int retries );
+	int retriesCount() const;
+	int32_t Channel();
+	int32_t RxQuality();
+	int32_t RxLevel();
 
-	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+
 	static int flight_register( Main* main );
 
-private:
-	float ReadTemperature();
-	float ReadPressure();
+protected:
+	static Link* Instanciate( Config* config, const string& lua_object );
 
-	I2C* mI2C;
-	float mBasePressure;
-
-	int16_t AC1, AC2, AC3, VB1, VB2, MB, MC, MD;
-	uint16_t AC4, AC5, AC6;
-	double c5, c6, mc, md, x0, x1, x2, y0, y1, y2, p0, p1, p2;
-	char _error;
+	Serial* mSerial;
+	vector<uint8_t> mBuffer;
+	int32_t mChannels[32];
+	bool mFailsafe;
 };
 
-#endif // BMP180_H
+#endif // SBUS_H

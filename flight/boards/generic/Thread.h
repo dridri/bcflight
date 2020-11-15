@@ -20,33 +20,32 @@
 #define THREAD_H
 
 #include <thread>
+#include <list>
+#include <functional>
 #include <pthread.h>
+#include "../common/ThreadBase.h"
 
-class Thread
+class Thread : public ThreadBase
 {
 public:
-	Thread( const string& name = "flight" );
+	Thread( const string& name = "_thead_" );
 	virtual ~Thread();
 
 	void Start();
-	void Pause();
-	void Stop();
 	void Join();
-	bool running() const;
-	void setPriority( int p, int affinity = -1 );
-	static void setMainPriority( int p );
+	void Recover();
+
+	static Thread* currentThread();
+	static void msleep( uint32_t ms );
+	static void usleep( uint32_t us );
 
 protected:
 	virtual bool run() = 0;
 
 private:
 	void ThreadEntry();
-	bool mRunning;
-	bool mIsRunning;
-	bool mFinished;
 	pthread_t mThread;
-	int mPriority;
-	int mSetPriority;
+	bool mSpawned;
 };
 
 

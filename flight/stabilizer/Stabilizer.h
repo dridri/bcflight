@@ -37,40 +37,51 @@ public:
 	Stabilizer( Main* main, Frame* frame );
 	~Stabilizer();
 
-	void setRollP( float p );
-	void setRollI( float i );
-	void setRollD( float d );
+	virtual void setRollP( float p );
+	virtual void setRollI( float i );
+	virtual void setRollD( float d );
 	Vector3f getRollPID() const;
-	void setPitchP( float p );
-	void setPitchI( float i );
-	void setPitchD( float d );
+	virtual void setPitchP( float p );
+	virtual void setPitchI( float i );
+	virtual void setPitchD( float d );
 	Vector3f getPitchPID() const;
-	void setYawP( float p );
-	void setYawI( float i );
-	void setYawD( float d );
+	virtual void setYawP( float p );
+	virtual void setYawI( float i );
+	virtual void setYawD( float d );
 	Vector3f getYawPID() const;
-	Vector3f lastPIDOutput() const;
+	virtual Vector3f lastPIDOutput() const;
 
-	void setOuterP( float p );
-	void setOuterI( float i );
-	void setOuterD( float d );
+	virtual void setOuterP( float p );
+	virtual void setOuterI( float i );
+	virtual void setOuterD( float d );
 	Vector3f getOuterPID() const;
-	Vector3f lastOuterPIDOutput() const;
+	virtual Vector3f lastOuterPIDOutput() const;
 
-	void setHorizonOffset( const Vector3f& v );
-	Vector3f horizonOffset() const;
+	virtual void setHorizonOffset( const Vector3f& v );
+	virtual Vector3f horizonOffset() const;
 
-	void setMode( uint32_t mode );
-	uint32_t mode() const;
-	void setAltitudeHold( bool enabled );
-	bool altitudeHold() const;
+	virtual void setMode( uint32_t mode );
+	virtual uint32_t mode() const;
+	virtual void setAltitudeHold( bool enabled );
+	virtual bool altitudeHold() const;
 
-	void CalibrateESCs();
-	void MotorTest(uint32_t id);
-	void Reset( const float& yaw );
-	void Update( IMU* imu, Controller* ctrl, float dt );
+	virtual bool armed() const;
+	virtual float thrust() const;
+	virtual const Vector3f& RPY() const;
+	virtual void Arm();
+	virtual void Disarm();
+	virtual void setRoll( float value );
+	virtual void setPitch( float value );
+	virtual void setYaw( float value );
+	virtual void setThrust( float value );
 
-private:
+	virtual void CalibrateESCs();
+	virtual void MotorTest(uint32_t id);
+	virtual void Reset( const float& yaw );
+	virtual void Update( IMU* imu, Controller* ctrl, float dt );
+
+protected:
+	Main* mMain;
 	Frame* mFrame;
 	Mode mMode;
 	float mRateFactor;
@@ -82,6 +93,12 @@ private:
 	PID<Vector3f> mHorizonPID;
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
+
+	bool mArmed;
+	Vector4f mExpo;
+	Vector3f mRPY;
+	float mThrust;
+	float mThrustAccum;
 
 	int mLockState;
 	Vector3f mHorizonMultiplier;

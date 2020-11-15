@@ -41,7 +41,7 @@ Motor* BrushlessPWM::Instanciate( Config* config, const string& object )
 
 BrushlessPWM::BrushlessPWM( uint32_t pin, int us_min, int us_max )
 	: Motor()
-// 	, mPWM( new PWM( pin, 1000000, 2000, 2 ) )
+	, mPWM( new PWM( pin, 1000000, 2000, 2 ) )
 	, mMinUS( us_min )
 	, mMaxUS( us_max )
 {
@@ -55,7 +55,7 @@ BrushlessPWM::~BrushlessPWM()
 
 void BrushlessPWM::setSpeedRaw( float speed, bool force_hw_update )
 {
-	if ( std::isnan( speed ) or std::isinf( speed ) ) {
+	if ( isnan( speed ) or isinf( speed ) ) {
 		return;
 	}
 	if ( speed < 0.0f ) {
@@ -66,25 +66,25 @@ void BrushlessPWM::setSpeedRaw( float speed, bool force_hw_update )
 	}
 
 	uint32_t us = mMinUS + (uint32_t)( ( mMaxUS - mMinUS ) * speed );
-// 	mPWM->SetPWMus( us );
+	mPWM->SetPWMus( us );
 
 	if ( force_hw_update ) {
-// 		mPWM->Update();
+		mPWM->Update();
 	}
 }
 
 
 void BrushlessPWM::Disarm()
 {
-// 	mPWM->SetPWMus( mMinUS - 1 );
-// 	mPWM->Update();
+	mPWM->SetPWMus( mMinUS - 1 );
+	mPWM->Update();
 }
 
 
 void BrushlessPWM::Disable()
 {
-// 	mPWM->SetPWMus( 0 );
-// 	mPWM->Update();
+	mPWM->SetPWMus( 0 );
+	mPWM->Update();
 }
 
 #endif // BUILD_BrushlessPWM

@@ -36,21 +36,67 @@ public:
 	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
 	~PWM();
 
-	void SetPWMus( uint32_t width_us );
+	void SetPWMus( uint32_t width_us ); // TODO : Change to SetPWMValue
 	void SetPWMBuffer( uint8_t* buffer, uint32_t len );
 	void Update();
 
 	static void terminate( int dummy );
+	static void EnableTruePWM();
+	static bool HasTruePWM();
 
 private:
 	class Channel {
 	public:
-		Channel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
-		~Channel();
+		virtual ~Channel() {}
+		virtual void SetPWMValue( uint32_t pin, uint32_t width ) = 0;
+		virtual void SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len ) = 0;
+		virtual void Update() = 0;
+		virtual void Reset() = 0;
 
-		void SetPWMus( uint32_t pin, uint32_t width_us );
+		uint32_t plldfreq_mhz;
+		uint32_t periph_virt_base;
+		uint32_t periph_phys_base;
+		uint32_t mem_flag;
+
+		struct {
+			int handle;		/* From mbox_open() */
+			unsigned mem_ref;	/* From mem_alloc() */
+			unsigned bus_addr;	/* From mem_lock() */
+			uint8_t *virt_addr;	/* From mapmem() */
+		} mMbox;
+		int mbox_open();
+		void get_model( unsigned mbox_board_rev );
+		void* map_peripheral( uint32_t base, uint32_t len );
+		uint32_t mem_virt_to_phys( void* virt );
+	};
+	class PWMChannel : public Channel {
+	public:
+		PWMChannel( uint8_t engine, uint32_t time_base, uint32_t period, PWMMode mode = MODE_PWM, bool loop = true );
+		~PWMChannel();
+
+		void SetPWMValue( uint32_t pin, uint32_t width );
 		void SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len );
 		void Update();
+		void Reset();
+	
+		uint8_t mEngine;
+		PWMMode mMode;
+		bool mLoop;
+		uint32_t mPwmCtl;
+
+		uint32_t* pwm_reg;
+		uint32_t* clk_reg;
+		uint32_t* gpio_reg;
+	};
+	class DMAChannel : public Channel {
+	public:
+		DMAChannel( uint8_t channel, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
+		~DMAChannel();
+
+		void SetPWMValue( uint32_t pin, uint32_t width );
+		void SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len );
+		void Update();
+		void Reset();
 
 		uint8_t mChannel;
 		PWMMode mMode;
@@ -69,10 +115,6 @@ private:
 		uint32_t mNumCBs;
 		uint32_t mNumPages;
 
-		uint32_t periph_virt_base;
-		uint32_t periph_phys_base;
-		uint32_t mem_flag;
-
 		volatile uint32_t *pcm_reg;
 		volatile uint32_t *pwm_reg;
 		volatile uint32_t *clk_reg;
@@ -90,12 +132,6 @@ private:
 			uint32_t pad[2];
 		} dma_cb_t;
 
-		struct {
-			int handle;		/* From mbox_open() */
-			unsigned mem_ref;	/* From mem_alloc() */
-			unsigned bus_addr;	/* From mem_lock() */
-			uint8_t *virt_addr;	/* From mapmem() */
-		} mMbox;
 		typedef struct dma_ctl_s {
 			uint32_t* sample;
 			dma_cb_t* cb;
@@ -106,15 +142,9 @@ private:
 
 		void update_pwm();
 		void update_pwm_buffer();
-		int mbox_open();
 		void init_ctrl_data();
 		void init_dma_ctl( dma_ctl_t* ctl );
 		void init_hardware( uint32_t time_base );
-		uint32_t mem_virt_to_phys( void* virt );
-
-		void get_model( unsigned mbox_board_rev );
-		void* map_peripheral( uint32_t base, uint32_t len );
-
 	};
 
 	Channel* mChannel;
@@ -122,7 +152,7 @@ private:
 
 	static vector< Channel* > mChannels;
 	static bool mSigHandlerOk;
-
+	static bool sTruePWM;
 };
 
 #endif // PWM_H

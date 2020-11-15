@@ -26,15 +26,25 @@
 
 Thread::Thread( const string& name )
 	: ThreadBase( name )
+	, mSpawned( false )
 {
-	pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
-	pthread_setname_np( mThread, name.substr( 0, 15 ).c_str() );
 	mID = mThread;
 }
 
 
 Thread::~Thread()
 {
+}
+
+
+void Thread::Start()
+{
+	if ( not mSpawned ) {
+		pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+		pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
+		mSpawned = true;
+	}
+	mRunning = true;
 }
 
 
@@ -109,4 +119,16 @@ void Thread::ThreadEntry()
 	} while ( not mStopped and run() );
 	mIsRunning = false;
 	mFinished = true;
+}
+
+
+void Thread::msleep( uint32_t ms )
+{
+	::usleep( ms * 1000 );
+}
+
+
+void Thread::usleep( uint32_t us )
+{
+	::usleep( us );
 }

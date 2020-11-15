@@ -19,8 +19,9 @@
 #include <sys/fcntl.h>
 #include "I2C.h"
 
-I2C::I2C( int addr )
-	: mAddr( addr )
+I2C::I2C( int addr, bool slave )
+	: Bus()
+	, mAddr( addr )
 {
 }
 
@@ -36,60 +37,27 @@ const int I2C::address() const
 }
 
 
+int I2C::Read( void* buf, uint32_t len )
+{
+	return 0;
+}
+
+
+int I2C::Write( const void* buf, uint32_t len )
+{
+	return 0;
+}
+
+
 int I2C::Read( uint8_t reg, void* buf, uint32_t len )
 {
-	// Depending on your hardware/software implementation, you may be able to do
-	// only one I2C communication at a time, in this case a mutex should be
-	// used to avoid any undefined behaviors (see boards/rpi/I2C.cpp implementation)
-	return len;
+	return 0;
 }
 
 
-int I2C::Write( uint8_t reg, void* buf, uint32_t len )
+int I2C::Write( uint8_t reg, const void* _buf, uint32_t len )
 {
-	return len;
-}
-
-
-int I2C::Read8( uint8_t reg, uint8_t* value )
-{
-	return 1;
-}
-
-
-int I2C::Read16( uint8_t reg, uint16_t* value, bool big_endian )
-{
-	return 2;
-}
-
-
-int I2C::Read16( uint8_t reg, int16_t* value, bool big_endian )
-{
-	return 2;
-}
-
-
-int I2C::Read32( uint8_t reg, uint32_t* value )
-{
-	return 4;
-}
-
-
-int I2C::Write8( uint8_t reg, uint8_t value )
-{
-	return 1;
-}
-
-
-int I2C::Write16( uint8_t reg, uint16_t value )
-{
-	return 2;
-}
-
-
-int I2C::Write32( uint8_t reg, uint32_t value )
-{
-	return 4;
+	return 0;
 }
 
 

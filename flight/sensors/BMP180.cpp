@@ -40,8 +40,9 @@ int BMP180::flight_register( Main* main )
 }
 
 
-Sensor* BMP180::Instanciate( Config* config, const string& object )
+Sensor* BMP180::Instanciate( Config* config, const string& object, Bus* bus )
 {
+	// TODO : use bus
 	return new BMP180();
 }
 
