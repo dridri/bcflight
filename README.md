@@ -9,7 +9,7 @@ View this project on [CADLAB.io](https://cadlab.io/project/23184).
 [2021-01-02] The new Raspberry Compute Module 4 actually does not expose the 2 extra PWM. As a workaround, a cheap but powerful IC (STM32G474CE) will be used as PWM translator. This will allow an update frequency up to 8kHz with only 1 core used on the CPU.
 Once tested and validated, the circuit design will be available for free on this repo.
 
-[2021-01-18]
+[2021-01-18]<br/>
 <img src="https://raw.githubusercontent.com/dridri/bcflight/master/images/cm4-fc-front.png" width="49%" /> <img src="https://raw.githubusercontent.com/dridri/bcflight/master/images/cm4-fc-back.png" width="49%" />
 
 # BeyondChaos Flight
