@@ -109,6 +109,8 @@ map< ControllerBase::Cmd, string > ControllerBase::mCommandsNames = {
 	{ ControllerBase::VIDEO_NIGHT_MODE, "Set video night mode" },
 	{ ControllerBase::VIDEO_WHITE_BALANCE, "Switch video white balance" },
 	{ ControllerBase::VIDEO_LOCK_WHITE_BALANCE, "Lock video white balance" },
+	// User datas
+	{ ControllerBase::GET_USERNAME, "Get username" },
 };
 
 ControllerBase::ControllerBase( Link* link )

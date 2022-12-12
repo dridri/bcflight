@@ -50,7 +50,7 @@ Matrix::Matrix( const Matrix& other )
 Matrix::~Matrix()
 {
 	if ( m == nullptr ) {
-		gDebug() << "CRITICAL : corrupt matrix !!!\n";
+		gDebug() << "CRITICAL : corrupt matrix !!!";
 		exit(0);
 	}
 	free( m );
@@ -103,7 +103,7 @@ const int Matrix::height() const
 void Matrix::Clear()
 {
 	if ( m == nullptr ) {
-		gDebug() << "CRITICAL : corrupt matrix !!!\n";
+		gDebug() << "CRITICAL : corrupt matrix !!!";
 		exit(0);
 	}
 	memset( m, 0, sizeof(float) * mWidth * mHeight );
@@ -188,7 +188,7 @@ Matrix Matrix::Transpose()
 Matrix Matrix::Inverse()
 {
 	if ( mWidth != mHeight ) {
-		gDebug() << "Error : cannort inverse a non-square matrix !\n";
+		gDebug() << "Error : cannort inverse a non-square matrix !";
 		return *this;
 	}
 

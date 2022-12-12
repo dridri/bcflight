@@ -38,6 +38,18 @@ public:
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
+	int Write( const std::vector<uint8_t>& v ) {
+		return Write( v.data(), v.size() );
+	}
+	template<typename T> int Write( uint8_t reg, const std::vector<T>& v ) {
+		uint8_t b[256];
+		b[0] = reg;
+		memcpy( &b[1],v.data(), v.size() * sizeof(T) );
+		return Write( b, v.size() * sizeof(T) + 1 );
+	}
+
+	std::string toString();
+
 
 private:
 	string mDevice;

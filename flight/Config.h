@@ -22,15 +22,9 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <Lua.h>
 
 using namespace STD;
-
-extern "C" {
-// #include <luajit.h>
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-};
 
 class Config
 {
@@ -47,6 +41,10 @@ public:
 	int Integer( const string& name, int def = 0 );
 	float Number( const string& name, float def = 0.0f );
 	bool Boolean( const string& name, bool def = false );
+	void* Object( const string& name, void* def = nullptr );
+	template<typename T> T* Object( const string& name, void* def = nullptr ) {
+		return static_cast<T*>( Object( name, def ) );
+	}
 
 	vector<int> IntegerArray( const string& name );
 
@@ -66,8 +64,10 @@ protected:
 
 	string mFilename;
 	string mSettingsFilename;
-	lua_State* L;
+	// lua_State* L;
 	map< string, string > mSettings;
+
+	Lua* mLua;
 };
 
 #endif // CONFIG_H

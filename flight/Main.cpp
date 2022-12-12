@@ -44,6 +44,7 @@
 #include <Stabilizer.h>
 // #include <StabilizerProxy.h>
 #include <Frame.h>
+#include <Camera.h>
 #include <Microphone.h>
 #include <Recorder.h>
 #include <HUD.h>
@@ -76,10 +77,12 @@ int Main::flight_entry( int ac, char** av )
 
 
 Main::Main()
-	: mLPS( 0 )
+	: mReady( false )
+	, mLPS( 0 )
 	, mLPSCounter( 0 )
 	, mSlave( nullptr )
 	, mBlackBox( nullptr )
+	, mStabilizer( nullptr )
 	, mController( nullptr )
 	, mCamera( nullptr )
 	, mHUD( nullptr )
@@ -102,7 +105,7 @@ Main::Main()
 #endif
 
 	mBoard = new Board( this );
-	flight_register();
+	// flight_register();
 	Board::InformLoading();
 
 #ifdef BOARD_generic
@@ -113,6 +116,7 @@ Main::Main()
 // 	mConfig = new Config( "#0xADDRESS+length", "" ); // Access to config buffer at addess 0xADDRESS with length specified
 	mConfig = new Config( "", "" );
 #endif
+	mConfig->Reload();
 	Board::InformLoading();
 /*
 #ifdef FLIGHT_SLAVE
@@ -129,34 +133,15 @@ Main::Main()
 		}
 	}
 */
-	gDebug() << mConfig->DumpVariable( "username" );
-	gDebug() << mConfig->DumpVariable( "board" );
-	gDebug() << mConfig->DumpVariable( "frame" );
-	gDebug() << mConfig->DumpVariable( "battery" );
-	gDebug() << mConfig->DumpVariable( "controller" );
-	gDebug() << mConfig->DumpVariable( "camera" );
-	gDebug() << mConfig->DumpVariable( "hud" );
-	gDebug() << mConfig->DumpVariable( "accelerometers" );
-	gDebug() << mConfig->DumpVariable( "gyroscopes" );
-	gDebug() << mConfig->DumpVariable( "magnetometers" );
-	gDebug() << mConfig->DumpVariable( "user_sensors" );
 
 	if ( mConfig->String( "board.type", BOARD ) != string( BOARD ) ) {
-		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->String( "board.type" ) << "\" ) does not match board currently in use ( \"" << BOARD << "\" ) !\n";
+		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->String( "board.type" ) << "\" ) does not match board currently in use ( \"" << BOARD << "\" ) !";
 		return;
 	}
 
 	Board::InformLoading();
 	DetectDevices();
 	Board::InformLoading();
-
-#ifdef BUILD_frames
-	string frameName = mConfig->String( "frame.type" );
-	auto knownFrames = Frame::knownFrames();
-	if ( knownFrames.find( frameName ) == knownFrames.end() ) {
-		gDebug() << "ERROR : unknown frame \"" << frameName << "\" !\n";
-	}
-#endif
 
 	Board::InformLoading();
 	mConfig->Apply();
@@ -171,6 +156,7 @@ Main::Main()
 	mPowerThread->setPriority( 97 );
 	Board::InformLoading();
 #endif
+
 /*
 	string slavetype = mConfig->String( "stabilizer.proxy.type" );
 	Bus* slaveBus = nullptr;
@@ -183,13 +169,15 @@ Main::Main()
 	} else {
 */
 #ifdef BUILD_stabilizer
-		mIMU = new IMU( this );
+		mIMU = mConfig->Object<IMU>( "imu" );
+		mIMU->state();
 		Board::InformLoading();
 #endif
 // 	}
 
 #ifdef BUILD_frames
-	mFrame = Frame::Instanciate( frameName, mConfig );
+	mFrame = mConfig->Object<Frame>( "frame" );
+	mFrame->WarmUp();
 	Board::InformLoading();
 #endif
 /*
@@ -198,48 +186,39 @@ Main::Main()
 	} else {
 */
 #ifdef BUILD_stabilizer
-		mStabilizer = new Stabilizer( this, mFrame );
-		Board::InformLoading();
+	mStabilizer = mConfig->Object<Stabilizer>( "stabilizer" );
+	if ( mStabilizer->frame() == nullptr ) {
+		mStabilizer->setFrame( mFrame );
+	}
+	Board::InformLoading();
 #endif
 // 	}
 
 #ifdef CAMERA
-	mRecorder = new Recorder();
-	mRecorder->Start();
+	// mRecorder = new Recorder(); // TODO
+	// mRecorder->Start();
 #endif
 
-	mCameraType = mConfig->String( "camera.type" );
 #ifdef CAMERA
-	if ( mCameraType != "" ) {
-		mCamera = new CAMERA( mConfig, "camera" );
+	mCamera = mConfig->Object<Camera>( "camera" );
+	if ( mCamera ) {
 		Board::InformLoading();
-	} else {
-		mCamera = nullptr;
+		mCamera->Start();
+		Board::InformLoading();
 	}
-#else
-	mCamera = nullptr;
 #endif
 
 
 #ifdef BUILD_audio
-	if ( mConfig->String( "microphone.type" ) != "" ) {
-		mMicrophone = Microphone::Create( mConfig, "microphone" );
-	}
+	mMicrophone = mConfig->Object<Microphone>( "microphone" );
 	Board::InformLoading();
 #endif
 
-	if ( mConfig->Boolean( "hud.enabled", false ) ) {
-		mHUD = new HUD();
-	}
+	mHUD = mConfig->Object<HUD>( "hud" );
 	Board::InformLoading();
 
 #ifdef BUILD_controller
-#ifdef BUILD_links
-	Link* controllerLink = Link::Create( mConfig, "controller.link" );
-#else
-	Link* controllerLink = nullptr;
-#endif
-	mController = new Controller( this, controllerLink );
+	mController = mConfig->Object<Controller>( "controller" );
 	mController->setPriority( 98 );
 	Board::InformLoading();
 #endif
@@ -259,11 +238,23 @@ Main::Main()
 
 #ifdef SYSTEM_NAME_Linux
 	// Must be the very last atexit() call
-	atexit( &Thread::StopAll );
+// 	atexit( &Thread::StopAll );
+	atexit( []() {
+		fDebug();
+		Thread::StopAll();
+	});
 #endif
 
+	mReady = true;
 	Thread::setMainPriority( 1 );
 }
+
+
+const bool Main::ready() const
+{
+	return mReady;
+}
+
 
 
 bool Main::StabilizerThreadRun()
@@ -273,7 +264,7 @@ bool Main::StabilizerThreadRun()
 	mTicks = mBoard->GetTicks();
 
 	if ( abs( dt ) >= 1.0 ) {
-		gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
+		gDebug() << "Critical : dt too high !! ( " << dt << " )";
 // 		mFrame->Disarm();
 		return true;
 	}
@@ -343,7 +334,7 @@ string Main::getRecordingsList() const
 	if ( ret.length() == 0 or ret == "" ) {
 		ret = ";";
 	}
-	gDebug() << "Recordings : " << ret << "\n";
+	gDebug() << "Recordings : " << ret;
 	return ret;
 }
 
@@ -451,7 +442,7 @@ void Main::DetectDevices()
 
 	{
 		list< Sensor::Device > knownDevices = Sensor::KnownDevices();
-		gDebug() << "Supported sensors :\n";
+		gDebug() << "Supported sensors :";
 		for ( Sensor::Device dev : knownDevices ) {
 			if ( string(dev.name) != "" ) {
 				Debug() << "    " << dev.name;
@@ -496,52 +487,52 @@ void Main::DetectDevices()
 		}
 	}
 
-	gDebug() << countGyro << " gyroscope(s) found\n";
+	gDebug() << countGyro << " gyroscope(s) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Gyroscope* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 
-	gDebug() << countAccel << " accelerometer(s) found\n";
+	gDebug() << countAccel << " accelerometer(s) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Accelerometer* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 
-	gDebug() << countMagn << " magnetometer(s) found\n";
+	gDebug() << countMagn << " magnetometer(s) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Magnetometer* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 
-	gDebug() << countAlti << " altimeter(s) found\n";
+	gDebug() << countAlti << " altimeter(s) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Altimeter* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 
-	gDebug() << countGps << " GPS(es) found\n";
+	gDebug() << countGps << " GPS(es) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< GPS* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 
-	gDebug() << countVolt << " voltmeter(s) found\n";
+	gDebug() << countVolt << " voltmeter(s) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< Voltmeter* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 
-	gDebug() << countCurrent << " current sensor(s) found\n";
+	gDebug() << countCurrent << " current sensor(s) found";
 	for ( Sensor* s : Sensor::Devices() ) {
 		if ( dynamic_cast< CurrentSensor* >( s ) != nullptr ) {
-			gDebug() << "    " << s->names().front() << "\n";
+			gDebug() << "    " << s->names().front();
 		}
 	}
 #endif // BUILD_sensors

@@ -41,6 +41,12 @@ SPI::~SPI()
 }
 
 
+std::string SPI::toString()
+{
+	return mDevice;
+}
+
+
 const string& SPI::device() const
 {
 	return mDevice;

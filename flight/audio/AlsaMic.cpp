@@ -158,7 +158,7 @@ bool AlsaMic::LiveThreadRun()
 	if ( mLink and not mLink->isConnected() ) {
 		mLink->Connect();
 		if ( mLink->isConnected() ) {
-			gDebug() << "Microphone connected !\n";
+			gDebug() << "Microphone connected !";
 			mLink->setBlocking( false );
 		}
 		return true;
@@ -176,7 +176,7 @@ bool AlsaMic::LiveThreadRun()
 		}
 	} else {
 		printf( "snd_pcm_readi error %ld\n", size / 2 );
-		gDebug() << "snd_pcm_readi error : " << ( size / 2 ) << "\n";
+		gDebug() << "snd_pcm_readi error : " << ( size / 2 );
 		if ( size / 2 == -EPIPE ) {
 			snd_pcm_recover( mPCM, (int)size / 2, 0 );
 		} else {

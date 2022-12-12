@@ -39,7 +39,7 @@ Link* MultiLink::Instanciate( Config* config, const string& lua_object )
 	int read_timeout = config->Integer( lua_object + ".read_timeout" );
 
 	if ( senders_count < 1 and receivers_count < 0 ) {
-		gDebug() << "WARNING : There should be at least 1 sender or receiver, cannot create Link !\n";
+		gDebug() << "WARNING : There should be at least 1 sender or receiver, cannot create Link !";
 		return nullptr;
 	}
 
@@ -200,7 +200,7 @@ SyncReturn MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 		if ( ret > 0 ) {
 			return ret;
 		} else if ( ret == TIMEOUT ) {
-// 			gDebug() << front->Frequency() << " front timed out\n";
+// 			gDebug() << front->Frequency() << " front timed out";
 		}
 
 		// Else, try with the others until one is responding
@@ -214,9 +214,9 @@ SyncReturn MultiLink::Read( void* buf, uint32_t len, int32_t timeout )
 					*it = tmp;
 					return ret;
 				} else if ( ret == TIMEOUT ) {
-// 					gDebug() << (*it)->Frequency() << " timed out\n";
+// 					gDebug() << (*it)->Frequency() << " timed out";
 				} else {
-// 					gDebug() << (*it)->Frequency() << " error " << ret << "\n";
+// 					gDebug() << (*it)->Frequency() << " error " << ret;
 				}
 			}
 		}

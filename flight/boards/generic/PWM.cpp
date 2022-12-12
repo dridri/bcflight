@@ -1,4 +1,5 @@
 #include "PWM.h"
+#include <stdio.h>
 
 PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop )
 {

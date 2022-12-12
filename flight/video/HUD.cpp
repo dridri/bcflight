@@ -9,7 +9,8 @@
 #include <Link.h>
 #include <Config.h>
 
-HUD::HUD( const string& type )
+
+HUD::HUD()
 	: Thread( "HUD" )
 	, mGLContext( nullptr )
 	, mRendererHUD( nullptr )
@@ -17,10 +18,53 @@ HUD::HUD( const string& type )
 	, mWaitTicks( 0 )
 	, mShowFrequency( false )
 	, mAccelerationAccum( 0.0f )
+	, mFrameTop( 10 )
+	, mFrameBottom( 10 )
+	, mFrameLeft( 20 )
+	, mFrameRight( 20 )
+	, mRatio( 1.0f )
+	, mFontSize( 60 )
+	, mCorrection( false )
+	, mStereo( false )
+	, mStereoStrength( 0.004f )
 {
-	mShowFrequency = Main::instance()->config()->Boolean( "hud.show_frequency", false );
-	mHUDFramerate = Main::instance()->config()->Integer( "hud.framerate", 60 );
+	mShowFrequency = false;
+	mHUDFramerate = 30;
 	setFrequency( mHUDFramerate );
+
+	mGLContext = GLContext::instance();
+	mWidth = mGLContext->displayWidth();
+	mHeight = mGLContext->displayHeight();
+	// if ( camera ) {
+// 		mWidth = min( mWidth, camera->width() );
+// 		mHeight = min( mHeight, camera->height() );
+	// }
+
+	mGLContext->runOnGLThread( [this]() {
+		Config* config = Main::instance()->config();
+		Vector4i render_region = Vector4i( mFrameTop, mFrameBottom, mFrameLeft, mFrameRight );
+		mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), mRatio, mFontSize, render_region, mCorrection );
+		mRendererHUD->setStereo( mStereo );
+		mRendererHUD->set3DStrength( mStereoStrength );
+		mRendererHUD->setStereo( false );
+		mRendererHUD->set3DStrength( 0.0f );
+	}, true );
+
+	mGLContext->addLayer( [this]() {
+		mRendererHUD->PreRender();
+		mRendererHUD->Render( &mDroneStats, 0.0f, &mVideoStats, &mLinkStats );
+
+		if ( false ) {
+			uint32_t time = Board::GetTicks() / 1000;
+			uint32_t minuts = time / ( 1000 * 60 );
+			uint32_t seconds = ( time / 1000 ) % 60;
+			uint32_t ms = time % 1000;
+			char txt[256];
+			sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
+			mRendererHUD->RenderText( 1280 * 0.5, 100, txt, 0xFFFFFFFF, 4.0f, true );
+		}
+	});
+
 	Start();
 }
 
@@ -32,32 +76,17 @@ HUD::~HUD()
 
 bool HUD::run()
 {
+	if ( frequency() != mHUDFramerate ) {
+		setFrequency( mHUDFramerate );
+	}
+
 	Controller* controller = Main::instance()->controller();
 	Stabilizer* stabilizer = Main::instance()->stabilizer();
 	IMU* imu = Main::instance()->imu();
 	PowerThread* powerThread = Main::instance()->powerThread();
 	Camera* camera = Main::instance()->camera();
 
-	if ( mGLContext == nullptr ) {
-		mGLContext = new GLContext();
-		mGLContext->Initialize( 1280, 720 );
-		mWidth = mGLContext->displayWidth();
-		mHeight = mGLContext->displayHeight();
-		mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
-		if ( camera ) {
-// 			mWidth = min( mWidth, camera->width() );
-// 			mHeight = min( mHeight, camera->height() );
-		}
-	}
-	if ( mRendererHUD == nullptr ) {
-		Config* config = Main::instance()->config();
-		Vector4i render_region = Vector4i( config->Integer( "hud.top", 10 ), config->Integer( "hud.bottom", 10 ), config->Integer( "hud.left", 20 ), config->Integer( "hud.right", 20 ) );
-		mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), config->Number( "hud.ratio", 1.0f ), config->Integer( "hud.font_size", 60 ), render_region, config->Boolean( "hud.correction", false ) );
-		mRendererHUD->setStereo( config->Boolean( "hud.stereo", false ) );
-		mRendererHUD->set3DStrength( config->Number( "hud.stereo_strength", 0.004f ) );
-		mRendererHUD->setStereo( false );
-		mRendererHUD->set3DStrength( 0.0f );
-	}
+	mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
 
 	if ( camera and camera->nightMode() != mNightMode ) {
 		mNightMode = camera->nightMode();
@@ -110,20 +139,10 @@ bool HUD::run()
 		video_stats.photo_id = camera->getLastPictureID();
 	}
 
-	mRendererHUD->PreRender();
-	mRendererHUD->Render( &dronestats, 0.0f, &video_stats, &linkStats );
+	mDroneStats = dronestats;
+	mLinkStats = linkStats;
+	mVideoStats = video_stats;
 
-	if ( false ) {
-		uint32_t time = Board::GetTicks() / 1000;
-		uint32_t minuts = time / ( 1000 * 60 );
-		uint32_t seconds = ( time / 1000 ) % 60;
-		uint32_t ms = time % 1000;
-		char txt[256];
-		sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
-		mRendererHUD->RenderText( 1280 * 0.5, 100, txt, 0xFFFFFFFF, 4.0f, true );
-	}
-
- 	mGLContext->SwapBuffers();
 	return true;
 }
 

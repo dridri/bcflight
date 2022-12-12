@@ -26,6 +26,8 @@
 #include "CurrentSensor.h"
 #include <Matrix.h>
 #include "I2C.h"
+#include "SPI.h"
+#include <Config.h>
 
 list< Sensor::Device > Sensor::mKnownDevices;
 list< Sensor* > Sensor::mDevices;
@@ -38,11 +40,14 @@ list< Voltmeter* > Sensor::mVoltmeters;
 list< CurrentSensor* > Sensor::mCurrentSensors;
 
 Sensor::Sensor()
-	: mCalibrated( false )
+	: mNames( std::list<string>() )
+	, mCalibrated( false )
 	, mSwapMode( SwapModeNone )
 	, mAxisSwap{ 0, 0, 0, 0 }
 	, mAxisMatrix( Matrix( 4, 4 ) )
 {
+	mDevices.push_back( this );
+	UpdateDevices();
 }
 
 
@@ -148,6 +153,7 @@ void Sensor::RegisterDevice( int I2Caddr, const string& name, Config* config, co
 			if ( dev ) {
 				mDevices.push_back( dev );
 				UpdateDevices();
+				break;
 			}
 		}
 	}
@@ -156,12 +162,21 @@ void Sensor::RegisterDevice( int I2Caddr, const string& name, Config* config, co
 
 void Sensor::RegisterDevice( const string& name, Config* config, const string& object )
 {
+	fDebug( name, config, object );
 	for ( Device d : mKnownDevices ) {
-		if ( d.iI2CAddr == 0 and !strcmp( d.name, name.c_str() ) ) {
-			Sensor* dev = d.fInstanciate( config, object, nullptr /* TODO : instanciate Bus by using config[object] settings */ );
-			if ( dev ) {
-				mDevices.push_back( dev );
-				UpdateDevices();
+		if ( /*d.iI2CAddr == 0 and */!strcmp( d.name, name.c_str() ) ) {
+			const string dev = config->String( object + ".device" );
+			Bus* bus = nullptr;
+			if ( dev.find("spi") != string::npos or dev.find("SPI") != string::npos or dev.find("Spi") != string::npos ) {
+				bus = new SPI( dev, config->Integer( object + ".speed", 500000 ) );
+			}
+			if ( bus ) {
+				Sensor* dev = d.fInstanciate( config, object, bus );
+				if ( dev ) {
+					mDevices.push_back( dev );
+					UpdateDevices();
+					break;
+				}
 			}
 		}
 	}

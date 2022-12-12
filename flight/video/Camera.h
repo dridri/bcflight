@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <string>
 
+using namespace std;
+
 class Camera
 {
 public:
@@ -34,6 +36,7 @@ public:
 		int8_t strength;
 	} LensShaderColor;
 
+	virtual void Start() = 0;
 	virtual void Pause() = 0;
 	virtual void Resume() = 0;
 	virtual void StartRecording() = 0;

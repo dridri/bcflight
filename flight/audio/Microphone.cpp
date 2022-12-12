@@ -40,7 +40,7 @@ Microphone* Microphone::Create( Config* config, const string& lua_object )
 		return mKnownMicrophones[ type ]( config, lua_object );
 	}
 
-	gDebug() << "FATAL ERROR : Microphone type \"" << type << "\" not supported !\n";
+	gDebug() << "FATAL ERROR : Microphone type \"" << type << "\" not supported !";
 	return nullptr;
 }
 

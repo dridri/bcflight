@@ -95,6 +95,8 @@ protected:
 	int mAxisSwap[4];
 	Matrix mAxisMatrix;
 
+	LUA_PROPERTY("bus") Bus* mBus;
+
 	void ApplySwap( Vector3f& v );
 	void ApplySwap( Vector4f& v );
 

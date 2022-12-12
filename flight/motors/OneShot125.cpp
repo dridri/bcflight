@@ -1,14 +1,19 @@
 #include <cmath>
 #include "OneShot125.h"
 #include "Config.h"
+#include "Debug.h"
 
 #ifdef BUILD_OneShot125
 
-#ifdef BOARD_rpi
-	#define TIME_BASE 34500000
-	#define SCALE ( TIME_BASE / 1000000 )
-	#define STEPS 10000
-	#define STEP_US 50
+#if (defined(BOARD_rpi) || defined(BOARD_generic))
+// 	#define TIME_BASE 34500000
+// 	#define SCALE ( TIME_BASE / 1000000 )
+// 	#define STEPS 10000
+// 	#define STEP_US 50
+	#define TIME_BASE 62500000
+	#define STEPS 9000
+	#define SCALE ( STEPS / 250 )
+	#define STEP_US 25
 #elif defined( BOARD_teensy4 )
 	#define TIME_BASE 1000000000
 	#define SCALE 1000
@@ -29,26 +34,32 @@ Motor* OneShot125::Instanciate( Config* config, const string& object )
 	int fl_pin = config->Integer( object + ".pin" );
 	int fl_min = config->Integer( object + ".minimum_us", 125 );
 	int fl_max = config->Integer( object + ".maximum_us", 250-8 );
-	return new OneShot125( fl_pin, fl_min, fl_max );
+	PWM* pwm = static_cast<PWM*>( config->Object( object + ".pwm" ) );
+	return new OneShot125( fl_pin, fl_min, fl_max, pwm );
 }
 
 
-OneShot125::OneShot125( uint32_t pin, int us_min, int us_max )
+OneShot125::OneShot125( uint32_t pin, int us_min, int us_max, PWM* pwm )
 	: Motor()
+	, mPWM( pwm )
 	, mPin( pin )
 	, mMinUS( us_min )
 	, mMaxUS( us_max )
 	, mScale( SCALE )
 {
-#ifdef BOARD_rpi
-	if ( PWM::HasTruePWM() ) {
-		mPWM = new PWM( pin, 10 * 1000 * 1000, 2500, 1 );
-		mScale = 10;
-	} 
-	else
-#endif
-	{
-		mPWM = new PWM( pin, TIME_BASE, STEPS, STEP_US );
+	fDebug( pin, us_min, us_max, pwm );
+	gDebug() << this;
+	if ( !mPWM ) {
+	#ifdef BOARD_rpi
+		if ( PWM::HasTruePWM() ) {
+			mPWM = new PWM( pin, 10 * 1000 * 1000, 2500, 1 );
+			mScale = 10;
+		} 
+		else
+	#endif
+		{
+			mPWM = new PWM( pin, TIME_BASE, STEPS, STEP_US );
+		}
 	}
 }
 

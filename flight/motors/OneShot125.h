@@ -6,10 +6,10 @@
 
 class Main;
 
-class OneShot125 : public Motor
+LUA_CLASS class OneShot125 : public Motor
 {
 public:
-	OneShot125( uint32_t pin, int us_min = 125, int us_max = 250-8 );
+	LUA_EXPORT OneShot125( uint32_t pin, int us_min = 125, int us_max = 250-8, PWM* pwm = nullptr );
 	~OneShot125();
 
 	virtual void Disarm();

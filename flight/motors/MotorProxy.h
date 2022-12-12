@@ -12,8 +12,8 @@ public:
 	MotorProxy( Bus* bus );
 	~MotorProxy();
 
-	virtual void Disable();
 	virtual void Disarm();
+	virtual void Disable();
 
 	static Motor* Instanciate( Config* config, const string& object );
 	static int flight_register( Main* main );

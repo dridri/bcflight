@@ -20,17 +20,19 @@
 #define SPI_H
 
 #include <stdint.h>
+#include <cstring>
 #include <list>
 #include <mutex>
 #include <string>
 #include <linux/spi/spidev.h>
 #include "../common/Bus.h"
 
-class SPI : public Bus
+LUA_CLASS class SPI : public Bus
 {
 public:
-	SPI( const string& device, uint32_t speed_hz = 500000 ); // setting speed to 0 means slave-mode
+	LUA_EXPORT SPI( const string& device, uint32_t speed_hz = 500000 ); // setting speed to 0 means slave-mode
 	~SPI();
+	int Connect();
 	const string& device() const;
 
 	int Transfer( void* tx, void* rx, uint32_t len );
@@ -39,9 +41,21 @@ public:
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
+	int Write( const std::vector<uint8_t>& v ) {
+		return Write( v.data(), v.size() );
+	}
+	template<typename T> int Write( uint8_t reg, const std::vector<T>& v ) {
+		uint8_t b[256];
+		b[0] = reg;
+		memcpy( &b[1],v.data(), v.size() * sizeof(T) );
+		return Write( b, v.size() * sizeof(T) + 1 );
+	}
+
+	std::string toString();
 
 private:
-	string mDevice;
+	LUA_PROPERTY("device") string mDevice;
+	uint32_t mSpeedHz;
 	int mFD;
 	int mBitsPerWord;
 	struct spi_ioc_transfer mXFer[10];

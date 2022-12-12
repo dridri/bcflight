@@ -1,29 +1,14 @@
 #include "DShot.h"
-#include "Config.h"
+#include "DShotDriver.h"
 
 #ifdef BUILD_DShot
 
-
-int DShot::flight_register( Main* main )
-{
-	RegisterMotor( "DShot", DShot::Instanciate );
-	return 0;
-}
-
-
-Motor* DShot::Instanciate( Config* config, const string& object )
-{
-	int fl_pin = config->Integer( object + ".pin" );
-	int fl_min = config->Integer( object + ".minimum_us", 1020 );
-	int fl_max = config->Integer( object + ".maximum_us", 1860 );
-	return new DShot( fl_pin );
-}
-
-
 DShot::DShot( uint32_t pin )
 	: Motor()
-	, mPWM( /*TODO*/ )
+	, mDriver( DShotDriver::instance() )
+	, mPin( pin )
 {
+	mDriver->disablePinValue( mPin );
 }
 
 
@@ -41,21 +26,25 @@ void DShot::setSpeedRaw( float speed, bool force_hw_update )
 		speed = 1.0f;
 	}
 
+	mDriver->setPinValue( mPin, 48 + ( 2047 - 48 ) * speed );
+
 	if ( force_hw_update ) {
-		mPWM->Update();
+		mDriver->Update();
 	}
 }
 
 
 void DShot::Disable()
 {
-	mPWM->Update();
+	mDriver->disablePinValue( mPin );
+	mDriver->Update();
 }
 
 
 void DShot::Disarm()
 {
-	mPWM->Update();
+	mDriver->setPinValue( mPin, 0 );
+	mDriver->Update();
 }
 
 

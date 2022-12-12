@@ -27,7 +27,7 @@ class Main;
 class SBUS : public Link
 {
 public:
-	SBUS( const string& device, int speed = 9600 );
+	SBUS( const string& device, int speed = 100000, uint8_t armChannel = 4, uint8_t thrustChannel = 0, uint8_t rollChannel = 1, uint8_t pitchChannel = 2, uint8_t yawChannel = 3 );
 	virtual ~SBUS();
 
 	int Connect();
@@ -47,9 +47,15 @@ protected:
 	static Link* Instanciate( Config* config, const string& lua_object );
 
 	Serial* mSerial;
-	vector<uint8_t> mBuffer;
+// 	vector<uint8_t> mBuffer;
 	int32_t mChannels[32];
 	bool mFailsafe;
+	uint8_t mArmChannel;
+	uint8_t mThrustChannel;
+	uint8_t mRollChannel;
+	uint8_t mPitchChannel;
+	uint8_t mYawChannel;
+	bool mCalibrating;
 };
 
 #endif // SBUS_H

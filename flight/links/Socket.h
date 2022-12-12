@@ -23,19 +23,21 @@
 
 #include <netinet/in.h>
 #include "Link.h"
+#include "Config.h"
 
 class Main;
 
-class Socket : public Link
+LUA_CLASS class Socket : public Link
 {
 public:
-	typedef enum {
+	LUA_EXPORT typedef enum {
 		TCP,
 		UDP,
 		UDPLite
 	} PortType;
 
-	Socket( uint16_t port, PortType type = TCP, bool broadcast = false, uint32_t timeout = 0 );
+	Socket();
+	Socket( uint16_t port, Socket::PortType type = TCP, bool broadcast = false, uint32_t timeout = 0 );
 	virtual ~Socket();
 
 	int Connect();
@@ -54,10 +56,10 @@ public:
 protected:
 	static Link* Instanciate( Config* config, const string& lua_object );
 
-	uint16_t mPort;
-	PortType mPortType;
-	bool mBroadcast;
-	uint32_t mTimeout;
+	LUA_PROPERTY("port") uint16_t mPort;
+	LUA_PROPERTY("type") Socket::PortType mPortType;
+	LUA_PROPERTY("broadcast") bool mBroadcast;
+	LUA_PROPERTY("read_timeout") uint32_t mTimeout;
 	int mSocket;
 	struct sockaddr_in mSin;
 	int mClientSocket;

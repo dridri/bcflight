@@ -37,10 +37,10 @@ inline uint16_t ntohs( uint16_t x ) {
 	return ( ( x & 0xff ) << 8 ) | ( x >> 8 );
 }
 
-Controller::Controller( Main* main, Link* link )
-	: ControllerBase( link )
+Controller::Controller()
+	: ControllerBase()
 	, Thread( "controller" )
-	, mMain( main )
+	, mMain( Main::instance() )
 	, mTimedOut( false )
 // 	, mArmed( false )
 	, mPing( 0 )
@@ -51,52 +51,28 @@ Controller::Controller( Main* main, Link* link )
 	, mTelemetryTick( 0 )
 	, mTelemetryCounter( 0 )
 	, mEmergencyTick( 0 )
-	, mTelemetryFull( main->config()->Boolean( "controller.full_telemetry", false ) )
+	, mTelemetryFull( false )
 {
-	mTelemetryFrequency = main->config()->Integer( "controller.telemetry_rate", 20 );
+	mTelemetryFrequency = 30;
 
 	mExpo = Vector4f();
-	mExpo.x = main->config()->Number( "controller.expo.roll" );
-	mExpo.y = main->config()->Number( "controller.expo.pitch" );
-	mExpo.z = main->config()->Number( "controller.expo.yaw" );
-	mExpo.w = main->config()->Number( "controller.expo.thrust" );
-	if ( mExpo.x < 0.01f ) {
-		mExpo.x = 0.01f;
-	}
-	if ( mExpo.y < 0.01f ) {
-		mExpo.y = 0.01f;
-	}
-	if ( mExpo.z < 0.01f ) {
-		mExpo.z = 0.01f;
-	}
-	if ( mExpo.w < 1.01f ) {
-		mExpo.w = 1.01f;
-	}
-	if ( mExpo.x <= 0.0f ) {
-		mExpo.x = 3.0f;
-	}
-	if ( mExpo.y <= 0.0f ) {
-		mExpo.y = 3.0f;
-	}
-	if ( mExpo.z <= 0.0f ) {
-		mExpo.z = 3.0f;
-	}
-	if ( mExpo.w <= 0.0f ) {
-		mExpo.w = 2.0f;
-	}
+	mExpo.x = 4;
+	mExpo.y = 4;
+	mExpo.z = 3;
+	mExpo.w = 2;
 
-	gDebug() << "Starting RX thread\n";
+	gDebug() << "Starting RX thread";
 	Start();
 	if ( mTelemetryFrequency > 0 ) {
-		gDebug() << "Starting telemetry thread\n";
+		gDebug() << "Starting telemetry thread";
 		mTelemetryThread->setFrequency( mTelemetryFrequency );
 		mTelemetryThread->Start();
 	}
-// 	gDebug() << "Waiting link to be ready\n";
+// 	gDebug() << "Waiting link to be ready";
 // 	while ( !mLink->isConnected() ) {
 // 		usleep( 1000 * 100 );
 // 	}
-	gDebug() << "Controller ready !\n";
+	gDebug() << "Controller ready !";
 }
 
 
@@ -144,7 +120,7 @@ const Vector3f& Controller::RPY() const
 
 void Controller::Emergency()
 {
-	gDebug() << "EMERGENCY MODE !\n";
+	gDebug() << "EMERGENCY MODE !";
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->frame()->Disarm();
 // 	mThrust = 0.0f;
@@ -243,7 +219,7 @@ void Controller::setThrust( float value, bool raw )
 
 
 void Controller::Arm() {
-	gDebug() << "Arming\n";
+	gDebug() << "Arming";
 	mMain->imu()->ResetYaw();
 	mMain->stabilizer()->Reset( mMain->imu()->RPY().z );
 	mMain->frame()->Arm();
@@ -256,7 +232,7 @@ void Controller::Arm() {
 
 
 void Controller::Disarm() {
-	gDebug() << "Disarming\n";
+	gDebug() << "Disarming";
 	mMain->stabilizer()->Disarm();
 // 	mArmed = false;
 // 	mThrust = 0.0f;
@@ -271,8 +247,13 @@ bool Controller::run()
 {
 	char stmp[64];
 
+	if ( !mMain->ready() ) {
+		usleep( 1000 * 250 );
+		return true;
+	}
+
 	if ( !mLink ) {
-		gDebug() << "Controller no link\n";
+		gDebug() << "Controller no link";
 		usleep( 1000 * 250 );
 		return true;
 	}
@@ -281,13 +262,15 @@ bool Controller::run()
 		mConnected = false;
 // 		mRPY.x = 0.0f;
 // 		mRPY.y = 0.0f;
+		mMain->stabilizer()->Disarm();
 		mMain->stabilizer()->setRoll( 0.0f );
 		mMain->stabilizer()->setPitch( 0.0f );
 
-		gDebug() << "Link not up, connecting...\n";
-		mLink->Connect();
+		gDebug() << "Link not up, connecting...";
+		int ret = mLink->Connect();
+		gDebug() << "mLink->Connect() returned " << ret;
 		if ( mLink->isConnected() ) {
-			gDebug() << "Controller link initialized !\n";
+			gDebug() << "Controller link initialized !";
 			mEmergencyTick = 0;
 		} else {
 			usleep( 1000 * 250 );
@@ -304,7 +287,7 @@ bool Controller::run()
 		mTimedOut = true;
 // 		if ( mArmed ) {
 		if ( mMain->stabilizer()->armed() ) {
-			gDebug() << "Controller connection lost !\n";
+			gDebug() << "Controller connection lost !";
 // 			mThrust = 0.0f;
 			mMain->stabilizer()->Disarm();
 			mMain->stabilizer()->Reset( 0.0f );
@@ -312,7 +295,7 @@ bool Controller::run()
 // 			mRPY = Vector3f();
 // 			mSmoothRPY = Vector3f();
 // 			mArmed = false;
-			gDebug() << "STONE MODE !\n";
+			gDebug() << "STONE MODE !";
 			return true;
 		}
 	} else if ( readret == CONTINUE ) {
@@ -349,7 +332,7 @@ bool Controller::run()
 			uint8_t part1 = 0;
 			if ( command.ReadU8( &part1 ) == sizeof(uint8_t) ) {
 				if ( part1 == PING ) {
-					gDebug() << "Controller connected !\n";
+					gDebug() << "Controller connected !";
 					mConnected = true;
 					mConnectionEstablished = true;
 				}
@@ -363,7 +346,7 @@ bool Controller::run()
 	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-// 			gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)] << "\n";
+// 			gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 		bool do_response = false;
 		Packet response;
@@ -386,13 +369,13 @@ bool Controller::run()
 
 		if ( not mConnected ) {
 			if ( cmd == PING ) {
-				gDebug() << "Controller connected !\n";
+				gDebug() << "Controller connected !";
 				mConnected = true;
 				mConnectionEstablished = true;
 				mMain->blackbox()->Enqueue( "Controller:connected", "true" );
 				mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 			} else {
-				gDebug() << "Ignoring command " << hex << (int)cmd << dec << "(size : " << readret << ")" << "\n";
+				gDebug() << "Ignoring command " << hex << (int)cmd << dec << "(size : " << readret << ")";
 				continue;
 			}
 		}
@@ -494,7 +477,7 @@ bool Controller::run()
 				uint32_t crc = command.ReadU32();
 				string conf = command.ReadString();
 				if ( crc32( (uint8_t*)conf.c_str(), conf.length() ) == crc ) {
-					gDebug() << "Received new configuration : " << conf << "\n";
+					gDebug() << "Received new configuration : " << conf;
 					response.WriteU32( 0 );
 #ifdef SYSTEM_NAME_Linux
 					mSendMutex.lock();
@@ -506,22 +489,22 @@ bool Controller::run()
 					mMain->config()->WriteFile( conf );
 					mMain->board()->Reset();
 				} else {
-					gDebug() << "Received broken configuration\n";
+					gDebug() << "Received broken configuration";
 					response.WriteU32( 1 );
 					do_response = true;
 				}
 				break;
 			}
 			case UPDATE_UPLOAD_INIT : {
-				gDebug() << "UPDATE_UPLOAD_INIT\n";
+				gDebug() << "UPDATE_UPLOAD_INIT";
 				if ( mTelemetryThread->running() ) {
 					mTelemetryThread->Pause();
-					gDebug() << "Telemetry thread paused\n";
+					gDebug() << "Telemetry thread paused";
 				}
 				break;
 			}
 			case UPDATE_UPLOAD_DATA : {
-				gDebug() << "UPDATE_UPLOAD_DATA\n";
+				gDebug() << "UPDATE_UPLOAD_DATA";
 				uint32_t crc = command.ReadU32();
 				uint32_t offset = command.ReadU32();
 				uint32_t offset2 = command.ReadU32();
@@ -543,36 +526,36 @@ bool Controller::run()
 #endif
 							Board::UpdateFirmwareData( buf, offset, size );
 						} else {
-							gDebug() << "Firmware upload CRC32 is invalid (corrupted WiFi frame ?)\n";
+							gDebug() << "Firmware upload CRC32 is invalid (corrupted WiFi frame ?)";
 							response.WriteU32( 2 );
 							do_response = true;
 						}
 					} else {
-						gDebug() << "Firmware upload size is incoherent (corrupted WiFi frame ?)\n";
+						gDebug() << "Firmware upload size is incoherent (corrupted WiFi frame ?)";
 						response.WriteU32( 3 );
 						do_response = true;
 					}
 				} else {
-					gDebug() << "Firmware upload offset is incoherent (corrupted WiFi frame ?)\n";
+					gDebug() << "Firmware upload offset is incoherent (corrupted WiFi frame ?)";
 					response.WriteU32( 4 );
 					do_response = true;
 				}
 				break;
 			}
 			case UPDATE_UPLOAD_PROCESS : {
-				gDebug() << "UPDATE_UPLOAD_PROCESS\n";
+				gDebug() << "UPDATE_UPLOAD_PROCESS";
 				uint32_t crc = command.ReadU32();
-				gDebug() << "Processing firmware update...\n";
+				gDebug() << "Processing firmware update...";
 				Board::UpdateFirmwareProcess( crc );
 				break;
 			}
 			case ENABLE_TUN_DEVICE : {
-				gDebug() << "Enabling tun device...\n";
+				gDebug() << "Enabling tun device...";
 				Board::EnableTunDevice();
 				break;
 			}
 			case DISABLE_TUN_DEVICE : {
-				gDebug() << "Disabling tun device...\n";
+				gDebug() << "Disabling tun device...";
 				Board::DisableTunDevice();
 				break;
 			}
@@ -716,7 +699,7 @@ bool Controller::run()
 			case SET_MODE : {
 				uint32_t mode = 0;
 				if( command.ReadU32( &mode ) == sizeof(uint32_t) ) {
-					gDebug() << "SET_MODE : " << mode << "\n";
+					gDebug() << "SET_MODE : " << mode;
 					mMain->stabilizer()->setMode( mode );
 // 					mRPY.x = 0.0f;
 // 					mRPY.y = 0.0f;
@@ -939,7 +922,7 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->Pause();
-					gDebug() << "Video paused\n";
+					gDebug() << "Video paused";
 				}
 				response.WriteU32( 1 );
 				do_response = true;
@@ -949,7 +932,7 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->Resume();
-					gDebug() << "Video resumed\n";
+					gDebug() << "Video resumed";
 				}
 				response.WriteU32( 0 );
 				do_response = true;
@@ -959,7 +942,7 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->StartRecording();
-					gDebug() << "Video recording started\n";
+					gDebug() << "Video recording started";
 				}
 				response.WriteU32( 1 );
 				do_response = true;
@@ -969,7 +952,7 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->StopRecording();
-					gDebug() << "Video recording stopped\n";
+					gDebug() << "Video recording stopped";
 				}
 				response.WriteU32( 0 );
 				do_response = true;
@@ -979,14 +962,14 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->TakePicture();
-					gDebug() << "Picture taken\n";
+					gDebug() << "Picture taken";
 				}
 				break;
 			}
 			case VIDEO_BRIGHTNESS_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera brightness to " << cam->brightness() + 1 << "\n";
+					gDebug() << "Setting camera brightness to " << cam->brightness() + 1;
 					cam->setBrightness( cam->brightness() + 1 );
 				}
 				break;
@@ -994,7 +977,7 @@ bool Controller::run()
 			case VIDEO_BRIGHTNESS_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera brightness to " << cam->brightness() - 1 << "\n";
+					gDebug() << "Setting camera brightness to " << cam->brightness() - 1;
 					cam->setBrightness( cam->brightness() - 1 );
 				}
 				break;
@@ -1002,7 +985,7 @@ bool Controller::run()
 			case VIDEO_CONTRAST_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera contrast to " << cam->contrast() + 1 << "\n";
+					gDebug() << "Setting camera contrast to " << cam->contrast() + 1;
 					cam->setContrast( cam->contrast() + 1 );
 				}
 				break;
@@ -1010,7 +993,7 @@ bool Controller::run()
 			case VIDEO_CONTRAST_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera contrast to " << cam->contrast() - 1 << "\n";
+					gDebug() << "Setting camera contrast to " << cam->contrast() - 1;
 					cam->setContrast( cam->contrast() - 1 );
 				}
 				break;
@@ -1018,7 +1001,7 @@ bool Controller::run()
 			case VIDEO_SATURATION_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera saturation to " << cam->saturation() + 1 << "\n";
+					gDebug() << "Setting camera saturation to " << cam->saturation() + 1;
 					cam->setSaturation( cam->saturation() + 1 );
 				}
 				break;
@@ -1026,7 +1009,7 @@ bool Controller::run()
 			case VIDEO_SATURATION_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera saturation to " << cam->saturation() - 1 << "\n";
+					gDebug() << "Setting camera saturation to " << cam->saturation() - 1;
 					cam->setSaturation( cam->saturation() - 1 );
 				}
 				break;
@@ -1034,7 +1017,7 @@ bool Controller::run()
 			case VIDEO_ISO_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera ISO to " << cam->ISO() + 100 << "\n";
+					gDebug() << "Setting camera ISO to " << cam->ISO() + 100;
 					cam->setISO( cam->ISO() + 100 );
 				}
 				break;
@@ -1042,7 +1025,7 @@ bool Controller::run()
 			case VIDEO_ISO_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam and cam->ISO() > 0 ) {
-					gDebug() << "Setting camera ISO to " << cam->ISO() - 100 << "\n";
+					gDebug() << "Setting camera ISO to " << cam->ISO() - 100;
 					cam->setISO( cam->ISO() - 100 );
 				}
 				break;
@@ -1050,7 +1033,7 @@ bool Controller::run()
 			case VIDEO_SHUTTER_SPEED_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera shutter speed to " << cam->shutterSpeed() + 100 << "\n";
+					gDebug() << "Setting camera shutter speed to " << cam->shutterSpeed() + 100;
 					cam->setShutterSpeed( cam->shutterSpeed() + 100 );
 				}
 				break;
@@ -1058,7 +1041,7 @@ bool Controller::run()
 			case VIDEO_SHUTTER_SPEED_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam and cam->shutterSpeed() > 0 ) {
-					gDebug() << "Setting camera shutter speed to " << cam->shutterSpeed() - 100 << "\n";
+					gDebug() << "Setting camera shutter speed to " << cam->shutterSpeed() - 100;
 					cam->setShutterSpeed( cam->shutterSpeed() - 100 );
 				}
 				break;
@@ -1136,7 +1119,7 @@ bool Controller::run()
 				Camera* cam = mMain->camera();
 				uint32_t night = command.ReadU32();
 				if ( cam ) {
-					gDebug() << "Setting camera to " << ( night ? "night" : "day" ) << " mode\n";
+					gDebug() << "Setting camera to " << ( night ? "night" : "day" ) << " mode";
 					cam->setNightMode( night );
 				}
 				response.WriteU32( night );
@@ -1151,7 +1134,7 @@ bool Controller::run()
 						ret = cam->exposureMode();
 					} else {
 						ret = cam->switchExposureMode();
-						gDebug() << "Camera exposure mode set to \"" << ret << "\"\n";
+						gDebug() << "Camera exposure mode set to \"" << ret << "\"";
 					}
 				}
 				response.WriteString( ret );
@@ -1166,7 +1149,7 @@ bool Controller::run()
 						ret = cam->whiteBalance();
 					} else {
 						ret = cam->switchWhiteBalance();
-						gDebug() << "Camera white balance set to \"" << ret << "\"\n";
+						gDebug() << "Camera white balance set to \"" << ret << "\"";
 					}
 				}
 				response.WriteString( ret );
@@ -1181,7 +1164,7 @@ bool Controller::run()
 						ret = cam->whiteBalance();
 					} else {
 						ret = cam->lockWhiteBalance();
-						gDebug() << "Camera white balance \"" << ret << "\"\n";
+						gDebug() << "Camera white balance \"" << ret << "\"";
 					}
 				}
 				response.WriteString( ret );
@@ -1222,7 +1205,7 @@ bool Controller::run()
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.lock();
 #endif
-// 			gDebug() << "Responding with " << response.data().size() << " bytes\n";
+// 			gDebug() << "Responding with " << response.data().size() << " bytes";
 			mLink->Write( &response );
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.unlock();

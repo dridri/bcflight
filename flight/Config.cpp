@@ -28,18 +28,21 @@
 #include <Link.h>
 
 extern "C" uint32_t _mem_usage();
+extern "C" void lua_init( lua_State* L );
 
 Config::Config( const string& filename, const string& settings_filename )
 	: mFilename( filename )
 	, mSettingsFilename( settings_filename )
-	, L( nullptr )
+	, mLua( nullptr )
 {
-	gDebug() << "step 1 : " << _mem_usage() << "\n";
+	gDebug() << "step 1 : " << _mem_usage();
 
-	gDebug() << LUA_RELEASE << "\n";
-	L = luaL_newstate();
-	gDebug() << "step 2 : " << _mem_usage() << "\n";
-
+	gDebug() << LUA_RELEASE;
+	// L = luaL_newstate();
+	mLua = new Lua();
+	lua_init( mLua->state() );
+	gDebug() << "step 2 : " << _mem_usage();
+/*
 // 	luaL_openlibs( L );
 	static const luaL_Reg lualibs[] = {
 		{ "", luaopen_base },
@@ -55,18 +58,16 @@ Config::Config( const string& filename, const string& settings_filename )
 		lua_pushstring( L, lib->name );
 		lua_call( L, 1, 0 );
 	}
-
-	gDebug() << "step 3 : " << _mem_usage() << "\n";
-
-	Reload();
-
-	gDebug() << "step 4 : " << _mem_usage() << "\n";
+*/
 }
 
 
 Config::~Config()
 {
-	lua_close(L);
+	// lua_close(L);
+	if ( mLua ) {
+		delete mLua;
+	}
 }
 
 
@@ -104,280 +105,150 @@ void Config::WriteFile( const string& content )
 
 string Config::String( const string& name, const string& def )
 {
-	gDebug() << "Config::string( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	lua_settop( L, 0 );
-	if ( LocateValue( name ) < 0 ) {
-		Debug() << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::String ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	string ret = lua_tolstring( L, -1, nullptr );
-	Debug() << " => " << ret << "\n";
+	string ret = v.toString();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
 int Config::Integer( const string& name, int def )
 {
-	gDebug() << "Config::integer( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	lua_settop( L, 0 );
-	if ( LocateValue( name ) < 0 ) {
-		Debug() << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Integer ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	int ret = lua_tointeger( L, -1 );
-	Debug() << " => " << ret << "\n";
+	int ret = v.toInteger();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
 float Config::Number( const string& name, float def )
 {
-	gDebug() << "Config::number( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	lua_settop( L, 0 );
-	if ( LocateValue( name ) < 0 ) {
-		Debug() << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Number ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	float ret = lua_tonumber( L, -1 );
-	Debug() << " => " << ret << "\n";
+	float ret = v.toNumber();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
 bool Config::Boolean( const string& name, bool def )
 {
-	gDebug() << "Config::boolean( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	lua_settop( L, 0 );
-	if ( LocateValue( name ) < 0 ) {
-		Debug() << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Boolean ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	bool ret = lua_toboolean( L, -1 );
-	Debug() << " => " << ret << "\n";
+	bool ret = v.toBoolean();
+	dbg << " => " << ret << "";
+	return ret;
+}
+
+
+void* Config::Object( const string& name, void* def )
+{
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::UserData ) {
+		dbg << " => not found !";
+		return def;
+	}
+
+	void* ret = v.toUserData();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
 vector<int> Config::IntegerArray( const string& name )
 {
-	gDebug() << "Config::integerArray( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	lua_settop( L, 0 );
-	if ( LocateValue( name ) < 0 ) {
-		Debug() << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Table ) {
+		dbg << " => not found !";
 		return vector<int>();
 	}
 
 	vector<int> ret;
-	size_t len = lua_objlen( L, -1 );
-	if ( len > 0 ) {
-		for ( size_t i = 1; i <= len; i++ ) {
-			lua_rawgeti( L, -1, i );
-			int value = lua_tointeger( L, -1 );
-			ret.emplace_back( value );
-			lua_pop( L, 1 );
-		}
+	const map< string, LuaValue >& t = v.toTable();
+	for ( std::pair< string, LuaValue > a : t ) {
+		int i = a.second.toInteger();
+		dbg << ", " << i;
+		ret.emplace_back( i );
 	}
-	lua_pop( L, 1 );
-	Debug() << " => Ok\n";
+
+	dbg << " => Ok";
 	return ret;
 }
 
 
 int Config::ArrayLength( const string& name )
 {
-	gDebug() << "Config::ArrayLength( " << name << " )\n";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	lua_settop( L, 0 );
-	if ( LocateValue( name ) < 0 ) {
-// 		Debug() << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Table ) {
+		dbg << " => not found !";
 		return -1;
 	}
 
-	int ret = -1;
-
-	if ( lua_istable( L, -1 ) ) {
-		ret = 0;
-		size_t len = lua_objlen( L, -1 );
-		if ( len > 0 ) {
-			ret = len;
-		} else {
-			lua_pushnil( L );
-			while( lua_next( L, -2 ) != 0 ) {
-				ret++;
-				lua_pop( L, 1 );
-			}
-		}
+	int ret = 0;
+	const map< string, LuaValue >& t = v.toTable();
+	for ( std::pair< string, LuaValue > a : t ) {
+		ret++;
 	}
 
-// 	Debug() << " => Ok\n";
 	return ret;
 }
 
 
 int Config::LocateValue( const string& _name )
 {
-	const char* name = _name.c_str();
-
-	if ( strchr( name, '.' ) == nullptr and strchr( name, '[' ) == nullptr ) {
-#ifdef LUA_GLOBALSINDEX
-		lua_getfield( L, LUA_GLOBALSINDEX, name );
-#else
-		lua_rawgeti( L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS );
-		lua_getfield( L, -1, name );
-		lua_copy( L, -1, -2 );
-		lua_pop( L, 1 );
-#endif
-		if ( lua_type( L, -1 ) == LUA_TNIL ) {
-			return -1;
-		}
-	} else {
-		char tmp[128];
-		int i=0, j, k;
-		bool in_table = false;
-		for ( i = 0, j = 0, k = 0; name[i]; i++ ) {
-			if ( name[i] == '.' or name[i] == '[' or name[i] == ']' ) {
-				tmp[j] = 0;
-				if ( strlen(tmp) == 0 ) {
-					j = 0;
-					k++;
-					continue;
-				}
-				if ( name[i] == '[' ) {
-					in_table = true;
-				}
-				if ( in_table and name[i] == ']' and lua_istable( L, -1 ) ) {
-					if ( tmp[0] >= '0' and tmp[0] <= '9' ) {
-						lua_rawgeti( L, -1, atoi(tmp) );
-					} else {
-						lua_getfield( L, -1, tmp );
-					}
-				} else {
-					if ( k == 0 ) {
-#ifdef LUA_GLOBALSINDEX
-						lua_getfield( L, LUA_GLOBALSINDEX, tmp );
-#else
-						lua_rawgeti( L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS );
-						lua_getfield( L, -1, tmp );
-						lua_copy( L, -1, -2 );
-						lua_pop( L, 1 );
-#endif
-					} else {
-						lua_getfield( L, -1, tmp );
-					}
-				}
-				if ( lua_type( L, -1 ) == LUA_TNIL ) {
-					return -1;
-				}
-				memset( tmp, 0, sizeof( tmp ) );
-				j = 0;
-				k++;
-			} else {
-				tmp[j] = name[i];
-				j++;
-			}
-		}
-		tmp[j] = 0;
-		if ( tmp[0] != 0 ) {
-			lua_getfield( L, -1, tmp );
-			if ( lua_type( L, -1 ) == LUA_TNIL ) {
-				return -1;
-			}
-		}
-	}
-
 	return 0;
 }
 
 
 string Config::DumpVariable( const string& name, int index, int indent )
 {
-	gDebug() << "Config::DumpVariable( " << name << ", " << index << ", " << indent << " )\n";
-
-	stringstream ret;
-	if ( indent == 0 ) {
-		lua_settop( L, 0 );
-	}
-
-	for ( int i = 0; i < indent; i++ ) {
-		ret << "    ";
-	}
-	if ( name != "" ) {
-		ret << name << " = ";
-	}
-
-	if ( indent == 0 ) {
-		LocateValue( name );
-	}
-
-	if ( lua_isnil( L, index ) ) {
-		ret << "nil";
-	} else if ( lua_isnumber( L, index ) ) {
-		ret << lua_tonumber( L, index );
-	} else if ( lua_isboolean( L, index ) ) {
-		ret << ( lua_toboolean( L, index ) ? "true" : "false" );
-	} else if ( lua_isstring( L, index ) ) {
-		ret << "\"" << lua_tostring( L, index ) << "\"";
-	} else if ( lua_iscfunction( L, index ) ) {
-		ret << "C-function()";
-	} else if ( lua_isuserdata( L, index ) ) {
-		ret << "__userdata__";
-	} else if ( lua_istable( L, index ) ) {
-		ret << "{\n\r";
-		size_t len = lua_objlen( L, index );
-		if ( len > 0 ) {
-			for ( size_t i = 1; i <= len; i++ ) {
-				lua_rawgeti( L, index, i );
-				ret << DumpVariable( "", -1, indent + 1 );
-				lua_pop( L, 1 );
-				ret << ",\n\r";
-			}
-		} else {
-			lua_pushnil( L );
-			while( lua_next( L, -2 ) != 0 ) {
-				string key = lua_tostring( L, index-1 );
-				if ( lua_isnumber( L, index - 1 ) ) {
-					key = "[" + key + "]";
-				}
-				if ( key != "lens_shading" ) {
-					ret << DumpVariable( key, index, indent + 1 );
-				} else {
-					for ( int i = 0; i < indent + 1; i++ ) {
-						ret << "    ";
-					}
-					ret << key << " = {...}";
-				}
-				lua_pop( L, 1 );
-				ret << ",\n\r";
-			}
-		}
-		for ( int i = 0; i < indent; i++ ) {
-			ret << "    ";
-		}
-		ret << "}";
-	} else {
-		ret << "__unknown__";
-	}
-
-	if ( indent == 0 ) {
-		ret << "\n\r";
-	}
-	return ret.str();
+	return name + " = " + mLua->value( name ).serialize();
 }
 
 
 void Config::Execute( const string& code )
 {
 	fDebug( code );
-	luaL_dostring( L, code.c_str() );
+	mLua->do_string( code );
 }
 
 
@@ -401,20 +272,32 @@ static inline string& trim( string& s, const char* t = " \t\n\r\f\v" )
 }
 
 
-#define LUAdostring( s ) gDebug() << "dostring : '" << s << "'\n"; luaL_dostring( L, string(s).c_str() )
+#define LUAdostring( s ) gDebug() << "dostring : " << string(s); mLua->do_string( string(s) );
 
 
 void Config::Reload()
 {
-	gDebug() << "Reload 1 : " << _mem_usage() << "\n";
+	gDebug() << "Reload 1 : " << _mem_usage();
+
+	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
+	LUAdostring( "function PID( p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end" );
+
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
+	LUAdostring( "system = { loop_time = 2000 }" );
+
+	if ( mFilename != "" ) {
+		int ret = mLua->do_file( mFilename );
+		if ( ret != 0 ) {
+			return;
+		}
+	}
+/*
 	LUAdostring( "frame = { motors = {} }" );
 	LUAdostring( "battery = {}" );
 	LUAdostring( "camera = { v1 = {}, v2 = {}, hq = {} }" );
 	LUAdostring( "hud = {}" );
 	LUAdostring( "microphone = {}" );
 	LUAdostring( "controller = {}" );
-	LUAdostring( "stabilizer = { loop_time = 2000 }" );
 	LUAdostring( "sensors_map_i2c = {}" );
 	LUAdostring( "accelerometers = {}" );
 	LUAdostring( "gyroscopes = {}" );
@@ -427,26 +310,26 @@ void Config::Reload()
 	LUAdostring( "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" ); // TODO : remove this
 	LUAdostring( "function Voltmeter( params ) params.type = \"Voltemeter\" ; return params end" );
 	LUAdostring( "function SPI( address, speed ) return { type = 'SPI', address = address, speed = speed } end" );
-	gDebug() << "Reload 2 : " << _mem_usage() << "\n";
+	gDebug() << "Reload 2 : " << _mem_usage();
 
 #ifdef BUILD_motors
 	for ( auto motor : Motor::knownMotors() ) {
 		LUAdostring( "function " + motor.first + "( params ) params.motor_type = \"" + motor.first + "\" ; return params end" );
 	}
 #endif
-	gDebug() << "Reload 3 : " << _mem_usage() << "\n";
+	gDebug() << "Reload 3 : " << _mem_usage();
 #ifdef BUILD_links
 	for ( auto link : Link::knownLinks() ) {
 		LUAdostring( "function " + link.first + "( params ) params.link_type = \"" + link.first + "\" ; return params end" );
 	}
 #endif
-	gDebug() << "Reload 4 : " << _mem_usage() << "\n";
+	gDebug() << "Reload 4 : " << _mem_usage();
 #ifdef BUILD_sensors
 	for ( const Sensor::Device& device : Sensor::KnownDevices() ) {
 		LUAdostring( "function " + string(device.name) + "( params ) params.sensor_type = \"" + string(device.name) + "\" ; return params end" );
 	}
 #endif
-	gDebug() << "Reload 5 : " << _mem_usage() << "\n";
+	gDebug() << "Reload 5 : " << _mem_usage();
 
 
 	if ( mFilename != "" ) {
@@ -456,7 +339,7 @@ void Config::Reload()
 			lua_Debug ar;
 			lua_getstack(L, 1, &ar);
 			lua_getinfo(L, "nSl", &ar);
-			gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
+			gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"";
 			return;
 		}
 	}
@@ -468,7 +351,7 @@ void Config::Reload()
 			lua_Debug ar;
 			lua_getstack(L, 1, &ar);
 			lua_getinfo(L, "nSl", &ar);
-			gDebug() << "Lua : Error while executing file \"" << mSettingsFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"\n";
+			gDebug() << "Lua : Error while executing file \"" << mSettingsFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"";
 		}
 	
 		string line;
@@ -482,7 +365,7 @@ void Config::Reload()
 				key = trim( key );
 				value = trim( value );
 				mSettings[ key ] = value;
-				gDebug() << "mSettings[\"" << key << "\"] = '" << mSettings[ key ] << "'\n";
+				gDebug() << "mSettings[\"" << key << "\"] = '" << mSettings[ key ] << "'";
 			}
 		}
 	}
@@ -500,11 +383,13 @@ void Config::Reload()
 		Sensor::RegisterDevice( s, this, "user_sensors." + s );
 	}
 #endif
+*/
 }
 
 
 void Config::Apply()
 {
+/*
 #ifdef BUILD_sensors
 	list< string > accelerometers;
 	list< string > gyroscopes;
@@ -533,8 +418,14 @@ void Config::Apply()
 	lua_pop(L, 1);
 
 	for ( auto it : gyroscopes ) {
+		gDebug() << "On sensor \"" << it << "\"";
 		Gyroscope* gyro = Sensor::gyroscope( it );
+		if ( not gyro ) {
+			Sensor::RegisterDevice( it, this, "gyroscopes[" + it + "]" );
+			gyro = Sensor::gyroscope( it );
+		}
 		if ( gyro ) {
+			gDebug() << "Gyroscope \"" << it << "\" found";
 			int swap[4] = { 0, 0, 0, 0 };
 			swap[0] = Integer( "gyroscopes." + it + ".axis_swap.x" );
 			swap[1] = Integer( "gyroscopes." + it + ".axis_swap.y" );
@@ -543,8 +434,10 @@ void Config::Apply()
 		}
 	}
 	for ( auto it : accelerometers ) {
+		gDebug() << "On sensor \"" << it << "\"";
 		Accelerometer* accel = Sensor::accelerometer( it );
 		if ( accel ) {
+			gDebug() << "Accelerometer \"" << it << "\" found";
 			int swap[4] = { 0, 0, 0, 0 };
 			swap[0] = Integer( "accelerometers." + it + ".axis_swap.x" );
 			swap[1] = Integer( "accelerometers." + it + ".axis_swap.y" );
@@ -553,8 +446,10 @@ void Config::Apply()
 		}
 	}
 	for ( auto it : magnetometers ) {
+		gDebug() << "On sensor \"" << it << "\"";
 		Magnetometer* magn = Sensor::magnetometer( it );
 		if ( magn ) {
+			gDebug() << "Magnetometers \"" << it << "\" found";
 			int swap[4] = { 0, 0, 0, 0 };
 			swap[0] = Integer( "magnetometers." + it + ".axis_swap.x" );
 			swap[1] = Integer( "magnetometers." + it + ".axis_swap.y" );
@@ -563,6 +458,7 @@ void Config::Apply()
 		}
 	}
 #endif // BUILD_sensors
+*/
 }
 
 

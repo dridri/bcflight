@@ -8,7 +8,7 @@
 class StabilizerProxy : public Stabilizer
 {
 public:
-	StabilizerProxy( Main* main, Bus* bus );
+	StabilizerProxy( Bus* bus );
 	~StabilizerProxy();
 
 	void setRollP( float p );

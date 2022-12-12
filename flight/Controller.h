@@ -29,10 +29,10 @@ using namespace STD;
 class Main;
 class Link;
 
-class Controller : public ControllerBase, public Thread
+LUA_CLASS class Controller : public ControllerBase, public Thread
 {
 public:
-	Controller( Main* main, Link* link );
+	LUA_EXPORT Controller();
 	~Controller();
 	Link* link() const;
 
@@ -65,7 +65,7 @@ protected:
 	bool mTimedOut;
 //	bool mArmed;
 	uint32_t mPing;
-	Vector4f mExpo;
+	LUA_PROPERTY("expo") Vector4f mExpo;
 /*
 	Vector3f mRPY;
 	float mThrust;
@@ -77,8 +77,8 @@ protected:
 	uint64_t mTelemetryTick;
 	uint64_t mTelemetryCounter;
 	uint64_t mEmergencyTick;
-	uint32_t mTelemetryFrequency;
-	bool mTelemetryFull;
+	LUA_PROPERTY("telemetry_rate") uint32_t mTelemetryFrequency;
+	LUA_PROPERTY("full_telemetry") bool mTelemetryFull;
 };
 
 #endif // CONTROLLER_H

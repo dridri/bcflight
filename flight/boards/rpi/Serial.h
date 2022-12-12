@@ -27,19 +27,24 @@
 
 using namespace std;
 
-class Serial : public Bus
+LUA_CLASS class Serial : public Bus
 {
 public:
-	Serial( const string& device, int speed = 9600 );
+	Serial( const string& device = "", int speed = 9600 );
 	~Serial();
 
+	int Connect();
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
+	std::string toString();
+
 private:
 	int mFD;
+	LUA_PROPERTY("device") std::string mDevice;
+	LUA_PROPERTY("speed") uint32_t mSpeed;
 };
 
 #endif // SERIAL_H

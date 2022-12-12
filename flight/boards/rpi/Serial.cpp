@@ -49,11 +49,24 @@ static map< int, int > sSpeeds = {
 
 Serial::Serial( const string& device, int speed )
 	: Bus()
-	, mFD( open( device.c_str(), O_RDWR | O_NOCTTY/* | O_NDELAY*/ ) )
+	, mFD( -1 )
+	, mDevice( device )
+	, mSpeed( speed )
 {
+}
+
+
+Serial::~Serial()
+{
+}
+
+
+int Serial::Connect()
+{
+	mFD = open( mDevice.c_str(), O_RDWR | O_NOCTTY/* | O_NDELAY*/ );
 	if ( mFD < 0 ) {
-		gDebug() << "Err0 : " << strerror(errno) << "\n";
-		exit(0);
+		gDebug() << "Err0 : " << strerror(errno);
+		return -1;
 	}
 /*
 	int speed_macro = B0;
@@ -73,31 +86,54 @@ Serial::Serial( const string& device, int speed )
 	tcflush( mFD, TCIFLUSH );
 	tcsetattr( mFD, TCSANOW, &options );
 */
-/*
-	struct termios2 tio;
 
-	ioctl( mFD, TCGETS2, &tio );
-	tio.c_cflag &= ~CBAUD & ~CRTSCTS;
-	tio.c_cflag |= BOTHER | CSTOPB | CS8 | PARENB;
-	tio.c_ispeed = 100000;
-	tio.c_ospeed = 100000;
-	int ret = ioctl( mFD, TCSETS2, &tio );
+	struct termios2 options;
+
+	ioctl( mFD, TCGETS2, &options );
+	
+    options.c_cflag |= PARENB;
+    options.c_cflag |= CSTOPB;
+    options.c_cflag |= CS8;
+    options.c_cflag &= ~CRTSCTS;
+    options.c_cflag |= CREAD | CLOCAL;
+
+    options.c_lflag &= ~ICANON;
+    options.c_lflag &= ~ECHO;
+    options.c_lflag &= ~ECHOE;
+    options.c_lflag &= ~ECHONL;
+    options.c_lflag &= ~ISIG;
+
+    options.c_iflag &= ~(IXON | IXOFF | IXANY);
+    options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+
+    options.c_oflag &= ~OPOST;
+    options.c_oflag &= ~ONLCR;
+
+    options.c_cc[VTIME] = 0;
+    options.c_cc[VMIN] = 25;
+
+    options.c_cflag &= ~CBAUD;
+    options.c_cflag |= BOTHER;
+
+// 	options.c_cflag &= ~CBAUD & ~CRTSCTS;
+// 	options.c_cflag |= BOTHER | CSTOPB | CS8 | PARENB;
+	options.c_ispeed = mSpeed;
+	options.c_ospeed = mSpeed;
+	int ret = ioctl( mFD, TCSETS2, &options );
 	if ( ret < 0 ) {
-		gDebug() << "Err1 : " << errno << ", " << strerror(errno) << "\n";
-		exit(0);
+		gDebug() << "Err1 : " << errno << ", " << strerror(errno);
+		return -1;
 	}
-*/
-/*
-	gpioInitialise();
-	gpioSerialReadOpen( 18, 100000, 9 );
-	gpioSerialReadInvert( 18, 1 );
-*/
+
+	return 0;
 }
 
 
-Serial::~Serial()
+std::string Serial::toString()
 {
+	return mDevice;
 }
+
 
 
 int Serial::Read( uint8_t reg, void* buf, uint32_t len )
@@ -108,15 +144,11 @@ int Serial::Read( uint8_t reg, void* buf, uint32_t len )
 
 int Serial::Read( void* buf, uint32_t len )
 {
-	/*
-// 	int ret = read( mFD, buf, len );
-	int ret = gpioSerialRead( 18, buf, len );
+	int ret = read( mFD, buf, len );
 	if ( ret < 0 && errno != EAGAIN ) {
-		gDebug() << errno << ", " << strerror(errno) << "\n";
+		gDebug() << errno << ", " << strerror(errno);
 	}
 	return ret;
-	*/
-	return 0;
 }
 
 

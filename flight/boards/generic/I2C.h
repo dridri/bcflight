@@ -38,6 +38,8 @@ public:
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
+	std::string toString();
+
 	static list< int > ScanAll();
 
 private:

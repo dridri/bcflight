@@ -41,6 +41,7 @@ public:
 	void Stop();
 	void Join();
 	bool running() const;
+	uint32_t frequency() const;
 
 	void setFrequency( uint32_t hz );
 	void setPriority( int p, int affinity = -1 );

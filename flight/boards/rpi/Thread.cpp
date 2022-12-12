@@ -65,8 +65,8 @@ void Thread::Join()
 
 	while ( !mFinished ) {
 		if ( Board::GetTicks() - start_time > 1000 * 1000 * 2 ) {
-			gDebug() << "thread \"" << mName << "\" join timeout (2s), force killing\n";
-			pthread_cancel( mThread );
+			gDebug() << "thread " << mName << " join timeout (2s), force killing";
+		//	pthread_cancel( mThread );
 			break;
 		}
 		usleep( 1000 * 10 );
@@ -76,7 +76,7 @@ void Thread::Join()
 
 void Thread::Recover()
 {
-	gDebug() << "\e[93mRecovering thread \"" << mName << "\"\e[0m\n";
+	gDebug() << "\e[93mRecovering thread " << mName << "\e[0m";
 	mRunning = false;
 	mStopped = false;
 	mIsRunning = false;
@@ -114,7 +114,9 @@ void Thread::ThreadEntry()
 			}
 		}
 		if ( mFrequency > 0 ) {
-			mFrequencyTick = Board::WaitTick( 1000000 / mFrequency, mFrequencyTick );
+			uint32_t div = 1000000L / mFrequency;
+			uint32_t drift = mFrequency >= 1000 ? -50 : -250;
+			mFrequencyTick = Board::WaitTick( div, mFrequencyTick, drift );
 		}
 	} while ( not mStopped and run() );
 	mIsRunning = false;

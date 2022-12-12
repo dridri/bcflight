@@ -1,27 +1,24 @@
-#ifndef DSHOT600_H
-#define DSHOT600_H
+#ifndef DSHOT_H
+#define DSHOT_H
 
 #include <PWM.h>
 #include "Motor.h"
 
-class Main;
+class DShotDriver;
 
-class DShot : public Motor
+LUA_CLASS class DShot : public Motor
 {
 public:
-	DShot( uint32_t pin );
+	LUA_EXPORT DShot( uint32_t pin );
 	~DShot();
 
 	virtual void Disarm();
 	virtual void Disable();
 
-	static Motor* Instanciate( Config* config, const string& object );
-	static int flight_register( Main* main );
-
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update );
-	PWM* mPWM;
-	uint8_t mBuffer[14];
+	DShotDriver* mDriver;
+	uint32_t mPin;
 };
 
-#endif // DSHOT600_H
+#endif // DSHOT_H

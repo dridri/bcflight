@@ -18,6 +18,8 @@
 
 #ifdef BUILD_DShot
 
+#if 0
+
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE   700
 
@@ -228,11 +230,11 @@ DShot::DShot( uint8_t pin )
 		}
 
 		uint32_t mbox_board_rev = get_board_revision( mMbox.handle );
-		gDebug() << "MBox Board Revision: " << mbox_board_rev << "\n";
+		gDebug() << "MBox Board Revision: " << mbox_board_rev;
 		get_model( mbox_board_rev) ;
 		uint32_t mbox_dma_channels = get_dma_channels( mMbox.handle );
-		gDebug() << "DSHOT Channels Info: " << mbox_dma_channels << ", using PWM Channel: " << (int)channel << "\n";
-		gDebug() << "DMA Base:                  " << DMA_BASE << "\n";
+		gDebug() << "DSHOT Channels Info: " << mbox_dma_channels << ", using PWM Channel: " << (int)channel;
+		gDebug() << "DMA Base:                  " << DMA_BASE;
 
 	// 	setup_sighandlers();
 
@@ -570,7 +572,7 @@ void DShot::get_model( unsigned mbox_board_rev )
 		board_model = 1;
 	}
 
-	gDebug() << "board_model : " << board_model << "\n";
+	gDebug() << "board_model : " << board_model;
 
 	switch ( board_model ) {
 		case 1:
@@ -606,5 +608,7 @@ void* DShot::map_peripheral( uint32_t base, uint32_t len )
 
 	return vaddr;
 }
+
+#endif // 0
 
 #endif // BUILD_DShot

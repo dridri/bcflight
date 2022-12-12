@@ -1,3 +1,4 @@
+#include <iostream>
 #include <unistd.h>
 #include <linux/input.h>
 #include <QtCore/QtPlugin>
@@ -28,11 +29,16 @@ bool GlobalUI::run()
 {
 	if ( mApplication == nullptr ) {
 		std::string fbdev = "linuxfb:fb=" + mConfig->string( "touchscreen.framebuffer", "/dev/fb0" );
-		std::string rotate = "QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=rotate=" + std::to_string( mConfig->integer( "touchscreen.rotate", 0 ) );
+		std::string rotate = "QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/event0:rotate=" + std::to_string( mConfig->integer( "touchscreen.rotate", 0 ) );
+
+		std::cout << fbdev << "\n";
+		std::cout << rotate << "\n";
 
 		putenv( (char*)rotate.c_str() );
-		putenv( (char*)"QT_QPA_EGLFS_DISABLE_INPUT=1" );
-		putenv( (char*)"QT_LOGGING_RULES=qt.qpa.input=false" );
+		putenv( (char*)"QT_QPA_FB_DISABLE_INPUT=0" );
+		putenv( (char*)"QT_QPA_FB_NO_LIBINPUT=0" );
+		putenv( (char*)"QT_QPA_FB_USE_LIBINPUT=0" );
+		putenv( (char*)"QT_LOGGING_RULES=qt.qpa.input=true" );
 
 		int ac = 3;
 		const char* av[4] = { "controller", "-platform", fbdev.c_str(), nullptr };

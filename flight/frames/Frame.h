@@ -55,7 +55,7 @@ public:
 
 protected:
 
-	vector< Motor* > mMotors;
+	LUA_PROPERTY("motors") vector< Motor* > mMotors;
 	bool mArmed;
 	bool mAirMode;
 

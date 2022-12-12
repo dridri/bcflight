@@ -3,12 +3,17 @@
 
 #include <stdint.h>
 #include "Vector.h"
+#include <string>
+#include <list>
+#include <vector>
 
 class Bus
 {
 public:
 	Bus();
 	virtual ~Bus();
+
+	virtual int Connect() = 0;
 
 	virtual int Read( void* buf, uint32_t len ) = 0;
 	virtual int Write( const void* buf, uint32_t len ) = 0;
@@ -25,6 +30,11 @@ public:
 	int Write32( uint8_t reg, uint32_t value );
 	int WriteFloat( uint8_t reg, float value );
 	int WriteVector3f( uint8_t reg, const Vector3f& vec );
+
+	virtual std::string toString() = 0;
+
+protected:
+	bool mConnected;
 };
 
 #endif // BUS_H

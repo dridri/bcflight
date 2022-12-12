@@ -5,11 +5,12 @@
 #include <Mutex.h>
 #include <list>
 #include "Link.h"
+#include "Config.h"
 
 class Main;
 class SPI;
 
-class SX127x : public Link
+LUA_CLASS class SX127x : public Link
 {
 public:
 	typedef enum {
@@ -17,7 +18,7 @@ public:
 		LoRa,
 	} Modem;
 
-	SX127x( Config* config, const string& lua_object );
+	LUA_EXPORT SX127x();
 	~SX127x();
 
 	int Connect();
@@ -39,6 +40,7 @@ public:
 
 protected:
 	static Link* Instanciate( Config* config, const string& lua_object );
+	void init();
 
 	typedef struct __attribute__((packed)) {
 		uint8_t block_id;
@@ -94,25 +96,26 @@ protected:
 	bool writeRegister( SPI* spi, uint8_t reg, uint8_t value );
 
 	SPI* mSPI;
-
-	string mDevice;
-	int32_t mResetPin;
-	int32_t mTXPin;
-	int32_t mRXPin;
-	int32_t mIRQPin;
-	bool mBlocking;
-	bool mDropBroken;
+	bool mReady;
+	LUA_PROPERTY("device") string mDevice;
+	LUA_PROPERTY("resetpin") int32_t mResetPin;
+	LUA_PROPERTY("txpin") int32_t mTXPin;
+	LUA_PROPERTY("rxpin") int32_t mRXPin;
+	LUA_PROPERTY("irqpin") int32_t mIRQPin;
+	LUA_PROPERTY("ledpin") int32_t mLedPin;
+	LUA_PROPERTY("blocking") bool mBlocking;
+	LUA_PROPERTY("drop") bool mDropBroken;
 	bool mEnableTCXO;
 	Modem mModem;
-	uint32_t mFrequency;
+	LUA_PROPERTY("frequency") uint32_t mFrequency;
 	int32_t mInputPort;
 	int32_t mOutputPort;
 	int32_t mRetries;
-	int32_t mReadTimeout;
-	uint32_t mBitrate;
-	uint32_t mBandwidth;
-	uint32_t mBandwidthAfc;
-	uint32_t mFdev;
+	LUA_PROPERTY("read_timeout") int32_t mReadTimeout;
+	LUA_PROPERTY("bitrate") uint32_t mBitrate;
+	LUA_PROPERTY("bandwidth") uint32_t mBandwidth;
+	LUA_PROPERTY("bandwidthAfc") uint32_t mBandwidthAfc;
+	LUA_PROPERTY("fdev") uint32_t mFdev;
 	atomic_bool mSending;
 	atomic_bool mSendingEnd;
 	uint64_t mSendTime;
@@ -129,13 +132,11 @@ protected:
 	int32_t mPerfMaxBlocksPerSecond;
 	list< uint64_t > mPerfHistory; // [ticks]ValidBlocks
 
-	typedef struct {
-		SPI* spi;
-		string device;
-		int32_t resetPin;
-		int32_t irqPin;
-	} Diversity;
-	Diversity* mDiversity;
+	SPI* mDiversitySpi;
+	LUA_PROPERTY("diversity.device") string mDiversityDevice;
+	LUA_PROPERTY("diversity.resetpin") int32_t mDiversityResetPin;
+	LUA_PROPERTY("diversity.irqpin") int32_t mDiversityIrqPin;
+	LUA_PROPERTY("diversity.ledpin") int32_t mDiversityLedPin;
 	Mutex mInterruptMutex;
 
 	// TX

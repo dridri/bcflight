@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 2.6 )
+cmake_minimum_required( VERSION 3.0 )
 project( controller )
 
 if ( NOT RAWWIFI_ON )
@@ -23,7 +23,7 @@ if ( ${RAWWIFI_ON} MATCHES 0 )
 endif()
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -std=c11 -D_DEFAULT_SOURCE" )
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -std=c++11 -fpermissive -Wno-pmf-conversions" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -std=c++14 -fpermissive -Wno-pmf-conversions" )
 
 if ( ${USE_MINISTD} MATCHES TRUE )
 	include_directories( ${CMAKE_SOURCE_DIR}/../libministd/include )
@@ -33,6 +33,13 @@ if ( RAWWIFI_ON MATCHES 1 )
 	add_subdirectory( ../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )
 	include_directories( ../librawwifi )
 endif()
+
+if ( "${CMAKE_SYSTEM_NAME}" MATCHES "Linux" )
+	include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
+elseif( "${CMAKE_SYSTEM_NAME}" MATCHES "Generic" )
+	include_directories( ${CMAKE_SOURCE_DIR}/../external/liblua )
+endif()
+include_directories( ${CMAKE_SOURCE_DIR}/../libluacore/src )
 
 add_library( controllerbase STATIC
 			 ControllerBase.cpp

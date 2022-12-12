@@ -47,6 +47,8 @@ public:
 	Main();
 	~Main();
 
+	const bool ready() const;
+
 	string getRecordingsList() const;
 
 	uint32_t loopFrequency() const;
@@ -74,6 +76,7 @@ private:
 	bool StabilizerThreadRun();
 
 	static Main* mInstance;
+	bool mReady;
 	HookThread< Main >* mStabilizerThread;
 	uint32_t mLoopTime;
 	uint64_t mTicks;

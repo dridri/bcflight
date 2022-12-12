@@ -24,8 +24,13 @@
 #include <list>
 #include <map>
 #include <Link.h>
+#include <Lua.h>
 
 using namespace STD;
+
+#ifndef usleep
+int usleep( useconds_t t );
+#endif
 
 class ControllerBase
 {
@@ -37,7 +42,7 @@ public:
 		Follow = 3,
 	} Mode;
 
-	ControllerBase( Link* link );
+	ControllerBase( Link* link = nullptr );
 	virtual ~ControllerBase();
 	bool isConnected() const { return ( mLink and mLink->isConnected() and mConnectionEstablished ); }
 	Link* link() const { return mLink; }
@@ -51,7 +56,6 @@ public:
 		int8_t strength;
 	} CameraLensShaderColor;
 
-protected:
 #define STATUS_ARMED		0b00000001
 #define STATUS_CALIBRATED	0b00000010
 #define STATUS_CALIBRATING	0b00000100
@@ -216,7 +220,8 @@ protected:
 		ERROR_MICROPHONE_MISSING = 0x7F02,
 	} Cmd;
 
-	Link* mLink;
+protected:
+	LUA_PROPERTY("link") Link* mLink;
 	bool mConnected;
 	bool mConnectionEstablished;
 	uint32_t mLockState;

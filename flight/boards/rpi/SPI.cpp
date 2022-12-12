@@ -32,9 +32,30 @@ using namespace std;
 SPI::SPI( const string& device, uint32_t speed_hz )
 	: Bus()
 	, mDevice( device )
+	, mSpeedHz( speed_hz )
 {
-	mFD = open( device.c_str(), O_RDWR );
-	gDebug() << "fd : " << mFD << "\n";
+	fDebug( device, speed_hz );
+}
+
+
+SPI::~SPI()
+{
+}
+
+
+int SPI::Connect()
+{
+	fDebug( mDevice, mSpeedHz );
+	if ( mConnected ) {
+		return 0;
+	}
+
+	errno = 0;
+	mFD = open( mDevice.c_str(), O_RDWR );
+	if ( mFD < 0 ) {
+		gError() << "fd : " << mFD << " (" << strerror(errno) << ")";
+		return -1;
+	}
 
 	uint8_t mode, lsb;
 
@@ -43,49 +64,60 @@ SPI::SPI( const string& device, uint32_t speed_hz )
 
 	if ( ioctl( mFD, SPI_IOC_WR_MODE, &mode ) < 0 )
 	{
-		cout << "SPI wr_mode\n";
+		gError() << "SPI wr_mode";
+		return -1;
 	}
 	if ( ioctl( mFD, SPI_IOC_RD_MODE, &mode ) < 0 )
 	{
-		cout << "SPI rd_mode\n";
+		gError() << "SPI rd_mode";
+		return -1;
 	}
 	if ( ioctl( mFD, SPI_IOC_WR_BITS_PER_WORD, &mBitsPerWord ) < 0 ) 
 	{
-		cout << "SPI write bits_per_word\n";
+		gError() << "SPI write bits_per_word";
+		return -1;
 	}
 	if ( ioctl( mFD, SPI_IOC_RD_BITS_PER_WORD, &mBitsPerWord ) < 0 ) 
 	{
-		cout << "SPI read bits_per_word\n";
+		gError() << "SPI read bits_per_word";
+		return -1;
 	}
-	if ( ioctl( mFD, SPI_IOC_WR_MAX_SPEED_HZ, &speed_hz ) < 0 )  
+	if ( ioctl( mFD, SPI_IOC_WR_MAX_SPEED_HZ, &mSpeedHz ) < 0 )  
 	{
-		cout << "can't set max speed hz\n";
+		gError() << "can't set max speed hz";
+		return -1;
 	}
 
-	if ( ioctl( mFD, SPI_IOC_RD_MAX_SPEED_HZ, &speed_hz ) < 0 ) 
+	if ( ioctl( mFD, SPI_IOC_RD_MAX_SPEED_HZ, &mSpeedHz ) < 0 ) 
 	{
-		cout << "SPI max_speed_hz\n";
+		gError() << "SPI max_speed_hz";
+		return -1;
 	}
 	if ( ioctl( mFD, SPI_IOC_RD_LSB_FIRST, &lsb ) < 0 )
 	{
-		cout << "SPI rd_lsb_fist\n";
+		gError() << "SPI rd_lsb_fist";
+		return -1;
 	}
 
-    gDebug() << device.c_str() << ":" << mFD <<": spi mode " << (int)mode << ", " << mBitsPerWord << "bits " << ( lsb ? "(lsb first) " : "" ) << "per word, " << speed_hz << " Hz max\n";
+    gDebug() << mDevice.c_str() << ":" << mFD <<": spi mode " << (int)mode << ", " << mBitsPerWord << "bits " << ( lsb ? "(lsb first) " : "" ) << "per word, " << mSpeedHz << " Hz max";
 
 	memset( mXFer, 0, sizeof( mXFer ) );
 	for ( uint32_t i = 0; i < sizeof( mXFer ) /  sizeof( struct spi_ioc_transfer ); i++) {
 		mXFer[i].len = 0;
 		mXFer[i].cs_change = 0; // Keep CS activated
 		mXFer[i].delay_usecs = 0;
-		mXFer[i].speed_hz = speed_hz;
+		mXFer[i].speed_hz = mSpeedHz;
 		mXFer[i].bits_per_word = 8;
 	}
+
+	mConnected = true;
+	return 0;
 }
 
 
-SPI::~SPI()
+std::string SPI::toString()
 {
+	return mDevice;
 }
 
 
@@ -109,7 +141,7 @@ int SPI::Transfer( void* tx, void* rx, uint32_t len )
 
 int SPI::Read( void* buf, uint32_t len )
 {
-	uint8_t unused[1024];
+	uint8_t unused[16384];
 	memset( unused, 0, len + 1 );
 	return Transfer( unused, buf, len );
 }
@@ -117,7 +149,7 @@ int SPI::Read( void* buf, uint32_t len )
 
 int SPI::Write( const void* buf, uint32_t len )
 {
-	uint8_t unused[1024];
+	uint8_t unused[16384];
 	memset( unused, 0, len + 1 );
 	return Transfer( (void*)buf, unused, len );
 }
@@ -125,21 +157,21 @@ int SPI::Write( const void* buf, uint32_t len )
 
 int SPI::Read( uint8_t reg, void* buf, uint32_t len )
 {
-	uint8_t tx[1024];
-	uint8_t rx[1024];
+	uint8_t tx[16384];
+	uint8_t rx[16384];
 	memset( tx, 0, len + 1 );
 	tx[0] = reg;
 	int ret = Transfer( tx, rx, len + 1 );
 	memcpy( buf, rx + 1, len );
-	return ret;
+	return ret - 1;
 }
 
 
 int SPI::Write( uint8_t reg, const void* buf, uint32_t len )
 {
-	uint8_t tx[1024];
-	uint8_t rx[1024];
+	uint8_t tx[16384];
+	uint8_t rx[16384];
 	tx[0] = reg;
 	memcpy( tx + 1, buf, len );
-	return Transfer( tx, rx, len + 1 );
+	return Transfer( tx, rx, len + 1 ) - 1;
 }

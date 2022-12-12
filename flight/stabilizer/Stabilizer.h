@@ -24,7 +24,7 @@
 
 class Main;
 
-class Stabilizer
+LUA_CLASS class Stabilizer
 {
 public:
 	typedef enum {
@@ -34,7 +34,7 @@ public:
 		Follow = 3,
 	} Mode;
 
-	Stabilizer( Main* main, Frame* frame );
+	LUA_EXPORT Stabilizer();
 	~Stabilizer();
 
 	virtual void setRollP( float p );
@@ -80,17 +80,20 @@ public:
 	virtual void Reset( const float& yaw );
 	virtual void Update( IMU* imu, Controller* ctrl, float dt );
 
+	Frame* frame() const;
+	void setFrame( Frame* frame );
+
 protected:
 	Main* mMain;
-	Frame* mFrame;
+	LUA_PROPERTY("frame") Frame* mFrame;
 	Mode mMode;
-	float mRateFactor;
+	LUA_PROPERTY("rate_speed") float mRateFactor;
 	bool mAltitudeHold;
 
-	PID<float> mRateRollPID;
-	PID<float> mRatePitchPID;
-	PID<float> mRateYawPID;
-	PID<Vector3f> mHorizonPID;
+	LUA_PROPERTY("pid_roll") PID<float> mRateRollPID;
+	LUA_PROPERTY("pid_pitch") PID<float> mRatePitchPID;
+	LUA_PROPERTY("pid_yaw") PID<float> mRateYawPID;
+	LUA_PROPERTY("pid_horizon") PID<Vector3f> mHorizonPID;
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
 
@@ -101,9 +104,9 @@ protected:
 	float mThrustAccum;
 
 	int mLockState;
-	Vector3f mHorizonMultiplier;
-	Vector3f mHorizonOffset;
-	Vector3f mHorizonMaxRate;
+	LUA_PROPERTY("horizon_angles") Vector3f mHorizonMultiplier;
+	LUA_PROPERTY("horizon_offset") Vector3f mHorizonOffset;
+	LUA_PROPERTY("horizon_max_rate") Vector3f mHorizonMaxRate;
 };
 
 #endif // STABILIZER_H

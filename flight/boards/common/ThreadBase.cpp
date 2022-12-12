@@ -44,7 +44,7 @@ ThreadBase::ThreadBase( const string& name )
 	, mFrequencyTick( 0 )
 {
 	mThreads.emplace_back( this );
-	gDebug() << "New thread : \"" << name << "\"\n";
+	gDebug() << "New thread : " << name;
 }
 
 
@@ -61,12 +61,12 @@ const string& ThreadBase::name() const
 
 void ThreadBase::StopAll()
 {
-	gDebug() << "Stopping all threads !\n";
+	gDebug() << "Stopping all threads !";
 
 	// Stop ISRs first
 	for ( ThreadBase* thread : mThreads ) {
 		if ( not thread->mStopped and thread->name().find( "ISR" ) != string::npos ) {
-			gDebug() << "Stopping ISR thread \"" << thread->mName << "\"\n";
+			gDebug() << "Stopping ISR thread " << thread->mName;
 			static_cast<Thread*>(thread)->Stop();
 			static_cast<Thread*>(thread)->Join();
 		}
@@ -74,12 +74,12 @@ void ThreadBase::StopAll()
 
 	for ( ThreadBase* thread : mThreads ) {
 		if ( not thread->mStopped ) {
-			gDebug() << "Stopping thread \"" << thread->mName << "\"\n";
+			gDebug() << "Stopping thread " << thread->mName;
 			static_cast<Thread*>(thread)->Stop();
 			static_cast<Thread*>(thread)->Join();
 		}
 	}
-	gDebug() << "Stopped all threads !\n";
+	gDebug() << "Stopped all threads !";
 }
 
 
@@ -125,6 +125,13 @@ bool ThreadBase::running() const
 {
 	return mIsRunning;
 }
+
+
+uint32_t ThreadBase::frequency() const
+{
+	return mFrequency;
+}
+
 
 
 void ThreadBase::setMainPriority( int p )

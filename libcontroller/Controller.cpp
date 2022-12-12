@@ -172,9 +172,9 @@ bool Controller::run()
 		return true;
 	}
 
-	uint32_t oldswitch[8];
+	uint32_t oldswitch[12];
 	memcpy( oldswitch, mSwitches, sizeof(oldswitch) );
-	for ( uint32_t i = 0; i < 8; i++ ) {
+	for ( uint32_t i = 0; i < 12; i++ ) {
 		bool on = ReadSwitch( i );
 		if ( on and not mSwitches[i] ) {
 			cout << "Switch " << i << " on\n" << flush;
@@ -188,23 +188,24 @@ bool Controller::run()
 		VideoTakePicture();
 	}
 
-	bool arm = mSwitches[2];
-	if ( mSwitches[2] and not mArmed and mCalibrated ) {
+	bool arm = mSwitches[9];
+	if ( mSwitches[9] and not mArmed and mCalibrated ) {
 		arm = true;
 		Arm();
 	} else if ( not mSwitches[2] and mArmed ) {
 		Disarm();
 	}
-	if ( mSwitches[3] and mMode != Stabilize ) {
+	if ( mSwitches[5] and mMode != Stabilize ) {
 		setMode( Stabilize );
-	} else if ( not mSwitches[3] and mMode != Rate ) {
+	} else if ( not mSwitches[5] and mMode != Rate ) {
 		setMode( Rate );
 	}
-	if ( mSwitches[4] and mNightMode == false ) {
+	if ( mSwitches[6] and mNightMode == false ) {
 		setNightMode( true );
-	} else if ( not mSwitches[4] and mNightMode == true ) {
+	} else if ( not mSwitches[6] and mNightMode == true ) {
 		setNightMode( false );
 	}
+/*
 	if ( mSwitches[5] and not mVideoRecording ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_START_RECORD );
@@ -214,7 +215,7 @@ bool Controller::run()
 		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
 	}
-
+*/
 	float f_thrust = ReadThrust();
 	float f_yaw = ReadYaw();
 	float f_pitch = ReadPitch();
@@ -291,7 +292,7 @@ bool Controller::run()
 
 	mXferMutex.lock();
 	if ( mTxFrame.data().size() > 0 ) {
-		mLink->Write( &mTxFrame, mRequestAck );
+		int ret = mLink->Write( &mTxFrame, mRequestAck );
 		mRequestAck = request_ack;
 	}
 	mTxFrame = Packet();
@@ -322,7 +323,9 @@ bool Controller::RxRun()
 	}
 
 	Packet telemetry;
-	if ( mLink->Read( &telemetry ) <= 0 ) {
+	int rret = 0;
+	if ( ( rret = mLink->Read( &telemetry ) ) <= 0 ) {
+		cout << "Controller Link read error : " << rret << "\n";
 		usleep( 500 );
 		return true;
 	}
@@ -791,7 +794,7 @@ void Controller::Calibrate()
 {
 	cout << "Controller::Calibrate()\n";
 
-	if ( !mLink ) {
+	if ( !mLink || !isConnected() ) {
 		return;
 	}
 
@@ -819,7 +822,7 @@ void Controller::CalibrateAll()
 {
 	cout << "Controller::CalibrateAll()\n";
 
-	if ( !mLink ) {
+	if ( !mLink || !isConnected() ) {
 		return;
 	}
 
@@ -837,7 +840,7 @@ void Controller::CalibrateAll()
 
 void Controller::CalibrateESCs()
 {
-	if ( !mLink ) {
+	if ( !mLink || !isConnected() ) {
 		return;
 	}
 

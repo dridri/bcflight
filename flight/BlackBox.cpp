@@ -27,7 +27,7 @@ BlackBox::BlackBox()
 
 		sprintf( filename, "/var/BLACKBOX/blackbox_%06u.csv", mID );
 		mFile = fopen( filename, "wb" );
-		gDebug() << "mFile : " << mFile << ", filename : " << filename << "\n";
+		gDebug() << "mFile : " << mFile << ", filename : " << filename;
 	}
 #elif defined( SYSTEM_NAME_Generic )
 	// TODO

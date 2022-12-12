@@ -105,7 +105,7 @@ void LSM303Accel::Calibrate( float dt, bool last_pass )
 		mOffset = mCalibrationAccum.xyz() / mCalibrationAccum.w;
 		mCalibrationAccum = Vector4f();
 		mCalibrated = true;
-		gDebug() << "LSM303 SAVING CALIBRATED OFFSETS !\n";
+		gDebug() << "LSM303 SAVING CALIBRATED OFFSETS !";
 		aDebug( "Offset", mOffset.x, mOffset.y, mOffset.z );
 		Board::SaveRegister( "LSM303:Accelerometer:Offset:X", to_string( mOffset.x ) );
 		Board::SaveRegister( "LSM303:Accelerometer:Offset:Y", to_string( mOffset.y ) );

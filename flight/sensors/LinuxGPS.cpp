@@ -33,7 +33,7 @@ LinuxGPS::LinuxGPS()
 {
 	int rc = 0;
 	if ( ( rc = gps_open( "localhost", "2947", mGpsData ) ) < 0 ) {
-		gDebug() << "gps_open failed : " << gps_errstr(rc) << " (" << rc << ")\n";
+		gDebug() << "gps_open failed : " << gps_errstr(rc) << " (" << rc << ")";
 		mGpsData = nullptr;
 		return;
 	}
@@ -62,12 +62,12 @@ void LinuxGPS::Read( float* lattitude, float* longitude, float* altitude, float*
 	int rc = 0;
 	if ( gps_waiting( mGpsData, 1 ) ) {
 		if ( ( rc = gps_read( mGpsData ) ) < 0 ) {
-		gDebug() << "gps_read failed : " << gps_errstr(rc) << " (" << rc << ")\n";
+		gDebug() << "gps_read failed : " << gps_errstr(rc) << " (" << rc << ")";
 		} else {
 			if ( ( mGpsData->status == STATUS_FIX ) and ( mGpsData->fix.mode == MODE_2D or mGpsData->fix.mode == MODE_3D ) and not isnan(mGpsData->fix.latitude) and not isnan(mGpsData->fix.longitude) ) {
-				gDebug() << "latitude: " << mGpsData->fix.latitude << ", longitude: " << mGpsData->fix.longitude << ", speed: " << mGpsData->fix.speed << ", timestamp: " << mGpsData->fix.time << "\n";
+				gDebug() << "latitude: " << mGpsData->fix.latitude << ", longitude: " << mGpsData->fix.longitude << ", speed: " << mGpsData->fix.speed << ", timestamp: " << mGpsData->fix.time;
 			} else {
-				gDebug() << "no GPS data available\n";
+				gDebug() << "no GPS data available";
 			}
 		}
 	}

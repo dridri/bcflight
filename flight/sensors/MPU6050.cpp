@@ -43,6 +43,7 @@ int MPU6050::flight_register( Main* main )
 
 Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 {
+
 	I2C* i2c = static_cast<I2C*>(bus);
 
 	uint8_t whoami = 0x00;
@@ -50,12 +51,12 @@ Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 	bool mpu9250 = ( whoami == 0x71 or whoami == 0x73 );
 	bool icm20608 = ( whoami == 0xAF );
 
-	gDebug() << "whoami [0x" << hex << (int)i2c->address() << "]0x" << hex << (int)whoami << "\n";
+	gDebug() << "whoami [0x" << hex << (int)i2c->address() << "]0x" << hex << (int)whoami;
 
 	if ( mpu9250 ) {
-		gDebug() << "I2C module at address 0x" << hex << (int)i2c->address() << " is MPU9250\n";
+		gDebug() << "I2C module at address 0x" << hex << (int)i2c->address() << " is MPU9250";
 	} else if ( icm20608 ) {
-		gDebug() << "I2C module at address 0x" << hex << (int)i2c->address() << " is ICM28608\n";
+		gDebug() << "I2C module at address 0x" << hex << (int)i2c->address() << " is ICM28608";
 	}
 
 	// No power management, internal clock source: 0b00000000
@@ -110,14 +111,14 @@ Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 	bus->Read8( read_reg | MPU_6050_WHO_AM_I, &whoami );
 	bool mpu9250 = ( whoami == 0x71 or whoami == 0x73 );
 	bool icm20608 = ( whoami == 0xAF );
-
-	gDebug() << "whoami : 0x" << hex << (int)whoami << "\n";
+	bool icm42605 = ( whoami == 0x42 );
+	gDebug() << "whoami : 0x" << hex << (int)whoami;
 
 	if ( mpu9250 ) {
 		// TODO : put back these logs
-// 		gDebug() << "I2C module at address 0x" << hex << (int)bus->address() << " is MPU9250\n";
+// 		gDebug() << "I2C module at address 0x" << hex << (int)bus->address() << " is MPU9250";
 	} else if ( icm20608 ) {
-// 		gDebug() << "I2C module at address 0x" << hex << (int)bus->address() << " is ICM28608\n";
+// 		gDebug() << "I2C module at address 0x" << hex << (int)bus->address() << " is ICM20608";
 	}
 
 	// No power management, internal clock source: 0b00000000
@@ -163,7 +164,6 @@ Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 		bus->Write8( MPU_6050_USER_CTRL, 0b00000000 );
 	}
 
-
 	// TODO : use config ('use_dmp')
 	// TODO : see https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050_6Axis_MotionApps20.h
 	if ( false ) {
@@ -179,9 +179,8 @@ Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 	Sensor* accel = new MPU6050Accel( bus );
 	mDevices.push_back( mag );
 	mDevices.push_back( accel );
-
-	return gyro;
 */
+	return gyro;
 }
 
 
@@ -286,7 +285,7 @@ void MPU6050Accel::Calibrate( float dt, bool last_pass )
 		mOffset = mCalibrationAccum.xyz() / mCalibrationAccum.w;
 		mCalibrationAccum = Vector4f();
 		mCalibrated = true;
-		gDebug() << "MPU6050 SAVING CALIBRATED OFFSETS !\n";
+		gDebug() << "MPU6050 SAVING CALIBRATED OFFSETS !";
 		aDebug( "mOffset", mOffset.x, mOffset.y, mOffset.z );
 		Board::SaveRegister( "MPU6050:Accelerometer:Offset:X", to_string( mOffset.x ) );
 		Board::SaveRegister( "MPU6050:Accelerometer:Offset:Y", to_string( mOffset.y ) );

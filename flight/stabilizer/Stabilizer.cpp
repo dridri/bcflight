@@ -26,9 +26,9 @@
 #include "Config.h"
 #include "Stabilizer.h"
 
-Stabilizer::Stabilizer( Main* main, Frame* frame )
-	: mMain( main )
-	, mFrame( frame )
+Stabilizer::Stabilizer()
+	: mMain( Main::instance() )
+	, mFrame( nullptr )
 	, mMode( Rate )
 	, mAltitudeHold( false )
 	, mRateRollPID( PID<float>() )
@@ -41,7 +41,9 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	, mLockState( 0 )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
+	, mHorizonMaxRate( Vector3f( 300.0f, 300.0f, 300.0f ) )
 {
+	fDebug(this);
 /*
 	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->Number( "stabilizer.pid_roll.p" ) ) );
 	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->Number( "stabilizer.pid_roll.i" ) ) );
@@ -57,47 +59,30 @@ Stabilizer::Stabilizer( Main* main, Frame* frame )
 	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->Number( "stabilizer.pid_horizon.i" ) ) );
 	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->Number( "stabilizer.pid_horizon.d" ) ) );
 */
-	mRateRollPID.setP( main->config()->Number( "stabilizer.pid_roll.p" ) );
-	mRateRollPID.setI( main->config()->Number( "stabilizer.pid_roll.i" ) );
-	mRateRollPID.setD( main->config()->Number( "stabilizer.pid_roll.d" ) );
-	mRatePitchPID.setP( main->config()->Number( "stabilizer.pid_pitch.p" ) );
-	mRatePitchPID.setI( main->config()->Number( "stabilizer.pid_pitch.i" ) );
-	mRatePitchPID.setD( main->config()->Number( "stabilizer.pid_pitch.d" ) );
-	mRateYawPID.setP( main->config()->Number( "stabilizer.pid_yaw.p" ) );
-	mRateYawPID.setI( main->config()->Number( "stabilizer.pid_yaw.i" ) );
-	mRateYawPID.setD( main->config()->Number( "stabilizer.pid_yaw.d" ) );
-
-	mHorizonPID.setP( main->config()->Number( "stabilizer.pid_horizon.p" ) );
-	mHorizonPID.setI( main->config()->Number( "stabilizer.pid_horizon.i" ) );
-	mHorizonPID.setD( main->config()->Number( "stabilizer.pid_horizon.d" ) );
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
 
-	float v;
-	if ( ( v = main->config()->Number( "stabilizer.horizon_angles.x" ) ) > 0.0f ) {
-		mHorizonMultiplier.x = v;
-	}
-	if ( ( v = main->config()->Number( "stabilizer.horizon_angles.y" ) ) > 0.0f ) {
-		mHorizonMultiplier.y = v;
-	}
 
 // 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
-
-	mRateFactor = main->config()->Number( "stabilizer.rate_speed" );
-	if ( mRateFactor <= 0.0f ) {
-		mRateFactor = 200.0f;
-	}
-
-	mHorizonMaxRate.x = main->config()->Number( "stabilizer.horizon_max_rate.x", 300.0f );
-	mHorizonMaxRate.y = main->config()->Number( "stabilizer.horizon_max_rate.y", 300.0f );
-	mHorizonMaxRate.z = main->config()->Number( "stabilizer.horizon_max_rate.z", 300.0f );
 }
 
 
 Stabilizer::~Stabilizer()
 {
+}
+
+
+Frame* Stabilizer::frame() const
+{
+	return mFrame;
+}
+
+
+void Stabilizer::setFrame( Frame* frame )
+{
+	mFrame = frame;
 }
 
 
@@ -394,7 +379,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", ratePID.x, ratePID.y, ratePID.z );
 	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", stmp );
 	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
-		gDebug() << "stab error\n";
+		gDebug() << "stab error";
 		Reset( mHorizonPID.state().z );
 	}
 }

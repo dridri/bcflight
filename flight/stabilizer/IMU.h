@@ -24,9 +24,13 @@
 #include <Vector.h>
 #include <EKF.h>
 
+class Gyroscope;
+class Accelerometer;
+class Magnetometer;
+
 #define IMU_RPY_SMOOTH_RATIO 0.02f
 
-class IMU
+LUA_CLASS class IMU
 {
 public:
 	typedef enum {
@@ -37,9 +41,17 @@ public:
 		Running
 	} State;
 
-	IMU( Main* main );
+	LUA_EXPORT IMU();
 	virtual ~IMU();
-	void setRateOnly( bool enabled );
+
+	LUA_EXPORT void setRateOnly( bool enabled );
+	LUA_PROPERTY("filters.rates.input") void setRatesFilterInput( const Vector3f& v );
+	LUA_PROPERTY("filters.rates.output") void setRatesFilterOutput( const Vector3f& v );
+	LUA_PROPERTY("filters.accelerometer.input") void setAccelerometerFilterInput( const Vector3f& v );
+	LUA_PROPERTY("filters.accelerometer.output") void setAccelerometerFilterOutput( const Vector3f& v );
+	LUA_PROPERTY("filters.attitude.input.rates") void setAttitudeFilterRatesInput( const Vector3f& v );
+	LUA_PROPERTY("filters.attitude.accelerometer.rates") void setAttitudeFilterAccelerometerInput( const Vector3f& v );
+	LUA_PROPERTY("filters.attitude.output") void setAttitudeFilterOutput( const Vector3f& v );
 
 	const Vector3f acceleration() const;
 	const Vector3f gyroscope() const;
@@ -76,6 +88,10 @@ protected:
 #ifdef SYSTEM_NAME_Linux
 	mutex mPositionUpdateMutex;
 #endif
+
+	LUA_PROPERTY("gyroscopes") std::list<Gyroscope*> mGyroscopes;
+	LUA_PROPERTY("gyroscopes") std::list<Accelerometer*> mAccelerometers;
+	LUA_PROPERTY("gyroscopes") std::list<Magnetometer*> mMagnetometers;
 
 	// Running states
 	State mState;

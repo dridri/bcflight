@@ -29,8 +29,8 @@
 #include "GPS.h"
 #include <Controller.h>
 
-IMU::IMU( Main* main )
-	: mMain( main )
+IMU::IMU()
+	: mMain( Main::instance() )
 	, mSensorsUpdateSlow( 0 )
 	, mState( Off )
 	, mAcceleration( Vector3f() )
@@ -66,7 +66,7 @@ IMU::IMU( Main* main )
 	mRates.setSelector( 0, 0, 1.0f );
 	mRates.setSelector( 1, 1, 1.0f );
 	mRates.setSelector( 2, 2, 1.0f );
-
+/*
 	// Set gyroscope filtering factors
 	mRates.setInputFilter( 0, main->config()->Number( "stabilizer.filters.rates.input.x", 80.0f ) );
 	mRates.setInputFilter( 1, main->config()->Number( "stabilizer.filters.rates.input.y", 80.0f ) );
@@ -77,7 +77,7 @@ IMU::IMU( Main* main )
 	mRates.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.rates.output.y", 0.5f ) );
 	mRates.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.rates.output.z", 0.5f ) );
 
-
+*/
 	/** mAccelerationSmoother matrix :
 	 *   - Inputs :
 	 *     - acceleration 0 1 2
@@ -88,7 +88,7 @@ IMU::IMU( Main* main )
 	mAccelerationSmoother.setSelector( 0, 0, 1.0f );
 	mAccelerationSmoother.setSelector( 1, 1, 1.0f );
 	mAccelerationSmoother.setSelector( 2, 2, 1.0f );
-
+/*
 	// Set gyroscope filtering factors
 	mAccelerationSmoother.setInputFilter( 0, main->config()->Number( "stabilizer.filters.accelerometer.input.x", 100.0f ) );
 	mAccelerationSmoother.setInputFilter( 1, main->config()->Number( "stabilizer.filters.accelerometer.input.y", 100.0f ) );
@@ -98,7 +98,7 @@ IMU::IMU( Main* main )
 	mAccelerationSmoother.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.accelerometer.output.x", 0.5f ) );
 	mAccelerationSmoother.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.accelerometer.output.y", 0.5f ) );
 	mAccelerationSmoother.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.accelerometer.output.z", 0.5f ) );
-
+*/
 
 	/** mAttitude matrix :
 	 *   - Inputs :
@@ -116,6 +116,7 @@ IMU::IMU( Main* main )
 	mAttitude.setSelector( 2, 2, 1.0f );
 	mAttitude.setSelector( 5, 2, 1.0f );
 */
+/*
 	mAttitude.setSelector( 0, 0, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.accelerometer.factor.x", 1.0f ) ) ) );
 	mAttitude.setSelector( 3, 0, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.rates.factor.x", 1.0f ) ) ) );
 	mAttitude.setSelector( 1, 1, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.accelerometer.factor.y", 1.0f ) ) ) );
@@ -135,9 +136,9 @@ IMU::IMU( Main* main )
 
 	// Set output roll-pitch-yaw filtering factors
 	mAttitude.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.attitude.output.z", 0.25f ) );
-	mAttitude.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.attitude.output.z", 0.25f ) );
+	mAttitude.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.attitude.output.y", 0.25f ) );
 	mAttitude.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.attitude.output.z", 0.25f ) );
-
+*/
 
 	/** mPosition matrix :
 	 *   - Inputs :
@@ -150,13 +151,14 @@ IMU::IMU( Main* main )
 	mPosition.setSelector( 0, 0, 1.0f );
 	mPosition.setSelector( 1, 1, 1.0f );
 	mPosition.setSelector( 2, 2, 1.0f );
+/*
 	mPosition.setInputFilter( 0, main->config()->Number( "stabilizer.filters.position.input.velocity.x", 1.0f ) );
 	mPosition.setInputFilter( 1, main->config()->Number( "stabilizer.filters.position.input.velocity.y", 1.0f ) );
 	mPosition.setInputFilter( 2, main->config()->Number( "stabilizer.filters.position.input.velocity.z", 10.0f ) );
 	mPosition.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.position.output.x", 0.99f ) );
 	mPosition.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.position.output.y", 0.99f ) );
 	mPosition.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.position.output.z", 0.99f ) );
-
+*/
 
 	/** mVelocity matrix :
 	 *   - Inputs :
@@ -167,7 +169,7 @@ IMU::IMU( Main* main )
 	mVelocity.setSelector( 0, 0, 1.0f );
 	mVelocity.setSelector( 1, 1, 1.0f );
 	mVelocity.setSelector( 2, 2, 1.0f );
-
+/*
 	// Set input velocity filtering factors
 	mVelocity.setInputFilter( 0, main->config()->Number( "stabilizer.filters.velocity.input.x", 1.0f ) );
 	mVelocity.setInputFilter( 1, main->config()->Number( "stabilizer.filters.velocity.input.y", 1.0f ) );
@@ -177,7 +179,7 @@ IMU::IMU( Main* main )
 	mVelocity.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.velocity.output.x", 0.99f ) );
 	mVelocity.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.velocity.output.y", 0.99f ) );
 	mVelocity.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.velocity.output.z", 0.99f ) );
-
+*/
 	mSensorsThreadTick = 0;
 	mSensorsThreadTickRate = 0;
 // 	mSensorsThread = new HookThread<IMU>( "imu_sensors", this, &IMU::SensorsThreadRun );
@@ -264,6 +266,69 @@ void IMU::setRateOnly( bool enabled )
 }
 
 
+void IMU::setRatesFilterInput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mRates.setInputFilter( 0, v.x );
+	mRates.setInputFilter( 1, v.y );
+	mRates.setInputFilter( 2, v.z );
+}
+
+
+void IMU::setRatesFilterOutput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mRates.setOutputFilter( 0, v.x );
+	mRates.setOutputFilter( 1, v.y );
+	mRates.setOutputFilter( 2, v.z );
+}
+
+
+void IMU::setAccelerometerFilterInput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mAccelerationSmoother.setInputFilter( 0, v.x );
+	mAccelerationSmoother.setInputFilter( 1, v.y );
+	mAccelerationSmoother.setInputFilter( 2, v.z );
+}
+
+
+void IMU::setAccelerometerFilterOutput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mAccelerationSmoother.setOutputFilter( 0, v.x );
+	mAccelerationSmoother.setOutputFilter( 1, v.y );
+	mAccelerationSmoother.setOutputFilter( 2, v.z );
+}
+
+
+void IMU::setAttitudeFilterRatesInput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mAttitude.setOutputFilter( 3, v.x );
+	mAttitude.setOutputFilter( 4, v.y );
+	mAttitude.setOutputFilter( 5, v.z );
+}
+
+
+void IMU::setAttitudeFilterAccelerometerInput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mAttitude.setOutputFilter( 0, v.x );
+	mAttitude.setOutputFilter( 1, v.y );
+	mAttitude.setOutputFilter( 2, v.z );
+}
+
+
+void IMU::setAttitudeFilterOutput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mAttitude.setOutputFilter( 0, v.x );
+	mAttitude.setOutputFilter( 1, v.y );
+	mAttitude.setOutputFilter( 2, v.z );
+}
+
+
 // static int imu_fps = 0;
 // static uint64_t imu_ticks = 0;
 bool IMU::SensorsThreadRun()
@@ -273,7 +338,7 @@ bool IMU::SensorsThreadRun()
 		float dt = ((float)( Board::GetTicks() - mSensorsThreadTick ) ) / 1000000.0f;
 		mSensorsThreadTick = Board::GetTicks();
 		if ( abs( dt ) >= 1.0 ) {
-			gDebug() << "Critical : dt too high !! ( " << dt << " )\n";
+			gDebug() << "Critical : dt too high !! ( " << dt << " )";
 			return true;
 		}
 
@@ -283,7 +348,7 @@ bool IMU::SensorsThreadRun()
 
 		imu_fps++;
 		if ( Board::GetTicks() - imu_ticks >= 1000 * 1000 * 5 ) {
-			gDebug() << "Sampling rate : " << ( imu_fps / 5 ) << " Hz\n";
+			gDebug() << "Sampling rate : " << ( imu_fps / 5 ) << " Hz";
 			imu_fps = 0;
 			imu_ticks = Board::GetTicks();
 		}
@@ -328,31 +393,31 @@ void IMU::Calibrate( float dt, bool all )
 {
 	switch ( mCalibrationStep ) {
 		case 0 : {
-			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors\n";
-			gDebug() << "calibrate " << mCalibrationStep << " " << 0 << "\n";
+			gDebug() << "Calibrating " << ( all ? "all " : "" ) << "sensors";
+			gDebug() << "calibrate " << mCalibrationStep << " " << 0;
 			mMain->blackbox()->Enqueue( "IMU:state", "Calibrating" );
-			gDebug() << "calibrate " << mCalibrationStep << " " << 1 << "\n";
+			gDebug() << "calibrate " << mCalibrationStep << " " << 1;
 			mCalibrationStep++;
 			mCalibrationTimer = Board::GetTicks();
-			gDebug() << "calibrate " << mCalibrationStep << " " << 2 << "\n";
+			gDebug() << "calibrate " << mCalibrationStep << " " << 2;
 			break;
 		}
 		case 1 : {
-			gDebug() << "calibrate " << mCalibrationStep << " " << 0 << "\n";
+			gDebug() << "calibrate " << mCalibrationStep << " " << 0;
 			for ( auto dev : Sensor::Devices() ) {
 				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
 					gDebug() << "calibrate " << dev->names().front();
 					dev->Calibrate( dt, false );
 				}
 			}
-			gDebug() << "calibrate " << mCalibrationStep << " " << 1 << "\n";
+			gDebug() << "calibrate " << mCalibrationStep << " " << 1;
 			if ( Board::GetTicks() - mCalibrationTimer >= 1000 * 1000 * 2 ) {
 				mCalibrationStep++;
 			}
 			break;
 		}
 		case 2 : {
-			gDebug() << "Calibration last pass\n";
+			gDebug() << "Calibration last pass";
 			for ( auto dev : Sensor::Devices() ) {
 				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
 					dev->Calibrate( dt, true );
@@ -365,7 +430,7 @@ void IMU::Calibrate( float dt, bool all )
 			break;
 		}
 		case 3 : {
-			gDebug() << "Calibrating gravity\n";
+			gDebug() << "Calibrating gravity";
 			mGravity = Vector3f();
 			mCalibrationStep++;
 			mCalibrationTimer = Board::GetTicks();
@@ -380,7 +445,7 @@ void IMU::Calibrate( float dt, bool all )
 			break;
 		}
 		case 5 : {
-			gDebug() << "Calibration almost done...\n";
+			gDebug() << "Calibration almost done...";
 			mState = CalibrationDone;
 			mMain->blackbox()->Enqueue( "IMU:state", "CalibrationDone" );
 			mAcceleration = Vector3f();
@@ -389,7 +454,7 @@ void IMU::Calibrate( float dt, bool all )
 			mRPY = Vector3f();
 			mdRPY = Vector3f();
 			mRate = Vector3f();
-			gDebug() << "Calibration done !\n";
+			gDebug() << "Calibration done !";
 			mMain->frame()->Disarm(); // Activate motors
 			break;
 		}
@@ -408,7 +473,7 @@ void IMU::Recalibrate()
 		}
 	}
 	if ( cal_all ) {
-		gDebug() << "Full recalibration needed...\n";
+		gDebug() << "Full recalibration needed...";
 		RecalibrateAll();
 		return;
 	}
@@ -416,7 +481,7 @@ void IMU::Recalibrate()
 	mCalibrationStep = 0;
 	mState = Calibrating;
 	mRPYOffset = Vector3f();
-	gDebug() << "Calibrating gyroscope...\n";
+	gDebug() << "Calibrating gyroscope...";
 }
 
 
@@ -425,7 +490,7 @@ void IMU::RecalibrateAll()
 	mCalibrationStep = 0;
 	mState = CalibratingAll;
 	mRPYOffset = Vector3f();
-	gDebug() << "Calibrating all sensors...\n";
+	gDebug() << "Calibrating all sensors...";
 }
 
 

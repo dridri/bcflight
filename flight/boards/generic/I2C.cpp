@@ -17,6 +17,7 @@
 **/
 
 #include <sys/fcntl.h>
+#include <sstream>
 #include "I2C.h"
 
 I2C::I2C( int addr, bool slave )
@@ -28,6 +29,14 @@ I2C::I2C( int addr, bool slave )
 
 I2C::~I2C()
 {
+}
+
+
+std::string I2C::toString()
+{
+	stringstream ss;
+	ss <<"I2C@0x" << std::hex << mAddr;
+	return ss.str();
 }
 
 

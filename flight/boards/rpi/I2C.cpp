@@ -34,17 +34,31 @@ I2C::I2C( int addr, bool slave )
 	: Bus()
 	, mAddr( addr )
 {
-	pthread_mutex_lock( &mMutex );
-	if ( mFD < 0 ) {
-		mFD = open( "/dev/i2c-1", O_RDWR );
-		gDebug() << "fd : " << mFD << "\n";
-	}
-	pthread_mutex_unlock( &mMutex );
 }
 
 
 I2C::~I2C()
 {
+}
+
+
+int I2C::Connect()
+{
+	pthread_mutex_lock( &mMutex );
+	if ( mFD < 0 ) {
+		mFD = open( "/dev/i2c-1", O_RDWR );
+		gDebug() << "fd : " << mFD;
+	}
+	pthread_mutex_unlock( &mMutex );
+	return 0;
+}
+
+
+std::string I2C::toString()
+{
+	stringstream ss;
+	ss <<"I2C@0x" << std::hex << mAddr;
+	return ss.str();
 }
 
 
@@ -138,6 +152,11 @@ list< int > I2C::ScanAll()
 {
 	list< int > ret;
 	int fd = open( "/dev/i2c-1", O_RDWR );
+	if ( fd < 0 ) {
+		gError() << "Cannot open " << string("/dev/i2c-1") << " : " << strerror(errno);
+		return ret;
+		
+	}
 	int res = 0;
 	int byte_ = 0;
 
@@ -146,7 +165,7 @@ list< int > I2C::ScanAll()
 			if ( errno == EBUSY ) {
 				continue;
 			} else {
-				gDebug() << "Error: Could not set address to " << i << " : " << strerror(errno);
+				gError() << "Could not set address to " << i << " : " << strerror(errno);
 				return ret;
 			}
 		}
@@ -168,7 +187,7 @@ list< int > I2C::ScanAll()
 
 	close( fd );
 	if ( ret.size() >= 127 ) {
-		gDebug() << "\e[0;41mError : Defective I2C bus !\e[0m\n";
+		gError() << "Defective I2C bus !";
 		Board::defectivePeripherals()["I2C"] = true;
 		ret.clear();
 	}

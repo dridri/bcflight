@@ -39,7 +39,7 @@ typedef struct sockaddr_in SOCKADDR_IN;
 typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
 
-#include "../Debug.h"
+#include "Debug.h"
 #include "Board.h"
 #include "Socket.h"
 #include "../Config.h"
@@ -67,7 +67,7 @@ Link* Socket::Instanciate( Config* config, const string& lua_object )
 	} else if ( stype == "UDPLite" ) {
 		type = UDPLite;
 	} else {
-		gDebug() << "FATAL ERROR : Unsupported Socket type \"" << stype << "\" !\n";
+		gDebug() << "FATAL ERROR : Unsupported Socket type \"" << stype << "\" !";
 	}
 
 	int port = config->Integer( lua_object + ".port" );
@@ -78,7 +78,7 @@ Link* Socket::Instanciate( Config* config, const string& lua_object )
 }
 
 
-Socket::Socket( uint16_t port, PortType type, bool broadcast, uint32_t timeout )
+Socket::Socket( uint16_t port, Socket::PortType type, bool broadcast, uint32_t timeout )
 	: mPort( port )
 	, mPortType( type )
 	, mBroadcast( broadcast )
@@ -87,6 +87,7 @@ Socket::Socket( uint16_t port, PortType type, bool broadcast, uint32_t timeout )
 	, mClientSocket( -1 )
 	, mChannel( 0 )
 {
+	fDebug( port, type, broadcast, timeout );
 	iwstats stats;
 	wireless_config info;
 	iwrange range;
@@ -100,6 +101,13 @@ Socket::Socket( uint16_t port, PortType type, bool broadcast, uint32_t timeout )
 	}
 
 	iw_sockets_close( iwSocket );
+}
+
+
+Socket::Socket()
+	: Socket( 0 )
+{
+	fDebug();
 }
 
 
@@ -183,7 +191,7 @@ void Socket::setRetriesCount( int retries )
 
 int Socket::Connect()
 {
-	fDebug0();
+	fDebug( mPort, mPortType );
 
 	if ( mConnected ) {
 		return 0;
@@ -218,7 +226,7 @@ int Socket::Connect()
 			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, &checksum_coverage, sizeof(checksum_coverage) );
 		}
 		if ( bind( mSocket, (SOCKADDR*)&mSin, sizeof(mSin) ) < 0 ) {
-			gDebug() << "Socket ( " << mPort << " ) error : " << strerror(errno) << "\n";
+			gDebug() << "Socket ( " << mPort << " ) error : " << strerror(errno);
 			mConnected = false;
 			return -1;
 		}
@@ -246,13 +254,13 @@ int Socket::Connect()
 			int ret = recvfrom( mSocket, &flag, sizeof( flag ), 0, (SOCKADDR*)&mClientSin, &fromsize );
 			if ( ret > 0 ) {
 				flag = ntohl( flag );
-				gDebug() << "flag : " << ntohl( flag ) << "\n";
+				gDebug() << "flag : " << ntohl( flag );
 				if ( flag != 0x12345678 ) {
 					mConnected = false;
 					return -1;
 				}
 			} else {
-				gDebug() << strerror( errno ) << "\n";
+				gDebug() << strerror( errno );
 				mConnected = false;
 				return -1;
 			}
@@ -298,7 +306,7 @@ SyncReturn Socket::Read( void* buf, uint32_t len, int timeout )
 		if ( ( Board::GetTicks() - timebase >= timeout * 1000ULL ) or errno == 11 ) {
 			return TIMEOUT;
 		}
-		gDebug() << "UDP disconnected ( " << ret << " : " << errno << ", " << strerror( errno ) << " )\n";
+		gDebug() << "UDP disconnected ( " << ret << " : " << errno << ", " << strerror( errno ) << " )";
 		mConnected = false;
 		return -1;
 	}
@@ -335,7 +343,7 @@ SyncReturn Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 	}
 
 	if ( ret < 0 and mPortType != UDP and mPortType != UDPLite ) {
-		gDebug() << "TCP disconnected\n";
+		gDebug() << "TCP disconnected";
 		mConnected = false;
 		return -1;
 	}

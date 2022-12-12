@@ -32,7 +32,7 @@ Slave::Slave( Config* config, const string& object, bool is_master )
 			if ( ret == 1 ) {
 				printf( 0, "received 0x%02X %d '%c'\n", test, test, test );
 			} else {
-				gDebug() << "error\n";
+				gDebug() << "error";
 			}
 		}
 

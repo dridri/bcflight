@@ -36,9 +36,9 @@ Frame::~Frame()
 }
 void Frame::MotorTest(uint32_t id) {
 	
-	gDebug() << "Test motor : " << id << "\n";
+	gDebug() << "Test motor : " << id;
 	if (mMotors.size() <= id) {
-		gDebug() << "Out of range abort\n";
+		gDebug() << "Out of range abort";
 	}
 	
 	Motor* m = mMotors[id];
@@ -49,41 +49,41 @@ void Frame::MotorTest(uint32_t id) {
 	m->setSpeed( 0.0f, true );
 	usleep(1 * 1000 * 1000);
 	m->setSpeed(0.05f, true);
-	gDebug() << "Waiting for 5 seconds\n";
+	gDebug() << "Waiting for 5 seconds";
 	usleep(5 * 1000 * 1000);
 	m->Disarm();
-	gDebug() << "Disarm ESC\n";
+	gDebug() << "Disarm ESC";
 }
 
 void Frame::CalibrateESCs()
 {
-	fDebug0();
+	fDebug();
 
-	gDebug() << "Disabling ESCs\n";
+	gDebug() << "Disabling ESCs";
 	for ( Motor* m : mMotors ) {
 		m->Disable();
 	}
 
-	gDebug() << "Waiting 10 seconds...\n";
+	gDebug() << "Waiting 10 seconds...";
 	usleep( 10 * 1000 * 1000 );
 
-	gDebug() << "Setting maximal speed\n";
+	gDebug() << "Setting maximal speed";
 	for ( Motor* m : mMotors ) {
 		m->setSpeed( 1.0f, true );
 	}
 
-	gDebug() << "Waiting 8 seconds...\n";
+	gDebug() << "Waiting 8 seconds...";
 	usleep( 8 * 1000 * 1000 );
 
-	gDebug() << "Setting minimal speed\n";
+	gDebug() << "Setting minimal speed";
 	for ( Motor* m : mMotors ) {
 		m->setSpeed( 0.0f, true );
 	}
 
-	gDebug() << "Waiting 8 seconds...\n";
+	gDebug() << "Waiting 8 seconds...";
 	usleep( 8 * 1000 * 1000 );
 
-	gDebug() << "Disarm all ESCs\n";
+	gDebug() << "Disarm all ESCs";
 	for ( Motor* m : mMotors ) {
 		m->Disarm();
 	}

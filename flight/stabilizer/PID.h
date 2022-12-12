@@ -34,6 +34,14 @@ public:
 	}
 	~PID() {
 	}
+	PID( const LuaValue& v ) {
+		if ( v.type() == LuaValue::Table ) {
+			const std::map<std::string, LuaValue >& t = v.toTable();
+			mkPID.x = t.at("p").toNumber();
+			mkPID.y = t.at("i").toNumber();
+			mkPID.z = t.at("d").toNumber();
+		}
+	}
 
 	void Reset() {
 		mIntegral = 0;

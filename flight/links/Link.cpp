@@ -222,7 +222,7 @@ Link* Link::Create( Config* config, const string& lua_object )
 {
 	Link* instance = (Link*)strtoull( config->String( lua_object + "._instance" ).c_str(), nullptr, 10 );
 	if ( instance ) {
-		gDebug() << "Reselecting already existing Link\n";
+		gDebug() << "Reselecting already existing Link";
 		return instance;
 	}
 
@@ -239,7 +239,7 @@ Link* Link::Create( Config* config, const string& lua_object )
 		return ret;
 	}
 
-	gDebug() << "Error : Link type \"" << type << "\" not supported !\n";
+	gDebug() << "Error : Link type \"" << type << "\" not supported !";
 	return nullptr;
 } // -- Socket{ type = "TCP/UDP/UDPLite", port = port_number[, broadcast = true/false] } <= broadcast is false by default
 

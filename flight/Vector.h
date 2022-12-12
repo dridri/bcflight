@@ -20,6 +20,7 @@
 #define VECTOR_H
 
 #include <cmath>
+#include <Lua.h>
 
 #define VECTOR_INLINE inline
 // #define VECTOR_INLINE
@@ -87,12 +88,25 @@ public:
 	Vector(T a, const Vector<T,3>& v ) : x(a), y(v.x), z(v.y), w(v.z) {}
 	Vector( const Vector<T,4>& v ) : x(v.x), y(v.y), z(v.z), w(v.w) {}
 	Vector( float* v ) : x(v[0]), y(v[1]), z(v[2]), w(v[3]) {}
+	explicit Vector( const LuaValue& v ) {
+		if ( v.type() == LuaValue::Table ) {
+			const std::map<std::string, LuaValue >& t = v.toTable();
+			try {
+				x = t.at("x").toNumber();
+				y = t.at("y").toNumber();
+				z = t.at("z").toNumber();
+				w = t.at("w").toNumber();
+			} catch ( std::exception& e ) {
+			}
+		}
+	}
 
 	VECTOR_INLINE Vector<T,3> xyz() const { return Vector<T,3>( x, y, z ); }
 	VECTOR_INLINE Vector<T,3> zyx() const { return Vector<T,3>( z, y, x ); }
 	VECTOR_INLINE Vector<T,2> xy() const { return Vector<T,2>( x, y ); }
 	VECTOR_INLINE Vector<T,2> xz() const { return Vector<T,2>( x, z ); }
 	VECTOR_INLINE Vector<T,2> yz() const { return Vector<T,2>( y, z ); }
+
 
 	Vector<T,n>& operator=( const Vector< T, n >& other )
 	{

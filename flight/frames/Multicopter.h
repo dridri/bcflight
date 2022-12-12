@@ -3,10 +3,12 @@
 
 #include "Frame.h"
 
-class Multicopter : public Frame
+class Main;
+
+LUA_CLASS class Multicopter : public Frame
 {
 public:
-	Multicopter( Config* config );
+	LUA_EXPORT Multicopter();
 	~Multicopter();
 
 	void Arm();
@@ -20,10 +22,11 @@ protected:
 	static Frame* Instanciate( Config* config );
 
 	vector< float > mStabSpeeds;
-	vector< Vector3f > mPIDMultipliers;
-	float mMaxSpeed;
-	float mAirModeTrigger;
-	float mAirModeSpeed;
+	LUA_PROPERTY("maxspeed") float mMaxSpeed;
+	LUA_PROPERTY("test") float mTest;
+	LUA_PROPERTY("air_mode.trigger") float mAirModeTrigger;
+	LUA_PROPERTY("air_mode.speed") float mAirModeSpeed;
+	LUA_PROPERTY("matrix") std::vector<Vector4f> mMatrix;
 };
 
 #endif // MULTICOPTER_H

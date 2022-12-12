@@ -19,11 +19,13 @@
 #ifndef DSHOT_H
 #define DSHOT_H
 
+#if 0
+
 #include <stdint.h>
 #include <vector>
 #include <Motor.h>
 
-class DShot : public Motor
+class DShot_ : public Motor
 {
 public:
 	DShot( uint8_t pin );
@@ -98,5 +100,7 @@ private:
 	static void get_model( unsigned mbox_board_rev );
 	static void* map_peripheral( uint32_t base, uint32_t len );
 };
+
+#endif // 0
 
 #endif // DSHOT_H

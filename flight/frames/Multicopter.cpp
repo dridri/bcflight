@@ -20,16 +20,17 @@ int Multicopter::flight_register( Main* main )
 
 Frame* Multicopter::Instanciate( Config* config )
 {
-	return new Multicopter( config );
+	// return new Multicopter( config );
 }
 
 
-Multicopter::Multicopter( Config* config )
+Multicopter::Multicopter()
 	: Frame()
 	, mMaxSpeed( 1.0f )
-	, mAirModeTrigger( config->Number( "frame.air_mode.trigger", 0.35f ) )
-	, mAirModeSpeed( config->Number( "frame.air_mode.speed", 0.15f ) )
+	// , mAirModeTrigger( config->Number( "frame.air_mode.trigger", 0.35f ) )
+	// , mAirModeSpeed( config->Number( "frame.air_mode.speed", 0.15f ) )
 {
+	/*
 	float maxspeed = config->Number( "frame.max_speed", 1.0f );
 	if ( maxspeed > 0.0f and maxspeed <= 1.0f ) {
 		mMaxSpeed = maxspeed;
@@ -37,7 +38,7 @@ Multicopter::Multicopter( Config* config )
 
 	int motors_count = config->ArrayLength( "frame.motors" );
 	if ( motors_count < 3 ) {
-		gDebug() << "ERROR : There should be at least 3 configured motors !\n";
+		gDebug() << "ERROR : There should be at least 3 configured motors !";
 		return;
 	}
 	mMotors.resize( motors_count );
@@ -52,11 +53,12 @@ Multicopter::Multicopter( Config* config )
 		mPIDMultipliers[i].y = config->Number( object + ".pid_vector.y" );
 		mPIDMultipliers[i].z = config->Number( object + ".pid_vector.z" );
 		if ( mPIDMultipliers[i].length() == 0.0f ) {
-			gDebug() << "WARNING : PID multipliers for motor " << (i+1) << " seem to be not set !\n";
+			gDebug() << "WARNING : PID multipliers for motor " << (i+1) << " seem to be not set !";
 		}
 
 		mMotors[i]->Disable();
 	}
+	*/
 }
 
 
@@ -71,8 +73,13 @@ void Multicopter::Arm()
 	char stmp[256] = "\"";
 	uint32_t spos = 1;
 
+	if ( mStabSpeeds.size() < mMotors.size() ) {
+		mStabSpeeds.resize( mMotors.size() );
+	}
+
 	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 		mStabSpeeds[i] = 0.0f;
+		mMotors[i]->Arm();
 		mMotors[i]->setSpeed( 0.0f, true );
 		spos += sprintf( stmp + spos, "%.4f,", mMotors[i]->speed() );
 	}
@@ -104,6 +111,11 @@ void Multicopter::Disarm()
 
 void Multicopter::WarmUp()
 {
+	fDebug();
+
+	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
+		mMotors[i]->Disarm();
+	}
 }
 
 
@@ -114,7 +126,7 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 	}
 	if ( thrust >= mAirModeTrigger ) {
 		if ( not mAirMode ) {
-			gDebug() << "Now in air mode\n";
+			gDebug() << "Now in air mode";
 		}
 		mAirMode = true;
 	}
@@ -126,7 +138,7 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 		float stab_multiplier = 0.0f;
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mStabSpeeds[i] = mPIDMultipliers[i] * pid_output + thrust;
+			mStabSpeeds[i] = mMatrix[i].xyz() * pid_output + mMatrix[i].w * thrust;
 			overall_min = min( overall_min, mStabSpeeds[i] );
 			overall_max = max( overall_max, mStabSpeeds[i] );
 		}

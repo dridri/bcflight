@@ -3,8 +3,8 @@
 #include "Thread.h"
 
 
-StabilizerProxy::StabilizerProxy( Main* main, Bus* bus )
-	: Stabilizer( main, nullptr )
+StabilizerProxy::StabilizerProxy( Bus* bus )
+	: Stabilizer()
 	, mBus( bus )
 {
 }

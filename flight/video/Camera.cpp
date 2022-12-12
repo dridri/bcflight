@@ -21,10 +21,11 @@
 
 Camera::Camera()
 {
-	fDebug0();
+	fDebug();
 }
 
 
 Camera::~Camera()
 {
+	fDebug();
 }

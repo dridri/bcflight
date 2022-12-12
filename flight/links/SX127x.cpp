@@ -148,30 +148,34 @@ int SX127x::flight_register( Main* main )
 
 Link* SX127x::Instanciate( Config* config, const string& lua_object )
 {
-	return new SX127x( config, lua_object );
+	return nullptr;
+	// return new SX127x( config, lua_object );
 }
 
 
-SX127x::SX127x( Config* config, const string& lua_object )
+SX127x::SX127x()
 	: Link()
-	, mDevice( config->String( lua_object + ".device", "/dev/spidev0.0" ) )
-	, mResetPin( config->Integer( lua_object + ".resetpin", -1 ) )
-	, mTXPin( config->Integer( lua_object + ".txpin", -1 ) )
-	, mRXPin( config->Integer( lua_object + ".rxpin", -1 ) )
-	, mIRQPin( config->Integer( lua_object + ".irqpin", -1 ) )
-	, mBlocking( config->Boolean( lua_object + ".blocking", true ) )
-	, mDropBroken( config->Boolean( lua_object + ".drop", true ) )
-	, mEnableTCXO( config->Boolean( lua_object + ".enable_tcxo", false ) )
-	, mModem( config->String( lua_object + ".modem", "FSK" ) == "LoRa" ? LoRa : FSK )
-	, mFrequency( config->Integer( lua_object + ".frequency", 433000000 ) )
-	, mInputPort( config->Integer( lua_object + ".input_port", 0 ) )
-	, mOutputPort( config->Integer( lua_object + ".output_port", 1 ) )
-	, mRetries( config->Integer( lua_object + ".retries", 1 ) )
-	, mReadTimeout( config->Integer( lua_object + ".read_timeout", 1000 ) )
-	, mBitrate( config->Integer( lua_object + ".bitrate", 76800 ) )
-	, mBandwidth( config->Integer( lua_object + ".bandwidth", 250000 ) )
-	, mBandwidthAfc( config->Integer( lua_object + ".bandwidthAfc", 500000 ) )
-	, mFdev( config->Integer( lua_object + ".fdev", 200000 ) )
+	, mSPI( nullptr )
+	, mReady( false )
+	, mDevice( "/dev/spidev0.0" )
+	, mResetPin( -1 )
+	, mTXPin( -1 )
+	, mRXPin( -1 )
+	, mIRQPin( -1 )
+	, mLedPin( -1 )
+	, mBlocking( true )
+	, mDropBroken( true )
+	, mEnableTCXO( false )
+	, mModem( FSK )
+	, mFrequency( 433000000 )
+	, mInputPort( 0 )
+	, mOutputPort( 1 )
+	, mRetries( 1 )
+	, mReadTimeout( 1000 )
+	, mBitrate( 76800 )
+	, mBandwidth( 250000 )
+	, mBandwidthAfc( 500000 )
+	, mFdev( 200000 )
 	, mRSSI( 0 )
 	, mRxQuality( 0 )
 	, mPerfTicks( 0 )
@@ -180,28 +184,47 @@ SX127x::SX127x( Config* config, const string& lua_object )
 	, mPerfInvalidBlocks( 0 )
 	, mPerfBlocksPerSecond( 0 )
 	, mPerfMaxBlocksPerSecond( 0 )
-	, mDiversity( nullptr )
+	, mDiversitySpi( nullptr )
+	, mDiversityDevice( "" )
+	, mDiversityResetPin( -1 )
+	, mDiversityIrqPin( -1 )
+	, mDiversityLedPin( -1 )
 	, mTXBlockID( 0 )
 {
 // 	mDropBroken = false; // TEST (using custom CRC instead)
 
+}
+
+
+SX127x::~SX127x()
+{
+}
+
+
+void SX127x::init()
+{
 	if ( mResetPin < 0 ) {
-		gDebug() << "WARNING : No Reset-pin specified for SX127x, cannot create link !\n";
+		gDebug() << "WARNING : No Reset-pin specified for SX127x, cannot create link !";
 		return;
 	}
 	if ( mIRQPin < 0 ) {
-		gDebug() << "WARNING : No IRQ-pin specified for SX127x, cannot create link !\n";
+		gDebug() << "WARNING : No IRQ-pin specified for SX127x, cannot create link !";
 		return;
 	}
 
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
-	mSPI = new SPI( mDevice, 8000000 );
+	mSPI = new SPI( mDevice, 7000000 );
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
 	GPIO::setMode( mIRQPin, GPIO::Input );
 // 	GPIO::setPUD( mIRQPin, GPIO::PullDown );
-	GPIO::SetupInterrupt( mIRQPin, GPIO::Rising, [this](){/* printf( "module 0\n" );*/ this->Interrupt( mSPI ); } );
+	GPIO::setMode( mLedPin, GPIO::Output );
+	GPIO::SetupInterrupt( mIRQPin, GPIO::Rising, [this](){
+		GPIO::Write( mLedPin, true );
+		this->Interrupt( mSPI );
+		GPIO::Write( mLedPin, false );
+	});
 	if ( mTXPin >= 0 ) {
 		GPIO::Write( mTXPin, false );
 		GPIO::setMode( mTXPin, GPIO::Output );
@@ -211,35 +234,26 @@ SX127x::SX127x( Config* config, const string& lua_object )
 		GPIO::setMode( mRXPin, GPIO::Output );
 	}
 
-	if ( config->ArrayLength( lua_object + ".diversity" ) > 0 ) {
-		printf( "DIVERSITY\n" );
-		mDiversity = new Diversity;
-		mDiversity->device = config->String( lua_object + ".diversity.device", "/dev/spidev0.1" );
-		mDiversity->resetPin = config->Integer( lua_object + ".diversity.resetpin", -1 );
-		mDiversity->irqPin = config->Integer( lua_object + ".diversity.irqpin", -1 );
-		if ( mDiversity->resetPin < 0 ) {
-			gDebug() << "WARNING : No Reset-pin specified for SX127x diversity, cannot create link !\n";
-			delete mDiversity;
-			mDiversity = nullptr;
+	if ( mDiversityDevice.length() > 0 ) {
+		if ( mDiversityResetPin < 0 ) {
+			gDebug() << "WARNING : No Reset-pin specified for SX127x diversity, cannot create link !";
 		} else {
-			if ( mDiversity->irqPin < 0 ) {
-				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !\n";
-				delete mDiversity;
-				mDiversity = nullptr;
+			if ( mDiversityIrqPin < 0 ) {
+				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !";
 			} else {
-				mDiversity->spi = new SPI( mDiversity->device, 8000000 );
-				GPIO::setMode( mDiversity->resetPin, GPIO::Output );
-				GPIO::Write( mDiversity->resetPin, false );
-				GPIO::setMode( mDiversity->irqPin, GPIO::Input );
-				GPIO::SetupInterrupt( mDiversity->irqPin, GPIO::Rising, [this](){ /*printf( "module 1\n" ); */this->Interrupt( mDiversity->spi ); } );
+				mDiversitySpi = new SPI( mDiversityDevice, 7000000 );
+				GPIO::setMode( mDiversityResetPin, GPIO::Output );
+				GPIO::Write( mDiversityResetPin, false );
+				GPIO::setMode( mDiversityIrqPin, GPIO::Input );
+				GPIO::setMode( mDiversityLedPin, GPIO::Output );
+				GPIO::SetupInterrupt( mDiversityIrqPin, GPIO::Rising, [this](){
+					GPIO::Write( mDiversityLedPin, true );
+					this->Interrupt( mDiversitySpi );
+					GPIO::Write( mDiversityLedPin, false );
+				} );
 			}
 		}
 	}
-}
-
-
-SX127x::~SX127x()
-{
 }
 
 
@@ -249,14 +263,14 @@ int SX127x::Connect()
 	reset();
 
 	if ( not ping() ) {
-		gDebug() << "Module online : " << ping() << "\n";
+		gDebug() << "Module online : " << ping();
 		Board::defectivePeripherals()["SX127x"] = true;
 		return -1;
 	}
 	
 	int32_t ret = Setup( mSPI );
-	if ( ret >= 0 and mDiversity ) {
-		ret = Setup( mDiversity->spi );
+	if ( ret >= 0 and mDiversitySpi ) {
+		ret = Setup( mDiversitySpi );
 	}
 	return ret;
 }
@@ -362,15 +376,15 @@ int32_t SX127x::Setup( SPI* spi )
 	};
 	SetupRX( spi, rxconf );
 
-	gDebug() << "Module online : " << ping( spi ) << "\n";
-	gDebug() << "Modem : " << ( ( readRegister( spi, REG_OPMODE ) & RFLR_OPMODE_LONGRANGEMODE_ON ) ? "LoRa" : "FSK" ) << "\n";
-	gDebug() << "Frequency : " << (uint32_t)((float)(((uint32_t)readRegister(spi, REG_FRFMSB) << 16 ) | ((uint32_t)readRegister(spi, REG_FRFMID) << 8 ) | ((uint32_t)readRegister(spi, REG_FRFLSB) )) * FREQ_STEP) << "Hz\n";
-	gDebug() << "PACONFIG : 0x" << hex << (int)readRegister( spi, REG_PACONFIG ) << "\n";
-	gDebug() << "PADAC : 0x" << hex << (int)readRegister( spi, REG_PADAC ) << "\n";
-	gDebug() << "PARAMP : 0x" << hex << (int)readRegister( spi, REG_PARAMP ) << "\n";
-	gDebug() << "OCP : 0x" << hex << (int)readRegister( spi, REG_OCP ) << "\n";
-	gDebug() << "RXCONFIG : " << hex << (int)readRegister( spi, REG_RXCONFIG ) << "\n";
-	gDebug() << "SYNCCONFIG : " << hex << (int)readRegister( spi, REG_SYNCCONFIG ) << "\n";
+	gDebug() << "Module online : " << ping( spi );
+	gDebug() << "Modem : " << ( ( readRegister( spi, REG_OPMODE ) & RFLR_OPMODE_LONGRANGEMODE_ON ) ? "LoRa" : "FSK" );
+	gDebug() << "Frequency : " << (uint32_t)((float)(((uint32_t)readRegister(spi, REG_FRFMSB) << 16 ) | ((uint32_t)readRegister(spi, REG_FRFMID) << 8 ) | ((uint32_t)readRegister(spi, REG_FRFLSB) )) * FREQ_STEP) << "Hz";
+	gDebug() << "PACONFIG : 0x" << hex << (int)readRegister( spi, REG_PACONFIG );
+	gDebug() << "PADAC : 0x" << hex << (int)readRegister( spi, REG_PADAC );
+	gDebug() << "PARAMP : 0x" << hex << (int)readRegister( spi, REG_PARAMP );
+	gDebug() << "OCP : 0x" << hex << (int)readRegister( spi, REG_OCP );
+	gDebug() << "RXCONFIG : " << hex << (int)readRegister( spi, REG_RXCONFIG );
+	gDebug() << "SYNCCONFIG : " << hex << (int)readRegister( spi, REG_SYNCCONFIG );
 
 	startReceiving( spi );
 
@@ -410,7 +424,7 @@ void SX127x::SetupTX( SPI* spi, const TxConfig_t& conf )
 			} else if ( bandwidth == 500000 ) {
 				bandwidth = 9;
 			} else {
-				gDebug() << "ERROR: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported !\n";
+				gDebug() << "ERROR: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported !";
 				return;
 			}
 			uint32_t spreading_factor = max( 6u, min( 12u, conf.datarate ) );
@@ -421,7 +435,7 @@ void SX127x::SetupTX( SPI* spi, const TxConfig_t& conf )
 				writeRegister( spi, REG_LR_HOPPERIOD, conf.hopPeriod );
 			}
 
-			gDebug() << "default REG_LR_MODEMCONFIG2 : 0x" << hex << (int)readRegister( spi, REG_LR_MODEMCONFIG2 ) << "\n";
+			gDebug() << "default REG_LR_MODEMCONFIG2 : 0x" << hex << (int)readRegister( spi, REG_LR_MODEMCONFIG2 );
 			writeRegister( spi, REG_LR_MODEMCONFIG1, ( readRegister( spi, REG_LR_MODEMCONFIG1 ) & RFLR_MODEMCONFIG1_BW_MASK & RFLR_MODEMCONFIG1_CODINGRATE_MASK & RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) | ( bandwidth << 4 ) | ( conf.coderate << 1 ) | RFLR_MODEMCONFIG1_IMPLICITHEADER_OFF );
 			writeRegister( spi, REG_LR_MODEMCONFIG2, ( readRegister( spi, REG_LR_MODEMCONFIG2 ) & RFLR_MODEMCONFIG2_SF_MASK & RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK ) | ( spreading_factor << 4 ) | ( conf.crcOn << 2 ) );
 // 			writeRegister( spi, REG_LR_MODEMCONFIG3, ( readRegister( spi, REG_LR_MODEMCONFIG3 ) & RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) | ( lowDatarateOptimize << 3 ) );
@@ -475,7 +489,7 @@ void SX127x::SetupRX( SPI* spi, const RxConfig_t& conf )
 			} else if ( bandwidth == 500000 ) {
 				bandwidth = 9;
 			} else {
-				gDebug() << "ERROR: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported !\n";
+				gDebug() << "ERROR: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported !";
 				return;
 			}
 			uint32_t spreading_factor = max( 6u, min( 12u, conf.datarate ) );
@@ -525,8 +539,8 @@ void SX127x::SetupRX( SPI* spi, const RxConfig_t& conf )
 void SX127x::setFrequency( float f )
 {
 	setFrequency( mSPI, f );
-	if ( mDiversity ) {
-		setFrequency( mDiversity->spi, f );
+	if ( mDiversitySpi ) {
+		setFrequency( mDiversitySpi, f );
 	}
 }
 
@@ -570,8 +584,8 @@ void SX127x::startReceiving( SPI* spi )
 		start( spi );
 	} else {
 		start( mSPI );
-		if ( mDiversity and mDiversity->spi ) {
-			start( mDiversity->spi );
+		if ( mDiversitySpi ) {
+			start( mDiversitySpi );
 		}
 	}
 }
@@ -580,8 +594,8 @@ void SX127x::startReceiving( SPI* spi )
 void SX127x::startTransmitting()
 {
 	mInterruptMutex.lock();
-	if ( mDiversity and mDiversity->spi ) {
-		setOpMode( mDiversity->spi, RF_OPMODE_STANDBY );
+	if ( mDiversitySpi ) {
+		setOpMode( mDiversitySpi, RF_OPMODE_STANDBY );
 	}
 
 	if ( mRXPin >= 0 ) {
@@ -688,7 +702,7 @@ void SX127x::PerfUpdate()
 
 // 	if ( TICKS - mPerfTicks >= 250 ) {
 // 		mPerfTicks = TICKS;
-// 		gDebug() << "mPerfBlocksPerSecond : " << mPerfBlocksPerSecond << "\n";
+// 		gDebug() << "mPerfBlocksPerSecond : " << mPerfBlocksPerSecond;
 // 	}
 
 }
@@ -722,7 +736,7 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 	if ( mRxQueue.size() == 0 ) {
 		mRxQueueMutex.unlock();
 		if ( timedout ) {
-			gDebug() << "Module online : " << ping() << "\n";
+			gDebug() << "Module online : " << ping();
 			return TIMEOUT;
 		}
 		return 0;
@@ -828,7 +842,7 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 	uint32_t datalen = buflen - sizeof(Header);
 
 	if ( crc8( data, datalen ) != header->crc ) {
-		gDebug() << "Invalid CRC\n";
+		gDebug() << "Invalid CRC";
 		mPerfInvalidBlocks++;
 		return -1;
 	}
@@ -913,16 +927,16 @@ void SX127x::Interrupt( SPI* spi )
 	uint8_t opMode = getOpMode( spi );
 // 	if ( opMode != RF_OPMODE_RECEIVER and opMode != RF_OPMODE_SYNTHESIZER_RX ) {
 	if ( opMode == RF_OPMODE_TRANSMITTER or opMode == RF_OPMODE_SYNTHESIZER_TX ) {
-// 		gDebug() << "SX127x::Interrupt(" << module << ") SendTime : " << dec << TICKS - mSendTime << "\n";
+// 		gDebug() << "SX127x::Interrupt(" << module << ") SendTime : " << dec << TICKS - mSendTime;
 		if ( mSendingEnd ) {
 			startReceiving();
 		}
 		mSending = false;
-// 		gDebug() << "unlock\n";
+// 		gDebug() << "unlock";
 		mInterruptMutex.unlock();
 		return;
 	}
-// 	gDebug() << "SX127x::Interrupt(" << module << ")\n";
+// 	gDebug() << "SX127x::Interrupt(" << module << ")";
 
 	mRSSI = rssi;
 
@@ -937,7 +951,7 @@ void SX127x::Interrupt( SPI* spi )
 			
 		}
 		if( crc_err ) {
-// 			gDebug() << "SX127x::Interrupt(" << module << ") crc_err\n";
+// 			gDebug() << "SX127x::Interrupt(" << module << ") crc_err";
 			if ( mModem == LoRa ) {
 				mInterruptMutex.unlock();
 				return;
@@ -948,7 +962,7 @@ void SX127x::Interrupt( SPI* spi )
 			while ( writeRegister( spi, REG_RXCONFIG, readRegister( spi, REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK ) == false and TICKS - tick_ms < 50 ) {
 				usleep( 1 );
 			}
-// 			gDebug() << "unlock\n";
+// 			gDebug() << "unlock";
 			mInterruptMutex.unlock();
 			return;
 		}
@@ -987,7 +1001,7 @@ void SX127x::Interrupt( SPI* spi )
 		}
 	}
 
-// 	gDebug() << "SX127x::Interrupt(" << module << ") done\n";
+// 	gDebug() << "SX127x::Interrupt(" << module << ") done";
 	mInterruptMutex.unlock();
 }
 
@@ -995,23 +1009,25 @@ void SX127x::Interrupt( SPI* spi )
 void SX127x::reset()
 {
 	GPIO::Write( mResetPin, false );
-	if ( mDiversity ) {
-		GPIO::Write( mDiversity->resetPin, false );
+	if ( mDiversitySpi ) {
+		GPIO::Write( mDiversityResetPin, false );
 	}
-	usleep( 1000 * 50 );
+	usleep( 1000 * 250 );
 	GPIO::Write( mResetPin, true );
-	if ( mDiversity ) {
-		GPIO::Write( mDiversity->resetPin, true );
+	if ( mDiversitySpi ) {
+		GPIO::Write( mDiversityResetPin, true );
 	}
-	usleep( 1000 * 50 );
+	usleep( 1000 * 250 );
 }
 
 
 bool SX127x::ping( SPI* spi )
 {
 	if ( not spi ) {
-		if ( mDiversity ) {
-			return ( readRegister( mSPI, REG_VERSION ) == SAMTEC_ID ) && ( readRegister( mDiversity->spi, REG_VERSION ) == SAMTEC_ID );
+		if ( mDiversitySpi ) {
+			gDebug() << "ping 0 : " << ( readRegister( mSPI, REG_VERSION ) == SAMTEC_ID );
+			gDebug() << "ping 1 : " << ( readRegister( mDiversitySpi, REG_VERSION ) == SAMTEC_ID );
+			return ( readRegister( mSPI, REG_VERSION ) == SAMTEC_ID ) && ( readRegister( mDiversitySpi, REG_VERSION ) == SAMTEC_ID );
 		} else {
 			spi = mSPI;
 		}
@@ -1057,7 +1073,7 @@ bool SX127x::setOpMode( SPI* spi, uint32_t opMode )
 		usleep( 1 );
 		if ( TICKS - tick > 100 ) {
 			if ( not stalling ) {
-				gDebug() << "setOpMode(" << opMode << ") stalling ! (!=" << getOpMode(spi) << ")\n";
+				gDebug() << "setOpMode(" << opMode << ") stalling ! (!=" << getOpMode(spi) << ")";
 			}
 			stalling = true;
 		}
@@ -1067,14 +1083,14 @@ bool SX127x::setOpMode( SPI* spi, uint32_t opMode )
 		}
 	}
 	if ( stalling ) {
-		gDebug() << "setOpMode(" << opMode << ") stalled (" << to_string(TICKS - tick) << "ms) !\n";
+		gDebug() << "setOpMode(" << opMode << ") stalled (" << to_string(TICKS - tick) << "ms) !";
 	}
 
 	if ( getOpMode(spi) != opMode ) {
-		gDebug() << "ERROR : cannot set SX127x to opMode 0x" << hex << (int)opMode << " (0x" << (int)getOpMode(spi) << ")" << dec << "\n";
+		gDebug() << "ERROR : cannot set SX127x to opMode 0x" << hex << (int)opMode << " (0x" << (int)getOpMode(spi) << ")" << dec;
 		return false;
 	} else {
-// 		gDebug() << "SX127x : opMode now set to 0x" << hex << (int)opMode << dec << "\n";
+// 		gDebug() << "SX127x : opMode now set to 0x" << hex << (int)opMode << dec;
 	}
 
 	return true; //time < TIMEOUT;
@@ -1098,7 +1114,7 @@ bool SX127x::writeRegister( uint8_t address, uint8_t value )
 			value &= ~( RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK | RF_RXCONFIG_RESTARTRXWITHPLLLOCK );
 		}
 		if ( ret != value and address != REG_OPMODE and address != REG_IRQFLAGS1 ) {
-			gDebug() << "Error while setting register " << GetRegName(address) << " to 0x" << hex << (int)value << " (0x" << (int)ret << ")" << dec << "\n";
+			gDebug() << "Error while setting register " << GetRegName(address) << " to 0x" << hex << (int)value << " (0x" << (int)ret << ")" << dec;
 			return false;
 		}
 	}
@@ -1137,7 +1153,7 @@ bool SX127x::writeRegister( SPI* spi, uint8_t address, uint8_t value )
 			value &= ~( RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK | RF_RXCONFIG_RESTARTRXWITHPLLLOCK );
 		}
 		if ( ret != value and address != REG_OPMODE and address != REG_IRQFLAGS1 ) {
-			gDebug() << "[" << spi->device() << "]Error while setting register " << GetRegName(address) << " to 0x" << hex << (int)value << " (0x" << (int)ret << ")" << dec << "\n";
+			gDebug() << "[" << spi->device() << "]Error while setting register " << GetRegName(address) << " to 0x" << hex << (int)value << " (0x" << (int)ret << ")" << dec;
 			return false;
 		}
 	}

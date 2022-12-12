@@ -35,26 +35,30 @@
 #include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoEncode.h"
 #include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoDecode.h"
 #include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/VideoRender.h"
+#include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/EGLRender.h"
 #include "../../external/OpenMaxIL++/MMAL++/include/MMAL++/ImageEncode.h"
 #else
 #define CAM_INTF IL
+#include "../../external/OpenMaxIL++/include/Component.h"
 #include "../../external/OpenMaxIL++/include/Camera.h"
 #include "../../external/OpenMaxIL++/include/VideoSplitter.h"
 #include "../../external/OpenMaxIL++/include/VideoEncode.h"
 #include "../../external/OpenMaxIL++/include/VideoDecode.h"
 #include "../../external/OpenMaxIL++/include/VideoRender.h"
+#include "../../external/OpenMaxIL++/include/EGLRender.h"
 #include "../../external/OpenMaxIL++/include/ImageEncode.h"
 #endif
 
 class Main;
 class Link;
 
-class Raspicam : public Camera, protected CAM_INTF::Camera
+LUA_CLASS class Raspicam : public Camera
 {
 public:
-	Raspicam( Config* config, const string& conf_obj );
+	LUA_EXPORT Raspicam();
 	~Raspicam();
 
+	virtual void Start();
 	virtual void Pause();
 	virtual void Resume();
 	virtual void StartRecording();
@@ -87,6 +91,31 @@ public:
 
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
+	LUA_CLASS class ModelSettings {
+	public:
+		LUA_EXPORT ModelSettings();
+		LUA_PROPERTY("sensor_mode") int32_t sensorMode;
+		LUA_PROPERTY("width") int32_t width;
+		LUA_PROPERTY("height") int32_t height;
+		LUA_PROPERTY("fps") int32_t fps;
+		LUA_PROPERTY("exposure") int32_t exposure;
+		LUA_PROPERTY("iso") int32_t iso;
+		LUA_PROPERTY("shutter_speed") int32_t shutterSpeed;
+		LUA_PROPERTY("sharpness") int32_t sharpness;
+		LUA_PROPERTY("brightness") int32_t brightness;
+		LUA_PROPERTY("contrast") int32_t contrast;
+		LUA_PROPERTY("saturation") int32_t saturation;
+		LUA_PROPERTY("vflip") bool vflip;
+		LUA_PROPERTY("hflip") bool hflip;
+		LUA_PROPERTY("whiteBalance") std::string whiteBalance;
+		LUA_PROPERTY("stabilisation") bool stabilisation;
+		LUA_PROPERTY("night_fps") int32_t night_fps;
+		LUA_PROPERTY("night_iso") int32_t night_iso;
+		LUA_PROPERTY("night_brightness") int32_t night_brightness;
+		LUA_PROPERTY("night_contrast") int32_t night_contrast;
+		LUA_PROPERTY("night_saturation") int32_t night_saturation;
+	};
+
 protected:
 	bool LiveThreadRun();
 	bool RecordThreadRun();
@@ -96,17 +125,22 @@ protected:
 	int RecordWrite( char* data, int datalen, int64_t pts = 0, bool audio = false );
 	void setLensShader_internal( const LensShaderColor& R, const LensShaderColor& G, const LensShaderColor& B );
 
-	Config* mConfig;
-	string mConfigObject;
-	Link* mLink;
-	bool mDirectMode;
+	CAM_INTF::Camera* mHandle;
+
+	LUA_PROPERTY("link") Link* mLink;
+	LUA_PROPERTY("direct_mode") bool mDirectMode;
 	string mName;
+	LUA_PROPERTY("v1") Raspicam::ModelSettings mSettingsV1;
+	LUA_PROPERTY("v2") Raspicam::ModelSettings mSettingsV2;
+	LUA_PROPERTY("hq") Raspicam::ModelSettings mSettingsHQ;
+	Raspicam::ModelSettings* mSettings;
 	uint32_t mWidth;
 	uint32_t mHeight;
 	int32_t mISO;
 	uint32_t mShutterSpeed;
 	CAM_INTF::VideoEncode* mEncoder;
-	CAM_INTF::VideoRender* mRender;
+	// CAM_INTF::VideoRender* mRender;
+	CAM_INTF::EGLRender* mRender;
 	HookThread<Raspicam>* mLiveThread;
 	uint64_t mLiveFrameCounter;
 	uint64_t mLiveTicks;
@@ -120,6 +154,7 @@ protected:
 	CAM_INTF::Camera::ExposureControl mExposureMode;
 	string mWhiteBalanceLock;
 	uint8_t* mLiveBuffer;
+	LUA_PROPERTY("disable_lens_shading") bool mDisableLensShading;
 	LensShaderColor mLensShaderR;
 	LensShaderColor mLensShaderG;
 	LensShaderColor mLensShaderB;
@@ -131,6 +166,7 @@ protected:
 	char* mRecordFrameData;
 	int mRecordFrameDataSize;
 	int mRecordFrameSize;
+	LUA_PROPERTY("kbps") uint32_t mRecordBitRateKbps;
 	uint32_t mRecordSyncCounter;
 	CAM_INTF::VideoSplitter* mSplitter;
 	CAM_INTF::VideoEncode* mEncoderRecord;

@@ -49,12 +49,20 @@ static map< int, int > sSpeeds = {
 
 Serial::Serial( const string& device, int speed )
 	: Bus()
+	, mFD( -1 )
+	, mDevice( device )
 {
 }
 
 
 Serial::~Serial()
 {
+}
+
+
+std::string Serial::toString()
+{
+	return mDevice;
 }
 
 

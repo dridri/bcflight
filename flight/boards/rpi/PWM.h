@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <vector>
+#include <Main.h>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ public:
 	} PWMMode;
 
 	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, PWMMode mode = MODE_PWM, bool loop = true );
+	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, PWMMode mode = MODE_PWM, int32_t enablePin = -1 );
 	~PWM();
 
 	void SetPWMus( uint32_t width_us ); // TODO : Change to SetPWMValue
@@ -69,6 +71,63 @@ private:
 		void* map_peripheral( uint32_t base, uint32_t len );
 		uint32_t mem_virt_to_phys( void* virt );
 	};
+	class MultiplexPWMChannel : public Channel {
+	public:
+		MultiplexPWMChannel( uint32_t time_base, uint32_t period, PWMMode mode = MODE_PWM );
+		~MultiplexPWMChannel() noexcept;
+
+		void SetPWMValue( uint32_t pin, uint32_t width );
+		void SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len );
+		void Update();
+		void Reset();
+
+		uint8_t mEngine;
+		PWMMode mMode;
+		bool mLoop;
+		uint32_t mPwmCtl;
+		uint32_t mNumOutputs;
+
+		uint32_t mDMAChannel;
+		uint32_t mNumCBs;
+		uint32_t mNumPages;
+		uint32_t* mSelectPinResetMask;
+		uint32_t* mSelectPinMasks;
+		uint32_t* mPWMSamples;
+		uint32_t* mPinsSamples[64];
+
+		uint32_t* pwm_reg;
+		uint32_t* pwm1_reg;
+		uint32_t* clk_reg;
+		uint32_t* gpio_reg;
+		volatile uint32_t* dma_virt_base;
+		volatile uint32_t* dma_reg;
+
+		typedef struct VirtualPin {
+			int32_t pwmPin;
+			int32_t enablePin;
+			int32_t pwmIndex;
+			VirtualPin(int32_t p, int32_t e, int32_t i) : pwmPin(p), enablePin(e), pwmIndex(i) {}
+		} VirtualPin;
+		std::map< int32_t, VirtualPin > mVirtualPins; // If key is a PWM pin, this means that all enablePin should be set to 0. If key=enablePin, this one has to be set to 1
+
+		typedef struct dma_cb_s {
+			uint32_t info;
+			uint32_t src;
+			uint32_t dst;
+			uint32_t length;
+			uint32_t stride;
+			uint32_t next;
+			uint32_t pad[2];
+		} dma_cb_t;
+
+		typedef struct dma_ctl_s {
+			uint32_t* sample;
+			dma_cb_t* cb;
+		} dma_ctl_t;
+
+		dma_ctl_t mCtls[2];
+		uint32_t mCurrentCtl;
+	};
 	class PWMChannel : public Channel {
 	public:
 		PWMChannel( uint8_t engine, uint32_t time_base, uint32_t period, PWMMode mode = MODE_PWM, bool loop = true );
@@ -103,7 +162,7 @@ private:
 		bool mLoop;
 		uint8_t mPinsCount;
 		uint32_t mPinsMask;
-		uint8_t mPins[32];
+		int8_t mPins[32];
 		float mPinsPWMf[32];
 		uint32_t mPinsPWM[32];
 		uint8_t* mPinsBuffer[32];

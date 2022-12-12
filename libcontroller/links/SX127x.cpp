@@ -913,6 +913,7 @@ void SX127x::reset()
 
 bool SX127x::ping()
 {
+	std::cout << "version : " << (int)readRegister(REG_VERSION) << "\n";
 	return readRegister(REG_VERSION) == SAMTEC_ID;
 }
 

@@ -31,7 +31,10 @@
 #include "font32.h"
 
 static const char hud_flat_vertices_shader[] =
-R"(	#define in attribute
+R"(	#version 100
+	precision mediump float;
+
+	#define in attribute
 	#define out varying
 	#define ge_Position gl_Position
 	in vec2 ge_VertexTexcoord;
@@ -52,7 +55,10 @@ R"(	#define in attribute
 ;
 
 static const char hud_flat_fragment_shader[] =
-R"(	#define in varying
+R"(	#version 100
+	precision mediump float;
+
+	#define in varying
 	#define ge_FragColor gl_FragColor
 	uniform sampler2D ge_Texture0;
 	uniform float exposure_value;
@@ -86,7 +92,10 @@ R"(	#define in varying
 ;
 
 static const char hud_text_vertices_shader[] =
-R"(	#define in attribute
+R"(	#version 100
+	precision mediump float;
+
+	#define in attribute
 	#define out varying
 	#define ge_Position gl_Position
 	in vec2 ge_VertexTexcoord;
@@ -130,7 +139,10 @@ R"(	#define in attribute
 ;
 
 static const char hud_text_fragment_shader[] =
-R"(	#define in varying
+R"(	#version 100
+	precision mediump float;
+
+	#define in varying
 	#define ge_FragColor gl_FragColor
 	uniform sampler2D ge_Texture0;
 

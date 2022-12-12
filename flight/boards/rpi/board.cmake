@@ -10,34 +10,51 @@ endif()
 set( TARGET_LINUX 1 )
 set( TARGET_CPU_BITS 32 )
 
+find_package( Threads REQUIRED )
+SET( CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE" )
+SET( CMAKE_REQUIRED_LIBRARIES "pthread" )
+add_definitions( -DHAVE_PTHREAD_GETNAME_NP )
+add_definitions( -DHAVE_PTHREAD_SETNAME_NP )
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_DEFAULT_SOURCE -DSTANDALONE -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -DTARGET_POSIX -D_LINUX -fPIC -DPIC -D_REENTRANT -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -U_FORTIFY_SOURCE")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_LIBOPENMAX=2 -DOMX -DOMX_SKIP64BIT -ftree-vectorize -pipe -DUSE_EXTERNAL_OMX -DHAVE_LIBBCM_HOST -DUSE_EXTERNAL_LIBBCM_HOST -DUSE_VCHIQ_ARM -Wno-psabi" )
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--unresolved-symbols=ignore-in-shared-libs -I/opt/vc/include/ -I/opt/vc/include/interface/vmcs_host -I/opt/vc/include/interface/vmcs_host/khronos -I/opt/vc/include/interface/vmcs_host/khronos -I/opt/vc/include/interface/khronos/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -L/opt/vc/lib/")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_C_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbols=ignore-in-shared-libs -I/opt/vc/include/ -I/opt/vc/include/interface/vmcs_host -I/opt/vc/include/interface/vmcs_host/khronos -I/opt/vc/include/interface/vmcs_host/khronos -I/opt/vc/include/interface/khronos/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -L/opt/vc/lib/ -Wl,-rpath=/opt/vc/lib")
 set(CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbols=ignore-in-shared-libs -L/opt/vc/lib/ -Wl,-rpath=/opt/vc/lib")
 set(CMAKE_LINKER_FLAGS "${CMAKE_LD_FLAGS}")
-set( BOARD_LIBS -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lrt -lpthread -ldl -lz ) #  -lpigpio
+set( BOARD_LIBS -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lrt -lpthread -ldl -lz -ldrm ) #  -lpigpio
 # set( BOARD_LIBS ${BOARD_LIBS} -lavformat -lavcodec -lavutil )
 
 if ( BUILD_audio )
 	set( BOARD_LIBS ${BOARD_LIBS} -lasound )
 endif()
 # set( BOARD_LIBS ${BOARD_LIBS} -lgps )
+
+get_filename_component( CROSS_ROOT ${CMAKE_C_COMPILER} DIRECTORY )
+include_directories( ${CROSS_ROOT}/../include )
+include_directories( ${CROSS_ROOT}/../include/libdrm )
+include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include )
+include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libdrm )
 include_directories( /opt/vc/include )
 
-if ( "${rawwifi}" MATCHES 1 )
+#if ( "${rawwifi}" MATCHES 1 )
 	set( BOARD_LIBS ${BOARD_LIBS} -liw )
-endif()
+#endif()
 
 
 if ( NOT ${camera} MATCHES OFF AND NOT "${camera}" MATCHES "0" AND ${BUILD_video} MATCHES "1" )
-	set( BOARD_LIBS ${BOARD_LIBS}  -lGLESv2 -lEGL -lopenmaxil )
+	#set( BOARD_LIBS ${BOARD_LIBS} -lGLESv2 -lEGL -lopenmaxil )
+	set( BOARD_LIBS ${BOARD_LIBS} -lGLESv2 -lEGL -lopenmaxil )
 	include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/include )
 	include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++/include/MMAL++ )
 	add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++ ${CMAKE_CURRENT_BINARY_DIR}/OpenMaxIL++ )
 	add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++ ${CMAKE_CURRENT_BINARY_DIR}/MMAL++ )
 	set( BOARD_DEPENDENCIES "OpenMaxIL++" "MMAL++" )
 	set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
+endif()
+
+if ( ${variant} MATCHES "4" )
+	set( BOARD_LIBS ${BOARD_LIBS} -ldrm -lgbm )
 endif()
 
 function( board_strip )

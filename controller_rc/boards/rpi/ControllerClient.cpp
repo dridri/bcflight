@@ -43,17 +43,25 @@ ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 
 	wiringPiSetupGpio();
 
-// 	pullUpDnControl( 4, PUD_DOWN );
+	pullUpDnControl( 0, PUD_DOWN );
+	pullUpDnControl( 1, PUD_DOWN );
+	pullUpDnControl( 4, PUD_DOWN );
 	pullUpDnControl( 5, PUD_DOWN );
 	pullUpDnControl( 6, PUD_DOWN );
+	pullUpDnControl( 12, PUD_DOWN );
+	pullUpDnControl( 13, PUD_DOWN );
 	pullUpDnControl( 22, PUD_DOWN );
 	pullUpDnControl( 23, PUD_DOWN );
 	pullUpDnControl( 24, PUD_DOWN );
 	pullUpDnControl( 26, PUD_DOWN );
 	pullUpDnControl( 27, PUD_DOWN );
-// 	pinMode( 4, INPUT );
+	pinMode( 0, INPUT );
+	pinMode( 1, INPUT );
+	pinMode( 4, INPUT );
 	pinMode( 5, INPUT );
 	pinMode( 6, INPUT );
+	pinMode( 12, INPUT );
+	pinMode( 13, INPUT );
 	pinMode( 22, INPUT );
 	pinMode( 23, INPUT );
 	pinMode( 24, INPUT );
@@ -72,9 +80,9 @@ ControllerClient::~ControllerClient()
 
 int8_t ControllerClient::ReadSwitch( uint32_t id )
 {
-	static const uint32_t map[8] = { 0, 5, 23, 24, 6, 26, 22, 4 };
+	static const uint32_t map[] = { 0, 1, 4, 5, 6, 12, 13, 22, 23, 24, 26, 27 };
 
-	if ( id >= 8 ) {
+	if ( id >= 12 ) {
 		return 0;
 	}
 	if ( map[id] == 0 ) {
@@ -122,17 +130,17 @@ bool ControllerClient::run()
 			mADC->setSmoothFactor( 1, 0.5f );
 			mADC->setSmoothFactor( 2, 0.5f );
 			mADC->setSmoothFactor( 3, 0.5f );
-			mADC->setSmoothFactor( 7, 0.75f );
+			mADC->setSmoothFactor( 4, 0.75f );
 			mJoysticks[0] = Joystick( mADC, 0, 0, true );
 			mJoysticks[1] = Joystick( mADC, 1, 1 );
-			mJoysticks[2] = Joystick( mADC, 2, 2 );
-			mJoysticks[3] = Joystick( mADC, 3, 3 );
+			mJoysticks[2] = Joystick( mADC, 2, 3 );
+			mJoysticks[3] = Joystick( mADC, 3, 2 );
 		}
 	}
 	if ( mADC ) {
-		uint16_t battery_voltage = mADC->Read( 7 );
+		uint16_t battery_voltage = mADC->Read( 4 );
 		if ( battery_voltage != 0 ) {
-			float voltage = (float)battery_voltage * 5.3f * 4.0f / 4096.0f;
+			float voltage = (float)battery_voltage * 4.2902f / 1024.0f;
 			if ( mLocalBatteryVoltage == 0.0f ) {
 				mLocalBatteryVoltage = voltage;
 			} else {
@@ -301,6 +309,7 @@ float ControllerClient::Joystick::Read()
 	float ret = (float)( raw - mCenter ) / base;
 	ret = 0.01f * std::round( ret * 100.0f );
 	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
+//	std::cout << mADCChannel << " : " << ret << "\n";
 	return ret;
 }
 

@@ -3,6 +3,7 @@
 #include <Debug.h>
 
 Bus::Bus()
+	: mConnected( false )
 {
 }
 

@@ -52,11 +52,11 @@ Link* RawWifi::Instanciate( Config* config, const string& lua_object )
 
 	if ( mUsedPorts.find( device ) != mUsedPorts.end() ) {
 		if ( output_port >= 0 and find( mUsedPorts[device].begin(), mUsedPorts[device].end(), output_port ) != mUsedPorts[device].end() ) {
-			gDebug() << "ERROR : Port " << output_port << " already used on interface \"" << device << "\" !\n";
+			gDebug() << "ERROR : Port " << output_port << " already used on interface \"" << device << "\" !";
 			return nullptr;
 		}
 		if ( input_port >= 0 and find( mUsedPorts[device].begin(), mUsedPorts[device].end(), input_port ) != mUsedPorts[device].end() ) {
-			gDebug() << "ERROR : Port " << input_port << " already used on interface \"" << device << "\" !\n";
+			gDebug() << "ERROR : Port " << input_port << " already used on interface \"" << device << "\" !";
 			return nullptr;
 		}
 	} else {
@@ -116,7 +116,7 @@ void RawWifi::setCECMode( const string& mode )
 	if ( mRawWifi ) {
 		if ( mode == "weighted" ) {
 			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
-			gDebug() << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode\n";
+			gDebug() << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode";
 		} else {
 			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
 		}

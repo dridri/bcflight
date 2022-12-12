@@ -50,11 +50,11 @@ Link* nRF24L01::Instanciate( Config* config, const string& lua_object )
 	bool drop = config->Boolean( lua_object + ".drop", true );
 
 	if ( cspin < 0 ) {
-		gDebug() << "WARNING : No CS-pin specified for nRF24L01, cannot create link !\n";
+		gDebug() << "WARNING : No CS-pin specified for nRF24L01, cannot create link !";
 		return nullptr;
 	}
 	if ( cepin < 0 ) {
-		gDebug() << "WARNING : No CE-pin specified for nRF24L01, cannot create link !\n";
+		gDebug() << "WARNING : No CE-pin specified for nRF24L01, cannot create link !";
 		return nullptr;
 	}
 

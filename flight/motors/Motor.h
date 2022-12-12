@@ -37,6 +37,7 @@ public:
 	const float speed() const;
 	void setSpeed( float speed, bool force_hw_update = false );
 	void KeepSpeed();
+	virtual void Arm() {}
 	virtual void Disarm() = 0;
 	virtual void Disable() = 0;
 

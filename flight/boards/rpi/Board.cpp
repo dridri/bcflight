@@ -108,7 +108,7 @@ Board::Board( Main* main )
 		file.close();
 	}
 
-// 	gDebug() << readcmd( "iw list" ) << "\n";
+// 	gDebug() << readcmd( "iw list" );
 
 	if ( mStatsThread == nullptr ) {
 		mStatsThread = new HookThread<Board>( "board_stats", this, &Board::StatsThreadRun );
@@ -147,16 +147,16 @@ void Board::SegFaultHandler( int sig )
 	}
 
 	mBoardMessages.emplace_back( msg );
-	gDebug() << "\e[0;41m" << msg << "\e[0m\n";
+	gDebug() << "\e[0;41m" << msg << "\e[0m";
 
 	void* array[16];
 	size_t size;
 	size = backtrace( array, 16 );
 	fprintf( stderr, "Error: signal %d :\n", sig );
 	char** trace = backtrace_symbols( array, size );
-	gDebug() << "\e[91mStack trace :\e[0m\n";
+	gDebug() << "\e[91mStack trace :\e[0m";
 	for ( size_t j = 0; j < size; j++ ) {
-		gDebug() << "\e[91m" << trace[j] << "\e[0m\n";
+		gDebug() << "\e[91m" << trace[j] << "\e[0m";
 	}
 
 	if ( thread and thread->name() == "stabilizer" ) {
@@ -205,7 +205,7 @@ map< string, bool >& Board::defectivePeripherals()
 
 void Board::UpdateFirmwareData( const uint8_t* buf, uint32_t offset, uint32_t size )
 {
-	gDebug() << "Saving Flight Controller firmware update (" << size << " bytes at offset " << offset << ")\n";
+	gDebug() << "Saving Flight Controller firmware update (" << size << " bytes at offset " << offset << ")";
 
 	if ( offset == 0 ) {
 		system( "rm -f /tmp/flight_update" );
@@ -243,7 +243,7 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 	if ( mUpdating ) {
 		return;
 	}
-	gDebug() << "Updating Flight Controller firmware\n";
+	gDebug() << "Updating Flight Controller firmware";
 	mUpdating = true;
 
 	ifstream firmware( "/tmp/flight_update" );
@@ -256,7 +256,7 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 		buf[length] = 0;
 		firmware.close();
 		if ( crc32( buf, length ) != crc ) {
-			gDebug() << "ERROR : Wrong CRC32 for firmware upload, please retry\n";
+			gDebug() << "ERROR : Wrong CRC32 for firmware upload, please retry";
 			mUpdating = false;
 			return;
 		}
@@ -292,7 +292,7 @@ void Board::UpdateFirmwareProcess( uint32_t crc )
 
 void Board::Reset()
 {
-	gDebug() << "Restarting Flight Controller service\n";
+	gDebug() << "Restarting Flight Controller service";
 	system( "rm -f /tmp/reset.sh" );
 
 	ofstream file( "/tmp/reset.sh" );
@@ -427,8 +427,9 @@ void Board::LoadingDone()
 
 void Board::setLocalTimestamp( uint32_t t )
 {
-	time_t tt = t;
-	stime( &tt );
+	struct timespec ts;
+	ts.tv_sec = t;
+	clock_settime( CLOCK_REALTIME, &ts );
 }
 
 
@@ -538,18 +539,18 @@ void Board::VCOSInit()
 	vcos_init();
 
 	if ( vchiq_initialise( &vchiq_instance ) != VCHIQ_SUCCESS ) {
-		gDebug() << "* Failed to open vchiq instance\n";
+		gDebug() << "* Failed to open vchiq instance";
 		exit(-1);
 	}
 
-	gDebug() << "vchi_initialise\n";
+	gDebug() << "vchi_initialise";
 	success = vchi_initialise( &global_initialise_instance );
 	vcos_assert(success == 0);
 	vchiq_instance = (VCHIQ_INSTANCE_T)global_initialise_instance;
 
 	global_connection = vchi_create_connection( single_get_func_table(), vchi_mphi_message_driver_func_table() );
 
-	gDebug() << "vchi_connect\n";
+	gDebug() << "vchi_connect";
 	vchi_connect( &global_connection, 1, global_initialise_instance );
 
 	vc_vchi_gencmd_init( global_initialise_instance, &global_connection, 1 );
@@ -685,7 +686,7 @@ static void* thread_tx( void* argp )
 	while ( 1 ) {
 		int nread = read( args->fd, buffer, sizeof(buffer) );
 		if ( nread < 0 ) {
-			gDebug() << "Error reading from air0 interface\n";
+			gDebug() << "Error reading from air0 interface";
 			close( args->fd );
 			break;
 		}
@@ -705,10 +706,10 @@ void Board::EnableTunDevice()
 
 		int fd = tun_alloc( "air0" );
 	// 	fcntl( fd, F_SETFL, O_NONBLOCK );
-		gDebug() << "tunnel fd ready\n";
+		gDebug() << "tunnel fd ready";
 
 		rawwifi_t* rwifi = rawwifi_init( "wlan0", port, port + 1, 1, -1 ); // TODO : Use same device as RawWifi
-		gDebug() << "tunnel rawwifi ready\n";
+		gDebug() << "tunnel rawwifi ready";
 
 		// TODO : use ThreadHooks
 		tun_args* args = (tun_args*)malloc(sizeof(tun_args));

@@ -33,7 +33,10 @@
 
 
 static const char hud_vertices_shader[] =
-R"(	#define in attribute
+R"(	#version 100
+	precision mediump float;
+
+	#define in attribute
 	#define out varying
 	#define ge_Position gl_Position
 	in vec2 ge_VertexTexcoord;
@@ -51,7 +54,10 @@ R"(	#define in attribute
 ;
 
 static const char hud_fragment_shader[] =
-R"(	#define in varying
+R"(	#version 100
+	precision mediump float;
+
+	#define in varying
 	#define ge_FragColor gl_FragColor
 
 	uniform vec4 color;
@@ -64,7 +70,10 @@ R"(	#define in varying
 
 
 static const char hud_color_vertices_shader[] =
-R"(	#define in attribute
+R"(	#version 100
+	precision mediump float;
+
+	#define in attribute
 	#define out varying
 	#define ge_Position gl_Position
 	in vec2 ge_VertexTexcoord;
@@ -85,7 +94,10 @@ R"(	#define in attribute
 ;
 
 static const char hud_color_fragment_shader[] =
-R"(	#define in varying
+R"(	#version 100
+	precision mediump float;
+
+	#define in varying
 	#define ge_FragColor gl_FragColor
 
 	uniform vec4 color;

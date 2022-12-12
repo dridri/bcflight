@@ -19,6 +19,8 @@ find_package( QScintilla2 )
 find_package( MP4V2 )
 find_package( Shine )
 
+add_definitions( -DSTD=std )
+
 if ( WIN32 OR MINGW )
 	if ( NOT DEFINED ${QSCINTILLA_LIBRARY} OR ${QSCINTILLA_LIBRARY} MATCHES OFF )
 		set( QSCINTILLA_LIBRARY -lqscintilla2 )
@@ -31,6 +33,7 @@ else()
 	find_package( OpenGL )
 	set( OTHER_LIBS -ldl )
 endif()
+
 
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )

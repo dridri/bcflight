@@ -22,10 +22,10 @@
 #include <stdint.h>
 #include <vector>
 
-class PWM
+LUA_CLASS class PWM
 {
 public:
-	PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop = true );
+	LUA_EXPORT PWM( uint32_t pin, uint32_t time_base, uint32_t period_time_us, uint32_t sample_us, bool loop = true );
 	~PWM();
 
 	void SetPWMus( uint32_t width_us );

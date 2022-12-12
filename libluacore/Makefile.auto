@@ -1,0 +1,27 @@
+CXX = g++
+INCDIR2 = -I./native \
+	-I../common/native \
+	-I../../libraries/libluacore/src \
+	-I../../libraries/libluacore/src/LuaJIT/src \
+	-I../../libraries/libdebug \
+	-I../../../libraries/libluacore/src \
+	-I../../../libraries/libluacore/src/LuaJIT/src \
+	-I../../../libraries/libdebug
+CFLAGS = -ggdb3 -Wall -fPIC $(INCDIR) $(INCDIR2)
+CXXFLAGS = $(CFLAGS)
+
+NAME = libnative.so
+SRCS = $(wildcard native/*.cpp ../common/native/*.cpp)
+OBJS = $(SRCS:.cpp=.o)
+
+%.o : %.cpp
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
+
+ifneq ($(OBJS),)
+$(NAME) : $(OBJS)
+	$(CXX) $(CXXFLAGS) -shared -o $(NAME) $(OBJS) $(LIBS)
+endif
+
+all: $(NAME)
+clean:
+	rm -rf $(NAME) $(OBJS)

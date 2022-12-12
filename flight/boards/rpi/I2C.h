@@ -29,8 +29,9 @@ using namespace std;
 class I2C : public Bus
 {
 public:
-	I2C( int addr, bool slave = false );
+	I2C( int addr = 0, bool slave = false );
 	~I2C();
+	int Connect();
 	const int address() const;
 
 	int Read( void* buf, uint32_t len );
@@ -38,10 +39,12 @@ public:
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
+	std::string toString();
+
 	static list< int > ScanAll();
 
 private:
-	int mAddr;
+	LUA_PROPERTY("address") int mAddr;
 	static int mFD;
 	static int mCurrAddr;
 	static pthread_mutex_t mMutex;

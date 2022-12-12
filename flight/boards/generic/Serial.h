@@ -38,7 +38,11 @@ public:
 	int Read( uint8_t reg, void* buf, uint32_t len );
 	int Write( uint8_t reg, const void* buf, uint32_t len );
 
+	std::string toString();
+
 private:
+	int mFD;
+	std::string mDevice;
 };
 
 #endif // SERIAL_H

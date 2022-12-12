@@ -40,6 +40,7 @@
 #include <sys/mman.h>
 #include "mailbox.h"
 #include <Debug.h>
+#include <Config.h>
 #include "PWM.h"
 #include "GPIO.h"
 
@@ -89,6 +90,7 @@
 #define DMA_END			(1<<1)
 #define DMA_RESET		(1<<31)
 #define DMA_INT			(1<<2)
+#define DMAENABLE 0x00000ff0
 
 #define DMA_CS			(0x00/4)
 #define DMA_CONBLK_AD		(0x04/4)
@@ -191,7 +193,7 @@ V revision (0-15)
 #define BOARD_REVISION_TYPE_CM (6 << 4)
 #define BOARD_REVISION_TYPE_CM3 (10 << 4)
 #define BOARD_REVISION_TYPE_PI4_B (0x11 << 4)
-// #define BOARD_REVISION_TYPE_CM4 (?? << 4)
+#define BOARD_REVISION_TYPE_CM4 (20 << 4)
 #define BOARD_REVISION_REV_MASK (0xF)
 
 #define LENGTH(x)  (sizeof(x) / sizeof(x[0]))
@@ -204,6 +206,8 @@ V revision (0-15)
 #else
 #define dprintf(...)
 #endif
+
+#define MAX_MULTIPLEX_CHANNELS 4
 
 vector< PWM::Channel* > PWM::mChannels = vector< PWM::Channel* >();
 bool PWM::mSigHandlerOk = false;
@@ -230,8 +234,9 @@ void PWM::EnableTruePWM()
 	close( handle );
 
 	const uint32_t type = ( mbox_board_rev & BOARD_REVISION_TYPE_MASK );
-	if ( type != BOARD_REVISION_TYPE_PI4_B ) {
+	if ( type != BOARD_REVISION_TYPE_PI4_B and type != BOARD_REVISION_TYPE_CM4 ) {
 		gDebug() << "WARNING : TruePWM can only be enabled on Raspberry Pi >=4 models (older models only has 2 PWM channels)";
+		gDebug() << "Detected board revision : " << type;
 		return;
 	}
 
@@ -284,7 +289,7 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 		}
 	} else {
 	// 	uint8_t channel = 13;
-		uint8_t channel = 6; // DMA channels 7+ use LITE DMA engine, so we should use lowest channels
+		int8_t channel = 6; // DMA channels 7+ use LITE DMA engine, so we should use lowest channels
 		for ( Channel* chan_ : mChannels ) {
 			DMAChannel* chan = dynamic_cast< DMAChannel* >( chan_ );
 			if ( chan->mTimeBase == time_base and chan->mCycleTime == period_time and chan->mSampleTime == sample_time and chan->mLoop == loop ) {
@@ -292,14 +297,68 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 				break;
 			}
 			channel = chan->mChannel - 1;
+			if ( channel < 0 ) {
+				break;
+			}
 		}
-		if ( not mChannel ) {
+		if ( not mChannel and channel >= 0 ) {
 			mChannel = new DMAChannel( channel, time_base, period_time, sample_time, mode, loop );
 			mChannels.emplace_back( mChannel );
 		}
 	}
 
 	mChannel->SetPWMValue( mPin, 0 );
+}
+
+
+PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, PWM::PWMMode mode, int32_t enablePin )
+	: mChannel( nullptr )
+	, mPin( pin )
+{
+	if ( !sTruePWM ) {
+		gDebug() << "ERROR : TruePWM is not available !";
+	}
+
+	int8_t engine = -1;
+	if ( mPin == 12 or mPin == 13 or mPin == 18 or mPin == 19 or mPin == 45 ) {
+		engine = 0;
+	// } else if ( mPin == 40 or mPin == 41 ) {
+		// engine = 1;
+	} else {
+		return;
+	}
+
+	for ( Channel* chan_ : mChannels ) {
+		MultiplexPWMChannel* chan = dynamic_cast< MultiplexPWMChannel* >( chan_ );
+		if ( chan->mEngine ) {
+			mChannel = chan;
+			break;
+		}
+	}
+
+	if ( !mChannel ) {
+		mChannel = new MultiplexPWMChannel( time_base, period_time, mode );
+		mChannels.emplace_back( mChannel );
+	}
+
+	const uint32_t alt = ( ( pin == 18 or pin == 19 ) ? GPIO_MODE_ALT5 : GPIO_MODE_ALT0 );
+	dynamic_cast<MultiplexPWMChannel*>(mChannel)->gpio_reg[GPIO_FSEL0 + pin/10] &= ~(7 << ((pin % 10) * 3));
+	dynamic_cast<MultiplexPWMChannel*>(mChannel)->gpio_reg[GPIO_FSEL0 + pin/10] |= alt << ((pin % 10) * 3);
+	dynamic_cast<MultiplexPWMChannel*>(mChannel)->gpio_reg[GPIO_CLR0] = 1 << pin;
+
+	const int32_t idx = dynamic_cast<MultiplexPWMChannel*>(mChannel)->mVirtualPins.size();
+	if ( enablePin >= 0 ) {
+		dynamic_cast<MultiplexPWMChannel*>(mChannel)->gpio_reg[GPIO_CLR0] = (1 << enablePin);
+		uint32_t fsel = dynamic_cast<MultiplexPWMChannel*>(mChannel)->gpio_reg[GPIO_FSEL0 + enablePin/10];
+		fsel &= ~(7 << ((enablePin % 10) * 3));
+		fsel |= GPIO_MODE_OUT << ((enablePin % 10) * 3);
+		dynamic_cast<MultiplexPWMChannel*>(mChannel)->gpio_reg[GPIO_FSEL0 + enablePin/10] = fsel;
+		dynamic_cast<MultiplexPWMChannel*>(mChannel)->mVirtualPins.emplace( std::make_pair(enablePin, MultiplexPWMChannel::VirtualPin(pin, enablePin, idx)) );
+		dynamic_cast<MultiplexPWMChannel*>(mChannel)->mSelectPinMasks[idx] = ( 1 << enablePin );
+		*dynamic_cast<MultiplexPWMChannel*>(mChannel)->mSelectPinResetMask |= ( 1 << enablePin );
+	} else {
+		dynamic_cast<MultiplexPWMChannel*>(mChannel)->mVirtualPins.emplace( std::make_pair(pin, MultiplexPWMChannel::VirtualPin(pin, enablePin, idx)) );
+	}
 }
 
 
@@ -340,11 +399,333 @@ static inline uint32_t hzToDivider( uint64_t plldfreq_mhz, uint64_t hz )
 	const uint64_t pll = plldfreq_mhz * 1000000;
 	const uint64_t ipart = pll / hz;
 	const uint64_t fpart = ( pll * 2048 / hz ) - ipart * 2048;
+	gDebug() << "  → " << ipart << ", " << fpart;
 	return ( ipart << 12 ) | fpart;
 }
 
 
-PWM::PWMChannel::~PWMChannel()
+PWM::MultiplexPWMChannel::MultiplexPWMChannel( uint32_t time_base, uint32_t period, PWM::PWMMode mode )
+	: mMode( mode )
+	, mLoop( false )
+{
+	fDebug( time_base, period, mode );
+
+	int8_t dmaChannel = 5; // DMA channels 7+ use LITE DMA engine, so we should use lowest channels
+	for ( Channel* chan_ : mChannels ) {
+		DMAChannel* chan = dynamic_cast< DMAChannel* >( chan_ );
+		dmaChannel = chan->mChannel - 1;
+		if ( dmaChannel < 0 ) {
+			break;
+		}
+	}
+	if ( dmaChannel < 0 ) {
+		return;
+	}
+	mDMAChannel = dmaChannel;
+	mNumOutputs = MAX_MULTIPLEX_CHANNELS;
+	mNumCBs = mNumOutputs * 3;
+	mNumPages = ( mNumCBs * sizeof(dma_cb_t) + ( mNumOutputs * 1 * sizeof(uint32_t) ) + PAGE_SIZE - 1 ) >> PAGE_SHIFT;
+
+	mMbox.handle = mbox_open();
+	if ( mMbox.handle < 0 ) {
+		fatal("Failed to open mailbox\n");
+	}
+	uint32_t mbox_board_rev = get_board_revision( mMbox.handle );
+	gDebug() << "MBox Board Revision: " << mbox_board_rev;
+	get_model(mbox_board_rev);
+	uint32_t mbox_dma_channels = get_dma_channels( mMbox.handle );
+	gDebug() << "PWM Channels Info: " << mbox_dma_channels << ", using DMA Channel: " << (int)mDMAChannel;
+
+	dma_virt_base = (uint32_t*)map_peripheral( DMA_BASE, ( DMA_CHAN_SIZE * ( DMA_CHAN_MAX + 1 ) ) );
+	dma_reg = dma_virt_base + mDMAChannel * ( DMA_CHAN_SIZE / sizeof(dma_reg) );
+	pwm_reg = (uint32_t*)map_peripheral( PWM0_BASE, PWM0_LEN );
+	pwm1_reg = (uint32_t*)map_peripheral( PWM1_BASE, PWM1_LEN );
+	clk_reg = (uint32_t*)map_peripheral( CLK_BASE, CLK_LEN );
+	gpio_reg = (uint32_t*)map_peripheral( GPIO_BASE, GPIO_LEN );
+
+	uint32_t cmd_count = 32;
+	uint32_t sz = mNumPages * PAGE_SIZE * cmd_count;
+	mMbox.mem_ref = mem_alloc( mMbox.handle, sz, PAGE_SIZE, mem_flag );
+	dprintf( "mem_ref %u\n", mMbox.mem_ref );
+	mMbox.bus_addr = mem_lock( mMbox.handle, mMbox.mem_ref );
+	dprintf( "bus_addr = %#x (sz = %d)\n", mMbox.bus_addr, sz );
+	mMbox.virt_addr = (uint8_t*)mapmem( BUS_TO_PHYS(mMbox.bus_addr), sz );
+	dprintf( "virt_addr %p\n", mMbox.virt_addr );
+
+	mCtls[0].sample = (uint32_t*)( mMbox.virt_addr );
+	mCtls[0].cb = (dma_cb_t*)( mMbox.virt_addr + sizeof(uint32_t)*16 );
+/*
+	mSelectPinResetMask = &mCtls[0].sample[0];
+	mSelectPinMasks = &mCtls[0].sample[1];
+	mPWMSamples = &mCtls[0].sample[1 + mNumOutputs];
+	memset( mPinsSamples, 0, sizeof(mPinsSamples) );
+*/
+	// Reset();
+
+	if ( (unsigned long)mMbox.virt_addr & ( PAGE_SIZE - 1 ) ) {
+		fatal("pi-blaster: Virtual address is not page aligned\n");
+	}
+
+	/* we are done with the mbox */
+	close( mMbox.handle );
+	mMbox.handle = -1;
+
+
+	dma_ctl_t* ctl = &mCtls[0];
+	dma_cb_t* cbp = ctl->cb;
+	uint32_t phys_fifo_addr;
+	uint32_t phys_gpclr0 = GPIO_PHYS_BASE + 0x28;
+	uint32_t phys_gpset0 = GPIO_PHYS_BASE + 0x1c;
+	uint32_t i;
+
+	phys_fifo_addr = PWM0_PHYS_BASE + 0x18;
+	uint32_t phys_dat1_addr = PWM0_PHYS_BASE + 0x14;
+	uint32_t phys_dat2_addr = PWM0_PHYS_BASE + 0x24;
+
+	uint32_t pwm1_phys_fifo_addr = PWM1_PHYS_BASE + 0x18;
+	uint32_t pwm1_phys_dat1_addr = PWM1_PHYS_BASE + 0x14;
+	uint32_t pwm1_phys_dat2_addr = PWM1_PHYS_BASE + 0x24;
+
+/*
+	TODO : Multiplexer PWM output
+	: PWM0_0 as output
+	: PWM1_0 as DMA timer ?
+	: pins A, B, C, D to control external multiplexer
+	DMA commands buffer:
+		→ reset switch pins (phys_gpclr0)
+		→ loop over all channels
+			→ set switch pins to pin X high (phys_gpset0)
+			→ TBD : wait for switch to physically rise ? (GPIO rise time + external multiplexer IC rise time) (Use builtin DMA_WAIT_RESP, and just run same command 2~3× to wait IC ?)
+			→ write to PWM0_0 FIFO channel X value (TBD)											\
+			→ use PWM1_0 to wait for PWM0_0 to output ? TBD : just wait for FIFO end trigger ?		| → Reuse "// Timer trigger command" for both in one DMA command block (no need for PWM1_0)
+			→ reset switch pins (phys_gpclr0)
+			→ TBD : wait for switch to physically fall ? (GPIO fall time + external multiplexer IC fall time) (same as above)
+*/
+
+		gpio_reg[GPIO_CLR0] = 1 << 6;
+		uint32_t fsel = gpio_reg[GPIO_FSEL0 + 6/10];
+		fsel &= ~(7 << ((6 % 10) * 3));
+		fsel |= GPIO_MODE_OUT << ((6 % 10) * 3);
+		gpio_reg[GPIO_FSEL0 + 6/10] = fsel;
+		gpio_reg[GPIO_SET0] = 1 << 6;
+
+	ctl->sample[0] = (1 << 6);
+	ctl->sample[1] = 0; // 3
+	ctl->sample[2] = (1 << 6); // 0
+	ctl->sample[3] = 0; // 1
+	ctl->sample[4] = 0; // 2
+	ctl->sample[5] = 100;
+	ctl->sample[6] = 500;
+	ctl->sample[7] = 1000;
+	ctl->sample[8] = 1500;
+	ctl->sample[16] = 1;
+	printf( "%p, %p, %p, %p\n", ctl->sample, ctl->cb, cbp, mPWMSamples );
+/*
+	// GPIO-Clear All command
+	cbp->info = DMA_NO_WIDE_BURSTS;
+	cbp->src = mem_virt_to_phys(&ctl->sample[0]);
+	cbp->dst = phys_gpclr0;
+	cbp->length = 4;
+	cbp->stride = 0;
+	cbp->next = mem_virt_to_phys(cbp + 1);
+	cbp++;
+*/
+	for (i = 0; i < mNumOutputs; i++) {
+
+		// GPIO-Set command
+		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ;
+		cbp->src = mem_virt_to_phys(&ctl->sample[1 + i]);
+		cbp->dst = phys_gpset0;
+		cbp->length = 4;
+		cbp->stride = 0;
+		cbp->next = mem_virt_to_phys(cbp + 1);
+		cbp++;
+
+		// Timer wait command
+		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_TDMODE;
+		cbp->src = mem_virt_to_phys(&ctl->sample[16]);
+		cbp->dst = pwm1_phys_dat1_addr;
+		cbp->length = 4;
+		cbp->stride = 0;
+		cbp->next = mem_virt_to_phys(cbp + 1);
+		cbp++;
+
+		// Timer trigger command
+		cbp->info = DMA_NO_WIDE_BURSTS | DMA_D_DREQ | DMA_PER_MAP(5);
+		// cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_TDMODE;
+		cbp->src = mem_virt_to_phys(&ctl->sample[5 + i]);
+		cbp->dst = phys_dat1_addr;
+		cbp->length = 4;
+		cbp->stride = 0;
+		cbp->next = mem_virt_to_phys(cbp + 1);
+		cbp++;
+
+		// Timer wait command
+		cbp->info = DMA_NO_WIDE_BURSTS | DMA_WAIT_RESP | DMA_D_DREQ | DMA_PER_MAP(5) | DMA_TDMODE;
+		cbp->src = mem_virt_to_phys(&ctl->sample[16]);
+		cbp->dst = pwm1_phys_fifo_addr;
+		cbp->length = 4;
+		cbp->stride = 0;
+		cbp->next = mem_virt_to_phys(cbp + 1);
+		cbp++;
+
+		// GPIO-Clear All command
+		cbp->info = DMA_NO_WIDE_BURSTS;
+		cbp->src = mem_virt_to_phys(&ctl->sample[0]);
+		cbp->dst = phys_gpclr0;
+		cbp->length = 4;
+		cbp->stride = 0;
+		cbp->next = mem_virt_to_phys(cbp + 1);
+		cbp++;
+	}
+	cbp--;
+	cbp->next = mem_virt_to_phys(ctl->cb);
+
+	dprintf( "Ok\n" );
+
+
+
+	{
+		pwm_reg[PWM_CTL] = 0;
+		usleep(10);
+
+		clk_reg[PWMCLK_CNTL] = 0x5A000006; // Source=PLLD (plldfreq_mhz MHz)
+		usleep(100);
+		clk_reg[PWMCLK_DIV] = 0x5A000000 | hzToDivider( plldfreq_mhz, time_base );
+
+		usleep(100);
+		clk_reg[PWMCLK_CNTL] = 0x5A000016; // Source=PLLD (plldfreq_mhz MHz) and enable
+		usleep(100);
+		pwm_reg[PWM_RNG1] = period;
+		usleep(10);
+		pwm_reg[PWM_RNG2] = period;
+		usleep(10);
+		pwm_reg[PWM_DAT1] = 0;
+		usleep(10);
+		pwm_reg[PWM_DAT2] = 0;
+		usleep(10);
+		pwm_reg[PWM_PWMC] = 0;
+		// pwm_reg[PWM_PWMC] = PWMPWMC_ENAB | PWMPWMC_THRSHLD;
+		usleep(10);
+		pwm_reg[PWM_CTL] = PWMCTL_CLRF;
+		usleep(10);
+
+		pwm_reg[PWM_CTL] = mPwmCtl = PWMCTL_MSEN1 | PWMCTL_MSEN2 | PWMCTL_PWEN1 | PWMCTL_PWEN2;// | PWMCTL_USEF1;
+		usleep(10);
+	}
+	{
+		pwm1_reg[PWM_CTL] = 0;
+		usleep(10);
+
+		clk_reg[PWMCLK_CNTL] = 0x5A000006; // Source=PLLD (plldfreq_mhz MHz)
+		usleep(100);
+		clk_reg[PWMCLK_DIV] = 0x5A000000 | hzToDivider( plldfreq_mhz, time_base );
+
+		usleep(100);
+		clk_reg[PWMCLK_CNTL] = 0x5A000016; // Source=PLLD (plldfreq_mhz MHz) and enable
+		usleep(100);
+		pwm1_reg[PWM_RNG1] = period * 0.001;
+		usleep(10);
+		pwm1_reg[PWM_RNG2] = period;
+		usleep(10);
+		pwm1_reg[PWM_DAT1] = 0;
+		usleep(10);
+		pwm1_reg[PWM_DAT2] = 0;
+		usleep(10);
+		// pwm1_reg[PWM_PWMC] = 0;
+		usleep(10);
+		pwm1_reg[PWM_PWMC] = PWMPWMC_ENAB | PWMPWMC_THRSHLD;
+		usleep(10);
+		pwm1_reg[PWM_CTL] = PWMCTL_CLRF;
+		usleep(10);
+
+		pwm1_reg[PWM_CTL] = mPwmCtl = PWMCTL_MSEN1 | PWMCTL_MSEN2 | PWMCTL_PWEN1 | PWMCTL_PWEN2 | PWMCTL_USEF2;
+		usleep(10);
+	}
+
+	// Initialise the DMA
+	dma_reg[DMA_CS] = DMA_RESET;
+	usleep(10);
+	dma_reg[DMA_CS] = DMA_INT | DMA_END;
+	dma_reg[DMA_CONBLK_AD] = mem_virt_to_phys(ctl->cb);
+	dma_reg[DMA_DEBUG] = 7; // clear debug error flags
+	// dma_reg[DMA_CS] = 0x10770001;	// go, high priority, wait for outstanding writes
+	dma_reg[DMA_CS] = 0x30770001;	// go, high priority, disable debug stop, wait for outstanding writes
+
+}
+
+
+PWM::MultiplexPWMChannel::~MultiplexPWMChannel() noexcept
+{
+}
+
+
+void PWM::MultiplexPWMChannel::Reset()
+{
+	/*
+	*mSelectPinResetMask = 0;
+	memset( mSelectPinMasks, 0, sizeof(uint32_t)*mNumOutputs );
+	memset( mPWMSamples, 0, sizeof(uint32_t)*mNumOutputs );
+	*/
+}
+
+
+void PWM::MultiplexPWMChannel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len )
+{
+	(void)pin;
+	(void)buffer;
+	(void)len;
+	// TODO
+}
+
+
+void PWM::MultiplexPWMChannel::SetPWMValue( uint32_t pin, uint32_t width )
+{
+	/*
+	fDebug( pin, width );
+
+	VirtualPin* vpin = &mVirtualPins.at(pin);
+
+	fDebug( vpin->pwmPin, vpin->enablePin, vpin->pwmIndex );
+
+	mPWMSamples[vpin->pwmIndex] = width;
+	*/
+/*
+	if ( pin == vpin->pwmPin ) {
+	} else if ( pin == vpin->enablePin ) {
+	}
+
+
+	uint32_t* ptr = mPinsSamples[pin];
+
+	if ( ptr == nullptr ) {
+		std::map< uint32_t*, bool > used;
+		for ( uint32_t* ptr : mPinsSamples ) {
+			if ( ptr ) {
+				used.insert( std::make_pair( ptr, true ) );
+			}
+		}
+		for ( uint32_t i = 0; i < mNumOutputs; i++ ) {
+			if ( used.find( &mPWMSamples[i] ) == used.end() ) {
+				mPinsSamples[pin] = ptr = &mPWMSamples[i];
+				mSelectPinMasks[i] = (1 << pin);
+				break;
+			}
+		}
+		if ( ptr == nullptr ) {
+			// No slot available ?
+			ptr = (uint32_t*)0xDEADBEEF;
+		} else {
+		}
+	}
+	if ( ptr != (uint32_t*)0xDEADBEEF ) {
+		*ptr = width;
+	}
+*/
+}
+
+
+void PWM::MultiplexPWMChannel::Update()
 {
 }
 
@@ -359,7 +740,7 @@ PWM::PWMChannel::PWMChannel( uint8_t engine, uint32_t time_base, uint32_t period
 		fatal("Failed to open mailbox\n");
 	}
 	uint32_t mbox_board_rev = get_board_revision( mMbox.handle );
-	gDebug() << "MBox Board Revision: " << mbox_board_rev << "\n";
+	gDebug() << "MBox Board Revision: " << mbox_board_rev;
 	get_model(mbox_board_rev);
 
 	clk_reg = (uint32_t*)map_peripheral( CLK_BASE, CLK_LEN );
@@ -367,7 +748,7 @@ PWM::PWMChannel::PWMChannel( uint8_t engine, uint32_t time_base, uint32_t period
 	if ( engine == 0 ) {
 		pwm_reg = (uint32_t*)map_peripheral( PWM0_BASE, PWM0_LEN );
 	} else if ( engine == 1 ) {
-		pwm_reg = (uint32_t*)map_peripheral( PWM1_BASE, PWM1_LEN );
+		pwm_reg = (uint32_t*)map_peripheral( PWM0_BASE, 0x1000 ) + ( PWM1_BASE - PWM0_BASE );
 	} else {
 		return;
 	}
@@ -397,6 +778,11 @@ PWM::PWMChannel::PWMChannel( uint8_t engine, uint32_t time_base, uint32_t period
 
 	pwm_reg[PWM_CTL] = mPwmCtl = PWMCTL_MSEN1 | PWMCTL_MSEN2 | ( (mode == MODE_BUFFER) ? (PWMCTL_USEF1 | PWMCTL_USEF2) : 0 );
 	usleep(10);
+}
+
+
+PWM::PWMChannel::~PWMChannel()
+{
 }
 
 
@@ -464,7 +850,7 @@ PWM::DMAChannel::DMAChannel( uint8_t channel, uint32_t time_base, uint32_t perio
 	, mNumPages( ( mNumCBs * sizeof(dma_cb_t) + ( mNumSamples * 1 + ( mMode == MODE_BUFFER ) ) * sizeof(uint32_t) + PAGE_SIZE - 1 ) >> PAGE_SHIFT )
 	, mCurrentCtl( 0 )
 {
-	memset( mPins, 0, sizeof(mPins) );
+	memset( mPins, 0xFF, sizeof(mPins) );
 	memset( mPinsPWMf, 0, sizeof(mPinsPWMf) );
 	memset( mPinsPWM, 0, sizeof(mPinsPWM) );
 	memset( mPinsBuffer, 0, sizeof(mPinsBuffer) );
@@ -476,24 +862,24 @@ PWM::DMAChannel::DMAChannel( uint8_t channel, uint32_t time_base, uint32_t perio
 	}
 
 	uint32_t mbox_board_rev = get_board_revision( mMbox.handle );
-	gDebug() << "MBox Board Revision: " << mbox_board_rev << "\n";
+	gDebug() << "MBox Board Revision: " << mbox_board_rev;
 	get_model(mbox_board_rev);
 	uint32_t mbox_dma_channels = get_dma_channels( mMbox.handle );
-	gDebug() << "PWM Channels Info: " << mbox_dma_channels << ", using PWM Channel: " << (int)mChannel << "\n";
+	gDebug() << "PWM Channels Info: " << mbox_dma_channels << ", using PWM Channel: " << (int)mChannel;
 
-	gDebug() << "Number of channels:             " << (int)mPinsCount << "\n";
-	gDebug() << "PWM frequency:               " << time_base / mCycleTime << "\n";
-	gDebug() << "PWM steps:                      " << mNumSamples << "\n";
-	gDebug() << "PWM step :                    " << mSampleTime << "\n";
-	gDebug() << "Maximum period (100  %%):      " << mCycleTime << "\n";
-	gDebug() << "Minimum period (" << 100.0 * mSampleTime / mCycleTime << "):      " << mSampleTime << "\n";
-	gDebug() << "DMA Base:                  " << DMA_BASE << "\n";
+	gDebug() << "Number of channels:             " << (int)mPinsCount;
+	gDebug() << "PWM frequency:               " << time_base / mCycleTime;
+	gDebug() << "PWM steps:                      " << mNumSamples;
+	gDebug() << "PWM step :                    " << mSampleTime;
+	gDebug() << "Maximum period (100  %%):      " << mCycleTime;
+	gDebug() << "Minimum period (" << 100.0 * mSampleTime / mCycleTime << "):      " << mSampleTime;
+	gDebug() << "DMA Base:                  " << DMA_BASE;
 
 // 	setup_sighandlers();
 
-	/* map the registers for all PWM Channels */
+	// map the registers for all PWM Channels
 	dma_virt_base = (uint32_t*)map_peripheral( DMA_BASE, ( DMA_CHAN_SIZE * ( DMA_CHAN_MAX + 1 ) ) );
-	/* set dma_reg to point to the PWM Channel we are using */
+	// set dma_reg to point to the PWM Channel we are using
 	dma_reg = dma_virt_base + mChannel * ( DMA_CHAN_SIZE / sizeof(dma_reg) );
 	pwm_reg = (uint32_t*)map_peripheral( PWM_BASE, PWM_LEN );
 	pcm_reg = (uint32_t*)map_peripheral( PCM_BASE, PCM_LEN );
@@ -598,7 +984,7 @@ void PWM::DMAChannel::SetPWMValue( uint32_t pin, uint32_t width )
 	bool found = false;
 	uint32_t i = 0;
 	for ( i = 0; i < mPinsCount; i++ ) {
-		if ( mPins[i] == pin ) {
+		if ( mPins[i] == (int8_t)pin ) {
 			found = true;
 			break;
 		}
@@ -629,7 +1015,7 @@ void PWM::DMAChannel::SetPWMBuffer( uint32_t pin, uint8_t* buffer, uint32_t len 
 	bool found = false;
 	uint32_t i = 0;
 	for ( i = 0; i < mPinsCount; i++ ) {
-		if ( mPins[i] == pin ) {
+		if ( mPins[i] == (int8_t)pin ) {
 			found = true;
 			break;
 		}
@@ -700,7 +1086,7 @@ void PWM::DMAChannel::update_pwm()
 		ctl.cb[j*2].dst = phys_gpclr0;
 		mask = 0;
 		for ( i = 0; i <= mPinsCount; i++ ) {
-			if ( mPins[i] and j > mPinsPWM[i] ) {
+			if ( mPins[i] >= 0 and j > mPinsPWM[i] ) {
 				mask |= 1 << mPins[i];
 			}
 		}
@@ -735,7 +1121,7 @@ void PWM::DMAChannel::update_pwm_buffer()
 		{
 			mask = 0;
 			for ( i = 0; i <= mPinsCount; i++ ) {
-				if ( mPins[i] and mPinsBufferLength[i] < j and mPinsBuffer[i][j] == 0 ) {
+				if ( mPins[i] >= 0 and mPinsBufferLength[i] < j and mPinsBuffer[i][j] == 0 ) {
 					mask |= 1 << mPins[i];
 				}
 			}
@@ -745,7 +1131,7 @@ void PWM::DMAChannel::update_pwm_buffer()
 		{
 			mask = 0;
 			for ( i = 0; i <= mPinsCount; i++ ) {
-				if ( mPins[i] and mPinsBufferLength[i] < j and mPinsBuffer[i][j] == 1 ) {
+				if ( mPins[i] >= 0 and mPinsBufferLength[i] < j and mPinsBuffer[i][j] == 1 ) {
 					mask |= 1 << mPins[i];
 				}
 			}
@@ -770,6 +1156,23 @@ void PWM::DMAChannel::init_ctrl_data()
 // 	init_dma_ctl( &mCtls[1] );
 	dprintf( "Ok\n" );
 }
+
+
+/*
+	TODO : Multiplexer PWM output
+	: PWM0_0 as output
+	: PWM1_0 as DMA timer ?
+	: pins A, B, C, D to control external multiplexer
+	DMA commands buffer:
+		→ reset switch pins (phys_gpclr0)
+		→ loop over all channels
+			→ set switch pins to pin X high (phys_gpset0)
+			→ TBD : wait for switch to physically rise ? (GPIO rise time + external multiplexer IC rise time) (Use builtin DMA_WAIT_RESP, and just run same command 2~3× to wait IC ?)
+			→ write to PWM0_0 FIFO channel X value (TBD)											\
+			→ use PWM1_0 to wait for PWM0_0 to output ? TBD : just wait for FIFO end trigger ?		| → Reuse "// Timer trigger command" for both in one DMA command block (no need for PWM1_0)
+			→ reset switch pins (phys_gpclr0)
+			→ TBD : wait for switch to physically fall ? (GPIO fall time + external multiplexer IC fall time) (same as above)
+*/
 
 
 void PWM::DMAChannel::init_dma_ctl( dma_ctl_t* ctl )
@@ -890,11 +1293,12 @@ void PWM::DMAChannel::init_hardware( uint32_t time_base )
 	clk_reg[PWMCLK_CNTL] = 0x5A000006; // Source=PLLD (500MHz)
 	usleep(100);
 	clk_reg[PWMCLK_DIV] = 0x5A000000 | ( ( 500000000 / time_base ) << 12 ); // setting pwm div to 500 gives 1MHz
+	// clk_reg[PWMCLK_DIV] = 0x5A000000 | hzToDivider( plldfreq_mhz, time_base );
 
 	usleep(100);
 	clk_reg[PWMCLK_CNTL] = 0x5A000016;		// Source=PLLD and enable
 	usleep(100);
-	pwm_reg[PWM_RNG1] = mSampleTime;
+	pwm_reg[PWM_RNG1] = ( mSampleTime - 1 );
 	usleep(10);
 	pwm_reg[PWM_PWMC] = PWMPWMC_ENAB | PWMPWMC_THRSHLD;
 	usleep(10);
@@ -963,7 +1367,7 @@ int PWM::Channel::mbox_open()
 
 uint32_t PWM::Channel::mem_virt_to_phys( void* virt )
 {
-	uint32_t offset = (uint8_t*)virt - mMbox.virt_addr;
+	uintptr_t offset = (uintptr_t)virt - (uintptr_t)mMbox.virt_addr;
 	return mMbox.bus_addr + offset;
 }
 
@@ -985,6 +1389,8 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 			board_model = 3;
 		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_PI4_B) {
 			board_model = 4;
+		} else if ((mbox_board_rev & BOARD_REVISION_TYPE_MASK) == BOARD_REVISION_TYPE_CM4) {
+			board_model = 4;
 		} else {
 			// no Pi 2, we assume a Pi 1
 			board_model = 1;
@@ -994,7 +1400,7 @@ void PWM::Channel::get_model( unsigned mbox_board_rev )
 		board_model = 1;
 	}
 
-	gDebug() << "board_model : " << board_model << "\n";
+	gDebug() << "board_model : " << board_model;
 
 	plldfreq_mhz = 500;
 	switch ( board_model ) {

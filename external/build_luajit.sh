@@ -1,7 +1,8 @@
 #!/bin/bash
 
-echo "$0 $1 $2 $3 $4 $5"
-echo "HOST_CC=cc $4"
+echo "$0 $1 $2 $3 $4 $5 $6"
+echo "HOST_CC=cc $5"
+echo "CC=$2"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 EXTRA=""
