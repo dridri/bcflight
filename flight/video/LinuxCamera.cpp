@@ -54,7 +54,10 @@ LinuxCamera::LinuxCamera()
 		conf->size.height = mHeight;
 		conf->bufferCount = 2;
 	}
-	mPreviewStreamConfiguration->bufferCount = 1;
+	if ( dynamic_cast<LiveOutput>(mLiveEncoder) != nullptr ) {
+		// TODO : use this condition instead of 'live_preview' modifier
+		mPreviewStreamConfiguration->bufferCount = 1;
+	}
 
 	mCameraConfiguration->validate();
 	gDebug() << "Validated viewfinder configuration is: " << mPreviewStreamConfiguration->toString();

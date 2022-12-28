@@ -2,6 +2,8 @@
 
 
 VideoEncoder::VideoEncoder()
+	: mRecorder( nullptr )
+	, mRecorderTrackId( -1 )
 {
 }
 

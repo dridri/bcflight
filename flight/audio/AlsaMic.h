@@ -26,33 +26,37 @@ extern "C" {
 	#include <shine/layer3.h>
 };
 #include <Thread.h>
+#include "Lua.h"
 #include "Microphone.h"
+#include "Recorder.h"
 
 
 class Main;
 class Link;
 
-class AlsaMic : public Microphone
+LUA_CLASS class AlsaMic : public Microphone
 {
 public:
-	AlsaMic( Config* config, const string& conf_obj );
+	LUA_EXPORT AlsaMic();
 	~AlsaMic();
-
-	static int flight_register( Main* main );
+	void Setup();
 
 protected:
 	bool LiveThreadRun();
 	int RecordWrite( char* data, int datalen );
-	static Microphone* Instanciate( Config* config, const string& object );
 
-	Link* mLink;
+	LUA_PROPERTY("device") std::string mDevice;
+	LUA_PROPERTY("rate") uint32_t mRate;
+	LUA_PROPERTY("channels") uint32_t mChannels;
+	LUA_PROPERTY("link") Link* mLink;
 	HookThread<AlsaMic>* mLiveThread;
 	snd_pcm_t* mPCM;
 
 	//Record
+	LUA_PROPERTY("recorder") Recorder* mRecorder;
+	uint32_t mRecorderTrackId;
 	uint32_t mRecordSyncCounter;
 	FILE* mRecordStream;
-	uint32_t mRecorderTrackId;
 	shine_config_t mShineConfig;
 	shine_t mShine;
 };

@@ -20,6 +20,9 @@
 #include "Camera.h"
 
 Camera::Camera()
+	: mLiveEncoder( nullptr )
+	, mVideoEncoder( nullptr )
+//	, mStillEncoder( nullptr )
 {
 	fDebug();
 }
