@@ -143,6 +143,9 @@ end
 
 
 if false and board.type == "rpi" then
+	main_recorder = Recorder {
+	}
+
 	-- Camera
 	camera = Raspicam {
 		direct_mode = true,
@@ -176,7 +179,17 @@ if false and board.type == "rpi" then
 		-- record settings
 		kbps = 25 * 1024,
 		video_width = 1640,
-		video_height = 922
+		video_height = 922,
+		preview_output = LiveOutput(),
+		video_output = V4L2Encoder {
+			video_device = "",
+			bitrate = 16 * 1024,
+			width = 1920,
+			height = 1080,
+			framerate = 30,
+			recorder = main_recorder
+		}
+		-- TODO : camera video-FPS → 30 (in-par with video_output)
 	}
 
 	-- Enable HUD on live output
@@ -190,7 +203,9 @@ if false and board.type == "rpi" then
 	}
 
 	-- Setup microphone
-	microphone = AlsaMic and AlsaMic() -- AlsaMic is standard ALSA driven microphone (Linux)
+	microphone = AlsaMic {
+		recorder = main_recorder
+	}
 	if pc_control and microphone then
 		microphone.link = Socket {
 			type = "TCP",

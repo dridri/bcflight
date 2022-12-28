@@ -1,4 +1,5 @@
 #include "LinuxCamera.h"
+#include "LiveOutput.h"
 #include "Debug.h"
 
 LinuxCamera::LinuxCamera()
@@ -56,6 +57,7 @@ LinuxCamera::LinuxCamera()
 	}
 	if ( dynamic_cast<LiveOutput>(mLiveEncoder) != nullptr ) {
 		// TODO : use this condition instead of 'live_preview' modifier
+		mLiveOutput = true;
 		mPreviewStreamConfiguration->bufferCount = 1;
 	}
 
