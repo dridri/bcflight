@@ -28,10 +28,11 @@ frame = Multicopter {
 		speed = 0.15
 	},
 	motors = {
-		OneShot125( 5, 120 ),
-		OneShot125( 6, 120 ),
-		OneShot125( 13, 120 ),
-		OneShot125( 26, 120 )
+--		DShot( 12 )
+--		DShot( 5 ),
+--		DShot( 6 ),
+--		DShot( 13 ),
+--		DShot( 26 )
 	},
 	-- Set multipliers for each motor ( input is : { Roll, Pitch, Yaw, Thrust }, output is how much it will affect the motor )
 	matrix = {
@@ -144,50 +145,53 @@ end
 
 if false and board.type == "rpi" then
 	-- Camera
-	camera = Raspicam {
+	camera = LinuxCamera {
 		direct_mode = true,
+		width = 1280,
+		height = 720,
+		fps = 60,
 		-- Set different parameters for each Raspberry Foundation Cameras
-		hq = hq,
-		v2 = Raspicam.ModelSettings {
-			sensor_mode = 4,
-			width = 1640,
-			height = 1232,
-			fps = 40,
-			sharpness = 75,
-			brightness = 50,
-			contrast = 15,
-			saturation = 0
-		},
-		v1 = Raspicam.ModelSettings {
-			sensor_mode = 4,
-			width = 1640,
-			height = 1232,
-			fps = 40,
-			sharpness = 75,
-			brightness = 50,
-			contrast = 15,
-			saturation = 0
-		},
-		-- night mode settings
-		night_saturation = 0,
-		night_contrast = 90,
-		night_brightness = 80,
-		night_iso = 5000,
-		-- record settings
-		kbps = 25 * 1024,
-		video_width = 1640,
-		video_height = 922
+-- 		hq = hq,
+-- 		v2 = Raspicam.ModelSettings {
+-- 			sensor_mode = 4,
+-- 			width = 1640,
+-- 			height = 1232,
+-- 			fps = 40,
+-- 			sharpness = 75,
+-- 			brightness = 50,
+-- 			contrast = 15,
+-- 			saturation = 0
+-- 		},
+-- 		v1 = Raspicam.ModelSettings {
+-- 			sensor_mode = 4,
+-- 			width = 1640,
+-- 			height = 1232,
+-- 			fps = 40,
+-- 			sharpness = 75,
+-- 			brightness = 50,
+-- 			contrast = 15,
+-- 			saturation = 0
+-- 		},
+-- 		-- night mode settings
+-- 		night_saturation = 0,
+-- 		night_contrast = 90,
+-- 		night_brightness = 80,
+-- 		night_iso = 5000,
+-- 		-- record settings
+-- 		kbps = 25 * 1024,
+-- 		video_width = 1640,
+-- 		video_height = 922
 	}
 
 	-- Enable HUD on live output
-	hud = HUD {
-		framerate = 30,
-		show_frequency = true,
-		top = 20,
-		bottom = 20,
-		left = 45,
-		right = 50
-	}
+--	hud = HUD {
+--		framerate = 30,
+--		show_frequency = true,
+--		top = 20,
+--		bottom = 20,
+--		left = 45,
+--		right = 50
+--	}
 
 	-- Setup microphone
 	microphone = AlsaMic and AlsaMic() -- AlsaMic is standard ALSA driven microphone (Linux)
@@ -197,5 +201,14 @@ if false and board.type == "rpi" then
 			port = 2022
 		}
 	end
+else
+	hud = HUD {
+		framerate = 30,
+		show_frequency = true,
+		top = 20,
+		bottom = 20,
+		left = 45,
+		right = 50
+	}
 end
 
