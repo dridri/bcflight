@@ -2,6 +2,9 @@
 #define LINUXCAMERA_H
 
 #include <libcamera/libcamera.h>
+#include "DRMFrameBuffer.h"
+#include "DRMSurface.h"
+#include <Thread.h>
 #include "Camera.h"
 #include "Lua.h"
 
@@ -18,6 +21,8 @@ public:
 	virtual void StopRecording();
 	virtual void TakePicture();
 
+	virtual const uint32_t width();
+	virtual const uint32_t height();
 	virtual const uint32_t framerate();
 	virtual const uint32_t brightness();
 	virtual const int32_t contrast();
@@ -45,34 +50,57 @@ public:
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
 protected:
-	LUA_PROPERTY("sensor_mode") int32_t mSensorMode;
+	LUA_PROPERTY("live_preview") bool mLivePreview;
+//	_LUA_PROPERTY("sensor_mode") int32_t mSensorMode;
 	LUA_PROPERTY("width") int32_t mWidth;
 	LUA_PROPERTY("height") int32_t mHeight;
 	LUA_PROPERTY("fps") int32_t mFps;
-	LUA_PROPERTY("exposure") int32_t mExposure;
-	LUA_PROPERTY("iso") int32_t mIso;
+//	_LUA_PROPERTY("exposure") int32_t mExposure;
+//	_LUA_PROPERTY("iso") int32_t mIso;
 	LUA_PROPERTY("shutter_speed") int32_t mShutterSpeed;
-	LUA_PROPERTY("sharpness") int32_t mSharpness;
-	LUA_PROPERTY("brightness") int32_t mBrightness;
-	LUA_PROPERTY("contrast") int32_t mContrast;
-	LUA_PROPERTY("saturation") int32_t mSaturation;
+	LUA_PROPERTY("iso") uint32_t mISO;
+//	_LUA_PROPERTY("analogue_gain") float mAnalogueGain;
+//	_LUA_PROPERTY("digital_gain") float mDigitalGain;
+	LUA_PROPERTY("sharpness") float mSharpness;
+	LUA_PROPERTY("brightness") float mBrightness;
+	LUA_PROPERTY("contrast") float mContrast;
+	LUA_PROPERTY("saturation") float mSaturation;
 	LUA_PROPERTY("vflip") bool mVflip;
 	LUA_PROPERTY("hflip") bool mHflip;
-	LUA_PROPERTY("whiteBalance") std::string mWhiteBalance;
-	LUA_PROPERTY("stabilisation") bool mStabilisation;
-	LUA_PROPERTY("night_fps") int32_t mNightFps;
-	LUA_PROPERTY("night_iso") int32_t mNightIso;
-	LUA_PROPERTY("night_brightness") int32_t mNightBrightness;
-	LUA_PROPERTY("night_contrast") int32_t mNightContrast;
-	LUA_PROPERTY("night_saturation") int32_t mNightSaturation;
+	LUA_PROPERTY("white_balance") std::string mWhiteBalance;
+	LUA_PROPERTY("exposure") std::string mExposureMode;
+//	_LUA_PROPERTY("stabilisation") bool mStabilisation;
+//	_LUA_PROPERTY("night_fps") int32_t mNightFps;
+	LUA_PROPERTY("night_iso") uint32_t mNightISO;
+	LUA_PROPERTY("night_brightness") float mNightBrightness;
+	LUA_PROPERTY("night_contrast") float mNightContrast;
+	LUA_PROPERTY("night_saturation") float mNightSaturation;
 
-	std::unique_ptr<libcamera::CameraManager> mCameraManager;
+	int64_t mCurrentFramerate;
+	int64_t mExposureTime;
+	bool mNightMode;
+
+	static std::unique_ptr<libcamera::CameraManager> sCameraManager;
 	std::shared_ptr<libcamera::Camera> mCamera;
 	std::unique_ptr<libcamera::CameraConfiguration> mCameraConfiguration;
+	std::vector<std::unique_ptr<libcamera::Request>> mRequests;
 	libcamera::StreamConfiguration* mRawStreamConfiguration;
 	libcamera::StreamConfiguration* mPreviewStreamConfiguration;
 	libcamera::StreamConfiguration* mVideoStreamConfiguration;
 	libcamera::StreamConfiguration* mStillStreamConfiguration;
+	std::map< const libcamera::Stream*, libcamera::ControlList > mControlListQueue;
+	std::mutex mControlListQueueMutex;
+
+	std::map<libcamera::FrameBuffer*, DRMFrameBuffer*> mPreviewFrameBuffers;
+	DRMSurface* mPreviewSurface;
+	bool mPreviewSurfaceSet;
+
+	HookThread<LinuxCamera>* mLiveThread;
+
+	void requestComplete( libcamera::Request* request );
+	bool LiveThreadRun();
+	bool RecordThreadRun();
+	bool TakePictureThreadRun();
 };
 
 #endif // LINUXCAMERA_H

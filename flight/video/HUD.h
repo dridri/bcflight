@@ -18,8 +18,6 @@ public:
 private:
 	GLContext* mGLContext;
 	RendererHUD* mRendererHUD;
-	uint32_t mWidth;
-	uint32_t mHeight;
 	LUA_PROPERTY("framerate") uint32_t mFrameRate;
 	bool mNightMode;
 	uint32_t mHUDFramerate;

@@ -341,6 +341,18 @@ const uint32_t Raspicam::framerate()
 }
 
 
+const uint32_t Raspicam::width()
+{
+	return mWidth;
+}
+
+
+const uint32_t Raspicam::height()
+{
+	return mHeight;
+}
+
+
 const uint32_t Raspicam::brightness()
 {
 	return mHandle->brightness();

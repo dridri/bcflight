@@ -33,12 +33,6 @@ HUD::HUD()
 	setFrequency( mHUDFramerate );
 
 	mGLContext = GLContext::instance();
-	mWidth = mGLContext->displayWidth();
-	mHeight = mGLContext->displayHeight();
-	// if ( camera ) {
-// 		mWidth = min( mWidth, camera->width() );
-// 		mHeight = min( mHeight, camera->height() );
-	// }
 
 	mGLContext->runOnGLThread( [this]() {
 		Config* config = Main::instance()->config();
@@ -54,14 +48,14 @@ HUD::HUD()
 		mRendererHUD->PreRender();
 		mRendererHUD->Render( &mDroneStats, 0.0f, &mVideoStats, &mLinkStats );
 
-		if ( false ) {
+		if ( true ) {
 			uint32_t time = Board::GetTicks() / 1000;
 			uint32_t minuts = time / ( 1000 * 60 );
 			uint32_t seconds = ( time / 1000 ) % 60;
 			uint32_t ms = time % 1000;
 			char txt[256];
 			sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
-			mRendererHUD->RenderText( 1280 * 0.5, 100, txt, 0xFFFFFFFF, 4.0f, true );
+			mRendererHUD->RenderText( 100, 200, txt, 0xFFFFFFFF, 4.0f, true );
 		}
 	});
 
@@ -98,8 +92,6 @@ bool HUD::run()
 
 	DroneStats dronestats;
 	LinkStats linkStats;
-	memset( &dronestats, 0, sizeof(dronestats) - sizeof(string) - sizeof(vector<string>) );
-	memset( &linkStats, 0, sizeof(linkStats) );
 
 	dronestats.username = Main::instance()->username();
 	dronestats.messages = Board::messages();
@@ -128,20 +120,16 @@ bool HUD::run()
 		linkStats.source = 0;
 	}
 
-	VideoStats video_stats = {
-		.width = (int)mWidth,
-		.height = (int)mHeight,
-		.fps = (int)mFrameRate,
-	};
-	if ( camera ) {
-		strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
-		strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
-		video_stats.photo_id = camera->getLastPictureID();
-	}
-
 	mDroneStats = dronestats;
 	mLinkStats = linkStats;
-	mVideoStats = video_stats;
+
+	if ( camera ) {
+		mVideoStats = VideoStats( (int)camera->width(), (int)camera->height(), (int)camera->framerate() );
+		// strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
+		// strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
+		// video_stats.photo_id = camera->getLastPictureID();
+	}
+
 
 	return true;
 }

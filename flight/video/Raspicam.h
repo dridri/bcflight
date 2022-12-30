@@ -65,6 +65,8 @@ public:
 	virtual void StopRecording();
 	virtual void TakePicture();
 
+	virtual const uint32_t width();
+	virtual const uint32_t height();
 	virtual const uint32_t framerate();
 	virtual const uint32_t brightness();
 	virtual const int32_t contrast();
