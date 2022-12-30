@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <Thread.h>
 
-class Recorder : public Thread
+LUA_CLASS class Recorder : public Thread
 {
 public:
 	typedef enum {
@@ -17,7 +17,7 @@ public:
 		TrackTypeAudio,
 	} TrackType;
 
-	Recorder();
+	LUA_EXPORT Recorder();
 	~Recorder();
 
 	void Start();
@@ -53,6 +53,7 @@ protected:
 		uint32_t buflen;
 	} PendingSample;
 
+	LUA_PROPERTY("base_directory") string mBaseDirectory;
 	mutex mWriteMutex;
 	vector< Track* > mTracks;
 	list< PendingSample* > mPendingSamples;

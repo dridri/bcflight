@@ -1,4 +1,5 @@
 #include "LinuxCamera.h"
+#include "LiveOutput.h"
 #include "Debug.h"
 
 std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
@@ -132,7 +133,8 @@ void LinuxCamera::Start()
 {
 	fDebug();
 
-	if ( mLivePreview ) {
+	if ( dynamic_cast<LiveOutput*>(mLiveEncoder) != nullptr ) {
+		mLivePreview = true;
 		mPreviewSurface = new DRMSurface();
 	}
 

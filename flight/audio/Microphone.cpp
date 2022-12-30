@@ -19,8 +19,6 @@
 #include "Debug.h"
 #include "Microphone.h"
 
-map< string, function< Microphone* ( Config*, const string& ) > > Microphone::mKnownMicrophones;
-
 
 Microphone::Microphone()
 {
@@ -29,24 +27,4 @@ Microphone::Microphone()
 
 Microphone::~Microphone()
 {
-}
-
-
-Microphone* Microphone::Create( Config* config, const string& lua_object )
-{
-	string type = config->String( lua_object + ".type" );
-
-	if ( mKnownMicrophones.find( type ) != mKnownMicrophones.end() ) {
-		return mKnownMicrophones[ type ]( config, lua_object );
-	}
-
-	gDebug() << "FATAL ERROR : Microphone type \"" << type << "\" not supported !";
-	return nullptr;
-}
-
-
-void Microphone::RegisterMicrophone( const string& name, function< Microphone* ( Config*, const string& ) > instanciate )
-{
-	fDebug( name );
-	mKnownMicrophones[ name ] = instanciate;
 }

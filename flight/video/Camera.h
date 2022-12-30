@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <string>
+#include "VideoEncoder.h"
 
 using namespace std;
 
@@ -70,6 +71,11 @@ public:
 	virtual uint32_t getLastPictureID() = 0;
 
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp ) = 0;
+
+protected:
+	LUA_PROPERTY("preview_output") VideoEncoder* mLiveEncoder;
+	LUA_PROPERTY("video_output") VideoEncoder* mVideoEncoder;
+// 	LUA_PROPERTY("still_output") ImageEncoder* mStillEncoder;
 };
 
 

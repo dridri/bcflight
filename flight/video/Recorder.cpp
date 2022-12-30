@@ -7,6 +7,7 @@
 
 Recorder::Recorder()
 	: Thread( "Recorder" )
+	, mBaseDirectory( "/var/VIDEO/" )
 	, mRecordId( 0 )
 	, mRecordSyncCounter( 0 )
 {
@@ -167,7 +168,7 @@ bool Recorder::run()
 			sprintf( track->filename, "audio_%uhz_%uch_%06u.%s", track->sample_rate, track->channels, mRecordId, track->extension );
 			fprintf( mRecordFile, "new_track,%u,audio,%s\n", track->id, track->filename );
 		}
-		track->file = fopen( ( string("/var/VIDEO/") + string(track->filename) ).c_str(), "wb" );
+		track->file = fopen( ( mBaseDirectory + "/" + string(track->filename) ).c_str(), "wb" );
 	}
 
 	uint32_t pos = ftell( sample->track->file );

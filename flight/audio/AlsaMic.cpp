@@ -26,33 +26,33 @@
 #include <Recorder.h>
 #include <video/Camera.h>
 
-int AlsaMic::flight_register( Main* main )
-{
-	RegisterMicrophone( "AlsaMic", &AlsaMic::Instanciate );
-	return 0;
-}
 
-
-Microphone* AlsaMic::Instanciate( Config* config, const string& object )
-{
-	return new AlsaMic( config, object );
-}
-
-
-AlsaMic::AlsaMic( Config* config, const string& conf_obj )
+AlsaMic::AlsaMic()
 	: Microphone()
+	, mDevice( "plughw:1,0" )
+	, mRate( 44100 )
+	, mChannels( 1 )
+	, mLink( nullptr )
+	, mRecorder( nullptr )
+	, mRecorderTrackId( 0 )
 	, mRecordSyncCounter( 0 )
 	, mRecordStream( nullptr )
-	, mRecorderTrackId( 0 )
+{
+}
+
+
+AlsaMic::~AlsaMic()
+{
+}
+
+
+void AlsaMic::Setup()
 {
 	int err = 0;
-	string device = config->String( conf_obj + ".device", "plughw:1,0" );
-	unsigned int rate = config->Integer( conf_obj + ".sample_rate", 44100 );
-	unsigned int channels = config->Integer( conf_obj + ".channels", 1 );
 	snd_pcm_hw_params_t* hw_params;
 
-	if ( ( err = snd_pcm_open( &mPCM, device.c_str(), SND_PCM_STREAM_CAPTURE, 0 ) ) < 0 ) {
-		fprintf( stderr, "cannot open audio device %s (%s)\n", device.c_str(), snd_strerror( err ) );
+	if ( ( err = snd_pcm_open( &mPCM, mDevice.c_str(), SND_PCM_STREAM_CAPTURE, 0 ) ) < 0 ) {
+		fprintf( stderr, "cannot open audio device %s (%s)\n", mDevice.c_str(), snd_strerror( err ) );
 		Board::defectivePeripherals()["Microphone"] = true;
 		return;
 	}
@@ -74,51 +74,51 @@ AlsaMic::AlsaMic( Config* config, const string& conf_obj )
 		fprintf( stderr, "cannot set access type (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params access setted\n");
+	fprintf( stdout, "hw_params access set\n");
 
 	if ( ( err = snd_pcm_hw_params_set_format( mPCM, hw_params, SND_PCM_FORMAT_S16_LE ) ) < 0 ) {
 		fprintf( stderr, "cannot set sample format (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params format setted\n");
+	fprintf( stdout, "hw_params format set\n");
 
-	if ( ( err = snd_pcm_hw_params_set_rate_near( mPCM, hw_params, &rate, 0 ) ) < 0 ) {
+	if ( ( err = snd_pcm_hw_params_set_rate_near( mPCM, hw_params, &mRate, 0 ) ) < 0 ) {
 		fprintf( stderr, "cannot set sample rate (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params rate setted to %d\n", rate);
+	fprintf( stdout, "hw_params rate set to %d\n", mRate);
 
-	if ( ( err = snd_pcm_hw_params_set_channels( mPCM, hw_params, channels ) ) < 0 ) {
+	if ( ( err = snd_pcm_hw_params_set_channels( mPCM, hw_params, mChannels ) ) < 0 ) {
 		fprintf( stderr, "cannot set channel count (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params channels setted to 1\n");
+	fprintf( stdout, "hw_params channels set to %d\n", mChannels);
 /*
 	snd_pcm_uframes_t framesize = 1024;
 	if ( ( err = snd_pcm_hw_params_set_period_size_near( mPCM, hw_params, &framesize, 0 ) ) < 0 ) {
 		fprintf( stderr, "cannot set frame size (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params frame size setted to %u\n", framesize);
+	fprintf( stdout, "hw_params frame size set to %u\n", framesize);
 
 	if ( ( err = snd_pcm_hw_params_set_periods( mPCM, hw_params, 1, 1 ) ) < 0 ) {
 		fprintf( stderr, "cannot set periods (%s)\n", snd_strerror( err ) );
 // 		return;
 	}
-	fprintf( stdout, "hw_params periods setted to 1\n");
+	fprintf( stdout, "hw_params periods set to 1\n");
 
 	snd_pcm_uframes_t bufsize = 1024;
 	if ( ( err = snd_pcm_hw_params_set_buffer_size_near( mPCM, hw_params, &bufsize ) ) < 0 ) {
 		fprintf( stderr, "cannot set buffer size (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params buffer size setted to %u\n", bufsize);
+	fprintf( stdout, "hw_params buffer size set to %u\n", bufsize);
 */
 	if ( ( err = snd_pcm_hw_params( mPCM, hw_params ) ) < 0 ) {
 		fprintf( stderr, "cannot set parameters (%s)\n", snd_strerror( err ) );
 		return;
 	}
-	fprintf( stdout, "hw_params setted\n" );
+	fprintf( stdout, "hw_params set\n" );
 
 	snd_pcm_hw_params_free( hw_params );
 	fprintf( stdout, "hw_params freed\n" );
@@ -131,25 +131,20 @@ AlsaMic::AlsaMic( Config* config, const string& conf_obj )
 	fprintf( stdout, "Audio interface prepared\n" );
 
 	shine_set_config_mpeg_defaults( &mShineConfig.mpeg );
-	mShineConfig.wave.channels = ( ( channels == 2 ) ? PCM_STEREO : PCM_MONO );
-	mShineConfig.wave.samplerate = rate;
-	mShineConfig.mpeg.mode = ( ( channels == 2 ) ? STEREO : MONO );
+	mShineConfig.wave.channels = ( ( mChannels == 2 ) ? PCM_STEREO : PCM_MONO );
+	mShineConfig.wave.samplerate = mRate;
+	mShineConfig.mpeg.mode = ( ( mChannels == 2 ) ? STEREO : MONO );
 	mShineConfig.mpeg.bitr = 128;
 	mShine = shine_initialise( &mShineConfig );
 	printf ("shine_samples_per_pass : %d\n", shine_samples_per_pass( mShine ) );
-	if ( Main::instance()->recorder() ) {
-		mRecorderTrackId = Main::instance()->recorder()->AddAudioTrack( 1, rate, "mp3" );
+
+	if ( mRecorder ) {
+		mRecorderTrackId = mRecorder->AddAudioTrack( mChannels, mRate, "mp3" );
 	}
 
-	mLink = Link::Create( config, conf_obj + ".link" );
 	mLiveThread = new HookThread<AlsaMic>( "microphone", this, &AlsaMic::LiveThreadRun );
 	mLiveThread->Start();
 	mLiveThread->setPriority( 90, 3 );
-}
-
-
-AlsaMic::~AlsaMic()
-{
 }
 
 
@@ -165,20 +160,17 @@ bool AlsaMic::LiveThreadRun()
 	}
 
 	uint8_t data[32768];
-	snd_pcm_sframes_t size = snd_pcm_readi( mPCM, data, 1152 ) * 2;
+	snd_pcm_sframes_t size = snd_pcm_readi( mPCM, data, 1152 );
 
 	if ( size > 0 ) {
 		if ( mLink ) {
-			mLink->Write( data, size, false, 0 );
+			mLink->Write( data, size * sizeof(int16_t), false, 0 );
 		}
-		if ( Main::instance()->camera() and Main::instance()->camera()->recording() ) {
-			RecordWrite( (char*)data, size );
-		}
+		RecordWrite( (char*)data, size );
 	} else {
-		printf( "snd_pcm_readi error %ld\n", size / 2 );
-		gDebug() << "snd_pcm_readi error : " << ( size / 2 );
-		if ( size / 2 == -EPIPE ) {
-			snd_pcm_recover( mPCM, (int)size / 2, 0 );
+		gDebug() << "snd_pcm_readi error : " << size;
+		if ( size == -EPIPE ) {
+			snd_pcm_recover( mPCM, (int)size, 0 );
 		} else {
 			Board::defectivePeripherals()["Microphone"] = true;
 			return false;
@@ -194,9 +186,8 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 	datalen = 0;
 	data = (char*)shine_encode_buffer_interleaved( mShine, (int16_t*)data, &datalen );
 
-	Recorder* recorder = Main::instance()->recorder();
-	if ( recorder ) {
-		recorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen );
+	if ( mRecorder ) {
+		mRecorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen );
 		return datalen;
 	}
 
@@ -209,7 +200,7 @@ int AlsaMic::RecordWrite( char* data, int datalen )
 			return 0;
 		}
 		uint32_t fileid = atoi( file.substr( file.rfind( "_" ) + 1 ).c_str() );
-		sprintf( filename, "/var/VIDEO/audio_44100hz_1ch_%06u.mp3", fileid );
+		sprintf( filename, "/var/VIDEO/audio_%dhz_%dch_%06u.mp3", mRate, mChannels, fileid );
 		mRecordStream = fopen( filename, "wb" );
 	}
 

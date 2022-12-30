@@ -144,43 +144,25 @@ end
 
 
 if false and board.type == "rpi" then
+	main_recorder = Recorder {
+		base_directory = "/var/VIDEO/"
+	}
+
 	-- Camera
 	camera = LinuxCamera {
-		direct_mode = true,
-		width = 1280,
-		height = 720,
-		fps = 60,
-		-- Set different parameters for each Raspberry Foundation Cameras
--- 		hq = hq,
--- 		v2 = Raspicam.ModelSettings {
--- 			sensor_mode = 4,
--- 			width = 1640,
--- 			height = 1232,
--- 			fps = 40,
--- 			sharpness = 75,
--- 			brightness = 50,
--- 			contrast = 15,
--- 			saturation = 0
--- 		},
--- 		v1 = Raspicam.ModelSettings {
--- 			sensor_mode = 4,
--- 			width = 1640,
--- 			height = 1232,
--- 			fps = 40,
--- 			sharpness = 75,
--- 			brightness = 50,
--- 			contrast = 15,
--- 			saturation = 0
--- 		},
--- 		-- night mode settings
--- 		night_saturation = 0,
--- 		night_contrast = 90,
--- 		night_brightness = 80,
--- 		night_iso = 5000,
--- 		-- record settings
--- 		kbps = 25 * 1024,
--- 		video_width = 1640,
--- 		video_height = 922
+		width = 1920,
+		height = 1080,
+		framerate = 50,
+		preview_output = LiveOutput(),
+		video_output = V4L2Encoder {
+			video_device = "",
+			bitrate = 16 * 1024,
+			width = 1920,
+			height = 1080,
+			framerate = 30,
+			recorder = main_recorder
+		}
+		-- TODO : camera video-FPS → 30 (in-par with video_output)
 	}
 
 	-- Enable HUD on live output
@@ -194,7 +176,9 @@ if false and board.type == "rpi" then
 --	}
 
 	-- Setup microphone
-	microphone = AlsaMic and AlsaMic() -- AlsaMic is standard ALSA driven microphone (Linux)
+	microphone = AlsaMic {
+		recorder = main_recorder
+	}
 	if pc_control and microphone then
 		microphone.link = Socket {
 			type = "TCP",

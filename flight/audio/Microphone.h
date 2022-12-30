@@ -20,18 +20,13 @@
 #define MICROPHONE_H
 
 #include <map>
-#include "Config.h"
 
 class Microphone
 {
 public:
-	static Microphone* Create( Config* config, const string& lua_object );
 	Microphone();
 	~Microphone();
-
-protected:
-	static void RegisterMicrophone( const string& name, function< Microphone* ( Config*, const string& ) > instanciate );
-	static map< string, function< Microphone* ( Config*, const string& ) > > mKnownMicrophones;
+	virtual void Setup() = 0;
 };
 
 #endif // MICROPHONE_H
