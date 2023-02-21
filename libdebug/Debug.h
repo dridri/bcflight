@@ -248,7 +248,8 @@ template<typename Arg1, typename... Args> static void fDebug_base( Debug& dbg, c
 
 	std::stringstream arg_ss;
 	arg_ss << arg1;
-	if ( arg_ss.str()[0] >= '0' && arg_ss.str()[0] <= '9' ) {
+	std::string arg_ss_str = arg_ss.str();
+	if ( arg_ss_str.length() > 0 && arg_ss_str[0] >= '0' && arg_ss_str[0] <= '9' ) {
 		color = _Debug_Color("\x1B[36m");
 	}
 
@@ -258,7 +259,7 @@ template<typename Arg1, typename... Args> static void fDebug_base( Debug& dbg, c
 	std::stringstream ss;
 	ss << color;
 	if ( cap ) ss << cap;
-	ss << arg_ss.str();
+	ss << arg_ss_str;
 	if ( cap ) ss << cap;
 	ss << _Debug_Color("\x1B[0m");
 	dbg + ss.str();
@@ -292,7 +293,7 @@ template<typename... Args> void Debug::fDebug_top2( const char* end, const Args&
 #define gWarning() Debug(Debug::Warning) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41;93m") + "WARNING" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
 #define gError() Debug(Debug::Error) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41m") + "ERROR" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
 #define fDebug( ... ) { Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
-#define aDebug( name, ... ) Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + " = { "; dbg.fDebug_top2( "}", __VA_ARGS__ )
+#define aDebug( name, ... ) { Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + " = { "; dbg.fDebug_top2( "}", __VA_ARGS__ ); }
 #define vDebug( name, ... ) Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + "{ "; dbg.fDebug_top2( "} ", __VA_ARGS__ ); dbg + ""
 
 #endif // __DBG_CLASS
