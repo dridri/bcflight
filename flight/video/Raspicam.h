@@ -68,9 +68,9 @@ public:
 	virtual const uint32_t width();
 	virtual const uint32_t height();
 	virtual const uint32_t framerate();
-	virtual const uint32_t brightness();
-	virtual const int32_t contrast();
-	virtual const int32_t saturation();
+	virtual const float brightness();
+	virtual const float contrast();
+	virtual const float saturation();
 	virtual const int32_t ISO();
 	virtual const uint32_t shutterSpeed();
 	virtual const bool nightMode();
@@ -78,9 +78,9 @@ public:
 	virtual const string exposureMode();
 	virtual const bool recording();
 	virtual const string recordFilename();
-	virtual void setBrightness( uint32_t value );
-	virtual void setContrast( int32_t value );
-	virtual void setSaturation( int32_t value );
+	virtual void setBrightness( float value );
+	virtual void setContrast( float value );
+	virtual void setSaturation( float value );
 	virtual void setISO( int32_t value );
 	virtual void setShutterSpeed( uint32_t value );
 	virtual void setNightMode( bool night_mode );

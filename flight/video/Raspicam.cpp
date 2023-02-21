@@ -293,11 +293,11 @@ void Raspicam::Start()
 	mRecordFrameDataSize = 0;
 	mRecordFrameSize = 0;
 	mLiveBuffer = new uint8_t[2*1024*1024];
-
+/*
 	if ( Main::instance()->recorder() ) {
 		mRecorderTrackId = Main::instance()->recorder()->AddVideoTrack( mWidth, mHeight, mHandle->framerate(), "h264" );
 	}
-
+*/
 	mLiveThread = new HookThread<Raspicam>( "cam_live", this, &Raspicam::LiveThreadRun );
 	mLiveThread->Start();
 	mLiveThread->setPriority( 99, 3 );
@@ -353,21 +353,21 @@ const uint32_t Raspicam::height()
 }
 
 
-const uint32_t Raspicam::brightness()
+const float Raspicam::brightness()
 {
-	return mHandle->brightness();
+	return (float)mHandle->brightness() / 100.0f;
 }
 
 
-const int32_t Raspicam::contrast()
+const float Raspicam::contrast()
 {
-	return mHandle->contrast();
+	return (float)mHandle->contrast() / 100.0f;
 }
 
 
-const int32_t Raspicam::saturation()
+const float Raspicam::saturation()
 {
-	return mHandle->saturation();
+	return (float)mHandle->saturation() / 100.0f;
 }
 
 
@@ -507,21 +507,21 @@ const string Raspicam::recordFilename()
 }
 
 
-void Raspicam::setBrightness( uint32_t value )
+void Raspicam::setBrightness( float value )
 {
-	mHandle->setBrightness( value );
+	mHandle->setBrightness( value * 100.0f );
 }
 
 
-void Raspicam::setContrast( int32_t value )
+void Raspicam::setContrast( float value )
 {
-	mHandle->setContrast( value );
+	mHandle->setContrast( value * 100.0f );
 }
 
 
-void Raspicam::setSaturation( int32_t value )
+void Raspicam::setSaturation( float value )
 {
-	mHandle->setSaturation( value );
+	mHandle->setSaturation( value * 100.0f );
 }
 
 
@@ -687,6 +687,7 @@ void Raspicam::Resume()
 
 void Raspicam::StartRecording()
 {
+	/*
 	if ( not mRecording ) {
 		Recorder* recorder = Main::instance()->recorder();
 		if ( recorder ) {
@@ -694,11 +695,13 @@ void Raspicam::StartRecording()
 		}
 		mRecording = true;
 	}
+	*/
 }
 
 
 void Raspicam::StopRecording()
 {
+	/*
 	if ( mRecording ) {
 		mRecording = false;
 		if ( mRecordStream ) {
@@ -711,6 +714,7 @@ void Raspicam::StopRecording()
 			recorder->Stop();
 		}
 	}
+	*/
 }
 
 
@@ -904,11 +908,13 @@ int Raspicam::LiveSend( char* data, int datalen )
 int Raspicam::RecordWrite( char* data, int datalen, int64_t pts, bool audio )
 {
 //	return 0;
+	/*
 	Recorder* recorder = Main::instance()->recorder();
 	if ( recorder ) {
 		recorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen );
 		return datalen;
 	}
+	*/
 
 	int ret = 0;
 

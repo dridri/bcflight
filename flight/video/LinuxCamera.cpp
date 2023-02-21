@@ -1,6 +1,11 @@
+#include <sys/fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/v4l2-controls.h>
+#include <linux/videodev2.h>
 #include "LinuxCamera.h"
 #include "LiveOutput.h"
 #include "Debug.h"
+#include <thread>
 
 std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
 
@@ -38,7 +43,19 @@ private:
 };
 
 
-static void mergeControlLists( libcamera::ControlList& dest, libcamera::ControlList& src )
+static int xioctl( int fd, unsigned long ctl, void* arg )
+{
+	int ret, num_tries = 10;
+
+	do {
+		ret = ioctl( fd, ctl, arg );
+	} while (ret == -1 && errno == EINTR && num_tries-- > 0 );
+
+	return ret;
+}
+
+
+static void mergeControlLists( libcamera::ControlList& dest, const libcamera::ControlList& src )
 {
 	for ( auto it : src ) {
 		dest.set( it.first, it.second );
@@ -57,6 +74,7 @@ LinuxCamera::LinuxCamera()
 	, mWidth( 1280 )
 	, mHeight( 720 )
 	, mFps( 60 )
+	, mHDR( false )
 	, mShutterSpeed( 0 )
 	, mISO( 0 )
 	, mSharpness( 0.25f )
@@ -77,7 +95,9 @@ LinuxCamera::LinuxCamera()
 	, mPreviewStreamConfiguration( nullptr )
 	, mVideoStreamConfiguration( nullptr )
 	, mStillStreamConfiguration( nullptr )
+	, mPreviewSurface( nullptr )
 	, mPreviewSurfaceSet( false )
+	, mStopping( false )
 {
 	fDebug();
 
@@ -133,7 +153,12 @@ void LinuxCamera::Start()
 {
 	fDebug();
 
-	if ( dynamic_cast<LiveOutput*>(mLiveEncoder) != nullptr ) {
+	if ( sCameraManager->cameras().size() == 0 ) {
+		gError() << "No camera detected !";
+		return;
+	}
+
+	if ( dynamic_cast<LiveOutput*>(mLiveEncoder) != nullptr and !mPreviewSurface ) {
 		mLivePreview = true;
 		mPreviewSurface = new DRMSurface();
 	}
@@ -142,7 +167,7 @@ void LinuxCamera::Start()
 	mCamera->acquire();
 
 	libcamera::StreamRoles roles;
-//	roles.push_back( libcamera::StreamRole::Raw );
+	// roles.push_back( libcamera::StreamRole::Raw );
 	roles.push_back( libcamera::StreamRole::Viewfinder );
 	roles.push_back( libcamera::StreamRole::VideoRecording );
 //	roles.push_back( libcamera::StreamRole::StillCapture );
@@ -162,23 +187,25 @@ void LinuxCamera::Start()
 		mStillStreamConfiguration = &mCameraConfiguration->at(iStream++);
 	}
 
+	uint32_t bufferCount = 1;
+
 	if ( mRawStreamConfiguration ) {
-		mRawStreamConfiguration->pixelFormat = libcamera::formats::SBGGR10_CSI2P;
+		mRawStreamConfiguration->pixelFormat = libcamera::formats::SRGGB12_CSI2P;
 		mRawStreamConfiguration->size.width = mWidth;
 		mRawStreamConfiguration->size.height = mHeight;
-		mRawStreamConfiguration->bufferCount = 2;
+		mRawStreamConfiguration->bufferCount = 1;
 	}
 	if ( mPreviewStreamConfiguration ) {
 		mPreviewStreamConfiguration->pixelFormat = libcamera::formats::YUV420;
 		mPreviewStreamConfiguration->size.width = ( mLivePreview ? mPreviewSurface->mode()->hdisplay : mWidth );
 		mPreviewStreamConfiguration->size.height = ( mLivePreview ? mPreviewSurface->mode()->vdisplay : mHeight );
-		mPreviewStreamConfiguration->bufferCount = 1;
+		mPreviewStreamConfiguration->bufferCount = bufferCount;
 	}
 	if ( mVideoStreamConfiguration ) {
 		mVideoStreamConfiguration->pixelFormat = libcamera::formats::YUV420;
 		mVideoStreamConfiguration->size.width = mWidth;
 		mVideoStreamConfiguration->size.height = mHeight;
-		mVideoStreamConfiguration->bufferCount = 1;
+		mVideoStreamConfiguration->bufferCount = bufferCount;
 	}
 	if ( mStillStreamConfiguration ) {
 		// TODO
@@ -200,41 +227,46 @@ void LinuxCamera::Start()
 		gDebug() << "Validated still configuration is: " << mStillStreamConfiguration->toString();
 	}
 
-	mCamera->configure( mCameraConfiguration.get() );
-	mWidth = mVideoStreamConfiguration->size.width;
-	mHeight = mVideoStreamConfiguration->size.height;
+	if ( mHDR ) {
+		setHDR( mHDR, true );
+	}
 
-	libcamera::ControlList controls;
-	controls.set( libcamera::controls::FrameDurationLimits, libcamera::Span<const int64_t, 2>({ 1000000 / mFps, 1000000 / mFps }) );
-	controls.set( libcamera::controls::ExposureTime, mShutterSpeed );
-	controls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
-	controls.set( libcamera::controls::Sharpness, mSharpness );
-	controls.set( libcamera::controls::Brightness, mBrightness );
-	controls.set( libcamera::controls::Contrast, mContrast );
-	controls.set( libcamera::controls::Saturation, mSaturation );
+	mCamera->configure( mCameraConfiguration.get() );
+	if ( mVideoStreamConfiguration ) {
+		mWidth = mVideoStreamConfiguration->size.width;
+		mHeight = mVideoStreamConfiguration->size.height;
+	}
+
+	mAllControls.set( libcamera::controls::FrameDurationLimits, libcamera::Span<const int64_t, 2>({ 1000000 / mFps, 1000000 / mFps }) );
+	mAllControls.set( libcamera::controls::ExposureTime, mShutterSpeed );
+	mAllControls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
+	mAllControls.set( libcamera::controls::Sharpness, mSharpness );
+	mAllControls.set( libcamera::controls::Brightness, mBrightness );
+	mAllControls.set( libcamera::controls::Contrast, mContrast );
+	mAllControls.set( libcamera::controls::Saturation, mSaturation );
+	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeContinuous );
 	if ( mWhiteBalance == "incandescent" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIncandescent );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIncandescent );
 	} else if ( mWhiteBalance == "tungsten" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbTungsten );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbTungsten );
 	} else if ( mWhiteBalance == "fluorescent" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbFluorescent );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbFluorescent );
 	} else if ( mWhiteBalance == "indoor" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIndoor );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIndoor );
 	} else if ( mWhiteBalance == "daylight" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbDaylight );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbDaylight );
 	} else if ( mWhiteBalance == "cloudy" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCloudy );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCloudy );
 	} else if ( mWhiteBalance == "custom" ) {
-		controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCustom );
+		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCustom );
 	}
 	if ( mExposureMode == "short" ) {
-		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
+		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
 	} else if ( mExposureMode == "long" ) {
-		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureLong );
+		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureLong );
 	} else if ( mExposureMode == "custom" ) {
-		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureCustom );
+		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureCustom );
 	}
-
 	if ( mRawStreamConfiguration ) {
 		mControlListQueue[mRawStreamConfiguration->stream()] = libcamera::ControlList();
 	}
@@ -249,57 +281,84 @@ void LinuxCamera::Start()
 	}
 
 
-	libcamera::FrameBufferAllocator* allocator = new libcamera::FrameBufferAllocator( mCamera );
+	mAllocator = new libcamera::FrameBufferAllocator( mCamera );
 
 	for ( libcamera::StreamConfiguration& cfg : *mCameraConfiguration ) {
-		if ( allocator->allocate(cfg.stream()) < 0 ) {
+		if ( mAllocator->allocate(cfg.stream()) < 0 ) {
 			gError() << "Cannot allocate buffers";
 			return;
 		}
-		const std::vector<std::unique_ptr<libcamera::FrameBuffer>>& buffers = allocator->buffers(cfg.stream());
+		const std::vector<std::unique_ptr<libcamera::FrameBuffer>>& buffers = mAllocator->buffers(cfg.stream());
 		gDebug() << "Allocated " << buffers.size() << " buffers for stream " << cfg.toString();
 
-		for ( uint32_t i = 0; i < buffers.size(); i++ ) {
-			std::unique_ptr<libcamera::Request> request = mCamera->createRequest();
-			if ( !request ) {
-				gError() << "Cannot create request for stream " << cfg.toString();
-				return;
-			}
-			const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
-			if ( request->addBuffer( cfg.stream(), buffer.get() ) < 0 ) {
-				gError() << "Cannot set buffer into request for stream " << cfg.toString();
-				return;
-			}
-			/*
-			libcamera::ControlList &controls = request->controls();
-			controls.set(libcamera::controls::FrameDurationLimits, libcamera::Span<const int64_t, 2>({ 1000000 / mFps, 1000000 / mFps }));
-			*/
-			request->controls().merge( controls );
-			mRequests.push_back(std::move(request));
-			if ( mLivePreview and &cfg == mPreviewStreamConfiguration ) {
+		if ( mLivePreview and &cfg == mPreviewStreamConfiguration ) {
+			for ( uint32_t i = 0; i < buffers.size(); i++ ) {
+				const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
 				printf("FD : %d\n", buffer->planes()[0].fd.get());
 				mPreviewFrameBuffers[buffer.get()] = new DRMFrameBuffer( mPreviewStreamConfiguration->size.width, mPreviewStreamConfiguration->size.height, stride64(mPreviewStreamConfiguration->size.width), DRM_FORMAT_YUV420, 0, buffer->planes()[0].fd.get() );
 			}
 		}
 	}
 
+	for ( uint32_t i = 0; i < bufferCount; i++ ) {
+		std::unique_ptr<libcamera::Request> request = mCamera->createRequest();
+		for ( libcamera::StreamConfiguration& cfg : *mCameraConfiguration ) {
+			const std::vector<std::unique_ptr<libcamera::FrameBuffer>>& buffers = mAllocator->buffers(cfg.stream());
+			const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
+			if ( request->addBuffer( cfg.stream(), buffer.get() ) < 0 ) {
+				gError() << "Cannot set buffer into request for stream " << cfg.toString();
+				return;
+			}
+		}
+		mRequests.push_back(std::move(request));
+	}
+
 	mCamera->requestCompleted.connect( this, &LinuxCamera::requestComplete );
-	mCamera->start();
+	mCamera->start(&mAllControls);
 
 	for ( std::unique_ptr<libcamera::Request>& request : mRequests ) {
-		mCamera->queueRequest(request.get());
+		mRequestsAliveMutex.lock();
+		mRequestsAlive.insert( request.get() );
+		mRequestsAliveMutex.unlock();
+		mCamera->queueRequest( request.get() );
 	}
+}
+
+void LinuxCamera::Stop()
+{
 /*
-	mLiveThread = new HookThread<LinuxCamera>( "cam_live", this, &LinuxCamera::LiveThreadRun );
-	mLiveThread->Start();
-	mLiveThread->setPriority( 99, 3 );
+	{
+		// We don't want QueueRequest to run asynchronously while we stop the camera.
+		std::lock_guard<std::mutex> lock(camera_stop_mutex_);
+		if ( mCamera->stop() ) {
+			gError() << "Failed to stop camera";
+		}
+	}
+
+	mCamera->requestCompleted.disconnect( this, &LinuxCamera::requestComplete );
+	mRequests.clear();
+
+	mControlListQueueMutex.lock();
+	mControlListQueue.clear();
+	mControlListQueueMutex.unlock();
+
+	mCamera->release();
+	mCamera.reset();
+
+	gDebug() << "Camera stopped!";
 */
 }
 
 
 void LinuxCamera::requestComplete( libcamera::Request* request )
 {
-	if ( request->status() != libcamera::Request::RequestCancelled ) {
+	if ( request->status() == libcamera::Request::RequestCancelled ) {
+		if ( mStopping ) {
+			mRequestsAliveMutex.lock();
+			mRequestsAlive.erase( request );
+			mRequestsAliveMutex.unlock();
+		}
+	} else {
 		const libcamera::ControlList& metadata = request->metadata();
 		const libcamera::Request::BufferMap& buffers = request->buffers();
 /*
@@ -320,9 +379,20 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 				const libcamera::Stream* stream = bufferPair.first;
 				libcamera::FrameBuffer* buffer = bufferPair.second;
 				if ( stream == mPreviewStreamConfiguration->stream() ) {
-					if ( mLivePreview and mPreviewSurface and not mPreviewSurfaceSet ) {
+					if ( mLivePreview and mPreviewSurface and ( mPreviewFrameBuffers.size() > 1 or not mPreviewSurfaceSet ) ) {
 						mPreviewSurfaceSet = true;
 						mPreviewSurface->Show( mPreviewFrameBuffers[buffer] );
+					}
+				}
+				if ( mVideoStreamConfiguration and stream == mVideoStreamConfiguration->stream() ) {
+					if ( mVideoEncoder ) {
+						auto ts = metadata.get(libcamera::controls::SensorTimestamp);
+						int64_t timestamp_ns = ts ? *ts : buffer->metadata().timestamp;
+						size_t sz = 0;
+						for ( auto plane : buffer->planes() ) {
+							sz += plane.length;
+						}
+						mVideoEncoder->EnqueueBuffer( sz, nullptr, timestamp_ns / 1000, buffer->planes()[0].fd.get() );
 					}
 				}
 				mControlListQueueMutex.lock();
@@ -366,6 +436,60 @@ bool LinuxCamera::RecordThreadRun()
 bool LinuxCamera::TakePictureThreadRun()
 {
 	return true;
+}
+
+
+void LinuxCamera::setHDR( bool hdr, bool force )
+{
+	if ( mHDR == hdr and not force ) {
+		return;
+	}
+
+	mRequestsAliveMutex.lock();
+	bool wasRunning = mRequestsAlive.size() > 0;
+	mRequestsAliveMutex.unlock();
+	if ( wasRunning ) {
+		mStopping = true;
+		mCamera->stop();
+		mRequestsAliveMutex.lock();
+		while ( mRequestsAlive.size() > 0 ) {
+			mRequestsAliveMutex.unlock();
+			usleep( 100 );
+			mRequestsAliveMutex.lock();
+		}
+		mRequestsAliveMutex.unlock();
+		mStopping = false;
+	}
+
+	{
+		bool ok = false;
+		int fd = -1;
+		v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, hdr };
+		for ( int i = 0; i < 4 && !ok; i++ ) {
+			std::string dev = std::string("/dev/v4l-subdev") + (char)('0' + i);
+			if ( (fd = open(dev.c_str(), O_RDWR, 0)) >= 0 ) {
+				ok = !xioctl( fd, VIDIOC_S_CTRL, &ctrl );
+				close(fd);
+			}
+		}
+		if ( !ok ) {
+			gWarning() << "WARNING: Cannot " << ( hdr ? "en" : "dis" ) << "able HDR mode";
+		} else {
+			mHDR = hdr;
+		}
+	}
+
+	if ( wasRunning ) {
+		mCamera->configure( mCameraConfiguration.get() );
+		mCamera->start( &mAllControls );
+		for ( std::unique_ptr<libcamera::Request>& request : mRequests ) {
+			mRequestsAliveMutex.lock();
+			mRequestsAlive.insert( request.get() );
+			mRequestsAliveMutex.unlock();
+			request->reuse( libcamera::Request::ReuseBuffers );
+			mCamera->queueRequest(request.get());
+		}
+	}
 }
 
 
@@ -413,19 +537,25 @@ void LinuxCamera::setNightMode( bool night_mode )
 //		controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeOff );
 	}
 
+	pushControlList( controls );
+}
+
+
+void LinuxCamera::pushControlList( const libcamera::ControlList& list )
+{
 	mControlListQueueMutex.lock();
 
 	if ( mRawStreamConfiguration ) {
-		mergeControlLists( mControlListQueue[mRawStreamConfiguration->stream()], controls );
+		mergeControlLists( mControlListQueue[mRawStreamConfiguration->stream()], list );
 	}
 	if ( mPreviewStreamConfiguration ) {
-		mergeControlLists( mControlListQueue[mPreviewStreamConfiguration->stream()], controls );
+		mergeControlLists( mControlListQueue[mPreviewStreamConfiguration->stream()], list );
 	}
 	if ( mVideoStreamConfiguration ) {
-		mergeControlLists( mControlListQueue[mVideoStreamConfiguration->stream()], controls );
+		mergeControlLists( mControlListQueue[mVideoStreamConfiguration->stream()], list );
 	}
 	if ( mStillStreamConfiguration ) {
-		mergeControlLists( mControlListQueue[mStillStreamConfiguration->stream()], controls );
+		mergeControlLists( mControlListQueue[mStillStreamConfiguration->stream()], list );
 	}
 
 	mControlListQueueMutex.unlock();
@@ -439,21 +569,41 @@ void LinuxCamera::setShutterSpeed( uint32_t value )
 
 void LinuxCamera::setISO( int32_t value )
 {
+	fDebug( value );
+	mISO = value;
+	libcamera::ControlList controls;
+	mAllControls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
+	pushControlList( controls );
 }
 
 
-void LinuxCamera::setSaturation( int32_t value )
+void LinuxCamera::setSaturation( float value )
 {
+	fDebug( value );
+	mSaturation = value;
+	libcamera::ControlList controls;
+	controls.set( libcamera::controls::Saturation, mSaturation );
+	pushControlList( controls );
 }
 
 
-void LinuxCamera::setContrast( int32_t value )
+void LinuxCamera::setContrast( float value )
 {
+	fDebug( value );
+	mContrast = value;
+	libcamera::ControlList controls;
+	controls.set( libcamera::controls::Contrast, mContrast );
+	pushControlList( controls );
 }
 
 
-void LinuxCamera::setBrightness( uint32_t value )
+void LinuxCamera::setBrightness( float value )
 {
+	fDebug( value );
+	mBrightness = value;
+	libcamera::ControlList controls;
+	controls.set( libcamera::controls::Brightness, mBrightness );
+	pushControlList( controls );
 }
 
 const uint32_t LinuxCamera::width()
@@ -506,17 +656,17 @@ const int32_t LinuxCamera::ISO()
 }
 
 
-const int32_t LinuxCamera::saturation()
+const float LinuxCamera::saturation()
 {
 }
 
 
-const int32_t LinuxCamera::contrast()
+const float LinuxCamera::contrast()
 {
 }
 
 
-const uint32_t LinuxCamera::brightness()
+const float LinuxCamera::brightness()
 {
 }
 

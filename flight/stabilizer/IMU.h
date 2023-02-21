@@ -23,6 +23,8 @@
 #include <Thread.h>
 #include <Vector.h>
 #include <EKF.h>
+#include <list>
+#include <functional>
 
 class Gyroscope;
 class Accelerometer;
@@ -69,12 +71,14 @@ public:
 	void RecalibrateAll();
 	void ResetRPY();
 	void ResetYaw();
-	void Loop( float dt );
+	void Loop( uint64_t tick, float dt );
+
+	void registerConsumer( const std::function<void(uint64_t, const Vector3f&, const Vector3f&)>& f );
 
 protected:
 	bool SensorsThreadRun();
 	void Calibrate( float dt, bool all = false );
-	void UpdateSensors( float dt, bool gyro_only = false );
+	void UpdateSensors( uint64_t tick, bool gyro_only = false );
 	void UpdateAttitude( float dt );
 	void UpdateVelocity( float dt );
 	void UpdatePosition( float dt );
@@ -128,6 +132,8 @@ protected:
 
 	// Error counters
 	uint32_t mGyroscopeErrorCounter;
+
+	std::list< std::function<void(uint64_t, const Vector3f&, const Vector3f&)> > mConsumers;
 };
 
 #endif // IMU_H

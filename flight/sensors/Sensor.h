@@ -54,8 +54,8 @@ public:
 	const bool calibrated() const;
 	Vector4f lastValues() const;
 
-	void setAxisSwap( const int swap[4] );
-	void setAxisMatrix( const Matrix& matrix );
+	LUA_PROPERTY("axis_swap") void setAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("matrix_swap") void setAxisMatrix( const Matrix& matrix );
 	virtual void Calibrate( float dt, bool last_pass = false ) = 0;
 
 	static void AddDevice( Sensor* sensor );
@@ -92,7 +92,7 @@ protected:
 	Vector4f mLastValues;
 	bool mCalibrated;
 	int mSwapMode;
-	int mAxisSwap[4];
+	Vector4i mAxisSwap;
 	Matrix mAxisMatrix;
 
 	LUA_PROPERTY("bus") Bus* mBus;

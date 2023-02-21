@@ -97,6 +97,8 @@ float ThreadBase::GetSeconds()
 
 void ThreadBase::Start()
 {
+	mStopped = false;
+	mFinished = false;
 	mRunning = true;
 }
 

@@ -47,9 +47,9 @@ public:
 	virtual const uint32_t width() = 0;
 	virtual const uint32_t height() = 0;
 	virtual const uint32_t framerate() = 0;
-	virtual const uint32_t brightness() = 0;
-	virtual const int32_t contrast() = 0;
-	virtual const int32_t saturation() = 0;
+	virtual const float brightness() = 0;
+	virtual const float contrast() = 0;
+	virtual const float saturation() = 0;
 	virtual const int32_t ISO() = 0;
 	virtual const uint32_t shutterSpeed() = 0;
 	virtual const bool nightMode() = 0;
@@ -57,9 +57,9 @@ public:
 	virtual const string exposureMode() = 0;
 	virtual const bool recording() = 0;
 	virtual const string recordFilename() = 0;
-	virtual void setBrightness( uint32_t value ) = 0;
-	virtual void setContrast( int32_t value ) = 0;
-	virtual void setSaturation( int32_t value ) = 0;
+	virtual void setBrightness( float value ) = 0;
+	virtual void setContrast( float value ) = 0;
+	virtual void setSaturation( float value ) = 0;
 	virtual void setISO( int32_t value ) = 0;
 	virtual void setShutterSpeed( uint32_t value ) = 0;
 	virtual void setNightMode( bool night_mode ) = 0;
@@ -75,7 +75,7 @@ public:
 protected:
 	LUA_PROPERTY("preview_output") VideoEncoder* mLiveEncoder;
 	LUA_PROPERTY("video_output") VideoEncoder* mVideoEncoder;
-// 	LUA_PROPERTY("still_output") ImageEncoder* mStillEncoder;
+// 	_LUA_PROPERTY("still_output") ImageEncoder* mStillEncoder;
 };
 
 

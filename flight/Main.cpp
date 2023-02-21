@@ -46,13 +46,10 @@
 #include <Frame.h>
 #include <Camera.h>
 #include <Microphone.h>
-#include <Recorder.h>
 #include <HUD.h>
-#ifdef CAMERA_INCLUDE
-	#include CAMERA_INCLUDE // defined in CMakeLists.txt
-#endif
 #ifdef BUILD_SOCKET
 	#include <Socket.h>
+#include <LinuxCamera.h>
 #endif
 #ifdef BUILD_RAWWIFI
 	#include <RawWifi.h>
@@ -81,7 +78,9 @@ Main::Main()
 	, mLPS( 0 )
 	, mLPSCounter( 0 )
 	, mSlave( nullptr )
+	, mPowerThread( nullptr )
 	, mBlackBox( nullptr )
+	, mIMU( nullptr )
 	, mStabilizer( nullptr )
 	, mController( nullptr )
 	, mCamera( nullptr )
@@ -92,11 +91,11 @@ Main::Main()
 {
 	mInstance = this;
 #ifdef BUILD_sensors
-#ifdef BOARD_generic
-#pragma message "Adding noisy fake accelerometer and gyroscope"
-	Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
-	Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
-#endif
+	#ifdef BOARD_generic
+		#pragma message "Adding noisy fake accelerometer and gyroscope"
+		Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
+		Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
+	#endif
 #endif
 
 #ifdef BUILD_blackbox
@@ -105,7 +104,6 @@ Main::Main()
 #endif
 
 	mBoard = new Board( this );
-	// flight_register();
 	Board::InformLoading();
 
 #ifdef BOARD_generic
@@ -118,31 +116,7 @@ Main::Main()
 #endif
 	mConfig->Reload();
 	Board::InformLoading();
-/*
-#ifdef FLIGHT_SLAVE
-	mConfig->Execute( "_slave = " FLIGHT_SLAVE_CONFIG );
-	gDebug() << mConfig->DumpVariable( "_slave" );
-	mSlave = new Slave( mConfig, "_slave" );
-#endif // FLIGHT_SLAVE
-
-	if ( mConfig->ArrayLength( "slaves" ) > 0 ) {
-		uint32_t len = mConfig->ArrayLength( "slaves" );
-		for ( uint32_t i = 0; i < len; i++ ) {
-			Slave* slave = new Slave( mConfig, "slaves[" + to_string(i) + "]", true );
-			mSlaves.push_back( slave );
-		}
-	}
-*/
-
-	if ( mConfig->String( "board.type", BOARD ) != string( BOARD ) ) {
-		gDebug() << "FATAL ERROR : Board type in configuration file ( \"" << mConfig->String( "board.type" ) << "\" ) does not match board currently in use ( \"" << BOARD << "\" ) !";
-		return;
-	}
-
-	Board::InformLoading();
 	DetectDevices();
-	Board::InformLoading();
-
 	Board::InformLoading();
 	mConfig->Apply();
 	Board::InformLoading();
@@ -157,72 +131,25 @@ Main::Main()
 	Board::InformLoading();
 #endif
 
-/*
-	string slavetype = mConfig->String( "stabilizer.proxy.type" );
-	Bus* slaveBus = nullptr;
-	if ( slavetype != "" ) {
-		if ( slavetype == "SPI" ) {
-			slaveBus = new SPI( mConfig->String( "stabilizer.proxy.address" ), mConfig->Integer( "stabilizer.proxy.speed", 500000 ) );
-		}
-		// TODO : handle other types of busses
-// 		mIMU = new IMUProxy(); // TODO + create Slave class for slave-device, then periodically ask IMU values from master ( at max(10, telemetry_rate) )
-	} else {
-*/
-#ifdef BUILD_stabilizer
-		mIMU = mConfig->Object<IMU>( "imu" );
-		mIMU->state();
-		Board::InformLoading();
-#endif
-// 	}
-
-#ifdef BUILD_frames
+	mIMU = mConfig->Object<IMU>( "imu" );
 	mFrame = mConfig->Object<Frame>( "frame" );
-	mFrame->WarmUp();
-	Board::InformLoading();
-#endif
-/*
-	if ( slaveBus ) {
-		mStabilizer = new StabilizerProxy( this, slaveBus );
-	} else {
-*/
-#ifdef BUILD_stabilizer
 	mStabilizer = mConfig->Object<Stabilizer>( "stabilizer" );
-	if ( mStabilizer->frame() == nullptr ) {
+	mController = mConfig->Object<Controller>( "controller" );
+	mCamera = mConfig->Object<Camera>( "camera" );
+	mMicrophone = mConfig->Object<Microphone>( "microphone" );
+	mHUD = mConfig->Object<HUD>( "hud" );
+	if ( mFrame ) {
+		mFrame->WarmUp();
+	}
+	if ( mStabilizer and mStabilizer->frame() == nullptr ) {
 		mStabilizer->setFrame( mFrame );
 	}
-	Board::InformLoading();
-#endif
-// 	}
-
-#ifdef CAMERA
-	// mRecorder = new Recorder(); // TODO
-	// mRecorder->Start();
-#endif
-
-#ifdef CAMERA
-	mCamera = mConfig->Object<Camera>( "camera" );
 	if ( mCamera ) {
-		Board::InformLoading();
 		mCamera->Start();
-		Board::InformLoading();
 	}
-#endif
-
-
-#ifdef BUILD_audio
-	mMicrophone = mConfig->Object<Microphone>( "microphone" );
-	Board::InformLoading();
-#endif
-
-	mHUD = mConfig->Object<HUD>( "hud" );
-	Board::InformLoading();
-
-#ifdef BUILD_controller
-	mController = mConfig->Object<Controller>( "controller" );
-	mController->setPriority( 98 );
-	Board::InformLoading();
-#endif
-
+	if ( mController ) {
+		mController->setPriority( 98 );
+	}
 
 #ifdef BUILD_stabilizer
 	mLoopTime = mConfig->Integer( "stabilizer.loop_time", 2000 );
@@ -233,12 +160,10 @@ Main::Main()
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
 	mStabilizerThread->setFrequency( 100 );
 	mStabilizerThread->Start();
-	mStabilizerThread->setPriority( 99 );
+	mStabilizerThread->setPriority( 99, 0 );
 #endif // BUILD_stabilizer
 
 #ifdef SYSTEM_NAME_Linux
-	// Must be the very last atexit() call
-// 	atexit( &Thread::StopAll );
 	atexit( []() {
 		fDebug();
 		Thread::StopAll();
@@ -256,11 +181,11 @@ const bool Main::ready() const
 }
 
 
-
 bool Main::StabilizerThreadRun()
 {
 #ifdef BUILD_stabilizer
-	float dt = ((float)( mBoard->GetTicks() - mTicks ) ) / 1000000.0f;
+	uint64_t tick = mBoard->GetTicks();
+	float dt = ((float)( tick - mTicks ) ) / 1000000.0f;
 	mTicks = mBoard->GetTicks();
 
 	if ( abs( dt ) >= 1.0 ) {
@@ -269,13 +194,12 @@ bool Main::StabilizerThreadRun()
 		return true;
 	}
 
-	mIMU->Loop( dt );
+	mIMU->Loop( tick, dt );
 	if ( mIMU->state() == IMU::Off ) {
 		// Nothing to do
 	} else if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
-		mStabilizerThread->setFrequency( 0 ); // Calibrate as fast as possible
+		mStabilizerThread->setFrequency( 1000000 / 1000 ); // Calibrate at a reasonable constant rate
 		Board::InformLoading();
-		mFrame->WarmUp();
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
 		mStabilizerThread->setFrequency( 1000000 / mLoopTime ); // Set frequency only when calibration is done
@@ -408,12 +332,6 @@ HUD* Main::hud() const
 Microphone* Main::microphone() const
 {
 	return mMicrophone;
-}
-
-
-Recorder* Main::recorder() const
-{
-	return mRecorder;
 }
 
 

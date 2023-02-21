@@ -32,6 +32,12 @@
 void Test( int, char** );
 
 
+#define _XOPEN_SOURCE 700
+#include <fcntl.h> /* open */
+#include <stdint.h> /* uint64_t  */
+#include <stdio.h> /* printf */
+#include <stdlib.h> /* size_t */
+#include <unistd.h> /* pread, sysconf */
 
 
 #include <sys/types.h>
@@ -53,10 +59,88 @@ using namespace std;
 std::mutex __global_rpi_drm_mutex;
 int __global_rpi_drm_fd = -1;
 
+
+
 void fatal(const char *str, int e) {
   fprintf(stderr, "%s: %s\n", str, strerror(e));
   exit(1);
 }
+
+
+typedef struct {
+    uint64_t pfn : 55;
+    unsigned int soft_dirty : 1;
+    unsigned int file_page : 1;
+    unsigned int swapped : 1;
+    unsigned int present : 1;
+} PagemapEntry;
+
+/* Parse the pagemap entry for the given virtual address.
+ *
+ * @param[out] entry      the parsed entry
+ * @param[in]  pagemap_fd file descriptor to an open /proc/pid/pagemap file
+ * @param[in]  vaddr      virtual address to get entry for
+ * @return 0 for success, 1 for failure
+ */
+int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vaddr)
+{
+    size_t nread;
+    ssize_t ret;
+    uint64_t data;
+    uintptr_t vpn;
+
+    vpn = vaddr / sysconf(_SC_PAGE_SIZE);
+    nread = 0;
+    while (nread < sizeof(data)) {
+        ret = pread(pagemap_fd, ((uint8_t*)&data) + nread, sizeof(data) - nread,
+                vpn * sizeof(data) + nread);
+        nread += ret;
+        if (ret <= 0) {
+			printf("err 3\n");
+            return 1;
+        }
+    }
+    entry->pfn = data & (((uint64_t)1 << 55) - 1);
+    entry->soft_dirty = (data >> 55) & 1;
+    entry->file_page = (data >> 61) & 1;
+    entry->swapped = (data >> 62) & 1;
+    entry->present = (data >> 63) & 1;
+    return 0;
+}
+
+/* Convert the given virtual address to physical using /proc/PID/pagemap.
+ *
+ * @param[out] paddr physical address
+ * @param[in]  pid   process to convert for
+ * @param[in] vaddr virtual address to get entry for
+ * @return 0 for success, 1 for failure
+ */
+int virt_to_phys_user(uintptr_t *paddr, uintptr_t vaddr)
+{
+	errno = 0;
+    char pagemap_file[BUFSIZ];
+    int pagemap_fd;
+
+    snprintf(pagemap_file, sizeof(pagemap_file), "/proc/%u/pagemap", getpid());
+	printf("pagemap_file: %s\n", pagemap_file);
+    pagemap_fd = open(pagemap_file, O_RDONLY);
+    if (pagemap_fd < 0) {
+		printf("err 1\n");
+        return 1;
+    }
+    PagemapEntry entry;
+    if (pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
+		printf("err 2\n");
+        return 1;
+    }
+    close(pagemap_fd);
+    *paddr = (entry.pfn * sysconf(_SC_PAGE_SIZE)) + (vaddr % sysconf(_SC_PAGE_SIZE));
+	printf("end\n");
+    return 0;
+}
+
+
+
 
 void *setupFrameBuffer(int fd, int crtc_id, uint32_t conn_id, uint32_t *width, uint32_t *heigth, uint32_t *pitch) {
   struct drm_mode_create_dumb creq;
@@ -279,6 +363,13 @@ int test() {
 	printf( "width, height, pitch : %d, %d, %d\n", width, height, pitch );
 	//emitUartData(buf,"Uart test data", width, height, pitch);
 
+	uintptr_t pbuf = 0;
+	int r = virt_to_phys_user(&pbuf, (uintptr_t)buf);
+	if ( r < 0 ) {
+		perror("virt_to_phys_user\n");
+	}
+	printf( "pbuf : %p, %p (%s)\n", buf, pbuf, strerror(errno) );
+
 	memset(buf, 0, pitch*height);
 	return 0;
 }
@@ -331,8 +422,19 @@ int main( int ac, char** av )
 	Debug::setDebugLevel( Debug::Verbose );
 	wiringPiSetup();
 	wiringPiSetupGpio();
-
-
+/*
+		DShot* m = new DShot(5);
+		m->Disarm();
+		sleep(5);
+		m->setSpeed(0.15, true);
+		sleep(2);
+		return 0;
+*/
+	// test();
+	// emitSineData(buf, width, height, pitch, 0);
+	// while ( true ) {
+	// 	sleep(1);
+	// }
 	// TestThread t;
 	// t.Start();
 

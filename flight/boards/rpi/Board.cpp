@@ -87,6 +87,7 @@ Board::Board( Main* main )
 	wiringPiSetup();
 	wiringPiSetupGpio();
 
+	system( "modprobe i2c-dev" );
 	system( "mount -o remount,rw /var" );
 	system( "mkdir -p /var/VIDEO" );
 
@@ -514,8 +515,9 @@ uint64_t Board::GetTicks()
 }
 
 
-uint64_t Board::WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias )
+uint64_t Board::WaitTick( uint64_t ticks_p_second, uint64_t lastTick, int64_t sleep_bias )
 {
+	// fDebug( ticks_p_second, lastTick, sleep_bias );
 	uint64_t ticks = GetTicks();
 
 	if ( ( ticks - lastTick ) < ticks_p_second ) {

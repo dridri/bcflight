@@ -70,6 +70,7 @@ Multicopter::~Multicopter()
 void Multicopter::Arm()
 {
 	fDebug();
+
 	char stmp[256] = "\"";
 	uint32_t spos = 1;
 
@@ -92,10 +93,15 @@ void Multicopter::Arm()
 void Multicopter::Disarm()
 {
 	fDebug();
+
 	char stmp[256] = "\"";
 	uint32_t spos = 1;
 
 	mAirMode = false;
+
+	if ( mStabSpeeds.size() < mMotors.size() ) {
+		mStabSpeeds.resize( mMotors.size() );
+	}
 
 	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 		mMotors[i]->setSpeed( 0.0f, false );
@@ -112,10 +118,6 @@ void Multicopter::Disarm()
 void Multicopter::WarmUp()
 {
 	fDebug();
-
-	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-		mMotors[i]->Disarm();
-	}
 }
 
 
@@ -153,13 +155,18 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 			mStabSpeeds[i] = stab_shift + max( 0.0f, ( mStabSpeeds[i] - overall_min ) * stab_multiplier );
 		}
 
-		char stmp[256] = "\"";
-		uint32_t spos = 1;
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 			mMotors[i]->setSpeed( min( mMaxSpeed, mStabSpeeds[i] ), ( i >= mMotors.size() - 1 ) );
-			spos += sprintf( stmp + spos, "%.4f,", mMotors[i]->speed() );
 		}
-		Main::instance()->blackbox()->Enqueue( "Multicopter:motors", string(stmp) + "\"" );
+
+		if ( Main::instance()->blackbox() ) {
+			char stmp[256] = "\"";
+			uint32_t spos = 1;
+			for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
+				spos += sprintf( stmp + spos, "%.4f,", mMotors[i]->speed() );
+			}
+			Main::instance()->blackbox()->Enqueue( "Multicopter:motors", string(stmp) + "\"" );
+		}
 
 		return true;
 	}

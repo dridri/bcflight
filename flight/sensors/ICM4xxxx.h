@@ -29,7 +29,7 @@
 class ICM4xxxxAccel : public Accelerometer
 {
 public:
-	ICM4xxxxAccel( Bus* bus );
+	ICM4xxxxAccel( Bus* bus, const std::string& name ="ICM4xxxx" );
 	~ICM4xxxxAccel();
 
 	void Calibrate( float dt, bool last_pass = false );
@@ -47,7 +47,7 @@ private:
 class ICM4xxxxGyro : public Gyroscope
 {
 public:
-	ICM4xxxxGyro( Bus* bus );
+	ICM4xxxxGyro( Bus* bus, const std::string& name = "ICM4xxxx" );
 	~ICM4xxxxGyro();
 
 	void Calibrate( float dt, bool last_pass = false );
@@ -65,7 +65,7 @@ private:
 class ICM4xxxxMag : public Magnetometer
 {
 public:
-	ICM4xxxxMag( Bus* bus );
+	ICM4xxxxMag( Bus* bus, const std::string& name = "ICM4xxxx" );
 	~ICM4xxxxMag();
 
 	void Calibrate( float dt, bool last_pass = false );
@@ -93,10 +93,6 @@ public:
 	LUA_PROPERTY() ICM4xxxxAccel* accelerometer();
 	LUA_PROPERTY() ICM4xxxxMag* magnetometer();
 	void InitChip();
-
-	static int flight_register( Main* main );
-
-	static Sensor* Instanciate( Bus* bus, Config* config, const string& object );
 
 protected:
 	ICM4xxxx( I2C* i2c );
@@ -147,6 +143,7 @@ protected:
 	uint8_t getIntStatus();
 
 	bool mChipReady;
+	std::string mName;
 	ICM4xxxxGyro* mGyroscope;
 	ICM4xxxxAccel* mAccelerometer;
 	ICM4xxxxMag* mMagnetometer;

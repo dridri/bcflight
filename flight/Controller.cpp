@@ -53,7 +53,7 @@ Controller::Controller()
 	, mEmergencyTick( 0 )
 	, mTelemetryFull( false )
 {
-	mTelemetryFrequency = 30;
+	mTelemetryFrequency = 0;
 
 	mExpo = Vector4f();
 	mExpo.x = 4;
@@ -117,6 +117,13 @@ const Vector3f& Controller::RPY() const
 	return mRPY;
 }
 */
+
+void Controller::onEvent( ControllerBase::Cmd cmdId, const std::function<void(const LuaValue& v)>& f )
+{
+	fDebug( this, cmdId, "f" );
+	mEvents[cmdId] = f;
+}
+
 
 void Controller::Emergency()
 {
@@ -328,7 +335,7 @@ bool Controller::run()
 	};
 
 	if ( not mConnected ) {
-		for ( uint32_t i = 0; i < readret; i++ ) {
+		for ( int32_t i = 0; i < readret; i++ ) {
 			uint8_t part1 = 0;
 			if ( command.ReadU8( &part1 ) == sizeof(uint8_t) ) {
 				if ( part1 == PING ) {
@@ -343,10 +350,11 @@ bool Controller::run()
 	}
 
 	Cmd cmd = (Cmd)0;
+	LuaValue commandArg;
 	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-// 			gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
+			// gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 		bool do_response = false;
 		Packet response;
@@ -389,7 +397,7 @@ bool Controller::run()
 					uint16_t last = command.ReadU16();
 					mPing = last;
 					response.WriteU16( last ); // Copy-back reported ping
-					mMain->blackbox()->Enqueue( "Controller:ping", to_string(mPing) + "ms" );
+					// mMain->blackbox()->Enqueue( "Controller:ping", to_string(mPing) + "ms" );
 
 					// Send status
 					uint32_t status = 0;
@@ -401,12 +409,13 @@ bool Controller::run()
 					} else if ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
 						status |= STATUS_CALIBRATING;
 					}
-
+/*
 					if ( mMain->camera() ) {
 						if ( mMain->camera()->nightMode() ) {
 							status |= STATUS_NIGHTMODE;
 						}
 					}
+*/
 					response.WriteU8( STATUS );
 					response.WriteU32( status );
 
@@ -919,41 +928,61 @@ bool Controller::run()
 			}
 
 			case VIDEO_PAUSE : {
+				/*
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->Pause();
 					gDebug() << "Video paused";
 				}
+				*/
 				response.WriteU32( 1 );
 				do_response = true;
 				break;
 			}
 			case VIDEO_RESUME : {
+				/*
 				Camera* cam = mMain->camera();
 				if ( cam ) {
 					cam->Resume();
 					gDebug() << "Video resumed";
 				}
+				*/
 				response.WriteU32( 0 );
 				do_response = true;
 				break;
 			}
 			case VIDEO_START_RECORD : {
-				Camera* cam = mMain->camera();
-				if ( cam ) {
-					cam->StartRecording();
-					gDebug() << "Video recording started";
+				/*
+				uint32_t count = 0;
+				for ( const auto& recorder : Recorder::recorders() ) {
+					try {
+						recorder->Start();
+						count++;
+					} catch ( const std::exception& e ) {
+					}
 				}
+				if ( count > 0 ) {
+					gDebug() << "Recording started";
+				}
+				*/
 				response.WriteU32( 1 );
 				do_response = true;
 				break;
 			}
 			case VIDEO_STOP_RECORD : {
-				Camera* cam = mMain->camera();
-				if ( cam ) {
-					cam->StopRecording();
-					gDebug() << "Video recording stopped";
+				/*
+				uint32_t count = 0;
+				for ( const auto& recorder : Recorder::recorders() ) {
+					try {
+						recorder->Stop();
+						count++;
+					} catch ( const std::exception& e ) {
+					}
 				}
+				if ( count > 0 ) {
+					gDebug() << "Recording stopped";
+				}
+				*/
 				response.WriteU32( 0 );
 				do_response = true;
 				break;
@@ -1116,12 +1145,15 @@ bool Controller::run()
 				break;
 			}
 			case VIDEO_NIGHT_MODE : {
-				Camera* cam = mMain->camera();
 				uint32_t night = command.ReadU32();
+				commandArg = night;
+				/*
+				Camera* cam = mMain->camera();
 				if ( cam ) {
 					gDebug() << "Setting camera to " << ( night ? "night" : "day" ) << " mode";
 					cam->setNightMode( night );
 				}
+				*/
 				response.WriteU32( night );
 				do_response = true;
 				break;
@@ -1201,6 +1233,11 @@ bool Controller::run()
 			}
 		}
 
+		const auto& f = mEvents[cmd];
+		if ( f ) {
+			f(commandArg);
+		}
+
 		if ( do_response ) {
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.lock();
@@ -1230,12 +1267,14 @@ bool Controller::TelemetryRun()
 		telemetry.WriteU16( STABILIZER_FREQUENCY );
 		telemetry.WriteU32( mMain->loopFrequency() );
 
-		vector< Motor* >* motors = mMain->frame()->motors();
-		if ( motors ) {
-			telemetry.WriteU16( MOTORS_SPEED );
-			telemetry.WriteU32( motors->size() );
-			for ( Motor* m : *motors ) {
-				telemetry.WriteFloat( m->speed() );
+		if ( mMain->frame() ) {
+			vector< Motor* >* motors = mMain->frame()->motors();
+			if ( motors ) {
+				telemetry.WriteU16( MOTORS_SPEED );
+				telemetry.WriteU32( motors->size() );
+				for ( Motor* m : *motors ) {
+					telemetry.WriteFloat( m->speed() );
+				}
 			}
 		}
 
@@ -1247,17 +1286,19 @@ bool Controller::TelemetryRun()
 	}
 
 	if ( mTelemetryCounter % 5 == 0 ) {
-		telemetry.WriteU16( VBAT );
-		telemetry.WriteFloat( mMain->powerThread()->VBat() );
+		if ( mMain->powerThread() ) {
+			telemetry.WriteU16( VBAT );
+			telemetry.WriteFloat( mMain->powerThread()->VBat() );
 
-		telemetry.WriteU16( TOTAL_CURRENT );
-		telemetry.WriteFloat( mMain->powerThread()->CurrentTotal() );
+			telemetry.WriteU16( TOTAL_CURRENT );
+			telemetry.WriteFloat( mMain->powerThread()->CurrentTotal() );
 
-		telemetry.WriteU16( CURRENT_DRAW );
-		telemetry.WriteFloat( mMain->powerThread()->CurrentDraw() );
+			telemetry.WriteU16( CURRENT_DRAW );
+			telemetry.WriteFloat( mMain->powerThread()->CurrentDraw() );
 
-		telemetry.WriteU16( BATTERY_LEVEL );
-		telemetry.WriteFloat( mMain->powerThread()->BatteryLevel() );
+			telemetry.WriteU16( BATTERY_LEVEL );
+			telemetry.WriteFloat( mMain->powerThread()->BatteryLevel() );
+		}
 
 		telemetry.WriteU16( CPU_LOAD );
 		telemetry.WriteU32( Board::CPULoad() );
@@ -1270,37 +1311,42 @@ bool Controller::TelemetryRun()
 
 		telemetry.WriteU16( RX_LEVEL );
 		telemetry.WriteU32( mLink->RxLevel() );
+
 	}
 
-	telemetry.WriteU16( SET_THRUST );
-	telemetry.WriteFloat( mMain->stabilizer()->thrust() );
+	if ( mMain->stabilizer() ) {
+		telemetry.WriteU16( SET_THRUST );
+		telemetry.WriteFloat( mMain->stabilizer()->thrust() );
+	}
 
-	telemetry.WriteU16( ROLL_PITCH_YAW );
-	telemetry.WriteFloat( mMain->imu()->RPY().x );
-	telemetry.WriteFloat( mMain->imu()->RPY().y );
-	telemetry.WriteFloat( mMain->imu()->RPY().z );
+	if ( mMain->imu() ) {
+		telemetry.WriteU16( ROLL_PITCH_YAW );
+		telemetry.WriteFloat( mMain->imu()->RPY().x );
+		telemetry.WriteFloat( mMain->imu()->RPY().y );
+		telemetry.WriteFloat( mMain->imu()->RPY().z );
 
-	telemetry.WriteU16( CURRENT_ACCELERATION );
-	telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
+		telemetry.WriteU16( CURRENT_ACCELERATION );
+		telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
 
-	telemetry.WriteU16( ALTITUDE );
-	telemetry.WriteFloat( mMain->imu()->altitude() );
+		telemetry.WriteU16( ALTITUDE );
+		telemetry.WriteFloat( mMain->imu()->altitude() );
 
-	if ( mTelemetryFull ) {
-		telemetry.WriteU16( GYRO );
-		telemetry.WriteFloat( mMain->imu()->rate().x );
-		telemetry.WriteFloat( mMain->imu()->rate().y );
-		telemetry.WriteFloat( mMain->imu()->rate().z );
+		if ( mTelemetryFull ) {
+			telemetry.WriteU16( GYRO );
+			telemetry.WriteFloat( mMain->imu()->rate().x );
+			telemetry.WriteFloat( mMain->imu()->rate().y );
+			telemetry.WriteFloat( mMain->imu()->rate().z );
 
-		telemetry.WriteU16( ACCEL );
-		telemetry.WriteFloat( mMain->imu()->acceleration().x );
-		telemetry.WriteFloat( mMain->imu()->acceleration().y );
-		telemetry.WriteFloat( mMain->imu()->acceleration().z );
+			telemetry.WriteU16( ACCEL );
+			telemetry.WriteFloat( mMain->imu()->acceleration().x );
+			telemetry.WriteFloat( mMain->imu()->acceleration().y );
+			telemetry.WriteFloat( mMain->imu()->acceleration().z );
 
-		telemetry.WriteU16( MAGN );
-		telemetry.WriteFloat( mMain->imu()->magnetometer().x );
-		telemetry.WriteFloat( mMain->imu()->magnetometer().y );
-		telemetry.WriteFloat( mMain->imu()->magnetometer().z );
+			telemetry.WriteU16( MAGN );
+			telemetry.WriteFloat( mMain->imu()->magnetometer().x );
+			telemetry.WriteFloat( mMain->imu()->magnetometer().y );
+			telemetry.WriteFloat( mMain->imu()->magnetometer().z );
+		}
 	}
 
 #ifdef SYSTEM_NAME_Linux

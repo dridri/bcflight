@@ -33,12 +33,14 @@ endif()
 get_filename_component( CROSS_ROOT ${CMAKE_C_COMPILER} DIRECTORY )
 include_directories( ${CROSS_ROOT}/../include )
 include_directories( ${CROSS_ROOT}/../include/libdrm )
+include_directories( ${CROSS_ROOT}/../include/libcamera )
 include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include )
 include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libdrm )
+include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libcamera )
 include_directories( /opt/vc/include )
 
 #if ( "${rawwifi}" MATCHES 1 )
-	set( BOARD_LIBS ${BOARD_LIBS} -liw )
+	set( BOARD_LIBS ${BOARD_LIBS} -liw -lcamera -lcamera-base )
 #endif()
 
 
@@ -53,9 +55,9 @@ if ( NOT ${camera} MATCHES OFF AND NOT "${camera}" MATCHES "0" AND ${BUILD_video
 	set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
 endif()
 
-if ( ${variant} MATCHES "4" )
+# if ( ${variant} MATCHES "4" )
 	set( BOARD_LIBS ${BOARD_LIBS} -ldrm -lgbm )
-endif()
+# endif()
 
 function( board_strip )
 	add_custom_target( flight ALL

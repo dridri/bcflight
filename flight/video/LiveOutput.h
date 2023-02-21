@@ -4,12 +4,13 @@
 #include "VideoEncoder.h"
 
 
-class LiveOutput : public VideoEncoder
+LUA_CLASS class LiveOutput : public VideoEncoder
 {
 public:
-	LiveOutput();
+	LUA_EXPORT LiveOutput();
 	~LiveOutput();
-	void EnqueueBuffer( int size, void* mem, int64_t timestamp_us, int fd );
+	void Setup();
+	void EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, int fd = -1 );
 };
 
 #endif // LIVEOUTPUT_H

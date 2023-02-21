@@ -62,7 +62,7 @@ public:
 	static int SaveRegister( const string& name, const string& value );
 
 	static uint64_t GetTicks();
-	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias = -500 );
+	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, int64_t sleep_bias = -500 );
 
 	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );
 	static uint32_t CPULoad();

@@ -203,6 +203,9 @@ SX127x::~SX127x()
 
 void SX127x::init()
 {
+	fDebug();
+	mReady = true;
+
 	if ( mResetPin < 0 ) {
 		gDebug() << "WARNING : No Reset-pin specified for SX127x, cannot create link !";
 		return;
@@ -214,15 +217,15 @@ void SX127x::init()
 
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
-	mSPI = new SPI( mDevice, 7000000 );
+	mSPI = new SPI( mDevice, 1 * 1000 * 1000 ); // 7
+	mSPI->Connect();
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
 	GPIO::setMode( mIRQPin, GPIO::Input );
 // 	GPIO::setPUD( mIRQPin, GPIO::PullDown );
 	GPIO::setMode( mLedPin, GPIO::Output );
 	GPIO::SetupInterrupt( mIRQPin, GPIO::Rising, [this](){
-		GPIO::Write( mLedPin, true );
-		this->Interrupt( mSPI );
+		this->Interrupt( mSPI, mLedPin );
 		GPIO::Write( mLedPin, false );
 	});
 	if ( mTXPin >= 0 ) {
@@ -241,24 +244,33 @@ void SX127x::init()
 			if ( mDiversityIrqPin < 0 ) {
 				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !";
 			} else {
-				mDiversitySpi = new SPI( mDiversityDevice, 7000000 );
+				mDiversitySpi = new SPI( mDiversityDevice, 1 * 1000 * 1000 ); // 7
+				mDiversitySpi->Connect();
 				GPIO::setMode( mDiversityResetPin, GPIO::Output );
 				GPIO::Write( mDiversityResetPin, false );
 				GPIO::setMode( mDiversityIrqPin, GPIO::Input );
 				GPIO::setMode( mDiversityLedPin, GPIO::Output );
 				GPIO::SetupInterrupt( mDiversityIrqPin, GPIO::Rising, [this](){
-					GPIO::Write( mDiversityLedPin, true );
-					this->Interrupt( mDiversitySpi );
+					this->Interrupt( mDiversitySpi, mDiversityLedPin );
 					GPIO::Write( mDiversityLedPin, false );
 				} );
 			}
 		}
 	}
+
+	gDebug() << "Reset pins : " << mResetPin << ", " << mDiversityResetPin;
+	gDebug() << "LED pins : " << mLedPin << ", " << mDiversityLedPin;
 }
 
 
 int SX127x::Connect()
 {
+	fDebug();
+
+	if ( !mReady ) {
+		init();
+	}
+
 	// Reset chip
 	reset();
 
@@ -682,6 +694,23 @@ void SX127x::PerfUpdate()
 	}
 	mPerfMutex.unlock();
 */
+	const uint64_t divider = 1; // Calculate RxQuality using packets received on the last 250ms
+
+	uint64_t tick = TICKS;
+	mPerfMutex.lock();
+	while ( mTotalHistory.size() > 0 and mTotalHistory.front() <= tick - ( 1000LLU / divider ) ) {
+		mPerfTotalBlocks = max( 0, mPerfTotalBlocks - 1 );
+		mTotalHistory.pop_front();
+	}
+	while ( mMissedHistory.size() > 0 and mMissedHistory.front() <= tick - ( 1000LLU / divider ) ) {
+		mPerfMissedBlocks = max( 0, mPerfMissedBlocks - 1 );
+		mMissedHistory.pop_front();
+	}
+	mPerfMutex.unlock();
+
+	uint32_t receivedBlocks = mPerfTotalBlocks - mPerfMissedBlocks;
+	mRxQuality = min( 100, 100 * receivedBlocks / mPerfTotalBlocks );
+/*
 	const uint64_t divider = 4; // Calculate RxQuality using packets received on the last 250ms
 
 	mPerfMutex.lock();
@@ -699,6 +728,9 @@ void SX127x::PerfUpdate()
 	} else if ( mPerfMaxBlocksPerSecond > 0 ) {
 		mRxQuality = min( 100, 100 * ( mPerfBlocksPerSecond + 1 ) / mPerfMaxBlocksPerSecond );
 	}
+*/
+
+	
 
 // 	if ( TICKS - mPerfTicks >= 250 ) {
 // 		mPerfTicks = TICKS;
@@ -736,7 +768,9 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 	if ( mRxQueue.size() == 0 ) {
 		mRxQueueMutex.unlock();
 		if ( timedout ) {
-			gDebug() << "Module online : " << ping();
+			// if ( !ping() ) {
+				gDebug() << "Module online : " << ping();
+			// }
 			return TIMEOUT;
 		}
 		return 0;
@@ -841,15 +875,34 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 	int final_size = 0;
 	uint32_t datalen = buflen - sizeof(Header);
 
-	if ( crc8( data, datalen ) != header->crc ) {
-		gDebug() << "Invalid CRC";
+	uint8_t c = crc8( data, datalen );
+	if ( c != header->crc ) {
+		gDebug() << "Invalid CRC (" << (int)c << " != " << (int)header->crc << ")";
 		mPerfInvalidBlocks++;
 		return -1;
 	}
 
 	if ( header->block_id == mRxBlock.block_id and mRxBlock.received ) {
+		// gDebug() << "Block " << (int)header->block_id << " already received";
 		return -1;
 	}
+
+	int32_t deltaBlocks = 0;
+	if ( header->block_id >= mRxBlock.block_id ) {
+		deltaBlocks = header->block_id - mRxBlock.block_id;
+	} else {
+		deltaBlocks = header->block_id - ((int32_t)mRxBlock.block_id - 256);
+	}
+	mPerfMutex.lock();
+	for ( int32_t i = 0; i < deltaBlocks; i++ ) {
+		mTotalHistory.push_back( TICKS );
+		mPerfTotalBlocks++;
+	}
+	if ( deltaBlocks > 1 ) {
+		mMissedHistory.push_back( TICKS );
+		mPerfMissedBlocks++;
+	}
+	mPerfMutex.unlock();
 
 	if ( header->block_id != mRxBlock.block_id ) {
 		memset( &mRxBlock, 0, sizeof(mRxBlock) );
@@ -906,7 +959,7 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 }
 
 
-void SX127x::Interrupt( SPI* spi )
+void SX127x::Interrupt( SPI* spi, int32_t ledPin )
 {
 // 	fDebug();
 
@@ -938,6 +991,9 @@ void SX127x::Interrupt( SPI* spi )
 	}
 // 	gDebug() << "SX127x::Interrupt(" << module << ")";
 
+	if ( ledPin >= 0 ) {
+		GPIO::Write( ledPin, true );
+	}
 	mRSSI = rssi;
 
 	if( mDropBroken ) {
@@ -951,7 +1007,7 @@ void SX127x::Interrupt( SPI* spi )
 			
 		}
 		if( crc_err ) {
-// 			gDebug() << "SX127x::Interrupt(" << module << ") crc_err";
+			gDebug() << "SX127x::Interrupt() CRC error";
 			if ( mModem == LoRa ) {
 				mInterruptMutex.unlock();
 				return;
@@ -1025,8 +1081,8 @@ bool SX127x::ping( SPI* spi )
 {
 	if ( not spi ) {
 		if ( mDiversitySpi ) {
-			gDebug() << "ping 0 : " << ( readRegister( mSPI, REG_VERSION ) == SAMTEC_ID );
-			gDebug() << "ping 1 : " << ( readRegister( mDiversitySpi, REG_VERSION ) == SAMTEC_ID );
+			// gDebug() << "ping 0 : " << std::hex << (int)readRegister( mSPI, REG_VERSION );
+			// gDebug() << "ping 1 : " << std::hex << (int)readRegister( mDiversitySpi, REG_VERSION );
 			return ( readRegister( mSPI, REG_VERSION ) == SAMTEC_ID ) && ( readRegister( mDiversitySpi, REG_VERSION ) == SAMTEC_ID );
 		} else {
 			spi = mSPI;

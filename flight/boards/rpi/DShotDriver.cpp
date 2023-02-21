@@ -6,13 +6,13 @@
 #include "Board.h"
 #include "DShotDriver.h"
 #include "Debug.h"
+#include "video/DRM.h"
 
 // TODO : ifdef PI_VARIANT = 4
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
 extern std::mutex __global_rpi_drm_mutex;
-extern int __global_rpi_drm_fd;
 DShotDriver* DShotDriver::sInstance = nullptr;
 uint8_t DShotDriver::sDPIMode = 7;
 uint8_t DShotDriver::sDPIPinMap[8][28][2] = {
@@ -47,7 +47,7 @@ uint8_t DShotDriver::sDPIPinMap[8][28][2] = {
 		{ 2, 2 }, { 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
 	{	// mode 6, RGB666
-		{}, {}, {}, {}, // pins 0,1,2,3,4 unused
+		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 2 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
 		{}, {},
 		{ 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
@@ -55,7 +55,7 @@ uint8_t DShotDriver::sDPIPinMap[8][28][2] = {
 		{ 2, 2 }, { 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
 	{	// mode 7, RGB888
-		{}, {}, {}, {}, // pins 0,1,2,3,4 unused
+		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 0 }, { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
 		{ 1, 0 }, { 1, 1 }, { 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
 		{ 2, 0 }, { 2, 1 }, { 2, 2 }, { 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
@@ -75,39 +75,7 @@ DShotDriver* DShotDriver::instance()
 
 DShotDriver::DShotDriver()
 {
-	int fd = -1;
-	uint64_t has_dumb;
-
-	// Step 1 : Open DRM file descriptor
-	__global_rpi_drm_mutex.lock();
-	if (__global_rpi_drm_fd < 0) {
-		for ( int dev = 0; dev <= 1; dev++ ) {
-			std::string device = std::string("/dev/dri/card") + std::to_string(dev);
-			fd = open( device.c_str(), O_RDWR | O_CLOEXEC );
-			if ( fd >= 0 ) {
-				if ( drmGetCap( fd, DRM_CAP_DUMB_BUFFER, &has_dumb ) < 0 or has_dumb == 0 ) {
-					// gError() << "drmGetCap DRM_CAP_DUMB_BUFFER on " << device << " failed or doesn't have dumb buffer (" << strerror(errno) << ")";
-					close( fd );
-					fd = -1;
-				} else {
-					gDebug() << "Card " << device << " has DRM_CAP_DUMB_BUFFER and is able to bit-bang DSHOT over DPI";
-					break;
-				}
-			}
-		}
-
-		if ( fd < 0 ) {
-			gError() << "No /dev/dri/cardX available with DRM_CAP_DUMB_BUFFER capability (" << strerror(errno) << ")";
-			__global_rpi_drm_mutex.unlock();
-			exit(3);
-		}
-		drmSetMaster( fd );
-		__global_rpi_drm_fd = fd;
-	} else {
-		fd = __global_rpi_drm_fd;
-	}
-	__global_rpi_drm_mutex.unlock();
-
+	int fd = DRM::drmFd();
 
 	// Step 2 : find a suitable CRTC/Connector
 	uint32_t crtc_id = 0xffffffff; //87;
@@ -178,6 +146,10 @@ DShotDriver::DShotDriver()
 	}
 	drmModeFreeCrtc(crtc_info);
 
+	// TODO
+	// struct sg_table * dma_buf_map_attachment(struct dma_buf_attachment * attach, enum dma_data_direction direction)
+	// sg_table->dma_address should be the needed bus-address
+
 
 	mDRMBuffer = (uint8_t*)mmap( 0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mreq.offset );
 	if ( mDRMBuffer == MAP_FAILED ) {
@@ -235,15 +207,16 @@ void DShotDriver::Update()
 
 	constexpr uint32_t bitwidth = 32; // * 6;
 	constexpr uint32_t t0h = bitwidth * 1250 / 3333;
-	printf( "t0h : %d\n", t0h);
+	// printf( "t0h : %d\n", t0h);
 	uint8_t outbuf[16 * bitwidth * 3];
 	memset( outbuf, 0, 16 * bitwidth * 3 );
+	// uint8_t* outbuf = mDRMBuffer;
 	for ( uint32_t ivalue = 0; ivalue < count; ivalue++ ) {
 		// if ( not valueFlat[ivalue] ) {
 			uint16_t value = valueMap[ivalue];
 			uintptr_t map = channelMap[ivalue];
 			uintptr_t bitmask = bitmaskMap[ivalue];
-		printf("[%d] value = %d\n", ivalue, value );
+		// printf("[%d] value = %d\n", ivalue, value );
 			uint8_t* bPointer = outbuf;
 			for ( int8_t i = 15; i >= 0; i-- ) {
 				uint8_t repeat = t0h + t0h * ((value >> i) & 1);
@@ -252,21 +225,27 @@ void DShotDriver::Update()
 					*(bPointer + map) |= ( 1 << bitmask );
 					bPointer += 3;
 				}
+/*
+				while ( repeat < bitwidth ) {
+					*(bPointer + map) &= ~( 1 << bitmask );
+					bPointer += 3;
+					repeat++;
+				}
+*/
 				bPointer += 3 * (bitwidth - repeat);
 			}
 		// }
 	}
-	printf( "→ took0 %llu\n", Board::GetTicks() - ticks);
+	// printf( "→ took0 %llu\n", Board::GetTicks() - ticks);
 
-	uint8_t finalBuf[3072 * 3 * 120];
+	// uint8_t finalBuf[3072 * 3 * 120];
 
 	for ( uint32_t y = 0; y < mDRMHeight; y++ ) {
-		// memcpy( finalBuf + y * mDRMPitch, outbuf, 16 * bitwidth * 3 );
 		memcpy( mDRMBuffer + y * mDRMPitch, outbuf, 16 * bitwidth * 3 );
 	}
 
 	// memcpy( mDRMBuffer, finalBuf, sizeof(finalBuf) );
 
-	printf( "→ took %llu\n", Board::GetTicks() - ticks);
+	// printf( "→ took %llu\n", Board::GetTicks() - ticks);
 }
 

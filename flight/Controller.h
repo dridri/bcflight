@@ -20,9 +20,12 @@
 #define CONTROLLER_H
 
 #include <mutex>
+#include <map>
+#include <functional>
 #include <Thread.h>
 #include "Vector.h"
 #include "ControllerBase.h"
+#include "Lua.h"
 
 using namespace STD;
 
@@ -41,6 +44,8 @@ public:
 	uint32_t ping() const;
 // 	float thrust() const;
 // 	const Vector3f& RPY() const;
+
+	LUA_EXPORT void onEvent( ControllerBase::Cmd cmdId, const std::function<void(const LuaValue& v)>& f );
 
 	void UpdateSmoothControl( const float& dt );
 	void Emergency();
@@ -79,6 +84,7 @@ protected:
 	uint64_t mEmergencyTick;
 	LUA_PROPERTY("telemetry_rate") uint32_t mTelemetryFrequency;
 	LUA_PROPERTY("full_telemetry") bool mTelemetryFull;
+	std::map<uint16_t, std::function<void(const LuaValue& v)>> mEvents;
 };
 
 #endif // CONTROLLER_H

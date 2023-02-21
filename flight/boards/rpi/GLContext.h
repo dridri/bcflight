@@ -5,18 +5,17 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
-#ifdef VARIANT_4
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <gbm.h>
-#else
-#include <vc_dispmanx_types.h>
-#endif
 #include <vector>
 #include <list>
+#include <map>
 #include <functional>
 #include <mutex>
 #include "Thread.h"
+#include "DRMFrameBuffer.h"
+#include "DRMSurface.h"
 
 class GLContext : public Thread
 {
@@ -67,22 +66,14 @@ protected:
 	std::list<std::function<void()>> mContextQueue;
 	std::mutex mContextQueueMutex;
 
-#ifdef VARIANT_4
-	int mDevice;
-	drmModeModeInfo mMode;
+	std::map< struct gbm_bo*, DRMFrameBuffer* > mFrameBuffers;
+	DRMSurface* mRenderSurface;
+
 	struct gbm_device* mGbmDevice;
 	struct gbm_surface* mGbmSurface;
-	drmModeCrtc* mCrtc;
-	uint32_t mConnectorId;
-	uint32_t mPlaneId;
 	struct gbm_bo* mPreviousBo;
-	uint32_t mPreviousFb;
 	EGLConfig getDisplay();
-#else
-	EGL_DISPMANX_WINDOW_T mLayerDisplay;
-	DISPMANX_DISPLAY_HANDLE_T mDisplay;
-	EGL_DISPMANX_WINDOW_T CreateNativeWindow( int layer );
-#endif
+
 	EGLDisplay mEGLDisplay;
 	EGLConfig mEGLConfig;
 	EGLContext mEGLContext;

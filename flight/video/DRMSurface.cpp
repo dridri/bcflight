@@ -99,7 +99,7 @@ const drmModeModeInfo* DRMSurface::mode() const
 
 void DRMSurface::Show( DRMFrameBuffer* fb )
 {
-	// fDebug( drmFd(), mPlaneId, mCrtcId, fb->handle(), 0, 0, 0, fb->width(), fb->height(), 0, 0, mMode.hdisplay, mMode.vdisplay );
+	// fDebug( drmFd(), mPlaneId, mCrtcId, fb->handle(), 0, 0, 0, mMode.hdisplay, mMode.vdisplay, 0, 0, fb->width(), fb->height() );
 	// if ( drmModeSetPlane( drmFd(), mPlaneId, mCrtcId, fb->handle(), 0, 0, 0, fb->width(), fb->height(), 0, 0, mMode.hdisplay << 16, mMode.vdisplay << 16 ) ) {
 	if ( mZindex == 0 and not mKmsSet ) {
 		mKmsSet = true;

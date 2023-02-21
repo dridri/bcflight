@@ -22,28 +22,6 @@
 #include "Config.h"
 #include "SPI.h"
 
-int ICM4xxxx::flight_register( Main* main )
-{
-	Device dev1;
-	Device dev2;
-
-	dev1.iI2CAddr = 0x68;
-	dev1.name = "ICM4xxxx";
-	dev1.fInstanciate = []( Config* config, const string& object, Bus* bus ) { return ICM4xxxx::Instanciate( bus, config, object ); };
-
-	dev2.iI2CAddr = 0x69;
-	dev2.name = "ICM4xxxx";
-	dev2.fInstanciate = []( Config* config, const string& object, Bus* bus ) { return ICM4xxxx::Instanciate( bus, config, object ); };
-
-	mKnownDevices.push_back( dev1 );
-	mKnownDevices.push_back( dev2 );
-	return 0;
-}
-
-
-Sensor* ICM4xxxx::Instanciate( Bus* bus, Config* config, const string& object )
-{
-}
 
 
 ICM4xxxx::ICM4xxxx()
@@ -76,6 +54,7 @@ void ICM4xxxx::InitChip()
 
 	if ( known.find( whoami ) != known.end() ) {
 		gDebug() << "ICM4xxxx module at " << mBus->toString() << " is " << known.at(whoami);
+		mName = known.at(whoami);
 	} else {
 		gWarning() << "Unknown ICM4xxxx module at " << mBus->toString() << ", continuing anyway";
 	}
@@ -112,10 +91,10 @@ void ICM4xxxx::InitChip()
 	// Gyro range at +/-2000°/s @ 100Hz ODR
 // 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00001000 );
 	// Gyro range at +/-2000°/s @ 1kHz ODR
-// 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000110 );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000110 );
 	// Gyro range at +/-2000°/s @ 4kHz ODR
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000100 );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG1, 0b00010110 );
+	// mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000100 );
+// WTF	mBus->Write8( ICM_4xxxx_GYRO_CONFIG1, 0b00010110 );
 	// Accel range at +/-16g @ 1kHz ODR
 // 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, 0b00000110 );
 	// Accel range at +/-16g @ 1kHz ODR
@@ -176,7 +155,13 @@ ICM4xxxxGyro* ICM4xxxx::gyroscope()
 		InitChip();
 	}
 	if ( !mGyroscope ) {
-		mGyroscope = new ICM4xxxxGyro(mBus);
+		mGyroscope = new ICM4xxxxGyro( mBus, mName );
+		if ( mSwapMode == SwapModeAxis ) {
+			mGyroscope->setAxisSwap(mAxisSwap);
+		}
+		if ( mSwapMode == SwapModeMatrix ) {
+			mGyroscope->setAxisMatrix(mAxisMatrix);
+		}
 	}
 	return mGyroscope;
 }
@@ -188,7 +173,13 @@ ICM4xxxxAccel* ICM4xxxx::accelerometer()
 		InitChip();
 	}
 	if ( !mAccelerometer ) {
-		mAccelerometer = new ICM4xxxxAccel(mBus);
+		mAccelerometer = new ICM4xxxxAccel( mBus, mName );
+		if ( mSwapMode == SwapModeAxis ) {
+			mAccelerometer->setAxisSwap(mAxisSwap);
+		}
+		if ( mSwapMode == SwapModeMatrix ) {
+			mAccelerometer->setAxisMatrix(mAxisMatrix);
+		}
 	}
 	return mAccelerometer;
 }
@@ -200,19 +191,25 @@ ICM4xxxxMag* ICM4xxxx::magnetometer()
 		InitChip();
 	}
 	if ( !mMagnetometer ) {
-		mMagnetometer = new ICM4xxxxMag(mBus);
+		mMagnetometer = new ICM4xxxxMag( mBus, mName );
+		if ( mSwapMode == SwapModeAxis ) {
+			mMagnetometer->setAxisSwap(mAxisSwap);
+		}
+		if ( mSwapMode == SwapModeMatrix ) {
+			mMagnetometer->setAxisMatrix(mAxisMatrix);
+		}
 	}
 	return mMagnetometer;
 }
 
 
-ICM4xxxxAccel::ICM4xxxxAccel( Bus* bus )
+ICM4xxxxAccel::ICM4xxxxAccel( Bus* bus, const std::string& name )
 	: Accelerometer()
 	, mBus( bus )
 	, mCalibrationAccum( Vector4f() )
 	, mOffset( Vector3f() )
 {
-	mNames = { "ICM4xxxx" };
+	mNames = { name };
 
 	mOffset.x = atof( Board::LoadRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:X" ).c_str() );
 	mOffset.y = atof( Board::LoadRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:Y" ).c_str() );
@@ -223,17 +220,17 @@ ICM4xxxxAccel::ICM4xxxxAccel( Bus* bus )
 }
 
 
-ICM4xxxxGyro::ICM4xxxxGyro( Bus* bus )
+ICM4xxxxGyro::ICM4xxxxGyro( Bus* bus, const std::string& name )
 	: Gyroscope()
 	, mBus( bus )
 	, mCalibrationAccum( Vector4f() )
 	, mOffset( Vector3f() )
 {
-	mNames = { "ICM4xxxx" };
+	mNames = { name };
 }
 
 
-ICM4xxxxMag::ICM4xxxxMag( Bus* bus )
+ICM4xxxxMag::ICM4xxxxMag( Bus* bus, const std::string& name )
 	: Magnetometer()
 // 	, mI2C9150( new I2C( addr ) )
 // 	, mI2C( new I2C( ICM_4xxxx_I2C_MAGN_ADDRESS ) )
@@ -245,7 +242,7 @@ ICM4xxxxMag::ICM4xxxxMag( Bus* bus )
 	, mBiasMin{ 32767 }
 	, mBiasMax{ -32767 }
 {
-	mNames = { "ICM4xxxx" };
+	mNames = { name };
 
 	// TODO : talk to mag accross SPI if using SPI
 	// TODO
@@ -301,7 +298,7 @@ void ICM4xxxxAccel::Calibrate( float dt, bool last_pass )
 		mOffset = Vector3f();
 	}
 
-	Vector3f accel;
+	Vector3f accel( 0.0f, 0.0f, 0.0f );
 	Read( &accel, true );
 	mCalibrationAccum += Vector4f( accel, 1.0f );
 
@@ -326,7 +323,7 @@ void ICM4xxxxGyro::Calibrate( float dt, bool last_pass )
 		mOffset = Vector3f();
 	}
 
-	Vector3f gyro;
+	Vector3f gyro( 0.0f, 0.0f, 0.0f );
 	Read( &gyro, true );
 	mCalibrationAccum += Vector4f( gyro, 1.0f );
 
@@ -334,6 +331,7 @@ void ICM4xxxxGyro::Calibrate( float dt, bool last_pass )
 		mOffset = mCalibrationAccum.xyz() / mCalibrationAccum.w;
 		mCalibrationAccum = Vector4f();
 		mCalibrated = true;
+		aDebug( "mOffset", mOffset.x, mOffset.y, mOffset.z );
 	}
 }
 
@@ -399,12 +397,15 @@ void ICM4xxxxAccel::Read( Vector3f* v, bool raw )
 
 int ICM4xxxxGyro::Read( Vector3f* v, bool raw )
 {
+	// fDebug();
+
 // 	int16_t sgyro[3] = { 0 };
 	uint8_t sgyro[6] = { 0 };
 	int ret = 0;
 
 	if ( ( ret = mBus->Read( ICM_4xxxx_GYRO_DATA_X1 | 0x80, sgyro, sizeof(sgyro) ) ) != sizeof(sgyro) ) {
 		printf( "err : %d (%d, %s)\n", ret, errno, strerror(errno) );
+		gDebug() << "ret -1";
 		return -1;
 	}
 	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
@@ -419,6 +420,7 @@ int ICM4xxxxGyro::Read( Vector3f* v, bool raw )
 	}
 
 	mLastValues = *v;
+	// gDebug() << "ret 3";
 	return 3;
 }
 

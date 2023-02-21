@@ -7,14 +7,16 @@
 #include <Thread.h>
 #include "Camera.h"
 #include "Lua.h"
+#include <set>
 
 LUA_CLASS class LinuxCamera : public Camera
 {
 public:
 	LUA_EXPORT LinuxCamera();
-	~LinuxCamera();
+	virtual ~LinuxCamera();
 
 	virtual void Start();
+	void Stop();
 	virtual void Pause();
 	virtual void Resume();
 	virtual void StartRecording();
@@ -24,9 +26,9 @@ public:
 	virtual const uint32_t width();
 	virtual const uint32_t height();
 	virtual const uint32_t framerate();
-	virtual const uint32_t brightness();
-	virtual const int32_t contrast();
-	virtual const int32_t saturation();
+	virtual const float brightness();
+	virtual const float contrast();
+	virtual const float saturation();
 	virtual const int32_t ISO();
 	virtual const uint32_t shutterSpeed();
 	virtual const bool nightMode();
@@ -34,12 +36,13 @@ public:
 	virtual const string exposureMode();
 	virtual const bool recording();
 	virtual const string recordFilename();
-	virtual void setBrightness( uint32_t value );
-	virtual void setContrast( int32_t value );
-	virtual void setSaturation( int32_t value );
-	virtual void setISO( int32_t value );
+	LUA_EXPORT virtual void setBrightness( float value );
+	LUA_EXPORT virtual void setContrast( float value );
+	LUA_EXPORT virtual void setSaturation( float value );
+	LUA_EXPORT virtual void setISO( int32_t value );
 	virtual void setShutterSpeed( uint32_t value );
 	virtual void setNightMode( bool night_mode );
+	virtual void setHDR( bool hdr, bool force = false );
 	virtual string switchWhiteBalance();
 	virtual string lockWhiteBalance();
 	virtual string switchExposureMode();
@@ -50,11 +53,12 @@ public:
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
 protected:
-	LUA_PROPERTY("live_preview") bool mLivePreview;
+	bool mLivePreview;
 //	_LUA_PROPERTY("sensor_mode") int32_t mSensorMode;
 	LUA_PROPERTY("width") int32_t mWidth;
 	LUA_PROPERTY("height") int32_t mHeight;
-	LUA_PROPERTY("fps") int32_t mFps;
+	LUA_PROPERTY("framerate") int32_t mFps;
+	LUA_PROPERTY("hdr") bool mHDR;
 //	_LUA_PROPERTY("exposure") int32_t mExposure;
 //	_LUA_PROPERTY("iso") int32_t mIso;
 	LUA_PROPERTY("shutter_speed") int32_t mShutterSpeed;
@@ -84,20 +88,26 @@ protected:
 	std::shared_ptr<libcamera::Camera> mCamera;
 	std::unique_ptr<libcamera::CameraConfiguration> mCameraConfiguration;
 	std::vector<std::unique_ptr<libcamera::Request>> mRequests;
+	std::set<const libcamera::Request*> mRequestsAlive;
+	std::mutex mRequestsAliveMutex;
 	libcamera::StreamConfiguration* mRawStreamConfiguration;
 	libcamera::StreamConfiguration* mPreviewStreamConfiguration;
 	libcamera::StreamConfiguration* mVideoStreamConfiguration;
 	libcamera::StreamConfiguration* mStillStreamConfiguration;
 	std::map< const libcamera::Stream*, libcamera::ControlList > mControlListQueue;
 	std::mutex mControlListQueueMutex;
+	libcamera::FrameBufferAllocator* mAllocator;
+	libcamera::ControlList mAllControls;
 
 	std::map<libcamera::FrameBuffer*, DRMFrameBuffer*> mPreviewFrameBuffers;
 	DRMSurface* mPreviewSurface;
 	bool mPreviewSurfaceSet;
 
 	HookThread<LinuxCamera>* mLiveThread;
+	bool mStopping;
 
 	void requestComplete( libcamera::Request* request );
+	void pushControlList( const libcamera::ControlList& list );
 	bool LiveThreadRun();
 	bool RecordThreadRun();
 	bool TakePictureThreadRun();

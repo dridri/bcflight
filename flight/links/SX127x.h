@@ -81,7 +81,7 @@ protected:
 	int32_t Setup( SPI* spi );
 	void SetupRX( SPI* spi, const RxConfig_t& conf );
 	void SetupTX( SPI* spi, const TxConfig_t& conf );
-	void Interrupt( SPI* spi );
+	void Interrupt( SPI* spi, int32_t ledPin = -1 );
 	void reset();
 	bool ping( SPI* spi = nullptr );
 	void setFrequency( SPI* spi, float f );
@@ -130,7 +130,11 @@ protected:
 	int32_t mPerfInvalidBlocks;
 	int32_t mPerfBlocksPerSecond;
 	int32_t mPerfMaxBlocksPerSecond;
+	list< uint64_t > mTotalHistory; // [ticks]
+	list< uint64_t > mMissedHistory; // [ticks]MissedBlocks
 	list< uint64_t > mPerfHistory; // [ticks]ValidBlocks
+	int32_t mPerfTotalBlocks;
+	int32_t mPerfMissedBlocks;
 
 	SPI* mDiversitySpi;
 	LUA_PROPERTY("diversity.device") string mDiversityDevice;

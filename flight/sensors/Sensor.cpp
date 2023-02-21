@@ -74,9 +74,9 @@ Vector4f Sensor::lastValues() const
 }
 
 
-void Sensor::setAxisSwap( const int swap[4] )
+void Sensor::setAxisSwap( const Vector4i& swap )
 {
-	memcpy( mAxisSwap, swap, sizeof(int)*4 );
+	mAxisSwap = swap;
 	if ( mSwapMode == SwapModeNone ) {
 		mSwapMode = SwapModeAxis;
 	}

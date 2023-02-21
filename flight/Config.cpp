@@ -143,7 +143,7 @@ float Config::Number( const string& name, float def )
 	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
-	if ( v.type() != LuaValue::Number ) {
+	if ( v.type() != LuaValue::Number and v.type() != LuaValue::Integer ) {
 		dbg << " => not found !";
 		return def;
 	}

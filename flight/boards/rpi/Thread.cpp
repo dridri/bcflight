@@ -39,8 +39,13 @@ Thread::~Thread()
 
 void Thread::Start()
 {
+	fDebug( mName );
+	mStopped = false;
+	mFinished = false;
+	mIsRunning = false;
 	if ( not mSpawned ) {
-		pthread_create( &mThread, nullptr, (void*(*)(void*))&Thread::ThreadEntry, this );
+		void* (*ptr)(void*) = reinterpret_cast<void*(*)(void*)>((void*(*)(void*))&Thread::ThreadEntry);
+		pthread_create( &mThread, nullptr, ptr, this );
 		pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
 		mSpawned = true;
 	}
@@ -61,16 +66,19 @@ Thread* Thread::currentThread()
 
 void Thread::Join()
 {
+	fDebug();
 	uint64_t start_time = Board::GetTicks();
 
-	while ( !mFinished ) {
+	while ( mIsRunning and not mFinished ) {
 		if ( Board::GetTicks() - start_time > 1000 * 1000 * 2 ) {
 			gDebug() << "thread " << mName << " join timeout (2s), force killing";
-		//	pthread_cancel( mThread );
+			pthread_cancel( mThread );
 			break;
 		}
 		usleep( 1000 * 10 );
 	}
+
+	mSpawned = false;
 }
 
 
@@ -115,12 +123,13 @@ void Thread::ThreadEntry()
 		}
 		if ( mFrequency > 0 ) {
 			uint32_t div = 1000000L / mFrequency;
-			uint32_t drift = mFrequency >= 1000 ? -50 : -250;
+			int64_t drift = mFrequency >= 1000 ? -50 : -250;
 			mFrequencyTick = Board::WaitTick( div, mFrequencyTick, drift );
 		}
 	} while ( not mStopped and run() );
 	mIsRunning = false;
 	mFinished = true;
+	mSpawned = false;
 }
 
 

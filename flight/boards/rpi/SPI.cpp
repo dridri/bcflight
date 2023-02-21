@@ -141,7 +141,7 @@ int SPI::Transfer( void* tx, void* rx, uint32_t len )
 
 int SPI::Read( void* buf, uint32_t len )
 {
-	uint8_t unused[16384];
+	uint8_t unused[256];
 	memset( unused, 0, len + 1 );
 	return Transfer( unused, buf, len );
 }
@@ -149,7 +149,7 @@ int SPI::Read( void* buf, uint32_t len )
 
 int SPI::Write( const void* buf, uint32_t len )
 {
-	uint8_t unused[16384];
+	uint8_t unused[256];
 	memset( unused, 0, len + 1 );
 	return Transfer( (void*)buf, unused, len );
 }
@@ -157,8 +157,8 @@ int SPI::Write( const void* buf, uint32_t len )
 
 int SPI::Read( uint8_t reg, void* buf, uint32_t len )
 {
-	uint8_t tx[16384];
-	uint8_t rx[16384];
+	uint8_t tx[256];
+	uint8_t rx[256];
 	memset( tx, 0, len + 1 );
 	tx[0] = reg;
 	int ret = Transfer( tx, rx, len + 1 );
@@ -169,8 +169,8 @@ int SPI::Read( uint8_t reg, void* buf, uint32_t len )
 
 int SPI::Write( uint8_t reg, const void* buf, uint32_t len )
 {
-	uint8_t tx[16384];
-	uint8_t rx[16384];
+	uint8_t tx[256];
+	uint8_t rx[256];
 	tx[0] = reg;
 	memcpy( tx + 1, buf, len );
 	return Transfer( tx, rx, len + 1 ) - 1;

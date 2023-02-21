@@ -13,10 +13,10 @@ LUA_CLASS class V4L2Encoder : public VideoEncoder
 public:
 	LUA_EXPORT V4L2Encoder();
 	~V4L2Encoder();
-	void Setup();
 	void EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, int fd = -1 );
 
 protected:
+	void Setup();
 	void pollThread();
 	void outputThread();
 
@@ -40,6 +40,7 @@ protected:
 	LUA_PROPERTY("height") int32_t mHeight;
 	LUA_PROPERTY("framerate") int32_t mFramerate;
 
+	bool mReady;
 	int mFD;
 	std::queue<int> mInputBuffersAvailable;
 	std::mutex mInputBuffersAvailableMutex;

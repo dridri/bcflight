@@ -25,6 +25,30 @@
 #include <CurrentSensor.h>
 #include <GPIO.h>
 
+static float linear_lipo_voltage_level[21] = {
+	3.27f, //   0%
+	3.61f, //   5%
+	3.69f, //  10%
+	3.71f, //  15%
+	3.73f, //  20%
+	3.75f, //  25%
+	3.77f, //  30%
+	3.79f, //  35%
+	3.80f, //  40%
+	3.82f, //  45%
+	3.84f, //  50%
+	3.85f, //  55%
+	3.87f, //  60%
+	3.91f, //  65%
+	3.95f, //  70%
+	3.98f, //  75%
+	4.02f, //  80%
+	4.08f, //  85%
+	4.11f, //  90%
+	4.15f, //  95%
+	4.20f  // 100%
+};
+
 PowerThread::PowerThread( Main* main )
 	: Thread( "power" )
 	, mMain( main )
@@ -43,47 +67,17 @@ PowerThread::PowerThread( Main* main )
 	, mVoltageSensor{ NONE, nullptr, 0, 0, 0 }
 	, mCurrentSensor{ NONE, nullptr, 0, 0, 0 }
 {
-	mBatteryCapacity = main->config()->Integer( "battery.capacity" );
-	if ( mBatteryCapacity == 0.0f ) {
-		mBatteryCapacity = 1800.0f;
-	}
+	mBatteryCapacity = main->config()->Integer( "battery.capacity", 1800.0f );
 
 	if ( 1 ) {
-		string /*sensorType*/sensorName = main->config()->String( "battery.voltage.sensor_type" );
-		for ( auto it : Sensor::Voltmeters() ) {
-			list< string > names = it->names();
-			if ( find( names.begin(), names.end(), sensorName ) != names.end() ) {
-				mVoltageSensor.type = VOLTAGE;
-				mVoltageSensor.sensor = it;
-				break;
-			}
-		}
-		if ( mVoltageSensor.sensor == nullptr ) {
-			for ( auto it : Sensor::KnownDevices() ) {
-				if ( it.name == sensorName ) {
-					mVoltageSensor.type = VOLTAGE;
-					mVoltageSensor.sensor = it.fInstanciate( main->config(), "battery.voltage", nullptr );
-					break;
-				}
-			}
-		}
-		if ( mVoltageSensor.sensor == nullptr ) {
-			gDebug() << "FATAL ERROR : Unsupported sensor ( " << sensorName << " ) for battery voltage !";
-		}
-		/*
-		if ( sensorType == "Voltmeter" ) {
-			mVoltageSensor.type = VOLTAGE;
-			mVoltageSensor.sensor = Sensor::voltmeter( main->config()->String( "battery.voltage.device" ) );
-		} else {
-			gDebug() << "FATAL ERROR : Unsupported sensor type ( " << sensorType << " ) for battery voltage !";
-		}
-		*/
+		mVoltageSensor.sensor = main->config()->Object<Sensor>( "battery.voltage.sensor" );
 		mVoltageSensor.channel = main->config()->Integer( "battery.voltage.channel" );
-		mVoltageSensor.shift = main->config()->Number( "battery.voltage.shift" );
-		mVoltageSensor.multiplier = main->config()->Number( "battery.voltage.multiplier" );
+		mVoltageSensor.multiplier = main->config()->Number( "battery.voltage.multiplier", 1.0f );
+		mVoltageSensor.shift = main->config()->Number( "battery.voltage.shift", 0.0f );
 	}
-	if ( 1 ) {
-		string /*sensorType*/sensorName = main->config()->String( "battery.current.sensor_type" );
+/*
+	if ( false ) {
+		string sensorName = main->config()->String( "battery.current.sensor_type" );
 		for ( auto it : Sensor::Voltmeters() ) {
 			list< string > names = it->names();
 			if ( find( names.begin(), names.end(), sensorName ) != names.end() ) {
@@ -103,7 +97,7 @@ PowerThread::PowerThread( Main* main )
 		if ( mCurrentSensor.sensor == nullptr ) {
 			gDebug() << "FATAL ERROR : Unsupported sensor ( " << sensorName << " ) for battery current !";
 		}
-		/*
+		/
 		if ( sensorType == "Voltmeter" ) {
 			mCurrentSensor.type = VOLTAGE;
 			mCurrentSensor.sensor = Sensor::voltmeter( main->config()->String( "battery.current.device" ) );
@@ -113,13 +107,14 @@ PowerThread::PowerThread( Main* main )
 		} else {
 			gDebug() << "WARNING : Unsupported sensor type ( " << sensorType << " ) for battery current !";
 		}
-		*/
+		/
 		mCurrentSensor.channel = main->config()->Integer( "battery.current.channel" );
 		mCurrentSensor.shift = main->config()->Number( "battery.current.shift" );
 		mCurrentSensor.multiplier = main->config()->Number( "battery.current.multiplier" );
 	}
-
-	mLowVoltageValue = main->config()->Number( "battery.low_voltage", 9.9f );
+*/
+	mLowVoltageValue = main->config()->Number( "battery.low_voltage", 3.7f );
+	/*
 	string low_voltage_trigger = main->config()->String( "battery.low_voltage_trigger.type" );
 	if ( low_voltage_trigger == "Buzzer" ) {
 		mLowVoltageBuzzerPin = main->config()->Integer( "battery.low_voltage_trigger.pin", -1 );
@@ -132,6 +127,7 @@ PowerThread::PowerThread( Main* main )
 			mLowVoltageBuzzerPattern.emplace_back( array[i] * 1000 );
 		}
 	}
+	*/
 
 	mLastVBat = atof( Board::LoadRegister( "VBat" ).c_str() );
 	mCurrentTotal = atof( Board::LoadRegister( "CurrentTotal" ).c_str() );
@@ -197,22 +193,32 @@ bool PowerThread::run()
 	float volt = 0.0f;
 	float current = 0.0f;
 
-	if ( mVoltageSensor.sensor ) {
-		if ( mVoltageSensor.type == VOLTAGE ) {
-			volt = dynamic_cast< Voltmeter* >( mVoltageSensor.sensor )->Read( mVoltageSensor.channel );
+	try {
+		if ( mVoltageSensor.sensor ) {
+			Voltmeter* meter = dynamic_cast< Voltmeter* >( mVoltageSensor.sensor );
+			if ( meter ) {
+				volt = meter->Read( mVoltageSensor.channel );
+				volt = ( volt + mVoltageSensor.shift ) * mVoltageSensor.multiplier;
+			}
 		}
-		volt = ( volt + mVoltageSensor.shift ) * mVoltageSensor.multiplier;
-	}
-	if ( mCurrentSensor.sensor ) {
-		if ( mCurrentSensor.type == VOLTAGE ) {
-			current = static_cast< Voltmeter* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
-		} else if ( mCurrentSensor.type == CURRENT ) {
-			current = static_cast< CurrentSensor* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+		/*
+		if ( mCurrentSensor.sensor ) {
+			if ( mCurrentSensor.type == VOLTAGE ) {
+				current = static_cast< Voltmeter* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+			} else if ( mCurrentSensor.type == CURRENT ) {
+				current = static_cast< CurrentSensor* >( mCurrentSensor.sensor )->Read( mCurrentSensor.channel );
+			}
+			current = ( current + mCurrentSensor.shift ) * mCurrentSensor.multiplier;
 		}
-		current = ( current + mCurrentSensor.shift ) * mCurrentSensor.multiplier;
+		*/
+	} catch ( const std::exception& e ) {
+		return true;
 	}
 
-	mVBat = volt;
+	if ( mVBat == 0.0f ) {
+		mVBat = volt;
+	}
+	mVBat = mVBat * 0.9f + volt * 0.1f; // Smooth over time
 	mCurrentDraw = current;// / 3600.0f;
 
 #ifdef SYSTEM_NAME_Linux
@@ -257,10 +263,20 @@ bool PowerThread::run()
 #endif
 	mCurrentTotal += current * dt / 3600.0f;
 	mBatteryLevel = 1.0f - ( mCurrentTotal * 1000.0f ) / mBatteryCapacity;
-	if ( mCurrentSensor.sensor == nullptr ) { // No current sensor
-		mBatteryLevel = ( mVBat / (float)mCellsCount - 3.7f ) / ( 4.2f - 3.7f );
+	if ( mCurrentSensor.sensor == nullptr ) {
+		// No current sensor
+		float vcell = mVBat / (float)mCellsCount;
+		uint32_t lvlCount = sizeof(linear_lipo_voltage_level)/sizeof(float);
+		uint32_t lvl = 0;
+		for ( lvl = 0; lvl < lvlCount - 1 and vcell > linear_lipo_voltage_level[lvl + 1]; lvl++ );
+		uint32_t lvl_next = std::min( lvl + 1U, lvlCount );
+		float flvl0 = linear_lipo_voltage_level[lvl];
+		float flvl1 = linear_lipo_voltage_level[lvl_next];
+		float mix = ( vcell - flvl0 ) / ( flvl1 - flvl0 );
+		mBatteryLevel = ((float)lvl + mix) / (float)(lvlCount - 1);
 	}
-	mBatteryLevel = max( 0.0f, min( 1.0f, mBatteryLevel ) );
+	// mBatteryLevel = max( 0.0f, min( 1.0f, mBatteryLevel ) );
+	mBatteryLevel = min( 1.0f, mBatteryLevel );
 
 	if ( Board::GetTicks() - mSaveTicks >= 5 * 1000 * 1000 ) {
 		Board::SaveRegister( "VBat", to_string( mVBat ) );

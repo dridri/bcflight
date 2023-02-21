@@ -47,15 +47,21 @@ HUD::HUD()
 	mGLContext->addLayer( [this]() {
 		mRendererHUD->PreRender();
 		mRendererHUD->Render( &mDroneStats, 0.0f, &mVideoStats, &mLinkStats );
+		mImagesMutex.lock();
+		for ( std::pair< uintptr_t, Image > image : mImages ) {
+			Image img = image.second;
+			mRendererHUD->RenderImage( img.x, img.y, img.width, img.height, img.img );
+		}
+		mImagesMutex.unlock();
 
-		if ( true ) {
+		if ( false ) {
 			uint32_t time = Board::GetTicks() / 1000;
 			uint32_t minuts = time / ( 1000 * 60 );
 			uint32_t seconds = ( time / 1000 ) % 60;
 			uint32_t ms = time % 1000;
 			char txt[256];
 			sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
-			mRendererHUD->RenderText( 100, 200, txt, 0xFFFFFFFF, 4.0f, true );
+			mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, true );
 		}
 	});
 
@@ -82,10 +88,8 @@ bool HUD::run()
 
 	mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
 
-	if ( camera and camera->nightMode() != mNightMode ) {
-		mNightMode = camera->nightMode();
+	if ( mNightMode != mRendererHUD->nightMode() ) {
 		mRendererHUD->setNightMode( mNightMode );
-		mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
 	}
 
 	glClear( GL_COLOR_BUFFER_BIT );
@@ -133,5 +137,39 @@ bool HUD::run()
 
 	return true;
 }
+
+
+uintptr_t HUD::LoadImage( const std::string& path )
+{
+	uintptr_t ret = 0;
+	mGLContext->runOnGLThread( [this, &ret, path]() {
+		ret = mRendererHUD->LoadImage( path );
+	}, true);
+	return ret;
+}
+
+
+void HUD::ShowImage( int32_t x, int32_t y, uint32_t w, uint32_t h, const uintptr_t img )
+{
+	mImagesMutex.lock();
+	if ( mImages.find(img) == mImages.end() ) {
+		Image struc = { img, x, y, w, h };
+		mImages.insert( std::make_pair( img, struc ) );
+	}
+	mImagesMutex.unlock();
+}
+
+
+void HUD::HideImage( const uintptr_t img )
+{
+	mImagesMutex.lock();
+	if ( mImages.find(img) != mImages.end() ) {
+		mImages.erase( img );
+	}
+	mImagesMutex.unlock();
+}
+
+
+
 
 #endif // ( BUILD_HUD == 1 )

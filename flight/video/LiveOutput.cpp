@@ -11,7 +11,12 @@ LiveOutput::~LiveOutput()
 }
 
 
-void LiveOutput::EnqueueBuffer( int size, void* mem, int64_t timestamp_us, int fd )
+void LiveOutput::Setup()
+{
+}
+
+
+void LiveOutput::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, int fd )
 {
 	// Nothing to do here
 	(void)size;

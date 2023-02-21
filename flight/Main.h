@@ -63,7 +63,6 @@ public:
 	Camera* camera() const;
 	HUD* hud() const;
 	Microphone* microphone() const;
-	Recorder* recorder() const;
 	const string& cameraType() const;
 	const string& username() const;
 

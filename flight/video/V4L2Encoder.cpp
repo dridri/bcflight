@@ -29,10 +29,11 @@ static int xioctl( int fd, unsigned long ctl, void* arg )
 V4L2Encoder::V4L2Encoder()
 	: VideoEncoder()
 	, mVideoDevice( "/dev/video11" )
-	, mBitrate( 4 * 1024 )
+	, mBitrate( 4 * 1024 * 1024 )
 	, mWidth( 1280 )
 	, mHeight( 720 )
 	, mFramerate( 30 )
+	, mReady( false )
 	, mFD( -1 )
 {
 }
@@ -45,6 +46,7 @@ V4L2Encoder::~V4L2Encoder()
 
 void V4L2Encoder::Setup()
 {
+	mReady = true;
 	mFD = open( mVideoDevice.c_str(), O_RDWR, 0 );
 	if ( mFD < 0 ) {
 		throw std::runtime_error("failed to open V4L2 H264 encoder");
@@ -56,7 +58,15 @@ void V4L2Encoder::Setup()
 		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
 		ctrl.value = mBitrate;
 		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set bitrate");
+			throw std::runtime_error("failed to set bitrate peak");
+		}
+	}
+
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE;
+		ctrl.value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set bitrate mode");
 		}
 	}
 
@@ -200,16 +210,26 @@ void V4L2Encoder::Setup()
 	gDebug() << "Codec streaming started";
 
 	if ( mRecorder ) {
-		mRecorderTrackId = mRecorder->AddVideoTrack( mWidth, mHeight, mFramerate, "H264" );
+		mRecorderTrackId = mRecorder->AddVideoTrack( mWidth, mHeight, mFramerate, "h264" );
 	}
 
 // 	mOutputThread = std::thread( &V4L2Encoder::outputThread, this );
 	mPollThread = std::thread( &V4L2Encoder::pollThread, this );
 }
 
+int64_t tt = 0;
 
 void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, int fd )
 {
+	// fDebug( size, mem, timestamp_us, fd );
+	// gDebug() << "Enqueuing at " << ( 1000000 / ( timestamp_us - tt ) ) << "FPS";
+	// tt = timestamp_us;
+
+	if ( not mReady ) {
+		Setup();
+		usleep( 10 * 1000 );
+	}
+
 	int index;
 
 	{
@@ -238,7 +258,7 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 	buf.m.planes[0].length = size;
 
 	if ( xioctl( mFD, VIDIOC_QBUF, &buf ) < 0 ) {
-		throw std::runtime_error("failed to queue input to codec");
+		throw std::runtime_error("failed to queue input to codec : " + std::string(strerror(errno)));
 	}
 }
 
@@ -291,6 +311,19 @@ void V4L2Encoder::pollThread()
 				int64_t timestamp_us = (buf.timestamp.tv_sec * (int64_t)1000000) + buf.timestamp.tv_usec;
 				if ( mRecorder and mRecorderTrackId != -1 ) {
 					mRecorder->WriteSample( mRecorderTrackId, timestamp_us, mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused );
+				}
+
+				v4l2_buffer buf2 = {};
+				v4l2_plane planes[VIDEO_MAX_PLANES] = {};
+				buf2.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+				buf2.memory = V4L2_MEMORY_MMAP;
+				buf2.index = buf.index;
+				buf2.length = 1;
+				buf2.m.planes = planes;
+				buf2.m.planes[0].bytesused = 0;
+				buf2.m.planes[0].length = buf.m.planes[0].length;
+				if ( xioctl( mFD, VIDIOC_QBUF, &buf2) < 0 ) {
+					throw std::runtime_error("failed to re-queue encoded buffer");
 				}
 				/*
 				OutputItem item = {
