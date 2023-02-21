@@ -10,6 +10,7 @@ Open-source Linux-based Raspberry drone and ground controller.
  * LUA-based configuration, with fully configurable event-handling and user code execution
  * Homemade communication protocol over Wifi & FSK/LoRa radio, also supports S-BUS with limited functionnality
  * <4ms controls latency
+ * <=50ms video latency (over composite output to 5GHz VTX module)
  * Live camera view over HDMI / Composite output with On-Screen Display (showing telemetry, battery status, fly speed, acceleration...)
  * Multiple camera recording in MKV file format
  * Supports [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
