@@ -6,10 +6,16 @@ SET( CMAKE_C_COMPILER arm-linux-gnueabihf-gcc )
 SET( CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++ )
 SET( CMAKE_ASM_COMPILER arm-linux-gnueabihf-as )
 
-# Fix (controller)..
+execute_process(
+	COMMAND bash -c "dirname $(dirname $(whereis arm-linux-gnueabihf-gcc | cut -d':' -f2 | tr -d ' '))"
+	OUTPUT_VARIABLE ROOT_PATH
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+SET( CMAKE_FIND_ROOT_PATH ${ROOT_PATH} )
+
 SET( FREETYPE_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/freetype2" )
 SET( DRM_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/libdrm" )
-SET( LIBCAMERA_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/libcamera" )
 
 SET( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
 SET( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
