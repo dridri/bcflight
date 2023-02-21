@@ -192,7 +192,7 @@ bool Controller::run()
 	if ( mSwitches[9] and not mArmed and mCalibrated ) {
 		arm = true;
 		Arm();
-	} else if ( not mSwitches[2] and mArmed ) {
+	} else if ( not mSwitches[9] and mArmed ) {
 		Disarm();
 	}
 	if ( mSwitches[5] and mMode != Stabilize ) {
@@ -201,21 +201,22 @@ bool Controller::run()
 		setMode( Rate );
 	}
 	if ( mSwitches[6] and mNightMode == false ) {
+		printf("set night mode\n");
 		setNightMode( true );
 	} else if ( not mSwitches[6] and mNightMode == true ) {
 		setNightMode( false );
 	}
-/*
-	if ( mSwitches[5] and not mVideoRecording ) {
+
+	if ( mSwitches[10] and not mVideoRecording ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_START_RECORD );
 		mXferMutex.unlock();
-	} else if ( not mSwitches[5] and mVideoRecording ) {
+	} else if ( not mSwitches[10] and mVideoRecording ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
 	}
-*/
+
 	float f_thrust = ReadThrust();
 	float f_yaw = ReadYaw();
 	float f_pitch = ReadPitch();
@@ -384,7 +385,7 @@ bool Controller::RxRun()
 					mArmed = status & STATUS_ARMED;
 					mCalibrated = status & STATUS_CALIBRATED;
 					mCalibrating = status & STATUS_CALIBRATING;
-					mNightMode = status & STATUS_NIGHTMODE;
+					// mNightMode = status & STATUS_NIGHTMODE;
 				}
 				break;
 			}

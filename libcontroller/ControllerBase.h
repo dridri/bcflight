@@ -24,7 +24,9 @@
 #include <list>
 #include <map>
 #include <Link.h>
-#include <Lua.h>
+
+#define LUA_EXPORT
+#define LUA_PROPERTY(x)
 
 using namespace STD;
 
@@ -85,9 +87,9 @@ public:
 	} Telemetry;
 
 // Short commands only have 1 byte to define command ID
-#define SHORT_COMMAND 0b10000000
+#define SHORT_COMMAND 0x80 // 0b10000000
 
-	typedef enum {
+	LUA_EXPORT typedef enum {
 		UNKNOWN = 0,
 
 		// Continuous data (should be as small as possible)

@@ -190,7 +190,7 @@ SX127x::SX127x( const SX127x::Config& config )
 #endif
 
 	// Setup SPI and GPIO
-	mSPI = new SPI( mDevice, 8000000 );
+	mSPI = new SPI( mDevice, 4000000 );
 
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
