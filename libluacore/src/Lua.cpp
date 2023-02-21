@@ -553,17 +553,18 @@ int32_t Lua::do_string( const string& str )
 
 LuaValue Lua::value( lua_State* L, int index )
 {
-	if ( lua_isinteger( L, index ) ) {
+	int type = lua_type( L, index );
+	if ( type == LUA_TNUMBER and fmod((float)lua_tonumber(L, index), 1.0f) == 0.0f ) {
 		return LuaValue( lua_tointeger( L, index ) );
-	} else if ( lua_isnumber( L, index ) and not lua_isstring( L, index ) ) {
+	} else if ( type == LUA_TNUMBER ) {
 		return lua_tonumber( L, index );
-	} else if ( lua_isboolean( L, index ) ) {
+	} else if ( type == LUA_TBOOLEAN ) {
 		return LuaValue::boolean( lua_toboolean( L, index ) );
-	} else if ( lua_isstring( L, index ) ) {
+	} else if ( type == LUA_TSTRING ) {
 		size_t len = 0;
 		auto ret = lua_tolstring( L, index, &len );
 		return LuaValue( ret, len );
-	} else if ( lua_isfunction( L, index ) ) {
+	} else if ( type == LUA_TFUNCTION ) {
 // 		mMutex.lock();
 		LuaValue ret;
 		lua_pushvalue( L, index );
@@ -571,10 +572,10 @@ LuaValue Lua::value( lua_State* L, int index )
 // 		mMutex.unlock();
 		return ret;
 	} else if ( lua_iscfunction( L, index ) ) {
-	} else if ( lua_isuserdata( L, index ) ) {
+	} else if ( type == LUA_TUSERDATA ) {
 		LuaValue ret = lua_touserdata( L, index );
 		return ret;
-	} else if ( lua_istable( L, index ) ) {
+	} else if ( type == LUA_TTABLE ) {
 		LuaValue table = LuaValue(std::map<string, string>());
 		size_t len = lua_objlen( L, index );
 		if ( len > 0 ) {
