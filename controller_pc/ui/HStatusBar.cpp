@@ -17,6 +17,7 @@
 **/
 
 #include <QtGui/QPainter>
+#include <QtGui/QPainterPath>
 #include <QtCore/QDebug>
 #include "HStatusBar.h"
 

@@ -59,7 +59,8 @@ set( LUA_32 "" )
 if( CMAKE_SIZEOF_VOID_P EQUAL 4 )
 	set( LUA_32 "-m32" )
 endif()
-add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_32} )
+# add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_32} )
+add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} )
 add_custom_target( libopenh264_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_openh264.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} )
 
 qt5_wrap_ui( controller_pc_UI

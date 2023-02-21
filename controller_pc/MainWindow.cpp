@@ -106,8 +106,6 @@ MainWindow::MainWindow()
 		mControllerMonitor->start();
 	}
 
-	ui->groupBox_record->setVisible( false ); // FIXME
-
 	mUpdateTimer = new QTimer();
 	connect( mUpdateTimer, SIGNAL( timeout() ), this, SLOT( updateData() ) );
 	mUpdateTimer->setInterval( 20 );
@@ -136,7 +134,6 @@ MainWindow::MainWindow()
 	connect( ui->contrast_inc, SIGNAL( pressed() ), this, SLOT( VideoContrastIncrease() ) );
 	connect( ui->saturation_dec, SIGNAL( pressed() ), this, SLOT( VideoSaturationDecrease() ) );
 	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
-	connect( ui->video_pause, SIGNAL( pressed() ), this, SLOT( VideoPause() ) );
 	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
 	connect( ui->take_picture, SIGNAL( pressed() ), this, SLOT( VideoTakePicture() ) );
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
@@ -748,6 +745,7 @@ void MainWindow::SetNightMode( int mode )
 
 void MainWindow::VideoPause()
 {
+	/*
 	if ( not mController or mController->isSpectate() ) {
 		return;
 	}
@@ -761,6 +759,7 @@ void MainWindow::VideoPause()
 		mController->VideoResume();
 		ui->video_pause->setText( "Pause" );
 	}
+	*/
 }
 
 

@@ -172,16 +172,16 @@ int8_t ControllerPC::ReadSwitch( uint32_t id )
 		setArmed(false);
 	}
 #endif
-	if ( id == 2 ) {
+	if ( id == 9 ) {
 		return mArmed;
 	}
-	if ( id == 3 ) {
+	if ( id == 5 ) {
 		return mMode;
 	}
-	if ( id == 4 ) {
+	if ( id == 6 ) {
 		return mNightMode;
 	}
-	if ( id == 5 ) {
+	if ( id == 10 ) {
 		return mRecording;
 	}
 	return 0;
