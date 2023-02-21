@@ -2,7 +2,9 @@ cmake_minimum_required( VERSION 2.6 )
 
 # Command line options
 SET( board "rpi" CACHE BOOL "board" )
+SET( rawwifi "0" CACHE BOOL "rawwifi" )
 option( board "board" )
+option( rawwifi "rawwifi" )
 
 if ( NOT ${board} MATCHES OFF AND NOT ${board} MATCHES "generic" )
 	set( CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/../Toolchain-${board}.cmake )
@@ -51,7 +53,11 @@ endif()
 
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )
-include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
+if ( ${rawwifi} MATCHES "1" OR ${rawwifi} MATCHES "yes" OR ${rawwifi} MATCHES "true" )
+	include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
+	set( RAWWIFI_LIBS rawwifi -lpcap )
+	add_definitions( -DBUILD_rawwifi )
+endif()
 include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
 
@@ -86,6 +92,7 @@ add_dependencies( controller_rc controller )
 add_dependencies( controller_rc libluajit_static )
 add_dependencies( controller_rc ui_headers )
 
-target_link_libraries( controller_rc -L./ controller libluajit_static.a rawwifi -lrt -ldl -lpcap -lz pthread ${BOARD_LIBS} )
+
+target_link_libraries( controller_rc -L./ controller libluajit_static.a -lrt -ldl ${RAWWIFI_LIBS} -lz pthread ${BOARD_LIBS} )
 
 install( TARGETS controller_rc RUNTIME DESTINATION bin )

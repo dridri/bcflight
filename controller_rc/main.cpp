@@ -24,10 +24,12 @@
 #include "ControllerClient.h"
 #include "ui/GlobalUI.h"
 #include "Config.h"
-#include <RawWifi.h>
 #include <links/Socket.h>
 #include <nRF24L01.h>
 #include <SX127x.h>
+#ifdef BUILD_rawwifi
+#include <RawWifi.h>
+#endif
 
 
 void SegFaultHandler( int sig )
@@ -124,8 +126,10 @@ int main( int ac, char** av )
 		conf.modem = config->string( "controller.link.modem", "FSK" ) == "LoRa" ? SX127x::LoRa : SX127x::FSK;
 		controller_link = new SX127x( conf );
 	} else {
+#ifdef BUILD_rawwifi
 		controller_link = new RawWifi( config->string( "controller.link.device", "wlan0" ), config->integer( "controller.link.output_port", 0 ), config->integer( "controller.link.input_port", 1 ), -1 );
 		static_cast< RawWifi* >( controller_link )->SetChannel( config->integer( "controller.link.channel", 11 ) );
+#endif
 	}
 
 	controller = new ControllerClient( config, controller_link, config->boolean( "controller.spectate", false ) );

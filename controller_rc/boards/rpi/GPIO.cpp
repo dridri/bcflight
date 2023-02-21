@@ -22,6 +22,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <softPwm.h>
+#include <string>
 #include "GPIO.h"
 
 std::map< int, std::list<std::pair<std::function<void()>,GPIO::ISRMode>> > GPIO::mInterrupts;

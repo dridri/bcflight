@@ -9,7 +9,11 @@
 #include "ui_network.h"
 #include "ui_settings.h"
 #include <links/Socket.h>
+#ifdef BUILD_rawwifi
 #include <links/RawWifi.h>
+#else
+#define NO_RAWWIFI
+#endif
 
 MainWindow::MainWindow( Controller* controller )
 	: QMainWindow()
