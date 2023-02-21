@@ -28,11 +28,10 @@ frame = Multicopter {
 		speed = 0.15
 	},
 	motors = {
---		DShot( 12 )
---		DShot( 5 ),
---		DShot( 6 ),
---		DShot( 13 ),
---		DShot( 26 )
+		DShot( 4 ),
+		DShot( 5 ),
+		DShot( 6 ),
+		DShot( 7 ),
 	},
 	-- Set multipliers for each motor ( input is : { Roll, Pitch, Yaw, Thrust }, output is how much it will affect the motor )
 	matrix = {
@@ -57,14 +56,14 @@ stabilizer = Stabilizer {
 
 
 imu_sensor = ICM4xxxx {
-	bus = SPI( "/dev/spidev1.0" )
+	bus = SPI( "/dev/spidev0.0", 4000000 )
 }
 
 -- Setup Inertial Measurement Unit
 imu = IMU {
 	gyroscopes = { imu_sensor.gyroscope },
 	accelerometers = { imu_sensor.accelerometer },
-	magnetometers = { imu_sensor.magnetometer },
+	magnetometers = {},
 	altimeters = {},
 	gpses = {},
 	-- Setup filters
@@ -73,7 +72,7 @@ imu = IMU {
 	filters = {
 		rates = {
 			input = Vector( 80, 80, 80 ),
-			output = Vector( 0.5, 0.5, 0.5 ),
+			output = Vector( 0.25, 0.25, 0.25 ),
 		},
 		accelerometer = {
 			input = Vector( 350, 350, 350 ),
@@ -110,9 +109,10 @@ if pc_control then
 	}
 else
 	controller.link = SX127x {
-		device = "/dev/spidev0.0",
-		resetpin = 4,
-		irqpin = 27,
+		device = "/dev/spidev1.0",
+		resetpin = 25,
+		irqpin = 22,
+		ledpin = 23,
 		frequency = 867000000,
 		bitrate = 50000,
 		bandwidth = 50000,
@@ -123,9 +123,10 @@ else
 -- 		modem = "LoRa",
 		read_timeout = 500, -- drop will drop after 500ms without receiving data
 		diversity = {
-			device = "/dev/spidev0.1",
-			resetpin = 17,
-			irqpin = 22
+			device = "/dev/spidev1.1",
+			resetpin = 25,
+			irqpin = 24,
+			ledpin = 27
 		}
 	}
 end
@@ -140,23 +141,35 @@ else
 	controller.full_telemetry = false
 end
 
--- TODO from here
+--TODO from here
 
 
-if false and board.type == "rpi" then
+if true and board.type == "rpi" then
+	print("plop")
 	main_recorder = Recorder {
 		base_directory = "/var/VIDEO/"
 	}
 
 	-- Camera
 	camera = LinuxCamera {
+		vflip = true,
+		hflip = true,
 		width = 1920,
 		height = 1080,
 		framerate = 50,
+		iso = 0, -- Auto
+		sharpness = 0.5,
+		brightness = 0.125,
+		contrast = 1.25,
+		saturation = 1.25,
+ 		night_saturation = 0.5,
+ 		night_contrast = 1.90,
+ 		night_brightness = 0.50,
+ 		night_iso = 50000,
 		preview_output = LiveOutput(),
 		video_output = V4L2Encoder {
-			video_device = "",
-			bitrate = 16 * 1024,
+			video_device = "/dev/video11",
+			bitrate = 16 * 1024 * 1024,
 			width = 1920,
 			height = 1080,
 			framerate = 30,
@@ -166,17 +179,17 @@ if false and board.type == "rpi" then
 	}
 
 	-- Enable HUD on live output
---	hud = HUD {
---		framerate = 30,
---		show_frequency = true,
---		top = 20,
---		bottom = 20,
---		left = 45,
---		right = 50
---	}
+	hud = HUD {
+		framerate = 30,
+		show_frequency = true,
+		top = 20,
+		bottom = 20,
+		left = 45,
+		right = 50
+	}
 
 	-- Setup microphone
-	microphone = AlsaMic {
+	microphone = AlsaMic and AlsaMic {
 		recorder = main_recorder
 	}
 	if pc_control and microphone then
@@ -185,7 +198,7 @@ if false and board.type == "rpi" then
 			port = 2022
 		}
 	end
-else
+elseif true then
 	hud = HUD {
 		framerate = 30,
 		show_frequency = true,
@@ -196,3 +209,20 @@ else
 	}
 end
 
+record_image = hud:LoadImage("/var/flight/record.png")
+
+controller:onEvent(Controller.VIDEO_START_RECORD, function()
+	print("Start video recording")
+	main_recorder:Start()
+	hud:ShowImage( 100, 100, 64, 25, record_image )
+end)
+
+controller:onEvent(Controller.VIDEO_STOP_RECORD, function()
+	print("Stop video recording")
+	main_recorder:Stop()
+	hud:HideImage( record_image )
+end)
+
+controller:onEvent(Controller.VIDEO_NIGHT_MODE, function(night)
+	print("Night mode " .. night)
+end)
