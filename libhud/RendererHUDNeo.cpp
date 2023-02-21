@@ -199,8 +199,12 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 	if ( dronestats ) {
 		float level = dronestats->batteryLevel;
 		RenderBattery( level );
-		if ( level <= 0.25f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Low Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+		if ( level <= 0.0f and mBlinkingViews ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery dead", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+		} else if ( level <= 0.15f and mBlinkingViews ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery critical", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+		} else if ( level <= 0.25f and mBlinkingViews ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery low", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
 		}
 		float battery_red = 1.0f - level;
 		RenderText( mBorderLeft + 210, mBorderBottom - mFontHeight * 1, std::to_string( (int)( level * 100.0f ) ) + "%", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f - battery_red * 0.5f, 1.0f ), 0.9 );
@@ -904,7 +908,7 @@ void RendererHUDNeo::Compute()
 		}
 */
 		mStaticLinesCount = i + 1;
-		for ( uint32_t i = 0; i < sizeof(staticLinesBuffer)/sizeof(FastVertexColor); i++ ) {
+		for ( uint32_t i = 0; i < mStaticLinesCount; i++ ) {
 			Vector2f pos = VR_Distort( Vector2f( staticLinesBuffer[i].x, staticLinesBuffer[i].y ) );
 			staticLinesBuffer[i].x = pos.x;
 			staticLinesBuffer[i].y = pos.y;

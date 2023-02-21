@@ -206,8 +206,10 @@ RendererHUD::RendererHUD( int width, int height, float ratio, uint32_t fontsize,
 	, mBarrelCorrection( barrel_correction )
 	, m3DStrength( 0.004f )
 	, mBlinkingViews( false )
+	, mHUDTick( 0 )
 	, mMatrixProjection( new Matrix() )
 	, mQuadVBO( 0 )
+	, mFlatShader( { 0 } )
 	, mFontTexture( nullptr )
 	, mFontSize( fontsize )
 	, mFontHeight( fontsize * 0.65f )
@@ -330,6 +332,14 @@ void RendererHUD::PreRender()
 	glUniform1f( mTextShader.mDistorID, (float)mBarrelCorrection );
 	glUseProgram( 0 );
 }
+
+
+void RendererHUD::RenderImage( int x, int y, int width, int height, uintptr_t img )
+{
+	Texture* tex = reinterpret_cast<Texture*>( img );
+	RenderQuadTexture( tex->glID, x, y, width, height );
+}
+
 
 
 void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror, bool vmirror, const Vector4f& color )

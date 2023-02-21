@@ -28,6 +28,14 @@
 class Controller;
 
 typedef struct VideoStats {
+	VideoStats(int w = 0, int h = 0, int f = 0)
+		: width(w)
+		, height(h)
+		, fps(f)
+		, photo_id(0)
+		, whitebalance("")
+		, exposure("")
+		{}
 	int width;
 	int height;
 	int fps;
@@ -37,6 +45,13 @@ typedef struct VideoStats {
 } VideoStats;
 
 typedef struct LinkStats {
+	LinkStats()
+		: qual(0)
+		, level(0)
+		, noise(0)
+		, channel(0)
+		, source(0)
+		{}
 	int qual;
 	int level;
 	int noise;
@@ -52,6 +67,18 @@ typedef enum {
 } DroneMode;
 
 typedef struct DroneStats {
+	DroneStats()
+		: armed(false)
+		, mode(DroneMode::Rate)
+		, ping(0)
+		, blackBoxId(0)
+		, thrust(0)
+		, acceleration(0)
+		, rpy(Vector3f())
+		, batteryLevel(0)
+		, batteryVoltage(0)
+		, batteryTotalCurrent(0)
+		{}
 	// Status
 	bool armed;
 	DroneMode mode;
@@ -83,12 +110,16 @@ public:
 	void RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror = false, bool vmirror = false, const Vector4f& color = { 1.0f, 1.0f, 1.0f, 1.0f } );
 	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, bool hcenter = false );
 	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, bool hcenter = false );
+	void RenderImage( int x, int y, int width, int height, uintptr_t img );
 	Vector2f VR_Distort( const Vector2f& coords );
 
 	void PreRender();
 	void setNightMode( bool m ) { mNightMode = m; }
 	void setStereo( bool en ) { mStereo = en; if ( not mStereo ) { m3DStrength = 0.0f; } }
 	void set3DStrength( float strength ) { m3DStrength = strength; }
+	uintptr_t LoadImage( const std::string& path ) { return reinterpret_cast<uintptr_t>( LoadTexture(path) ); };
+	
+	bool nightMode() { return mNightMode; }
 
 protected:
 	typedef struct {
