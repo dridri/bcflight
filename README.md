@@ -42,7 +42,7 @@ Open-source Linux-based Raspberry drone and ground controller.
 
 ## Hardware
 Any form-factors of Raspberry Pi can be used, connecting sensors and peripherals using GPIO header and other dedicated connectors.
-For smaller size and weight it's recommended to use a Compute Module 4 with a custom carrier board like this one : (can be found in [./electronics](./electronics)) :
+For smaller size and weight it's recommended to use a Compute Module 4 with a custom carrier board like this one (can be found in [./electronics](./electronics)) :
 
 View this project on [CADLAB.io](https://cadlab.io/project/23184)
 
@@ -53,3 +53,20 @@ View this project on [CADLAB.io](https://cadlab.io/project/23184)
 <img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board back photo" src="misc/cm4-fc-back.png"/>
 <br />
 <img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board back photo" src="misc/cm4-on-drone.png"/>
+
+This carrier board has the following features :
+ * 5V 3A LM22676 low dropout regulator (with 42V max input)
+ * ADS1115 ADC, channel 0 used to measure battery voltage
+ * microsd card socket
+ * dual RFM95W radio sockets with seperate status LEDs and external antennas plugs
+ * optional S-BUS input (with TTL inverter)
+ * ICM-42605 high-precision IMU
+ * BMP280 barometer / altimeter
+ * dual camera CSI connectors
+ * exposed IO pads :
+   * 8 PWM / OneShot125 / DSHOT outputs
+   * ADC channels 1-2-3
+   * I2C (for additionnal sensors and peripheral drivers)
+   * UART (external GPS)
+   * USB
+   * Video composite output (can be directly connected to any FPV drone VTX)
