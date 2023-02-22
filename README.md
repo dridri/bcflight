@@ -44,6 +44,8 @@ Open-source Linux-based Raspberry drone and ground controller.
 Any form-factors of Raspberry Pi can be used, connecting sensors and peripherals using GPIO header and other dedicated connectors.
 For smaller size and weight it's recommended to use a Compute Module 4 with a custom carrier board like this one : (can be found in [./electronics](./electronics)) :
 
+View this project on [CADLAB.io](https://cadlab.io/project/23184)
+
 <img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board schematics" src="misc/cm4_schematics.png"/>
 <br />
 <img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board front photo" src="misc/cm4-fc-front.png"/>
