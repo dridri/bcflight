@@ -1,4 +1,0 @@
-(sym_lib_table
-  (lib (name drich)(type Legacy)(uri ${KIPRJMOD}/../Libraries/drich.lib)(options "")(descr ""))
-  (lib (name teensy)(type Legacy)(uri ${KIPRJMOD}/../Libraries/teensy.lib)(options "")(descr ""))
-)

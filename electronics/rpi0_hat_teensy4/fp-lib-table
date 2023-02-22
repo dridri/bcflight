@@ -1,4 +1,0 @@
-(fp_lib_table
-  (lib (name teensy)(type KiCad)(uri ${KIPRJMOD}/../Libraries/teensy.pretty)(options "")(descr ""))
-  (lib (name drich)(type KiCad)(uri ${KIPRJMOD}/../Libraries/drich.pretty)(options "")(descr ""))
-)
