@@ -39,3 +39,11 @@ Open-source Linux-based Raspberry drone and ground controller.
  * Nordic Semiconductor nRF24L01
  * Semtech SX1276/77/78/79 FSK/LoRa / RFM95W
  * SBUS (limited functionnality)
+
+## Hardware
+Any form-factors of Raspberry Pi can be used, connecting sensors and peripherals using GPIO header and other dedicated connectors.
+For smaller size and weight it's recommended to use a Compute Module 4 with a custom carrier board like this one : (can be found in [/electronics]) :
+<img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board schematics" src="https://raw.githubusercontent.com/dridri/bcflight/master/misc/cm4_schematics.png"/>
+<img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board front photo" src="https://raw.githubusercontent.com/dridri/bcflight/master/misc/cm4-fc-front.png"/>
+<img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board back photo" src="https://raw.githubusercontent.com/dridri/bcflight/master/misc/cm4-fc-back.png"/>
+<img width="512px" style="max-width: 100%" alt="Raspberry Pi Compute Module 4 carrier board back photo" src="https://raw.githubusercontent.com/dridri/bcflight/master/misc/cm4-on-drone.png"/>
