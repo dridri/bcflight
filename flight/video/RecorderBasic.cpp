@@ -146,7 +146,7 @@ uint32_t RecorderBasic::AddAudioTrack( uint32_t channels, uint32_t sample_rate, 
 }
 
 
-void RecorderBasic::WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen )
+void RecorderBasic::WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe )
 {
 	if ( not recording() ) {
 		return;

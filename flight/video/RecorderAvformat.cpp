@@ -43,7 +43,8 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 	pkt->dts = sample->record_time_us;
 	pkt->pts = sample->record_time_us;
 	pkt->pos = -1LL;
-	fDebug( sample->track->type );
+	pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
+	// fDebug( sample->track->type );
 	av_packet_rescale_ts( pkt, (AVRational){ 1, 1000000 }, sample->track->stream->time_base );
 	if ( sample->track->type == TrackTypeVideo ) {
 		pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
@@ -98,7 +99,8 @@ bool RecorderAvformat::run()
 		PendingGyro* gyro = mPendingGyros.front();
 		mPendingGyros.pop_front();
 		mGyroMutex.unlock();
-		fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz, gyro->ax, gyro->ay, gyro->az );
+		// fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz, gyro->ax, gyro->ay, gyro->az );
+		fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz );
 		mGyroMutex.lock();
 	}
 	mGyroMutex.unlock();
@@ -113,10 +115,16 @@ bool RecorderAvformat::run()
 void RecorderAvformat::Start()
 {
 	fDebug();
-	if ( recording() ) {
+	while ( mStopWrite ) {
+		usleep( 1000 * 200 );
+	}
+	mActiveMutex.lock();
+	if ( mActive ) {
+		mActiveMutex.unlock();
 		return;
 	}
-	mStopWrite = false;
+	mActive = true;
+	mActiveMutex.unlock();
 
 	uint32_t fileid = 0;
 	DIR* dir;
@@ -141,6 +149,9 @@ void RecorderAvformat::Start()
 	avformat_alloc_output_context2( &mOutputContext, nullptr, nullptr, filename );
 	if ( !mOutputContext ) {
 		gError() << "Failed to allocate avformat output context";
+		mActiveMutex.lock();
+		mActive = false;
+		mActiveMutex.unlock();
 		return;
 	}
 
@@ -181,6 +192,9 @@ void RecorderAvformat::Start()
 	int ret = 0;
 	if ( (ret = avio_open( &mOutputContext->pb, filename, AVIO_FLAG_WRITE) ) ) {
 		gError() << "Could not open " << filename << " : " << averr(ret).c_str();
+		mActiveMutex.lock();
+		mActive = false;
+		mActiveMutex.unlock();
 		return;
 	}
 
@@ -205,6 +219,7 @@ void RecorderAvformat::Start()
 		fprintf( mGyroFile, "ascale,1.0\n" );
 		// fprintf( mGyroFile, "t,gx,gy,gz,ax,ay,az\n" );
 		fprintf( mGyroFile, "t,gx,gy,gz\n" );
+		fprintf( mGyroFile, "0,0.000000,0.000000,0.000000\n" );
 	}
 
 	if ( not mConsumerRegistered ) {
@@ -221,11 +236,11 @@ void RecorderAvformat::Start()
 
 void RecorderAvformat::Stop()
 {
-	if ( not recording() ) {
+	if ( not recording() or not mActive ) {
 		return;
 	}
 
-	mStopWrite = false;
+	mStopWrite = true;
 	Thread::Stop();
 	Thread::Join();
 
@@ -266,6 +281,11 @@ void RecorderAvformat::Stop()
 		fclose( mGyroFile );
 		mGyroFile = nullptr;
 	}
+
+	mActiveMutex.lock();
+	mStopWrite = false;
+	mActive = false;
+	mActiveMutex.unlock();
 }
 
 
@@ -308,7 +328,7 @@ uint32_t RecorderAvformat::AddAudioTrack( uint32_t channels, uint32_t sample_rat
 }
 
 
-void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen )
+void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe )
 {
 	// fDebug( track_id, record_time_us, buf, buflen );
 
@@ -316,7 +336,7 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 		mVideoHeader.insert( mVideoHeader.end(), (uint8_t*)buf, (uint8_t*)buf + std::min( buflen, 50U ) );
 	}
 
-	if ( not recording() ) {
+	if ( not recording() or mStopWrite ) {
 		return;
 	}
 	Track* track = mTracks.at(track_id);
@@ -339,6 +359,7 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 	sample->record_time_us = record_time_us;
 	sample->buf = new uint8_t[buflen];
 	sample->buflen = buflen;
+	sample->keyframe = keyframe;
 	memcpy( sample->buf, buf, buflen );
 
 	mWriteMutex.lock();
@@ -349,7 +370,7 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 
 void RecorderAvformat::WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel )
 {
-	if ( not mGyroFile or mRecordStartSystemTick == 0 or not Thread::running() ) {
+	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or not Thread::running() or mStopWrite ) {
 		return;
 	}
 

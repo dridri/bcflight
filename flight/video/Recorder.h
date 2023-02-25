@@ -28,7 +28,7 @@ public:
 
 	virtual uint32_t AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const string& extension ) = 0;
 	virtual uint32_t AddAudioTrack( uint32_t channels, uint32_t sample_rate, const string& extension ) = 0;
-	virtual void WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen ) = 0;
+	virtual void WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe = false ) = 0;
 
 	virtual void WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel = Vector3f() ) = 0;
 
