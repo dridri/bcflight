@@ -244,7 +244,7 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::Brightness, mBrightness );
 	mAllControls.set( libcamera::controls::Contrast, mContrast );
 	mAllControls.set( libcamera::controls::Saturation, mSaturation );
-	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeContinuous );
+	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
 	if ( mWhiteBalance == "incandescent" ) {
 		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIncandescent );
 	} else if ( mWhiteBalance == "tungsten" ) {
