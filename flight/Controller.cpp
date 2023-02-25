@@ -51,34 +51,34 @@ Controller::Controller()
 	, mTelemetryTick( 0 )
 	, mTelemetryCounter( 0 )
 	, mEmergencyTick( 0 )
+	, mTelemetryFrequency( 0 )
 	, mTelemetryFull( false )
 {
-	mTelemetryFrequency = 0;
-
 	mExpo = Vector4f();
 	mExpo.x = 4;
 	mExpo.y = 4;
 	mExpo.z = 3;
 	mExpo.w = 2;
-
-	gDebug() << "Starting RX thread";
-	Start();
-	if ( mTelemetryFrequency > 0 ) {
-		gDebug() << "Starting telemetry thread";
-		mTelemetryThread->setFrequency( mTelemetryFrequency );
-		mTelemetryThread->Start();
-	}
-// 	gDebug() << "Waiting link to be ready";
-// 	while ( !mLink->isConnected() ) {
-// 		usleep( 1000 * 100 );
-// 	}
-	gDebug() << "Controller ready !";
 }
 
 
 Controller::~Controller()
 {
 }
+
+
+void Controller::Start()
+{
+	gDebug() << "Starting RX thread";
+	Thread::Start();
+	if ( mTelemetryFrequency > 0 ) {
+		gDebug() << "Starting telemetry thread (at " << mTelemetryFrequency << "Hz)";
+		mTelemetryThread->setFrequency( mTelemetryFrequency );
+		mTelemetryThread->Start();
+	}
+	gDebug() << "Controller ready !";
+}
+
 
 
 Link* Controller::link() const

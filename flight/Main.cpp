@@ -149,6 +149,7 @@ Main::Main()
 	}
 	if ( mController ) {
 		mController->setPriority( 98 );
+		mController->Start();
 	}
 
 #ifdef BUILD_stabilizer

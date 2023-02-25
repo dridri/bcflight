@@ -39,6 +39,8 @@ public:
 	~Controller();
 	Link* link() const;
 
+	void Start();
+
 	bool connected() const;
 // 	bool armed() const;
 	uint32_t ping() const;
