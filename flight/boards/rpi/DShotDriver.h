@@ -10,11 +10,13 @@
 class DShotDriver
 {
 public:
-	static DShotDriver* instance();
+	static DShotDriver* instance( bool create_new = true );
 
 	void setPinValue( uint32_t pin, uint16_t value, bool telemetry = false );
 	void disablePinValue( uint32_t pin );
 	void Update();
+
+	void Kill() noexcept;
 
 private:
 	DShotDriver();
@@ -36,4 +38,6 @@ private:
 	static DShotDriver* sInstance;
 	static uint8_t sDPIMode;
 	static uint8_t sDPIPinMap[8][28][2]; // [DpiMode][pinNumber][r/g/b, bitmask]
+
+	static bool sKilled;
 };

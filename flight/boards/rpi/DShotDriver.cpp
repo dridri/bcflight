@@ -61,11 +61,12 @@ uint8_t DShotDriver::sDPIPinMap[8][28][2] = {
 		{ 2, 0 }, { 2, 1 }, { 2, 2 }, { 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
 };
+bool DShotDriver::sKilled = false;
 
 
-DShotDriver* DShotDriver::instance()
+DShotDriver* DShotDriver::instance( bool create_new )
 {
-	if ( !sInstance ) {
+	if ( !sInstance and create_new ) {
 		sInstance = new DShotDriver();
 	}
 	return sInstance;
@@ -170,6 +171,13 @@ DShotDriver::~DShotDriver()
 }
 
 
+void DShotDriver::Kill() noexcept
+{
+	sKilled = true;
+	memset( mDRMBuffer, 0, mDRMPitch * mDRMHeight );
+}
+
+
 void DShotDriver::setPinValue( uint32_t pin, uint16_t value, bool telemetry )
 {
 	value = (value << 1) | telemetry;
@@ -188,7 +196,9 @@ void DShotDriver::disablePinValue( uint32_t pin )
 
 void DShotDriver::Update()
 {
-	uint64_t ticks = Board::GetTicks();
+	if ( sKilled ) {
+		return;
+	}
 
 	uint16_t valueFlat[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint16_t valueMap[DSHOT_MAX_OUTPUTS] = { 0 };

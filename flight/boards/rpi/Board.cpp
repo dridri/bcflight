@@ -51,6 +51,7 @@ extern "C" {
 #include "Board.h"
 #include "I2C.h"
 #include "PWM.h"
+#include "DShotDriver.h"
 #include "Debug.h"
 
 extern "C" void bcm_host_init( void );
@@ -161,6 +162,10 @@ void Board::SegFaultHandler( int sig )
 	}
 
 	if ( thread and thread->name() == "stabilizer" ) {
+		DShotDriver* d = DShotDriver::instance();
+		if ( d ) {
+			d->Kill();
+		}
 		PWM::terminate(0);
 	}
 
