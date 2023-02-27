@@ -8,7 +8,6 @@
 #include <list>
 #include <vector>
 #include <stdint.h>
-#include "Lua.h"
 #include "Vector.h"
 
 class Recorder

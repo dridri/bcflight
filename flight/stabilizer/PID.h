@@ -21,13 +21,16 @@
 
 #include <type_traits>
 #include "Vector.h"
+#include "PT1.h"
+#include "Main.h"
+#include "Config.h"
 
 template< typename T > class PID
 {
 public:
 	PID() {
 		mIntegral = 0;
-		mLastError = 0;
+		mLastDerivativeError = 0;
 		mkPID = 0;
 		mState = 0;
 		mDeadBand = 0;
@@ -36,16 +39,19 @@ public:
 	}
 	PID( const LuaValue& v ) {
 		if ( v.type() == LuaValue::Table ) {
+			float kP = Main::instance()->config()->Number( "PID.pscale", 1.0f );
+			float kI = Main::instance()->config()->Number( "PID.iscale", 1.0f );
+			float kD = Main::instance()->config()->Number( "PID.dscale", 1.0f );
 			const std::map<std::string, LuaValue >& t = v.toTable();
-			mkPID.x = t.at("p").toNumber();
-			mkPID.y = t.at("i").toNumber();
-			mkPID.z = t.at("d").toNumber();
+			mkPID.x = kP * t.at("p").toNumber();
+			mkPID.y = kI * t.at("i").toNumber();
+			mkPID.z = kD * t.at("d").toNumber();
 		}
 	}
 
 	void Reset() {
 		mIntegral = 0;
-		mLastError = 0;
+		mLastDerivativeError = 0;
 		mState = 0;
 	}
 
@@ -62,16 +68,29 @@ public:
 		mDeadBand = band;
 	}
 
-	void Process( const T& command, const T& measured, float dt ) {
-		T error = command - measured;
-		ApplyDeadBand( error );
+	void Process( const T& deltaP, const T& deltaI, const T& deltaD, float dt ) {
+		ApplyDeadBand( deltaP );
+		ApplyDeadBand( deltaI );
+		ApplyDeadBand( deltaD );
 
-		mIntegral += error * dt;
-		T derivative = ( error - mLastError ) / dt;
-		T output = error * mkPID.x + mIntegral * mkPID.y + derivative * mkPID.z;
+		T proportional = deltaP;
+		mIntegral += deltaI * dt;
+		T derivative = ( deltaD - mLastDerivativeError ) / dt;
 
-		mLastError = error;
+/*
+		T proportional = deltaP * dt;
+		mIntegral += deltaI * dt * dt;
+		T derivative = ( deltaD - mLastDerivativeError ); // * dt / dt;
+*/
+		T output = proportional * mkPID[0] + mIntegral * mkPID[1] + derivative * mkPID[2];
+
+		mLastDerivativeError = deltaD;
 		mState = output;
+	}
+
+	void Process( const T& command, const T& measured, float dt ) {
+		T delta = command - measured;
+		Process( delta, delta, delta, dt );
 	}
 
 	T state() const {
@@ -82,33 +101,39 @@ public:
 	}
 
 private:
-	void ApplyDeadBand( Vector3f& error ) {
+	Vector3f ApplyDeadBand( const Vector3f& error ) {
+		Vector3f ret = error;
 		if ( abs( error.x ) < mDeadBand.x ) {
-			error.x = 0.0f;
+			ret.x = 0.0f;
 		}
 		if ( abs( error.y ) < mDeadBand.y ) {
-			error.y = 0.0f;
+			ret.y = 0.0f;
 		}
 		if ( abs( error.z ) < mDeadBand.z ) {
-			error.z = 0.0f;
+			ret.z = 0.0f;
 		}
+		return ret;
 	}
-	void ApplyDeadBand( Vector2f& error ) {
+	Vector2f ApplyDeadBand( const Vector2f& error ) {
+		Vector2f ret = error;
 		if ( abs( error.x ) < mDeadBand.x ) {
-			error.x = 0.0f;
+			ret.x = 0.0f;
 		}
 		if ( abs( error.y ) < mDeadBand.y ) {
-			error.y = 0.0f;
+			ret.y = 0.0f;
 		}
+		return ret;
 	}
-	void ApplyDeadBand( float& error ) {
+	float ApplyDeadBand( const float& error ) {
+		float ret = error;
 		if ( abs( error ) < mDeadBand ) {
-			error = 0.0f;
+			ret = 0.0f;
 		}
+		return ret;
 	}
 
 	T mIntegral;
-	T mLastError;
+	T mLastDerivativeError;
 	Vector3f mkPID;
 	T mState;
 	T mDeadBand;

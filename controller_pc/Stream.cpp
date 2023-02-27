@@ -359,9 +359,17 @@ bool Stream::run()
 		}
 	}
 
-	uint8_t data[65536] = { 0 };
+	uint8_t data[65536 * 4] = { 0 };
 	int32_t size = mLink->Read( data, sizeof( data ), 50 );
 	if ( size > 0 ) {
+		if ( size == 65000 ) {
+			int32_t size2 = mLink->Read( &data[65000], sizeof( data ) - 65000, 50 );
+			size += size2;
+			if ( size2 == 65000 ) {
+				int32_t size3 = mLink->Read( &data[65000 * 2], sizeof( data ) - 65000 * 2, 50 );
+				size += size3;
+			}
+		}
 		DecodeFrame( data, size );
 		if ( size > 41 ) {
 			mFpsCounter++;

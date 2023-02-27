@@ -117,7 +117,7 @@ public:
 	Vector<T,n>& operator=( const T& v )
 	{
 		for ( int i = 0; i < n; i++ ) {
-			(&x)[i] = v;
+			ptr[i] = v;
 		}
 		return *this;
 	}
@@ -140,12 +140,12 @@ public:
 
 	VECTOR_INLINE T operator[]( int i ) const
 	{
-		return ( &x )[i];
+		return ptr[i];
 	}
 
 	VECTOR_INLINE T& operator[]( int i )
 	{
-		return ( &x )[i];
+		return ptr[i];
 	}
 
 
@@ -198,36 +198,62 @@ public:
 		return ret;
 	}
 
+	VECTOR_INLINE Vector<T,n> operator/( const Vector<T,n>& v ) const {
+		Vector<T, n> ret;
+		VEC_OP( ret. , this-> , / , v. );
+		return ret;
+	}
+
 	VECTOR_INLINE T operator*( const Vector<T,n>& v ) const {
 		T ret = 0;
 		VEC_ADD( ret, this-> , * , v. );
 		return ret;
 	}
 
+	VECTOR_INLINE Vector<T,n> operator&( const Vector<T,n>& v ) const {
+		Vector<T,n> ret;
+		VEC_OP( ret., this-> , * , v. );
+		return ret;
+	}
+
 	VECTOR_INLINE Vector<T,n> operator^( const Vector<T,n>& v ) const {
 		Vector<T, n> ret;
 		for ( int i = 0; i < n; i++ ) {
-			T a = ( &x )[ ( i + 1 ) % n ];
-			T b = ( &v.x )[ ( i + 2 ) % n ];
-			T c = ( &x )[ ( i + 2 ) % n ];
-			T d = ( &v.x )[ ( i + 1 ) % n ];
-			( &ret.x )[i] = a * b - c * d;
+			T a = ptr[ ( i + 1 ) % n ];
+			T b = v.ptr[ ( i + 2 ) % n ];
+			T c = ptr[ ( i + 2 ) % n ];
+			T d = v.ptr[ ( i + 1 ) % n ];
+			ret.ptr[i] = a * b - c * d;
 		}
 		return ret;
 	}
 
 public:
-	T x;
-	T y;
-	T z;
-	T w;
-} __attribute__((packed));
+	union {
+		struct {
+			T x;
+			T y;
+			T z;
+			T w;
+		};
+		T ptr[4];
+	};
+};
 
 
 template <typename T, int n> Vector<T, n> operator*( T im, const Vector<T, n>& v ) {
 	Vector<T, n> ret;
 	for ( int i = 0; i < n; i++ ) {
-		( &ret.x )[i] = ( &v.x )[i] * im;
+		ret.ptr[i] = im * v.ptr[i];
+	}
+	return ret;
+}
+
+
+template <typename T, int n> Vector<T, n> operator/( T im, const Vector<T, n>& v ) {
+	Vector<T, n> ret;
+	for ( int i = 0; i < n; i++ ) {
+		ret.ptr[i] = im / v.ptr[i];
 	}
 	return ret;
 }
@@ -236,7 +262,7 @@ template <typename T, int n> Vector<T, n> operator*( T im, const Vector<T, n>& v
 template <typename T, int n> bool operator==( const Vector<T, n>& v1, const Vector<T,n>& v2 ) {
 	bool ret = true;
 	for ( int i = 0; i < n; i++ ) {
-		ret = ret && ( ( &v1.x )[i] == ( &v2.x )[i] );
+		ret = ret && ( v1.ptr[i] == v2.ptr[i] );
 	}
 	return ret;
 }
@@ -245,7 +271,7 @@ template <typename T, int n> bool operator==( const Vector<T, n>& v1, const Vect
 template <typename T, int n> bool operator!=( const Vector<T, n>& v1, const Vector<T,n>& v2 ) {
 	bool ret = true;
 	for ( int i = 0; i < n; i++ ) {
-		ret = ret && ( ( &v1.x )[i] != ( &v2.x )[i] );
+		ret = ret && ( v1.ptr[i] != v2.ptr[i] );
 	}
 	return ret;
 }

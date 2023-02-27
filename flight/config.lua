@@ -20,6 +20,19 @@ full_hd = false
 username = "drich" -- used by logger and Head-Up-Display
 
 
+--- Battery
+adc = ADS1015()
+battery = {
+	capacity = 1300, -- Battery capacity in mAh
+	voltage = {
+		sensor = adc, -- TODO/TBD adc.channel[0] instead ?
+		channel = 0,
+		multiplier = 8.5
+	},
+	low_voltage = 3.7, -- cell count is automatically detected when battery status is reset
+}
+
+
 -- Setup Frame
 frame = Multicopter {
 	maxspeed = 1.0,
@@ -28,35 +41,41 @@ frame = Multicopter {
 		speed = 0.15
 	},
 	motors = {
-		DShot( 4 ),
-		DShot( 5 ),
-		DShot( 6 ),
-		DShot( 7 ),
+		DShot( 4 ), -- front left
+		DShot( 5 ), -- front right
+		DShot( 6 ), -- rear left
+		DShot( 7 ), -- rear right
 	},
 	-- Set multipliers for each motor ( input is : { Roll, Pitch, Yaw, Thrust }, output is how much it will affect the motor )
 	matrix = {
-		Vector( -1.0,  1.0, -1.0, 1.0 ), -- motor 0 = -1*roll + 1*pitch - 1*yaw + 1*thurst
-		Vector(  1.0,  1.0,  1.0, 1.0 ), -- motor 1 =  1*roll + 1*pitch + 1*yaw + 1*thurst
-		Vector( -1.0, -1.0,  1.0, 1.0 ), -- motor 2 = -1*roll - 1*pitch + 1*yaw + 1*thurst
-		Vector(  1.0, -1.0, -1.0, 1.0 )  -- motor 3 =  1*roll - 1*pitch - 1*yaw + 1*thurst
+		Vector(  1.0, -1.0, -1.0, 1.0 ), -- motor 0 = -1*roll + 1*pitch - 1*yaw + 1*thurst
+		Vector( -1.0, -1.0,  1.0, 1.0 ), -- motor 1 =  1*roll + 1*pitch + 1*yaw + 1*thurst
+		Vector(  1.0,  1.0,  1.0, 1.0 ), -- motor 2 = -1*roll - 1*pitch + 1*yaw + 1*thurst
+		Vector( -1.0,  1.0, -1.0, 1.0 )  -- motor 3 =  1*roll - 1*pitch - 1*yaw + 1*thurst
 	}
 }
 
 
+
 --- Setup stabilizer
+-- same scales as betaflight
+PID.pscale = 0.032029
+PID.iscale = 0.244381
+PID.dscale = 0.000529
 stabilizer = Stabilizer {
 	loop_time = 500, -- 500 µs => 2000Hz stabilizer update
 	rate_speed = 1000, -- deg/sec
+	pid_roll = PID( 45, 70, 40 ),
+	pid_pitch = PID( 46, 70, 40 ),
+	pid_yaw = PID( 45, 90, 2 ),
 	horizon_angles = Vector( 20.0, 20.0 ), -- max inclination degrees
-	pid_roll = PID( 0.00075, 0.008, 0.00004 ),
-	pid_pitch = PID( 0.00075, 0.008, 0.00004 ),
-	pid_yaw = PID( 0.0004, 0.004, 0.00003 ),
 	pid_horizon = PID( 5.0, 0.0, 0.0 )
 }
 
 
 imu_sensor = ICM4xxxx {
-	bus = SPI( "/dev/spidev0.0", 4000000 )
+	bus = SPI( "/dev/spidev0.0", 2000000 ),
+	axis_swap = Vector( 2, -1, 3 )
 }
 
 -- Setup Inertial Measurement Unit
@@ -71,8 +90,8 @@ imu = IMU {
 	-- 'output' represents the quantity of the filtered results that is integrated over time ( between interval ]0.0;1.0[ )
 	filters = {
 		rates = {
-			input = Vector( 80, 80, 80 ),
-			output = Vector( 0.25, 0.25, 0.25 ),
+			input = Vector( 40, 40, 40 ),
+			output = Vector( 0.8, 0.8, 0.8 ),
 		},
 		accelerometer = {
 			input = Vector( 350, 350, 350 ),
@@ -145,27 +164,38 @@ end
 
 
 if true and board.type == "rpi" then
-	print("plop")
-	main_recorder = Recorder {
+	main_recorder = RecorderAvFormat {
 		base_directory = "/var/VIDEO/"
 	}
 
+	if pc_control then
+		-- UDP-Lite allows potentially damaged data payloads to be delivered
+		camera_link = Socket {
+			type = Socket.UDPLite,
+			port = 2021,
+			broadcast = false
+		}
+	end
+
 	-- Camera
-	camera = LinuxCamera {
-		vflip = true,
-		hflip = true,
-		width = 1920,
-		height = 1080,
-		framerate = 50,
-		iso = 0, -- Auto
-		sharpness = 0.5,
+	camera_settings = {
 		brightness = 0.125,
 		contrast = 1.25,
 		saturation = 1.25,
- 		night_saturation = 0.5,
- 		night_contrast = 1.90,
- 		night_brightness = 0.50,
- 		night_iso = 50000,
+		iso = 0
+	}
+	camera = LinuxCamera {
+		vflip = false,
+		hflip = false,
+		hdr = true,
+		width = 1920,
+		height = 1080,
+		framerate = 50,
+		sharpness = 0.5,
+		iso = camera_settings.iso,
+		brightness = camera_settings.brightness,
+		contrast = camera_settings.contrast,
+		saturation = camera_settings.saturation,
 		preview_output = LiveOutput(),
 		video_output = V4L2Encoder {
 			video_device = "/dev/video11",
@@ -173,18 +203,19 @@ if true and board.type == "rpi" then
 			width = 1920,
 			height = 1080,
 			framerate = 30,
-			recorder = main_recorder
+			recorder = main_recorder,
+			link = camera_link
 		}
-		-- TODO : camera video-FPS → 30 (in-par with video_output)
 	}
 
 	-- Enable HUD on live output
 	hud = HUD {
 		framerate = 30,
 		show_frequency = true,
-		top = 20,
-		bottom = 20,
-		left = 45,
+		-- Set inner margins, in pixels
+		top = 25,
+		bottom = 25,
+		left = 50,
 		right = 50
 	}
 
@@ -202,9 +233,9 @@ elseif true then
 	hud = HUD {
 		framerate = 30,
 		show_frequency = true,
-		top = 20,
-		bottom = 20,
-		left = 45,
+		top = 25,
+		bottom = 25,
+		left = 50,
 		right = 50
 	}
 end
@@ -224,5 +255,18 @@ controller:onEvent(Controller.VIDEO_STOP_RECORD, function()
 end)
 
 controller:onEvent(Controller.VIDEO_NIGHT_MODE, function(night)
-	print("Night mode " .. night)
+	print("Night mode " .. night .. "(" .. type(night) .. ")")
+	if night == 1 then
+		camera:setSaturation( 0.5 )
+		camera:setContrast( 1.90 )
+		camera:setBrightness( 0.5 )
+		camera:setISO( 50000 )
+		hud.night = true
+	else
+		hud.night = false
+		camera:setSaturation( camera_settings.saturation )
+		camera:setContrast( camera_settings.contrast )
+		camera:setBrightness( camera_settings.brightness )
+		camera:setISO( camera_settings.iso )
+	end
 end)

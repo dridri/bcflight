@@ -668,11 +668,11 @@
         <item row="2" column="1">
          <widget class="QGroupBox" name="groupBox_26">
           <property name="title">
-           <string>GPS</string>
+           <string>Rates derivative</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_36">
            <item row="0" column="0">
-            <widget class="QCustomPlot" name="gps" native="true">
+            <widget class="QCustomPlot" name="rates_dterm" native="true">
              <property name="styleSheet">
               <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
              </property>

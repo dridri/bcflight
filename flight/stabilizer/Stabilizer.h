@@ -68,6 +68,7 @@ public:
 	virtual bool armed() const;
 	virtual float thrust() const;
 	virtual const Vector3f& RPY() const;
+	virtual const Vector3f& filteredRPYDerivative() const;
 	virtual void Arm();
 	virtual void Disarm();
 	virtual void setRoll( float value );
@@ -96,10 +97,12 @@ protected:
 	LUA_PROPERTY("pid_horizon") PID<Vector3f> mHorizonPID;
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
+	Filter<Vector3f>* mDerivativeFilter;
 
 	bool mArmed;
 	Vector4f mExpo;
 	Vector3f mRPY;
+	Vector3f mFilteredRPYDerivative;
 	float mThrust;
 	float mThrustAccum;
 

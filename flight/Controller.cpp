@@ -1346,6 +1346,11 @@ bool Controller::TelemetryRun()
 			telemetry.WriteFloat( mMain->imu()->magnetometer().x );
 			telemetry.WriteFloat( mMain->imu()->magnetometer().y );
 			telemetry.WriteFloat( mMain->imu()->magnetometer().z );
+
+			telemetry.WriteU16( GYRO_DTERM );
+			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().x );
+			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().y );
+			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().z );
 		}
 	}
 

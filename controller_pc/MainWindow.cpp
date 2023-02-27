@@ -153,7 +153,8 @@ MainWindow::MainWindow()
 	graphs.emplace_back( ui->accelerometer );
 	graphs.emplace_back( ui->magnetometer );
 	graphs.emplace_back( ui->altitude );
-	graphs.emplace_back( ui->gps );
+	// graphs.emplace_back( ui->gps );
+	graphs.emplace_back( ui->rates_dterm );
 	for ( QCustomPlot* graph : graphs ) {
 		graph->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
 		graph->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
@@ -362,6 +363,7 @@ void MainWindow::updateData()
 		plot( ui->rates, mController->ratesHistory(), mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ );
 		plot( ui->accelerometer, mController->accelerationHistory(), mDataTaccelerometer, mDataAccelerometerX, mDataAccelerometerY, mDataAccelerometerZ );
 		plot( ui->magnetometer, mController->magnetometerHistory(), mDataTmagnetometer, mDataMagnetometerX, mDataMagnetometerY, mDataMagnetometerZ );
+		plot( ui->rates_dterm, mController->ratesDerivativeHistory(), mDataTratesdterm, mDataRatesdtermX, mDataRatesdtermY, mDataRatesdtermZ );
 
 /*
 		ui->altitude->graph(0)->setData( mDataT, mDataAltitude );

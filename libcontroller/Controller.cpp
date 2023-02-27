@@ -663,6 +663,20 @@ bool Controller::RxRun()
 				mHistoryMutex.unlock();
 				break;
 			}
+			case GYRO_DTERM : {
+				vec4 rates_dterm;
+				rates_dterm.x = telemetry.ReadFloat();
+				rates_dterm.y = telemetry.ReadFloat();
+				rates_dterm.z = telemetry.ReadFloat();
+				rates_dterm.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
+				mRatesDerivativeHistory.emplace_back( rates_dterm );
+				if ( mRatesDerivativeHistory.size() > 256 ) {
+					mRatesDerivativeHistory.pop_front();
+				}
+				mHistoryMutex.unlock();
+				break;
+			}
 			case ACCEL : {
 				vec4 accel;
 				accel.x = telemetry.ReadFloat();
@@ -1540,6 +1554,17 @@ list< vec4 > Controller::ratesHistory()
 	mHistoryMutex.unlock();
 	return ret;
 }
+
+
+list< vec4 > Controller::ratesDerivativeHistory()
+{
+	mHistoryMutex.lock();
+	list< vec4 > ret = mRatesDerivativeHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
 list< vec4 > Controller::accelerationHistory()
 {
 	mHistoryMutex.lock();

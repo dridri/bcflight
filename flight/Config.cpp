@@ -280,7 +280,7 @@ void Config::Reload()
 	gDebug() << "Reload 1 : " << _mem_usage();
 
 	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
-	LUAdostring( "function PID( p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end" );
+	LUAdostring( "PID = setmetatable( {}, { __call = function ( p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
 
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "system = { loop_time = 2000 }" );

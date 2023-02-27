@@ -39,6 +39,7 @@ Stabilizer::Stabilizer()
 	, mAltitudeControl( 0.0f )
 	, mArmed( false )
 	, mLockState( 0 )
+	, mFilteredRPYDerivative( Vector3f() )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
 	, mHorizonMaxRate( Vector3f( 300.0f, 300.0f, 300.0f ) )
@@ -64,6 +65,7 @@ Stabilizer::Stabilizer()
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
 
+	mDerivativeFilter = new PT1<Vector3f>( Vector3f(80, 80, 80) );
 
 // 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 }
@@ -272,6 +274,12 @@ const Vector3f& Stabilizer::RPY() const
 }
 
 
+const Vector3f& Stabilizer::filteredRPYDerivative() const
+{
+	return mFilteredRPYDerivative;
+}
+
+
 void Stabilizer::Reset( const float& yaw )
 {
 	mRateRollPID.Reset();
@@ -318,6 +326,10 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		return;
 	}
 
+	Vector3f rates = imu->rate();
+
+	mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
+
 // 	if ( not ctrl->armed() ) {
 	if ( not mArmed ) {
 		return;
@@ -343,7 +355,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 			Vector3f control_angles = mRPY;
 			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
-			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting
+			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting, if enabled
 			mHorizonPID.Process( control_angles, imu->RPY(), dt );
 			rate_control = mHorizonPID.state();
 			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
@@ -353,9 +365,12 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		}
 	}
 
-	mRateRollPID.Process( rate_control.x, imu->rate().x, dt );
-	mRatePitchPID.Process( rate_control.y, imu->rate().y, dt );
-	mRateYawPID.Process( rate_control.z, imu->rate().z, dt );
+	float deltaR = rate_control.x - rates.x;
+	float deltaP = rate_control.y - rates.y;
+	float deltaY = rate_control.z - rates.z;
+	mRateRollPID.Process( deltaR, deltaR, rate_control.x - mFilteredRPYDerivative.x, dt );
+	mRatePitchPID.Process( deltaP, deltaP, rate_control.y - mFilteredRPYDerivative.y, dt );
+	mRateYawPID.Process( deltaY, deltaY, rate_control.z - mFilteredRPYDerivative.z, dt );
 
 	float thrust = mThrust;
 	if ( mAltitudeHold ) {

@@ -122,19 +122,27 @@ private:
 	QVector< double > mDataR;
 	QVector< double > mDataP;
 	QVector< double > mDataY;
+
 	QVector< double > mDataTrates;
 	QVector< double > mDataRatesX;
 	QVector< double > mDataRatesY;
 	QVector< double > mDataRatesZ;
+
 	QVector< double > mDataTmagnetometer;
 	QVector< double > mDataMagnetometerX;
 	QVector< double > mDataMagnetometerY;
 	QVector< double > mDataMagnetometerZ;
+
 	QVector< double > mDataTaccelerometer;
 	QVector< double > mDataAccelerometerX;
 	QVector< double > mDataAccelerometerY;
 	QVector< double > mDataAccelerometerZ;
 	QVector< double > mDataAltitude;
+
+	QVector< double > mDataTratesdterm;
+	QVector< double > mDataRatesdtermX;
+	QVector< double > mDataRatesdtermY;
+	QVector< double > mDataRatesdtermZ;
 
 	bool mPIDsOk;
 	bool mPIDsReading;

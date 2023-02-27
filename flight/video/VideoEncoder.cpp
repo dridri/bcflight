@@ -3,7 +3,8 @@
 
 VideoEncoder::VideoEncoder()
 	: mRecorder( nullptr )
-	, mRecorderTrackId( -1 )
+	, mLink( nullptr )
+	, mRecorderTrackId( (uint32_t)-1 )
 {
 }
 

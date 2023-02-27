@@ -333,7 +333,17 @@ SyncReturn Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 			return 0;
 		}
 		uint32_t sendsize = sizeof( mClientSin );
-		ret = sendto( mSocket, buf, len, 0, (SOCKADDR *)&mClientSin, sendsize );
+		uint32_t pos = 0;
+		while ( pos < len and ret >= 0 ) {
+			uint32_t sz = std::min( len - pos, 65000U );
+			int r = sendto( mSocket, (uint8_t*)buf + pos, sz, 0, (SOCKADDR *)&mClientSin, sendsize );
+			if ( r < 0 ) {
+				ret = r;
+				break;
+			}
+			pos += r;
+			ret += r;
+		}
 	} else {
 		ret = send( mClientSocket, buf, len, MSG_NOSIGNAL );
 	}

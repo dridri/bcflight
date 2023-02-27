@@ -943,6 +943,13 @@ PWM::DMAChannel::~DMAChannel()
 
 void PWM::terminate( int sig )
 {
+	fDebug();
+
+	if ( mChannels.size() == 0 ) {
+		// Not needed
+		return;
+	}
+
 	size_t i, j;
 	printf( "pi-blaster::terminate( %d )\n", sig );
 
@@ -972,10 +979,6 @@ void PWM::terminate( int sig )
 
 	dprintf("Unlink %s...\n", DEVFILE_MBOX);
 	unlink(DEVFILE_MBOX);
-
-	if ( sig == 2 ) {
-		exit(0);
-	}
 }
 
 

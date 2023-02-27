@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "Lua.h"
+#include "Link.h"
 #include "Recorder.h"
 
 class VideoEncoder
@@ -15,6 +16,7 @@ public:
 
 protected:
 	LUA_PROPERTY("recorder") Recorder* mRecorder;
+	LUA_PROPERTY("link") Link* mLink;
 	uint32_t mRecorderTrackId;
 };
 

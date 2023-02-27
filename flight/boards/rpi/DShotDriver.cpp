@@ -173,6 +173,7 @@ DShotDriver::~DShotDriver()
 
 void DShotDriver::Kill() noexcept
 {
+	fDebug();
 	sKilled = true;
 	memset( mDRMBuffer, 0, mDRMPitch * mDRMHeight );
 }
