@@ -70,3 +70,47 @@ This carrier board has the following features :
    * UART (external GPS)
    * USB
    * Video composite output (can be directly connected to any FPV drone VTX)
+
+## Dependency installation
+For cmake to run properly, the below dependecies should be installed first. Below commands are working for Ubuntu 22.04 LTS.
+
+1. **Qt**: 
+  * `sudo apt-get install qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools`
+2. **nasm**:
+  * `sudo apt install nasm`
+3. **QScintilla**: Download source from [HERE](https://riverbankcomputing.com/software/qscintilla/download). Then run:
+  * `tar -xzf  QScintilla_src-2.13.4.tar.gz`
+  * `cd QScintilla_src-2.13.4/src`
+  * `qmake`
+  * `make`
+  * `make install`
+4. **MP4V2**: repo located [HERE](https://github.com/enzo1982/mp4v2)
+  * `git clone https://github.com/enzo1982/mp4v2.git`
+  * `cd mp4v2`
+  * `cmake . && make`
+  * `make install`
+5. **shine**: repo located [HERE](https://github.com/toots/shine)
+  * `git clone https://github.com/toots/shine`
+  * `cd shine`
+  * `autoreconf --install --force`
+  * `automake`
+  * `./configure`
+  * `make`
+  * `make install`
+
+## Dependency installation
+For download, building, installation, and running of the server controller, `controller_pc`, run:
+  * `git clone https://github.com/dridri/bcflight.git`
+  * `cd bcflight/controller_pc`
+  * `cmake -DCMAKE_BUILD_TYPE=Release -S . -B build`
+  * `cd build`
+  * `make -j4`
+  * `./controller_pc`
+
+🎉
+
+<img width="1024px" style="max-width: 100%" alt="Camera view in the Controller PC GUI window" src="misc/controller_pc_camera.png"/>
+<br />
+<img width="1024px" style="max-width: 100%" alt="Sensors view in the Controller PC GUI window" src="misc/controller_pc_sensors.png"/>
+<br />
+<img width="1024px" style="max-width: 100%" alt="Controllers view in the Controller PC GUI window" src="misc/controller_pc_controls.png"/>

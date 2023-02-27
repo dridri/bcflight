@@ -32,7 +32,7 @@
 
 #include <Link.h>
 extern "C" {
-#include <codec_api.h>
+#include "../../external/openh264-master/codec/api/wels/codec_api.h"
 }
 
 class MainWindow;
