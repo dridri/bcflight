@@ -98,7 +98,7 @@ For cmake to run properly, the below dependecies should be installed first. Belo
   * `make`
   * `make install`
 
-## Dependency installation
+## Building `controller_pc`
 For download, building, installation, and running of the server controller, `controller_pc`, run:
   * `git clone https://github.com/dridri/bcflight.git`
   * `cd bcflight/controller_pc`
