@@ -1,0 +1,44 @@
+/dts-v1/;
+/plugin/;
+
+/{
+	compatible = "brcm,bcm2835";
+
+	// There is no DPI driver module, but we need a platform device
+	// node (that doesn't already use pinctrl) to hang the pinctrl
+	// reference on - leds will do
+
+	fragment@0 {
+		target = <&fb>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&dpi4_pins>;
+		};
+	};
+
+	fragment@1 {
+		target = <&vc4>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&dpi4_pins>;
+		};
+	};
+
+	fragment@2 {
+		target = <&gpio>;
+		__overlay__ {
+			dpi4_pins: dpi4_pins {
+				brcm,pins = <4 5 6 7>;
+				brcm,function = <6>; /* alt2 */
+				brcm,pull = <0>; /* no pull */
+			};
+		};
+	};
+
+	__overrides__ {
+		gpio_pin_0 = <&dpi4_pins>,"brcm,pins.0";
+		gpio_pin_1 = <&dpi4_pins>,"brcm,pins.1";
+		gpio_pin_2 = <&dpi4_pins>,"brcm,pins.2";
+		gpio_pin_3 = <&dpi4_pins>,"brcm,pins.3";
+	};
+};
