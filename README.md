@@ -132,5 +132,5 @@ Currently only Raspberry Pi boards are supported, the 4'th variants are the reco
  * `make -j$(nproc)`
  
 This will produce two files : `flight_unstripped` which contains all debugging symbols, and `flight` which is a lightweight regular executable.
- * `flight_unstripped` can be run via gdb, or Valgrind using [flight/valgrind.sh](./blob/master/flight/valgrind.sh)
+ * `flight_unstripped` can be run via gdb, or Valgrind using [flight/valgrind.sh](./flight/valgrind.sh)
  * `flight` is intended to be used on final product
