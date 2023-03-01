@@ -114,3 +114,19 @@ For download, building, installation, and running of the server controller, `con
 <img width="1024px" style="max-width: 100%" alt="Sensors view in the Controller PC GUI window" src="misc/controller_pc_sensors.png"/>
 <br />
 <img width="1024px" style="max-width: 100%" alt="Controllers view in the Controller PC GUI window" src="misc/controller_pc_controls.png"/>
+
+
+## Building `flight`
+Currently only Raspberry Pi boards are supported, the 4'th variants are the recommended ones.
+
+1. Install dependencies
+ * `sudo apt update`
+ * `sudo apt install git cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libcamera-dev libgles2-mesa-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev`
+
+2. Build
+ * `git clone https://github.com/dridri/bcflight`
+ * `cd bcflight/flight`
+ * `mkdir build`
+ * `cd build`
+ * `cmake -Dboard=rpi -Ddebug=1 ..`
+ * `make -j$(nproc)`<br/>This will produce two files : `flight_unstripped` which contains all debugging symbols, and `flight` which is a lightweight regular executable
