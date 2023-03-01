@@ -9,10 +9,11 @@ Open-source Linux-based Raspberry drone and ground controller.
  * Supports SPI and I²C [sensors](#supported-sensors)
  * LUA-based configuration, with fully configurable event-handling and user code execution
  * Homemade communication protocol over Wifi & FSK/LoRa radio, also supports S-BUS with limited functionnality
- * <4ms controls latency
- * <=50ms video latency (over composite output to 5GHz VTX module)
+ * ~5ms controls latency
+ * ~50ms video latency over composite output to 5GHz VTX module
+ * ~100ms video latency over Ethernet / WiFi / RawWifi
  * Live camera view over HDMI / Composite output with On-Screen Display (showing telemetry, battery status, fly speed, acceleration...)
- * Multiple camera recording in MKV file format
+ * Supports multiple cameras recording in MKV file format (for a total max throughput of ~120 MPix/s without overclock)
  * Supports [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
  
 ## Supported sensors
@@ -35,7 +36,7 @@ Open-source Linux-based Raspberry drone and ground controller.
 
 ## Supported communication systems
  * standard TCP/UDP/IP over ethernet / wifi
- * raw wifi (based on [wifibroadcast](https://github.com/rodizio1/EZ-WifiBroadcast))
+ * raw wifi (based on [wifibroadcast](https://github.com/befinitiv/wifibroadcast))
  * Nordic Semiconductor nRF24L01
  * Semtech SX1276/77/78/79 FSK/LoRa / RFM95W
  * SBUS (limited functionnality)
