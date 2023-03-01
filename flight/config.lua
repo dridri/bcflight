@@ -69,7 +69,7 @@ stabilizer = Stabilizer {
 	pid_pitch = PID( 46, 70, 40 ),
 	pid_yaw = PID( 45, 90, 2 ),
 	horizon_angles = Vector( 20.0, 20.0 ), -- max inclination degrees
-	pid_horizon = PID( 5.0, 0.0, 0.0 )
+	pid_horizon = PID( 150, 0, 0 )
 }
 
 

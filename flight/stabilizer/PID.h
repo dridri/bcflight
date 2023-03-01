@@ -76,12 +76,6 @@ public:
 		T proportional = deltaP;
 		mIntegral += deltaI * dt;
 		T derivative = ( deltaD - mLastDerivativeError ) / dt;
-
-/*
-		T proportional = deltaP * dt;
-		mIntegral += deltaI * dt * dt;
-		T derivative = ( deltaD - mLastDerivativeError ); // * dt / dt;
-*/
 		T output = proportional * mkPID[0] + mIntegral * mkPID[1] + derivative * mkPID[2];
 
 		mLastDerivativeError = deltaD;
