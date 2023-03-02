@@ -2,43 +2,25 @@
 #define LINUXGPS_H
 
 #if ( defined( BOARD_rpi ) )
-/*
 
-#include "GPS.h"
 #include <gps.h>
+#include "GPS.h"
+#include "Lua.h"
 
-class LinuxGPS : public GPS
+LUA_CLASS class LinuxGPS : public GPS
 {
 public:
-	LinuxGPS();
+	LUA_EXPORT LinuxGPS();
 	~LinuxGPS();
 
 	virtual void Calibrate( float dt, bool last_pass );
-	virtual void Read( float* lattitude, float* longitude, float* altitude, float* speed );
-
-	static Sensor* Instanciate( Config* config, const string& object );
-	static int flight_register( Main* main );
+	virtual void Read( float* latitude, float* longitude, float* altitude, float* speed );
 
 protected:
 	struct gps_data_t* mGpsData;
 };
 
 
-*/
-
-class Main;
-class LinuxGPS
-{
-public:
-	static int flight_register( Main* main ) { return 0; }
-};
-
-#else
-
-class LinuxGPS {
-public:
-	static int flight_register( Main* main ) { return 0; }
-};
 
 #endif // BOARD_rpi
 

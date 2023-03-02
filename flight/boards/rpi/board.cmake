@@ -11,6 +11,16 @@ set( TARGET_LINUX 1 )
 set( TARGET_CPU_BITS 32 )
 
 find_package( Threads REQUIRED )
+find_package( GPS REQUIRED )
+find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC )
+
+if ( GPS_FOUND )
+	set( BOARD_LIBS ${BOARD_LIBS} ${GPS_LIBRARIES} )
+endif()
+if ( FFmpeg_FOUND )
+	set( BOARD_LIBS ${BOARD_LIBS} ${FFMPEG_LIBRARIES} )
+endif()
+
 SET( CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE" )
 SET( CMAKE_REQUIRED_LIBRARIES "pthread" )
 add_definitions( -DHAVE_PTHREAD_GETNAME_NP )
@@ -22,7 +32,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--unresolved-symbols=ignore-in-shared-li
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_C_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbols=ignore-in-shared-libs -I/opt/vc/include/ -I/opt/vc/include/interface/vmcs_host -I/opt/vc/include/interface/vmcs_host/khronos -I/opt/vc/include/interface/vmcs_host/khronos -I/opt/vc/include/interface/khronos/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -L/opt/vc/lib/ -Wl,-rpath=/opt/vc/lib")
 set(CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbols=ignore-in-shared-libs -L/opt/vc/lib/ -Wl,-rpath=/opt/vc/lib")
 set(CMAKE_LINKER_FLAGS "${CMAKE_LD_FLAGS}")
-set( BOARD_LIBS -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lrt -lpthread -ldl -lz -ldrm ) #  -lpigpio
+set( BOARD_LIBS ${BOARD_LIBS} -lwiringPi -lbcm_host -lvcos -lvchiq_arm -lrt -lpthread -ldl -lz -ldrm ) #  -lpigpio
 # set( BOARD_LIBS ${BOARD_LIBS} -lavformat -lavcodec -lavutil )
 
 if ( BUILD_audio )

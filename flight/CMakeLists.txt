@@ -9,7 +9,6 @@ execute_process( COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE GIT_HASH OUT
 execute_process( COMMAND getconf LONG_BIT OUTPUT_VARIABLE HOST_CPU_BITS OUTPUT_STRIP_TRAILING_WHITESPACE )
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/../CMakeModules)
-message(WARNING ${CMAKE_MODULE_PATH})
 
 SET( board "rpi" CACHE STRING "board" )
 SET( variant "" CACHE STRING "variant" )
@@ -131,11 +130,6 @@ else()
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s -Os" )
 	set( CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -s -Os" )
 	set( CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -s -Os" )
-endif()
-
-find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC )
-if ( FFmpeg_FOUND )
-	set( LIBS ${LIBS} ${FFMPEG_LIBRARIES} )
 endif()
 
 include_directories( ${CMAKE_BINARY_DIR} )
