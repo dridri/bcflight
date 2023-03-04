@@ -21,7 +21,7 @@ New sensor drivers must inherit from one of the following classes :
 These sensors are used for attitude computation. Each attitude sensor must return a 3-axis vector from its ::Read() function, if the sensor has only 1 or 2 axes, it must fill the relevant parts of the returned 3-axis vector and put the others to 0.
 
 The following virtual members must be implemented :
- * `virtual void Calibrate( float dt, bool last_pass = false )`<br/>Called several times (a few hundred times) on automatic/manual sensors calibration, `dt` is the current time in seconds, `last_pass` is set to true when this function is called for the last time. The function can be let empty if no calibration is needed.
+ * `virtual void Calibrate( float dt, bool last_pass = false )`<br/>Called several times (a few hundred times) on automatic/manual sensors calibration, `dt` is the the time in seconds since the last call to this function, `last_pass` is set to true when this function is called for the last time. The function can be let empty if no calibration is needed.
  * `virtual void Read( Vector3f* v, bool raw = false );`<br/>Called every time the IMU needs new attitude data, current values must be swapped using `axis_swap` if set and finally put to `v`. If `raw` is true, calibration offsets must be ignored and data returned as-is after axis-swap.
 
 The following virtual members can be implemented :
