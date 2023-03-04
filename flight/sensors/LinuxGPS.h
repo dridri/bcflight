@@ -14,7 +14,8 @@ public:
 	~LinuxGPS();
 
 	virtual void Calibrate( float dt, bool last_pass );
-	virtual void Read( float* latitude, float* longitude, float* altitude, float* speed );
+	virtual time_t getTime();
+	virtual bool Read( float* latitude, float* longitude, float* altitude, float* speed );
 
 protected:
 	struct gps_data_t* mGpsData;

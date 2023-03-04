@@ -19,6 +19,7 @@
 #ifndef GPS_H
 #define GPS_H
 
+#include <time.h>
 #include "Sensor.h"
 
 class GPS : public Sensor
@@ -27,7 +28,8 @@ public:
 	GPS();
 	~GPS();
 
-	virtual void Read( float* lattitude, float* longitude, float* altitude, float* speed ) = 0;
+	virtual time_t getTime() = 0;
+	virtual bool Read( float* latitude, float* longitude, float* altitude, float* speed ) = 0;
 };
 
 #endif // GPS_H

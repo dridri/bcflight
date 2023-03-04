@@ -38,7 +38,17 @@ void LinuxGPS::Calibrate( float dt, bool last_pass )
 }
 
 
-void LinuxGPS::Read( float* latitude, float* longitude, float* altitude, float* speed )
+time_t LinuxGPS::getTime()
+{
+	// Read must be called to update this value
+	if ( mGpsData and mGpsData->set & MODE_SET and mGpsData->fix.mode >= MODE_NO_FIX ) {
+		return mGpsData->fix.time.tv_sec;
+	}
+	return 0;
+}
+
+
+bool LinuxGPS::Read( float* latitude, float* longitude, float* altitude, float* speed )
 {
 	int rc = 0;
 	if ( mGpsData and gps_waiting( mGpsData, 0 ) ) {
@@ -55,13 +65,14 @@ void LinuxGPS::Read( float* latitude, float* longitude, float* altitude, float* 
 					*longitude = mGpsData->fix.longitude;
 					*altitude = mGpsData->fix.altitude;
 					*speed = mGpsData->fix.speed;
-					
+					return true;
 				} else {
 					gDebug() << "no GPS data available";
 				}
 			}
 		}
 	}
+	return false;
 }
 
 #endif // BOARD_rpi
