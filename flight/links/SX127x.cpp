@@ -744,7 +744,7 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 {
 	bool timedout = false;
 	uint64_t started_waiting_at = TICKS;
-	if ( timeout == 0 ) {
+	if ( timeout <= 0 ) {
 		timeout = mReadTimeout;
 	}
 

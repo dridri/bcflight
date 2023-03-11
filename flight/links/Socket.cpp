@@ -283,7 +283,7 @@ SyncReturn Socket::Read( void* buf, uint32_t len, int timeout )
 	memset( buf, 0, len );
 
 	// If timeout is not set, default it to mTimeout
-	if ( timeout < 0 ) {
+	if ( timeout <= 0 ) {
 		timeout = mTimeout;
 	}
 
