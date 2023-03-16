@@ -10,7 +10,7 @@
 #include <GPIO.h>
 #include <SPI.h>
 #ifdef BOARD_rpi
-#include <wiringPi.h>
+#include <pigpio.h>
 #endif
 
 #define TICKS Thread::GetTick()
@@ -186,7 +186,7 @@ SX127x::SX127x( const SX127x::Config& config )
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
 #ifdef BOARD_rpi
-	wiringPiSetupGpio();
+	gpioInitialise();
 #endif
 
 	// Setup SPI and GPIO

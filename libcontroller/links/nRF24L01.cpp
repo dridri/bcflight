@@ -21,7 +21,7 @@
 #include <string.h>
 
 #ifdef BOARD_rpi
-#include <wiringPi.h>
+#include <pigpio.h>
 #include <GPIO.h>
 #endif
 
@@ -69,8 +69,8 @@ int nRF24L01::Connect()
 
 	mRadio = new nRF24::RF24( mCEPin, mCSPin, BCM2835_SPI_SPEED_8MHZ );
 #ifdef BOARD_rpi
-	wiringPiSetupGpio();
-	mRadio->setGPIOFunctions( [](int pin, int value){ digitalWrite( pin, value ); }, [](int pin, int mode){ pinMode( pin, mode ); } );
+	gpioInitialise();
+	mRadio->setGPIOFunctions( [](int pin, int value){ gpioWrite( pin, value ); }, [](int pin, int mode){ gpioSetMode( pin, mode ); } );
 	if ( mIRQPin >= 0 ) {
 		GPIO::SetupInterrupt( mIRQPin, GPIO::Falling, [this](){ this->Interrupt(); } );
 	}
