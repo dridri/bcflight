@@ -5,9 +5,10 @@
 
 #include <stdint.h>
 #include <Thread.h>
-#include <GLContext.h>
 #include <RendererHUD.h>
 #include <map>
+
+class GLContext;
 
 LUA_CLASS class HUD : public Thread
 {

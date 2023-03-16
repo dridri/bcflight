@@ -4,6 +4,7 @@
 #include <RendererHUDNeo.h>
 #include "Camera.h"
 #include "HUD.h"
+#include <GLContext.h>
 #include <Stabilizer.h>
 #include <IMU.h>
 #include <Link.h>
