@@ -50,7 +50,7 @@ include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libcamera )
 include_directories( /opt/vc/include )
 
 #if ( "${rawwifi}" MATCHES 1 )
-	set( BOARD_LIBS ${BOARD_LIBS} -liw -lcamera -lcamera-base )
+	set( BOARD_LIBS ${BOARD_LIBS} -liw -lcamera -lcamera-base -lgps )
 #endif()
 
 

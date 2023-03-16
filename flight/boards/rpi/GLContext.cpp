@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "Debug.h"
 #include "GLContext.h"
-#include <vc_dispmanx_types.h>
+// #include <vc_dispmanx_types.h>
 #include <bcm_host.h>
 #include <fcntl.h>
 
@@ -186,7 +186,7 @@ EGLConfig GLContext::getDisplay()
 	mGbmDevice = gbm_create_device( DRM::drmFd() );
 	mGbmSurface = gbm_surface_create( mGbmDevice, mRenderSurface->mode()->hdisplay, mRenderSurface->mode()->vdisplay, GBM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING );
 
-	return eglGetDisplay( mGbmDevice );
+	return eglGetDisplay( reinterpret_cast<EGLNativeDisplayType>(mGbmDevice) );
 }
 
 
@@ -248,7 +248,7 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 		EGL_RENDER_BUFFER, EGL_BACK_BUFFER/* + 1 => disable double-buffer*/,
 		EGL_NONE,
 	};
-	mEGLSurface = eglCreateWindowSurface( mEGLDisplay, mEGLConfig, mGbmSurface, egl_surface_attribs );
+	mEGLSurface = eglCreateWindowSurface( mEGLDisplay, mEGLConfig, reinterpret_cast<EGLNativeWindowType>(mGbmSurface), egl_surface_attribs );
 	eglQuerySurface( mEGLDisplay, mEGLSurface, EGL_WIDTH, (EGLint*)&mWidth );
 	eglQuerySurface( mEGLDisplay, mEGLSurface, EGL_HEIGHT, (EGLint*)&mHeight );
 	eglMakeCurrent( mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext );

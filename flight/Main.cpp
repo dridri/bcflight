@@ -49,7 +49,6 @@
 #include <HUD.h>
 #ifdef BUILD_SOCKET
 	#include <Socket.h>
-#include <LinuxCamera.h>
 #endif
 #ifdef BUILD_RAWWIFI
 	#include <RawWifi.h>
