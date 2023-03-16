@@ -45,7 +45,8 @@ extern "C" {
 #include <interface/vchiq_arm/vchiq_if.h>
 };
 
-#include <wiringPi.h>
+// #include <wiringPi.h>
+#include <pigpio.h>
 #include <fstream>
 #include <Main.h>
 #include "Board.h"
@@ -56,7 +57,7 @@ extern "C" {
 
 extern "C" void bcm_host_init( void );
 extern "C" void bcm_host_deinit( void );
-extern "C" void OMX_Init();
+// extern "C" void OMX_Init();
 
 uint64_t Board::mTicksBase = 0;
 uint64_t Board::mLastWorkJiffies = 0;
@@ -80,13 +81,14 @@ Board::Board( Main* main )
 {
 	bcm_host_init();
 #ifdef CAMERA
-	OMX_Init();
+	// OMX_Init();
 #endif
 	vc_gencmd_init();
 // 	VCOSInit();
 
-	wiringPiSetup();
-	wiringPiSetupGpio();
+	// wiringPiSetup();
+	// wiringPiSetupGpio();
+	gpioInitialise();
 
 	system( "modprobe i2c-dev" );
 	system( "mount -o remount,rw /var" );
@@ -162,7 +164,7 @@ void Board::SegFaultHandler( int sig )
 	}
 
 	if ( thread and thread->name() == "stabilizer" ) {
-		DShotDriver* d = DShotDriver::instance();
+		DShotDriver* d = DShotDriver::instance( false );
 		if ( d ) {
 			d->Kill();
 		}

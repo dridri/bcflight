@@ -25,7 +25,7 @@
 #include <OneShot42.h>
 #include <OneShot125.h>
 #include <GPIO.h>
-#include <wiringPi.h>
+// #include <wiringPi.h>
 #include <SPI.h>
 #include <ICM4xxxx.h>
 #include <Gyroscope.h>
@@ -420,8 +420,8 @@ protected:
 int main( int ac, char** av )
 {
 	Debug::setDebugLevel( Debug::Verbose );
-	wiringPiSetup();
-	wiringPiSetupGpio();
+	// wiringPiSetup();
+	// wiringPiSetupGpio();
 /*
 		DShot* m = new DShot(5);
 		m->Disarm();

@@ -164,7 +164,7 @@ end
 
 
 if true and board.type == "rpi" then
-	main_recorder = RecorderAvFormat {
+	main_recorder = RecorderAvformat {
 		base_directory = "/var/VIDEO/"
 	}
 

@@ -17,7 +17,7 @@
 **/
 
 #include <unistd.h>
-#include <wiringPi.h>
+// #include <wiringPi.h>
 #include <iostream>
 #include "Thread.h"
 #include "Board.h"

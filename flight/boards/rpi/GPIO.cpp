@@ -16,12 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include <wiringPi.h>
+#include <pigpio.h>
+// #include <wiringPi.h>
 #include <unistd.h>
 #include <sys/poll.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <softPwm.h>
+// #include <softPwm.h>
 #include <Debug.h>
 #include "GPIO.h"
 
@@ -31,35 +32,36 @@ map< int, GPIO::ISR* > GPIO::mThreads;
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
 	if ( mode == Output ) {
-		pinMode( pin, OUTPUT );
+		gpioSetMode( pin, PI_OUTPUT );
 	} else {
-		pinMode( pin, INPUT );
+		gpioSetMode( pin, PI_INPUT );
 	}
 }
 
 
 void GPIO::setPUD( int pin, PUDMode mode )
 {
-	pullUpDnControl( pin, mode );
+	gpioSetPullUpDown( pin, mode );
 }
 
 
 void GPIO::setPWM( int pin, int initialValue, int pwmRange )
 {
-	setMode( pin, Output );
-	softPwmCreate( pin, initialValue, pwmRange );
+	// TODO : switch from wiringPi to pigpio
+	// setMode( pin, Output );
+	// softPwmCreate( pin, initialValue, pwmRange );
 }
 
 
 void GPIO::Write( int pin, bool en )
 {
-	digitalWrite( pin, en );
+	gpioWrite( pin, en );
 }
 
 
 bool GPIO::Read( int pin )
 {
-	return digitalRead( pin );
+	return gpioRead( pin );
 }
 
 

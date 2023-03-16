@@ -253,7 +253,6 @@ Matrix operator+( const Matrix& m1, const Matrix& m2 )
 	for ( int j = 0, j1 = 0, j2 = 0; j < h; j++, j1 += m1.width(), j2 += m2.width() ) {
 		for ( int i = 0; i < w; i++ ) {
 			ret.m[ j * w + i ] = m1.m[ j * m1.width() + i ] + m2.m[ j * m2.width() + i ];
-// 			ret.m[ j * w + i ] = m1.m[ j1 + i ] + m2.m[ j2 + i ];
 		}
 	}
 
@@ -277,20 +276,72 @@ Matrix operator-( const Matrix& m1, const Matrix& m2 )
 	return ret;
 }
 
+/*
+#if ( defined(__ARM_FP) && defined(__ARM_NEON) )
+#include <arm_neon.h>
+void matrix_multiply_4x4_neon( float32_t* C, float32_t* A, float32_t* B ) {
+	float32x4_t A0, A1, A2, A3;
+	float32x4_t B0, B1, B2, B3;
+	float32x4_t C0, C1, C2, C3;
+
+	A0 = vld1q_f32( A );
+	A1 = vld1q_f32( A + 4 );
+	A2 = vld1q_f32( A + 8 );
+	A3 = vld1q_f32( A + 12 );
+
+	B0 = vld1q_f32( B );
+	B1 = vld1q_f32( B + 4 );
+	B2 = vld1q_f32( B + 8 );
+	B3 = vld1q_f32( B + 12 );
+
+	C0 = vmovq_n_f32( 0 );
+	C1 = vmovq_n_f32( 0 );
+	C2 = vmovq_n_f32( 0 );
+	C3 = vmovq_n_f32( 0 );
+
+	C0 = vfmaq_laneq_f32( C0, A0, B0, 0 );
+	C0 = vfmaq_laneq_f32( C0, A1, B0, 1 );
+	C0 = vfmaq_laneq_f32( C0, A2, B0, 2 );
+	C0 = vfmaq_laneq_f32( C0, A3, B0, 3 );
+	vst1q_f32(C, C0 );
+
+	C1 = vfmaq_laneq_f32( C1, A0, B1, 0 );
+	C1 = vfmaq_laneq_f32( C1, A1, B1, 1 );
+	C1 = vfmaq_laneq_f32( C1, A2, B1, 2 );
+	C1 = vfmaq_laneq_f32( C1, A3, B1, 3 );
+	vst1q_f32( C + 4, C1 );
+
+	C2 = vfmaq_laneq_f32( C2, A0, B2, 0 );
+	C2 = vfmaq_laneq_f32( C2, A1, B2, 1 );
+	C2 = vfmaq_laneq_f32( C2, A2, B2, 2 );
+	C2 = vfmaq_laneq_f32( C2, A3, B2, 3 );
+	vst1q_f32( C + 8, C2 );
+
+	C3 = vfmaq_laneq_f32( C3, A0, B3, 0 );
+	C3 = vfmaq_laneq_f32( C3, A1, B3, 1 );
+	C3 = vfmaq_laneq_f32( C3, A2, B3, 2 );
+	C3 = vfmaq_laneq_f32( C3, A3, B3, 3 );
+	vst1q_f32( C + 12, C3 );
+}
+#endif
+*/
 
 Matrix operator*( const Matrix& m1, const Matrix& m2 )
 {
 	Matrix ret( m2.width(), m1.height() );
 	memset( ret.data(), 0, sizeof(float) * ret.width() * ret.height() );
-
+/*
+#if ( defined(__ARM_FP) && defined(__ARM_NEON) )
+	if ( m1.width() == 4 and m1.height() == 4 and m2.width() == 4 and m2.height() == 4 ) {
+		matrix_multiply_4x4_neon( ret.data(), m1.data(), m2.data() );
+		return ret;
+	}
+#endif
+*/
 	for ( int i = 0; i < ret.height(); i++ ) {
-// 	for ( int i1 = 0, i2 = 0; i1 < ret.height(); i1 += ret.width(), i2 += m1.width() ) {
 		for ( int j = 0; j < ret.width(); j++ ) {
 			for ( int n = 0; n < m2.height(); n++ ) {
 				ret.data()[ i * ret.width() + j ] += m1.constData()[ i * m1.width() + n ] * m2.constData()[ n * m2.width() + j ];
-// 			ret.data()[ i1 + j ] = 0.0f;
-// 			for ( int n = 0, nh = 0; n < m2.height(); n++, nh += m2.width() ) {
-// 				ret.data()[ i1 + j ] += m1.constData()[ i2 + n ] * m2.constData()[ nh + j ];
 			}
 		}
 	}
@@ -306,7 +357,6 @@ Vector4f operator*( const Matrix& m, const Vector4f& vec )
 	for ( int j = 0, line = 0; j < m.height(); j++, line += m.width() ) {
 		for ( int i = 0; i < m.width(); i++ ) {
 			ret[j] += vec[i] * m.constData()[ j * m.width() + i ];
-// 			ret[j] += vec[i] * m.constData()[ line + i ];
 		}
 	}
 

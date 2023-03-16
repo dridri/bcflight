@@ -17,7 +17,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include <wiringPi.h>
+// #include <wiringPi.h>
 
 #ifdef SYSTEM_NAME_Linux
 #include <dirent.h>

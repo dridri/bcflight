@@ -73,7 +73,6 @@ DShotDriver* DShotDriver::instance( bool create_new )
 }
 
 
-
 DShotDriver::DShotDriver()
 {
 	int fd = DRM::drmFd();

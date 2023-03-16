@@ -17,7 +17,7 @@
 **/
 
 #include <unistd.h>
-#include <wiringPi.h>
+// #include <wiringPi.h>
 #include <iostream>
 #include "Thread.h"
 #include "Board.h"
@@ -111,7 +111,14 @@ void Thread::ThreadEntry()
 			mIsRunning = true;
 			if ( mSetPriority != mPriority ) {
 				mPriority = mSetPriority;
-				piHiPri( mPriority );
+				struct sched_param sched;
+				memset( &sched, 0, sizeof(sched) );
+				if ( mPriority > sched_get_priority_max( SCHED_RR ) ) {
+					sched.sched_priority = sched_get_priority_max( SCHED_RR );
+				} else {
+					sched.sched_priority = mPriority;
+				}
+				sched_setscheduler( 0, SCHED_RR, &sched );
 			}
 			if ( mSetAffinity >= 0 and mSetAffinity != mAffinity ) {
 				mAffinity = mSetAffinity;
