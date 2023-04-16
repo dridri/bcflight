@@ -72,40 +72,52 @@ This carrier board has the following features :
    * USB
    * Video composite output (can be directly connected to any FPV drone VTX)
 
-## Dependency installation
-For cmake to run properly, the below dependecies should be installed first. Below commands are working for Ubuntu 22.04 LTS.
-
-1. **Qt**: 
-  * `sudo apt-get install qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools`
-2. **nasm**:
-  * `sudo apt install nasm`
-3. **QScintilla**: Download source from [HERE](https://riverbankcomputing.com/software/qscintilla/download). Then run:
-  * `tar -xzf  QScintilla_src-2.13.4.tar.gz`
-  * `cd QScintilla_src-2.13.4/src`
-  * `qmake`
-  * `make`
-  * `make install`
-4. **MP4V2**: repo located [HERE](https://github.com/enzo1982/mp4v2)
-  * `git clone https://github.com/enzo1982/mp4v2.git`
-  * `cd mp4v2`
-  * `cmake . && make`
-  * `make install`
-5. **shine**: repo located [HERE](https://github.com/toots/shine)
-  * `git clone https://github.com/toots/shine`
-  * `cd shine`
-  * `autoreconf --install --force`
-  * `automake`
-  * `./configure`
-  * `make`
-  * `make install`
-
 ## Building `controller_pc`
-For download, building, installation, and running of the server controller, `controller_pc`, run:
+For cmake to run properly, the below dependecies should be installed first. Below commands are working for: ***Distro***: Ubuntu 22.04.2 LTS (Jammy Jellyfish), ***Kernel***: 5.15.0-69-lowlatency x86_64, ***bits***: 64, ***Desktop***: Xfce 4.16.0 
+1. **Install dependencies**
+
+  * *Qt:*
+    * `sudo apt-get install qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev`
+
+  * *nasm:*
+    * `sudo apt install nasm`
+
+  * *QScintilla:*
+    * `sudo apt install libqscintilla2-qt5-dev`
+    * If that doesn't work, try building source from [HERE](https://riverbankcomputing.com/software/qscintilla/download), by running:
+      * `tar -xzf  QScintilla_src-2.13.4.tar.gz`
+      * `cd QScintilla_src-2.13.4/src`
+      * `qmake`
+      * `make`
+      * `make install`
+
+  * *MP4V2:* repo located [HERE](https://github.com/enzo1982/mp4v2)
+    * `git clone https://github.com/enzo1982/mp4v2.git`
+    * `cd mp4v2`
+    * `cmake . && make`
+    * `make install`
+
+  * *shine:* repo located [HERE](https://github.com/toots/shine)
+    * `git clone https://github.com/toots/shine`
+    * `cd shine`
+    * `autoreconf --install --force`
+    * `automake`
+    * `./configure`
+    * `make`
+    * `make install`
+
+  * *PF_RING:* Download latest release [HERE](https://github.com/ntop/PF_RING/releases)
+    * `tar -xzf PF_RING-8.4.0.tar.gz`
+    * `cd PF_RING-8.4.0/`
+    * `make`
+    * `make install`
+
+2. **Build**
   * `git clone https://github.com/dridri/bcflight.git`
   * `cd bcflight/controller_pc`
   * `cmake -DCMAKE_BUILD_TYPE=Release -S . -B build`
   * `cd build`
-  * `make -j4`
+  * `make -j$(nproc)`
   * `./controller_pc`
 
 🎉
@@ -118,20 +130,19 @@ For download, building, installation, and running of the server controller, `con
 
 
 ## Building `flight`
-Currently only Raspberry Pi boards are supported, the 4'th variants are the recommended ones.
+Currently only Raspberry Pi boards are supported, the 4'th variants are the recommended ones. Below commands are working for: ***Distro***: Raspbian GNU/Linux 11 (bullseye), ***Kernel***: 6.1.21-v7l+ armv7l, ***bits***: 32
 
-1. Install dependencies
- * `sudo apt update`
- * `sudo apt install git cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3`
+1. **Install dependencies**
+  * `sudo apt update`
+  * `sudo apt install git cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3`
 
-2. Build
- * `git clone https://github.com/dridri/bcflight`
- * `cd bcflight/flight`
- * `mkdir build`
- * `cd build`
- * `cmake -Dboard=rpi -Ddebug=1 ..`
- * `make -j$(nproc)`
+2. **Build**
+  * `git clone https://github.com/dridri/bcflight`
+  * `cd bcflight/flight`
+  * `cmake -Dboard=rpi -Ddebug=1 -S . -B build`
+  * `cd build`
+  * `make -j$(nproc)`
  
 This will produce two files : `flight_unstripped` which contains all debugging symbols, and `flight` which is a lightweight regular executable.
- * `flight_unstripped` can be run via gdb, or Valgrind using [flight/valgrind.sh](./flight/valgrind.sh)
- * `flight` is intended to be used on final product
+  * `flight_unstripped` can be run via gdb, or Valgrind using [flight/valgrind.sh](./flight/valgrind.sh)
+  * `flight` is intended to be used on final product
