@@ -106,7 +106,7 @@ For cmake to run properly, the below dependecies should be installed first. Belo
     * `make`
     * `make install`
 
-  * *PF_RING:* Download latest release [HERE](https://github.com/ntop/PF_RING/  releases)
+  * *PF_RING:* Download latest release [HERE](https://github.com/ntop/PF_RING/releases)
     * `tar -xzf PF_RING-8.4.0.tar.gz`
     * `cd PF_RING-8.4.0/`
     * `make`
