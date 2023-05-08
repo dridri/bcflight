@@ -76,11 +76,7 @@ This carrier board has the following features :
 For cmake to run properly, the below dependecies should be installed first. Below commands are working for: ***Distro***: Ubuntu 22.04.2 LTS (Jammy Jellyfish), ***Kernel***: 5.15.0-69-lowlatency x86_64, ***bits***: 64, ***Desktop***: Xfce 4.16.0 
 1. **Install dependencies**
 
-  * *Qt:*
-    * `sudo apt-get install qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev`
-
-  * *nasm:*
-    * `sudo apt install nasm`
+  * `sudo apt-get install nasm qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev`
 
   * *QScintilla:*
     * `sudo apt install libqscintilla2-qt5-dev`
