@@ -258,6 +258,7 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 	if ( not mSigHandlerOk ) {
 		mSigHandlerOk = true;
 // 		static int sig_list[] = { 2, 3, 4, 5, 6, 7, 8, 9, 11, 15, 16, 19, 20 };
+		/*
 		static int sig_list[] = { 2 };
 		uint32_t i;
 		for ( i = 0; i < sizeof(sig_list)/sizeof(int); i++ ) {
@@ -266,6 +267,7 @@ PWM::PWM( uint32_t pin, uint32_t time_base, uint32_t period_time, uint32_t sampl
 			sa.sa_handler = &PWM::terminate;
 			sigaction( sig_list[i], &sa, NULL );
 		}
+		*/
 	}
 
 	if ( sTruePWM ) {

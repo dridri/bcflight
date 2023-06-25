@@ -67,7 +67,7 @@ public:
 	const Vector3f position() const;
 	const float altitude() const;
 
-	void Recalibrate();
+	LUA_EXPORT void Recalibrate();
 	void RecalibrateAll();
 	void ResetRPY();
 	void ResetYaw();

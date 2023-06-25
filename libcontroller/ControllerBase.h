@@ -26,7 +26,7 @@
 #include <Link.h>
 
 #define LUA_EXPORT
-#define LUA_PROPERTY(x)
+#define LUA_PROPERTY(...)
 
 using namespace STD;
 

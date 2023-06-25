@@ -24,10 +24,10 @@
 
 class Main;
 
-class BrushlessPWM : public Motor
+LUA_CLASS class BrushlessPWM : public Motor
 {
 public:
-	BrushlessPWM( uint32_t pin, int us_min = 1060, int us_max = 1860 );
+	LUA_EXPORT BrushlessPWM( uint32_t pin, int us_min = 1060, int us_max = 1860 );
 	~BrushlessPWM();
 
 	void Disarm();

@@ -35,7 +35,7 @@ public:
 	void Reload();
 	void Apply();
 	void Save();
-	void Execute( const string& code );
+	void Execute( const string& code, bool silent = false );
 
 	string String( const string& name, const string& def = "" );
 	int Integer( const string& name, int def = 0 );

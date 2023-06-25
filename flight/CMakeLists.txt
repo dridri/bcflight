@@ -187,6 +187,7 @@ list( APPEND HEADERS ${BOARD_HEADERS_AUTO} )
 set( SOURCES
 	Main.cpp
 	Config.cpp
+	Console.cpp
 	Matrix.cpp
 	${CMAKE_BINARY_DIR}/lua_init.cpp )
 
@@ -241,9 +242,6 @@ if ( ${BUILD_audio} MATCHES 1 )
 	list( APPEND SOURCES ${AUDIO_SOURCES} )
 	list( APPEND HEADERS ${AUDIO_HEADERS} )
 endif()
-
-# set_source_files_properties( ${CMAKE_BINARY_DIR}/flight_register.cpp PROPERTIES GENERATED TRUE )
-# add_custom_target( flight_register COMMAND ${CMAKE_SOURCE_DIR}/../tools/startup_gen.py ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/flight_register.cpp )
 
 set_source_files_properties( ${CMAKE_BINARY_DIR}/lua_init.cpp PROPERTIES GENERATED TRUE )
 add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/lua_init.cpp DEPENDS ${CMAKE_SOURCE_DIR}/../libluacore/classes.auto.lua ${HEADERS} COMMAND ${CMAKE_SOURCE_DIR}/../libluacore/classes.auto.lua --init=lua_init --output="${CMAKE_BINARY_DIR}/lua_init.cpp" ${HEADERS} )

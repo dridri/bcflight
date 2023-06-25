@@ -17,6 +17,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <fcntl.h>
 // #include <wiringPi.h>
 
 #ifdef SYSTEM_NAME_Linux
@@ -25,6 +26,7 @@
 #include <sys/stat.h>
 #include "Main.h"
 #include "Config.h"
+#include "Console.h"
 #include "Controller.h"
 #include "Slave.h"
 #include <SPI.h>
@@ -171,6 +173,12 @@ Main::Main()
 #endif
 
 	mReady = true;
+
+	usleep( 1 * 1000 * 1000 );
+	mConsole = new Console( mConfig );
+	mConsole->Start();
+	mConsole->setPriority( 2 );
+
 	Thread::setMainPriority( 1 );
 }
 

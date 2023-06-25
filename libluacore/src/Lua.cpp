@@ -343,6 +343,11 @@ Lua::Lua( const string& load_path )
 	lua_register( mLuaState, "traceback", &Traceback );
 	lua_register( mLuaState, "call_error", &CallError );
 	lua_register( mLuaState, "crc32", &LuaCRC32 );
+	lua_register( mLuaState, "serialize", []( lua_State* L ) {
+		LuaValue v = Lua::value( L, 1 );
+		LuaValue( v.serialize() ).push( L );
+		return 1;
+	});
 
 	do_string( "package.path = \"lua/?.lua;\" .. package.path" );
 	do_string( "package.path = \"lua/?/init.lua;\" .. package.path" );

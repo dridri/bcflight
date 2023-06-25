@@ -24,6 +24,8 @@
 #include <map>
 #include <functional>
 
+#define LUA_PROPERTY(...)
+
 using namespace STD;
 
 class Config;
@@ -34,12 +36,12 @@ public:
 	Motor();
 	virtual ~Motor();
 
-	const float speed() const;
-	void setSpeed( float speed, bool force_hw_update = false );
+	LUA_PROPERTY("speed") const float speed() const;
+	LUA_PROPERTY("speed", "%1, true") void setSpeed( float speed, bool force_hw_update = false );
 	void KeepSpeed();
-	virtual void Arm() {}
-	virtual void Disarm() = 0;
-	virtual void Disable() = 0;
+	LUA_EXPORT virtual void Arm() {}
+	LUA_EXPORT virtual void Disarm() = 0;
+	LUA_EXPORT virtual void Disable() = 0;
 
 	static Motor* Instanciate( const string& name, Config* config, const string& object );
 	static void RegisterMotor( const string& name, function< Motor* ( Config*, const string& ) > instanciate );

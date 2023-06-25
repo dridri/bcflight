@@ -46,7 +46,7 @@ public:
 
 	virtual const uint32_t width() = 0;
 	virtual const uint32_t height() = 0;
-	virtual const uint32_t framerate() = 0;
+	LUA_PROPERTY("framerate") virtual const uint32_t framerate() = 0;
 	virtual const float brightness() = 0;
 	virtual const float contrast() = 0;
 	virtual const float saturation() = 0;

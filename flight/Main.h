@@ -30,6 +30,7 @@
 using namespace STD;
 
 class Config;
+class Console;
 class Slave;
 class IMU;
 class Stabilizer;
@@ -85,6 +86,7 @@ private:
 	uint32_t mLPSCounter;
 
 	Config* mConfig;
+	Console* mConsole;
 	Board* mBoard;
 	Slave* mSlave;
 	vector< Slave* > mSlaves;

@@ -642,6 +642,6 @@ protected:
 #define LUA_CLASS
 #define LUA_EXPORT
 #define LUA_MEMBER
-#define LUA_PROPERTY(x)
+#define LUA_PROPERTY(...)
 
 #endif // LUA_H

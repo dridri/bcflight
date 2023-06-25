@@ -129,6 +129,7 @@ Board::~Board()
 
 void Board::AtExit()
 {
+	PWM::terminate(0);
 }
 
 
@@ -164,18 +165,20 @@ void Board::SegFaultHandler( int sig )
 	}
 
 	if ( thread and thread->name() == "stabilizer" ) {
+		gError() << "\e[93mStabilizer crashed, watch out your heads\e[0m";
 		DShotDriver* d = DShotDriver::instance( false );
 		if ( d ) {
 			d->Kill();
 		}
 		PWM::terminate(0);
-	}
-
-	// Try to restart the thread, but not too many times
-	static uint32_t total_restarts = 0;
-	if ( thread and total_restarts < 4 ) {
-		total_restarts++;
-		thread->Recover();
+		exit(1);
+	} else {
+		// Try to restart the thread, but not too many times
+		static uint32_t total_restarts = 0;
+		if ( thread and total_restarts < 4 ) {
+			total_restarts++;
+			thread->Recover();
+		}
 	}
 
 	while ( 1 ) {

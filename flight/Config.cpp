@@ -245,9 +245,11 @@ string Config::DumpVariable( const string& name, int index, int indent )
 }
 
 
-void Config::Execute( const string& code )
+void Config::Execute( const string& code, bool silent )
 {
-	fDebug( code );
+	if ( not silent ) {
+		fDebug( code );
+	}
 	mLua->do_string( code );
 }
 
@@ -288,7 +290,7 @@ void Config::Reload()
 	if ( mFilename != "" ) {
 		int ret = mLua->do_file( mFilename );
 		if ( ret != 0 ) {
-			return;
+			exit(0);
 		}
 	}
 /*
