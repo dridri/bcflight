@@ -15,7 +15,20 @@ Open-source Linux-based Raspberry drone and ground controller.
  * Live camera view over HDMI / Composite output with On-Screen Display (showing telemetry, battery status, fly speed, acceleration...)
  * Supports multiple cameras recording in MKV file format (for a total max throughput of ~120 MPix/s without overclock)
  * Supports [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
- 
+
+## Pre-built images
+These images are generated using the [tools/image-builder/generate-flight-image.sh](./tools/image-builder/generate-flight-image.sh) script. The root filesystem is set to read-only on boot to prevent data corruption, this can be changed by running `rw` command in terminal.
+
+Root SSH is enabled by default with password `bcflight`. The `flight` binary sits in the /var/flight folder.
+
+The flight service is disabled by default, this helps to easily setup the flight controler. Once correctly working, this can be set to automatically start on boot by running `rw && systemctl enable flight`
+
+| File                             | Based on                               | DShot support                                        | Analog video output                                  |
+|----------------------------------|----------------------------------------|------------------------------------------------------|------------------------------------------------------|
+| [2023-06-25-raspbian-bcflight.img](https://bcflight.drich.fr/files/2023-06-25-raspbian-bcflight.img) | 2023-05-03-raspios-bullseye-armhf-lite | <p align="center">❌</p> | <p align="center">❌</p> |
+
+DShot and composite output can be enabled by changing /boot/config.txt and /var/flight/config.lua settings.
+
 ## Supported sensors
 #### IMUs
  * InvenSense ICM-42605
