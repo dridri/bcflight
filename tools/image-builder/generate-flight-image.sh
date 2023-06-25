@@ -147,7 +147,7 @@ rm /etc/systemd/system/dhcpcd.service.d/wait.conf
 # systemctl disable regenerate_ssh_host_keys
 
 systemctl enable ssh
-systemctl enable flight
+systemctl disable flight # systemctl enable flight
 systemctl disable userconfig
 systemctl disable fake-hwclock
 /lib/systemd/systemd-sysv-install disable resize2fs_once
@@ -160,7 +160,7 @@ echo "#!/bin/bash
 $(grep -B1000 debug_quirks2 /tmp/raspbian/bcflight/root/usr/lib/raspberrypi-sys-mods/firstboot_bak)
 mount / -o remount,rw
 sed -i 's|quiet|consoleblank=0 noswap ro nosplash fastboot vc4.fkms_max_refresh_rate=50000|g' /boot/cmdline.txt
-sed -i -r '1 ! s/([vfatex4]+\s*defaults),?r?[ow]?/\1,ro/g' /etc/fstab
+sed -i -r '1 ! s/([vfatex4]+\s*defaults)(,r[ow])?(,?)/\1,ro\3/g' /etc/fstab
 sed -i '1 ! s/defaults,ro,comment=var/defaults,rw/g' /etc/fstab
 mount / -o remount,ro
 $(grep -A1000 debug_quirks2 /tmp/raspbian/bcflight/root/usr/lib/raspberrypi-sys-mods/firstboot_bak | tail -n+2)" \
@@ -191,6 +191,8 @@ dtparam=spi=on
 dtparam=audio=off
 dtoverlay=pi3-disable-bt
 
+dtoverlay=vc4-fkms-v3d
+
 ## DShot
 #dpi_output_format=0x1C17
 #dpi_group=2
@@ -199,7 +201,6 @@ dtoverlay=pi3-disable-bt
 #enable_dpi_lcd=1
 #display_default_lcd=0
 #dtoverlay=dpi4,gpio_pin0=4,gpio_pin1=5,gpio_pin2=6,gpio_pin3=7 # Change pins accordingly to config.lua
-#dtoverlay=vc4-fkms-v3d
 
 ## HDMI output (use HDMI0 plug if DSHot DPI hack is used (because HDMI1 and DPI seem to share their pixel clock))
 framebuffer_width=1920
