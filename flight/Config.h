@@ -59,6 +59,8 @@ public:
 	string ReadFile();
 	void WriteFile( const string& content );
 
+	Lua* luaState() const;
+
 protected:
 	int LocateValue( const string& name );
 

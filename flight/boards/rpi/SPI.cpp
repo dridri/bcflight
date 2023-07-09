@@ -115,9 +115,15 @@ int SPI::Connect()
 }
 
 
-std::string SPI::toString()
+LuaValue SPI::infos()
 {
-	return mDevice;
+	LuaValue ret;
+
+	ret["Type"] = "SPI";
+	ret["Device"] = mDevice;
+	ret["Bitrate"] = to_string(mSpeedHz) + "Hz";
+
+	return ret;
 }
 
 

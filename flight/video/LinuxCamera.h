@@ -52,6 +52,8 @@ public:
 
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp );
 
+	virtual LuaValue infos();
+
 protected:
 	bool mLivePreview;
 //	_LUA_PROPERTY("sensor_mode") int32_t mSensorMode;

@@ -29,6 +29,7 @@
 #include <vector>
 #include <Board.h>
 #include <ThreadBase.h>
+#include <Lua.h>
 
 class Config;
 
@@ -89,7 +90,12 @@ public:
 
 	virtual SyncReturn WriteAck( const void* buf, uint32_t len ) { return Write( buf, len, false, -1 ); }
 
+	virtual string name() const { return "Link"; }
+	virtual LuaValue infos() const { return LuaValue(); }
+
 	static const map< string, function< Link* ( Config*, const string& ) > >& knownLinks() { return mKnownLinks; }
+	static list< Link* > links() { return sLinks; }
+	static LuaValue infosAll();
 
 protected:
 	bool mConnected;
@@ -97,6 +103,7 @@ protected:
 
 	static void RegisterLink( const string& name, function< Link* ( Config*, const string& ) > instanciate );
 	static map< string, function< Link* ( Config*, const string& ) > > mKnownLinks;
+	static list< Link* > sLinks;
 };
 
 #endif // LINK_H

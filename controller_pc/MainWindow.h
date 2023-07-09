@@ -137,6 +137,8 @@ private:
 	QVector< double > mDataAccelerometerX;
 	QVector< double > mDataAccelerometerY;
 	QVector< double > mDataAccelerometerZ;
+
+	QVector< double > mDataTAltitude;
 	QVector< double > mDataAltitude;
 
 	QVector< double > mDataTratesdterm;

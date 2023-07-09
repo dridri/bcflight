@@ -35,7 +35,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
-	string infos();
+	LuaValue infos();
 
 private:
 	Bus* mBus;
@@ -53,7 +53,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	int Read( Vector3f* v, bool raw = false );
 
-	string infos();
+	LuaValue infos();
 
 private:
 	Bus* mBus;
@@ -71,7 +71,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( Vector3f* v, bool raw = false );
 
-	string infos();
+	LuaValue infos();
 
 private:
 	I2C* mI2C9150;

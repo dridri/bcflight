@@ -13,6 +13,7 @@ RecorderAvformat::RecorderAvformat()
 	, Thread( "RecorderAvformat" )
 	, mRecordStartTick( 0 )
 	, mRecordStartSystemTick( 0 )
+	, mActive( false )
 	, mOutputContext( nullptr )
 	, mMuxerReady( false )
 	, mStopWrite( false )
@@ -44,7 +45,6 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 	pkt->pts = sample->record_time_us;
 	pkt->pos = -1LL;
 	pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
-	// fDebug( sample->track->type );
 	av_packet_rescale_ts( pkt, (AVRational){ 1, 1000000 }, sample->track->stream->time_base );
 	if ( sample->track->type == TrackTypeVideo ) {
 		pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
@@ -70,7 +70,7 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 		}
 	}
 	int errwrite = av_interleaved_write_frame( mOutputContext, pkt );
-	avio_flush( mOutputContext->pb );
+	// avio_flush( mOutputContext->pb );
 	// sync();
 	av_packet_free(&pkt);
 	if ( errwrite < 0 ) {
@@ -109,7 +109,6 @@ bool RecorderAvformat::run()
 
 	return not mStopWrite;
 }
-
 
 
 void RecorderAvformat::Start()
@@ -173,8 +172,8 @@ void RecorderAvformat::Start()
 			track->stream = avformat_new_stream( mOutputContext, nullptr );
 			track->stream->id = mOutputContext->nb_streams - 1;
 			track->stream->time_base = (AVRational){ 1, 1000000 };
-			track->stream->avg_frame_rate = (AVRational){ 30, 1 };
-			track->stream->r_frame_rate = (AVRational){ 30, 1 };
+			// track->stream->avg_frame_rate = (AVRational){ 30, 1 };
+			// track->stream->r_frame_rate = (AVRational){ 30, 1 };
 			track->stream->start_time = 0;
 			track->stream->codecpar->codec_id = AV_CODEC_ID_H264;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -189,9 +188,33 @@ void RecorderAvformat::Start()
 
 	av_dump_format( mOutputContext, 0, filename, 1 );
 
+	for ( auto* track : mTracks ) {
+		printf("track %d stream_index : %d\n", track->type, track->stream->id );
+	}
+/*
 	int ret = 0;
 	if ( (ret = avio_open( &mOutputContext->pb, filename, AVIO_FLAG_WRITE) ) ) {
 		gError() << "Could not open " << filename << " : " << averr(ret).c_str();
+		mActiveMutex.lock();
+		mActive = false;
+		mActiveMutex.unlock();
+		return;
+	}
+*/
+	mOutputFile = fopen( filename, "wb+" );
+	if ( !mOutputFile ) {
+		gError() << "Could not open " << filename << " : " << strerror(errno);
+		mActiveMutex.lock();
+		mActive = false;
+		mActiveMutex.unlock();
+		return;
+	}
+
+	mOutputContext->pb = avio_alloc_context( mOutputBuffer, sizeof(mOutputBuffer), 1, this, nullptr, []( void* thiz, uint8_t* buf, int sz ) {
+		return (int)fwrite( buf, 1, sz, static_cast<RecorderAvformat*>(thiz)->mOutputFile );
+	}, nullptr );
+	if ( !mOutputContext->pb ) {
+		gError() << "Could not allocate AVFormat output context";
 		mActiveMutex.lock();
 		mActive = false;
 		mActiveMutex.unlock();
@@ -257,7 +280,8 @@ void RecorderAvformat::Stop()
 
 	av_write_trailer( mOutputContext );
 	avio_flush( mOutputContext->pb );
-	avio_closep( &mOutputContext->pb );
+	// avio_closep( &mOutputContext->pb );
+	avio_context_free( &mOutputContext->pb );
 	avformat_free_context( mOutputContext );
 	mOutputContext = nullptr;
 	for ( auto* track : mTracks ) {
@@ -347,6 +371,8 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 		if ( track->type == TrackTypeVideo ) {
 			mRecordStartTick = record_time_us;
 			mRecordStartSystemTick = Board::GetTicks();
+			gDebug() << "mRecordStartTick : " << mRecordStartTick;
+			gDebug() << "mRecordStartSystemTick : " << mRecordStartSystemTick;
 		} else {
 			// Wait for the video stream to start first
 			return;
@@ -370,7 +396,7 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 
 void RecorderAvformat::WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel )
 {
-	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or not Thread::running() or mStopWrite ) {
+	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or mRecordStartSystemTick == 0 or not Thread::running() or mStopWrite ) {
 		return;
 	}
 

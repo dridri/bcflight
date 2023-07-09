@@ -484,23 +484,31 @@ void MPU6050Mag::Read( Vector3f* v, bool raw )
 }
 
 
-string MPU6050Gyro::infos()
+LuaValue MPU6050Gyro::infos()
 {
-	return "";
-// TODO
-// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"2000°/s\"";
+	LuaValue ret;
+
+	ret["Bus"] = mBus->infos();
+	ret["Resolution"] = "16 bits";
+	ret["Scale"] = "2000°/s";
+
+	return ret;
 }
 
 
-string MPU6050Accel::infos()
+LuaValue MPU6050Accel::infos()
 {
-	return "";
-// TODO
-// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"16g\"";
+	LuaValue ret;
+
+	ret["Bus"] = mBus->infos();
+	ret["Resolution"] = "16 bits";
+	ret["Scale"] = "16g";
+
+	return ret;
 }
 
 
-string MPU6050Mag::infos()
+LuaValue MPU6050Mag::infos()
 {
 	return "";
 // TODO

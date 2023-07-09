@@ -75,6 +75,8 @@ protected:
 
 	std::vector< uint8_t > mVideoHeader;
 
+	uint8_t mOutputBuffer[1024 * 1024];
+	FILE* mOutputFile;
 	FILE* mGyroFile;
 	std::mutex mGyroMutex;
 	std::list< PendingGyro* > mPendingGyros;

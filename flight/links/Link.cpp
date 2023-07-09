@@ -21,10 +21,12 @@
 #include <Config.h>
 
 map< string, function< Link* ( Config*, const string& ) > > Link::mKnownLinks;
+list< Link* > Link::sLinks;
 
 Link::Link()
 	: mConnected( false )
 {
+	sLinks.emplace_back( this );
 }
 
 
@@ -248,4 +250,16 @@ void Link::RegisterLink( const string& name, function< Link* ( Config*, const st
 {
 	fDebug( name );
 	mKnownLinks[ name ] = instanciate;
+}
+
+
+LuaValue Link::infosAll()
+{
+	LuaValue ret;
+
+	for ( auto link : sLinks ) {
+		ret[ link->name() ] = link->infos();
+	}
+
+	return ret;
 }

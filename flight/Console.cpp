@@ -3,6 +3,7 @@
 #include <sys/ioctl.h>
 #endif
 
+#include <regex>
 #include "Console.h"
 #include "Config.h"
 
@@ -34,6 +35,11 @@ bool Console::alnum( char c )
 	return ( c >= 'a' and c <= 'z' ) or ( c >= 'A' and c <= 'Z' ) or ( c >= '0' and c <= '9' ) or c == '_';
 }
 
+bool Console::luavar( char c )
+{
+	return ( c >= 'a' and c <= 'z' ) or ( c >= 'A' and c <= 'Z' ) or ( c >= '0' and c <= '9' ) or c == '_' or c == '.' or c == '[' or c == ']';
+}
+
 
 bool Console::run()
 {
@@ -57,6 +63,56 @@ bool Console::run()
 		// printf("line: %d %02x %02X %02X %02X %02X %02X\n", res, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
 		if ( buf[0] == 0x0a ) {
 			break;
+		} else if ( buf[0] == 0x09 ) {
+			int32_t start = cursor;
+			int32_t end = cursor;
+			while ( start > 0 and luavar((*prompt)[start - 1]) ) {
+				start--;
+			}
+			while ( end < prompt->length() and alnum((*prompt)[end]) ) {
+				end++;
+			}
+			if ( start >= 0 and end <= prompt->length() ) {
+				printf( "start, end : %d, %d\n", start, end );
+				string query = "_G." + prompt->substr( start, end - start );
+				string leftquery = query.substr( 0, query.rfind( "." ) );
+				string rightquery = query.substr( query.rfind( "." ) + 1 );
+				const vector<string> allKeys = mConfig->luaState()->valueKeys( leftquery );
+				vector<string> keys;
+				for ( const string& k : allKeys ) {
+					if ( k.find(rightquery) == 0 ) {
+						keys.push_back( k );
+					}
+				}
+				string commonPart = "";
+				if ( keys.size() > 0 ) {
+					bool finished = false;
+					while ( true ) {
+						for ( const string& k : keys ) {
+							if ( k.find(commonPart) == k.npos ) {
+								commonPart = commonPart.substr( 0, commonPart.length() - 1 );
+								finished = true;
+								break;
+							}
+						}
+						if ( finished or commonPart.length() >= keys[0].length() ) {
+							break;
+						}
+						commonPart = keys[0].substr( 0, commonPart.length() + 1 );
+					};
+				}
+				if ( commonPart.length() > rightquery.length() ) {
+					string newValue = ( leftquery + "." ).substr( 3 ) + commonPart;
+					*prompt = prompt->substr( 0, start ) + newValue + prompt->substr( end );
+					cursor = start + newValue.length();
+				} else if ( keys.size() > 1 ) {
+					printf("\n"); fflush(stdout);
+					for ( const string& k : keys ) {
+						printf( "%s  ", k.c_str() );
+					}
+					printf("\n"); fflush(stdout);
+				}
+			}
 		} else if ( buf[0] == 0x1b and buf[1] == 0x5b ) {
 			if ( buf[2] == 0x41 ) {
 				// up

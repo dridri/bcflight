@@ -151,6 +151,8 @@ systemctl disable flight # systemctl enable flight
 systemctl disable userconfig
 systemctl disable fake-hwclock
 /lib/systemd/systemd-sysv-install disable resize2fs_once
+
+echo i2c-dev >> /etc/modules
 EOF_
 
 
@@ -222,6 +224,10 @@ dtoverlay=dwc2,dr_mode=host
 EOF
 
 wget --no-check-certificate https://datasheets.raspberrypi.com/cmio/dt-blob-cam1.bin -O /tmp/raspbian/bcflight/root/boot/dt-blob.bin
+
+if test -f "$BASEDIR/../../flight/extras/dpi4.dtbo"; then
+	cp "$BASEDIR/../../flight/extras/dpi4.dtbo" /tmp/raspbian/bcflight/root/boot/overlays/dpi4.dtbo
+fi
 
 if test -f "$BASEDIR/../../flight/build/flight"; then
 	cp "$BASEDIR/../../flight/build/flight" /tmp/raspbian/bcflight/root/var/flight/flight

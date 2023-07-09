@@ -366,20 +366,8 @@ void Main::DetectDevices()
 	int countVolt = 0;
 	int countCurrent = 0;
 
-	{
-		list< Sensor::Device > knownDevices = Sensor::KnownDevices();
-		gDebug() << "Supported sensors :";
-		for ( Sensor::Device dev : knownDevices ) {
-			if ( string(dev.name) != "" ) {
-				Debug() << "    " << dev.name;
-				if ( dev.iI2CAddr != 0 ) {
-					Debug() << " [I2C 0x" << hex << dev.iI2CAddr << "]";
-				}
-				Debug() << "\n";
-			}
-		}
-	}
-
+	Sensor::UpdateDevices();
+/*
 	list< int > I2Cdevs = I2C::ScanAll();
 	for ( int dev : I2Cdevs ) {
 		string name = mConfig->String( "sensors_map_i2c[" + to_string(dev) + "]", "" );
@@ -387,9 +375,9 @@ void Main::DetectDevices()
 		Sensor::RegisterDevice( dev, name );
 	}
 	// TODO : register SPI/1-wire/.. devices
-
-
+*/
 	for ( Sensor* s : Sensor::Devices() ) {
+
 		if ( dynamic_cast< Gyroscope* >( s ) != nullptr ) {
 			countGyro++;
 		}
@@ -462,6 +450,18 @@ void Main::DetectDevices()
 		}
 	}
 #endif // BUILD_sensors
+#ifdef BUILD_links
+	int countLink = 0;
+
+	for ( Link* l : Link::links() ) {
+		countLink++;
+	}
+
+	gDebug() << countLink << " link(s) found";
+	for ( Link* l : Link::links() ) {
+		gDebug() << "    " << l->name();
+	}
+#endif // BUILD_links
 }
 
 static const string base64_chars = 

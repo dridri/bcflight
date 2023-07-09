@@ -953,7 +953,6 @@ void PWM::terminate( int sig )
 	}
 
 	size_t i, j;
-	printf( "pi-blaster::terminate( %d )\n", sig );
 
 	void* array[16];
 	size_t size;

@@ -91,6 +91,10 @@ ADS1015::ADS1015()
 	mNames = { "ADS1015" };
 	mI2C->Connect();
 	usleep( 1000 * 100 );
+
+	uint16_t id = 0;
+	mI2C->Read16( 0x0B, &id );
+	gDebug() << "ADS1015 ID: " << (uint32_t)id;
 }
 
 
@@ -151,7 +155,14 @@ float ADS1015::Read( int channel )
 }
 
 
-string ADS1015::infos()
+LuaValue ADS1015::infos()
 {
-	return "I2Caddr = " + to_string( mI2C->address() ) + ", " + "Resolution = \"12 bits\", " + "Channels = 4";
+	LuaValue ret = LuaValue();
+
+	ret["Channels"] = 4;
+	ret["Rate"] = "1600 SPS";
+	ret["Resolution"] = "12 bits";
+	ret["Bus"] = "I2C";
+
+	return ret;
 }

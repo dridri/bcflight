@@ -470,7 +470,13 @@ bool Controller::run()
 				break;
 			}
 			case GET_SENSORS_INFOS : {
-				string res = Sensor::infosAll();
+				string res = Sensor::infosAll().serialize();
+				response.WriteString( res );
+				do_response = true;
+				break;
+			}
+			case GET_CAMERAS_INFOS : {
+				string res = Camera::infosAll().serialize();
 				response.WriteString( res );
 				do_response = true;
 				break;

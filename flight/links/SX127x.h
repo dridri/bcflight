@@ -36,10 +36,10 @@ public:
 	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
 	SyncReturn WriteAck( const void* buf, uint32_t len );
 
-	static int flight_register( Main* main );
+	virtual string name() const;
+	virtual LuaValue infos() const;
 
 protected:
-	static Link* Instanciate( Config* config, const string& lua_object );
 	void init();
 
 	typedef struct __attribute__((packed)) {

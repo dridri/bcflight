@@ -407,9 +407,12 @@ public:
 	}
 
 	template<typename T> operator list<T> () const {
+		std::cout << "to std::list (" << mType << ")\n";
 		list< T > ret;
 		if ( mType == Table ) {
+			std::cout << "  size : " << mMap.size() << ")\n";
 			for ( auto entry : mMap ) {
+				std::cout << "    push : " << static_cast<T>( entry.second ) << "\n";
 				ret.emplace_back( static_cast<T>( entry.second ) );
 			}
 		}
@@ -432,6 +435,14 @@ public:
 				for ( uint32_t i = 0; i < indent + 1; i++ ) ret += "    ";
 				string key = entry.first;
 				bool integral = ( ( key[0] == '0' and key.length() == 1 ) or ( key[0] >= '0' and key[0] <= '9' and atoi( key.c_str() ) != 0 ) );
+				bool isString = false;
+				for ( const char c : key ) {
+					integral |= ( c < '0' or c > '9' ) and ( c < 'a' or c > 'z' ) and ( c < 'A' or c > 'Z' ) and c != '_';
+					isString |= ( c < '0' or c > '9' );
+				}
+				if ( isString and integral ) {
+					key = "\"" + key + "\"";
+				}
 				if ( integral ) {
 					ret += "[" + key + "]";
 				} else {
@@ -589,6 +600,10 @@ public:
 		}
 		return def;
 	}
+
+	std::vector<string> valueKeys( const string& name );
+	std::vector<string> valueKeys( int index = -1, lua_State* L = nullptr );
+	static std::vector<string> valueKeys( lua_State* L, int index = -1 );
 
 	std::mutex& mutex() { return mMutex; }
 	const string& lastCallName() const { return mLastCallName; }

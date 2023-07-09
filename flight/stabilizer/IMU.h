@@ -29,6 +29,8 @@
 class Gyroscope;
 class Accelerometer;
 class Magnetometer;
+class Altimeter;
+class GPS;
 
 #define IMU_RPY_SMOOTH_RATIO 0.02f
 
@@ -52,8 +54,10 @@ public:
 	LUA_PROPERTY("filters.accelerometer.input") void setAccelerometerFilterInput( const Vector3f& v );
 	LUA_PROPERTY("filters.accelerometer.output") void setAccelerometerFilterOutput( const Vector3f& v );
 	LUA_PROPERTY("filters.attitude.input.rates") void setAttitudeFilterRatesInput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.accelerometer.rates") void setAttitudeFilterAccelerometerInput( const Vector3f& v );
+	LUA_PROPERTY("filters.attitude.input.accelerometer") void setAttitudeFilterAccelerometerInput( const Vector3f& v );
 	LUA_PROPERTY("filters.attitude.output") void setAttitudeFilterOutput( const Vector3f& v );
+	LUA_PROPERTY("filters.position.input") void setPositionFilterInput( const Vector3f& v );
+	LUA_PROPERTY("filters.position.output") void setPositionFilterOutput( const Vector3f& v );
 
 	const Vector3f acceleration() const;
 	const Vector3f gyroscope() const;
@@ -94,8 +98,10 @@ protected:
 #endif
 
 	LUA_PROPERTY("gyroscopes") std::list<Gyroscope*> mGyroscopes;
-	LUA_PROPERTY("gyroscopes") std::list<Accelerometer*> mAccelerometers;
-	LUA_PROPERTY("gyroscopes") std::list<Magnetometer*> mMagnetometers;
+	LUA_PROPERTY("accelerometers") std::list<Accelerometer*> mAccelerometers;
+	LUA_PROPERTY("magnetometers") std::list<Magnetometer*> mMagnetometers;
+	LUA_PROPERTY("altimeters") std::list<Altimeter*> mAltimeters;
+	LUA_PROPERTY("GPSes") std::list<GPS*> mGPSes;
 
 	// Running states
 	State mState;

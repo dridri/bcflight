@@ -14,6 +14,7 @@ public:
 protected:
 	virtual bool run();
 	bool alnum( char c );
+	bool luavar( char c );
 
 	Config* mConfig;
 	vector<string> mFullHistory;

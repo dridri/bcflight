@@ -164,8 +164,17 @@ void Board::SegFaultHandler( int sig )
 		gDebug() << "\e[91m" << trace[j] << "\e[0m";
 	}
 
+	bool critical = false;
+
 	if ( thread and thread->name() == "stabilizer" ) {
 		gError() << "\e[93mStabilizer crashed, watch out your heads\e[0m";
+		critical = true;
+	}
+	if ( thread and thread->name() == "controller" ) {
+		gError() << "\e[93mController crashed, watch out your heads\e[0m";
+		critical = true;
+	}
+	if ( critical ) {
 		DShotDriver* d = DShotDriver::instance( false );
 		if ( d ) {
 			d->Kill();
@@ -397,16 +406,19 @@ string Board::infos()
 {
 	string res = "";
 
-	res += "Type:" BOARD "\n";
-	res += "Firmware version:" VERSION_STRING "\n";
-	res += "Model:" + readproc( "/proc/cpuinfo", "Hardware" ) + string( "\n" );
-	res += "CPU:" + readproc( "/proc/cpuinfo", "model name" ) + string( "\n" );
-	res += "CPU cores count:" + to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + string( "\n" );
-	res += "CPU frequency:" + to_string( atoi( readproc( "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ).c_str() ) / 1000 ) + string( "MHz\n" );
-	res += "GPU frequency:" + to_string( atoi( readcmd( "vcgencmd measure_clock core", "frequency", "=" ).c_str() ) / 1000000 ) + string( "MHz\n" );
-	res += "SoC voltage:" + readcmd( "vcgencmd measure_volts core", "volt", "=" ) + string( "\n" );
-	res += "RAM:" + readcmd( "vcgencmd get_mem arm", "arm", "=" ) + string( "\n" );
-	res += "VRAM:" + readcmd( "vcgencmd get_mem gpu", "gpu", "=" ) + string( "\n" );
+	res += "{\n";
+	res += "\t[\"Type\"] = \"" BOARD "\",\n";
+	res += "\t[\"Firmware version\"] = \"" VERSION_STRING "\",\n";
+	res += "\t[\"OS\"] = " + readproc( "/etc/os-release", "PRETTY_NAME", "=" ) + string( ",\n" );
+	res += "\t[\"Model\"] = \"" + readproc( "/proc/cpuinfo", "Model" ) + string( "\",\n" );
+	res += "\t[\"CPU\"] = \"" + readproc( "/proc/cpuinfo", "Hardware" ) + string( "\",\n" );
+	res += "\t[\"CPU cores count\"] = \"" + to_string( sysconf( _SC_NPROCESSORS_ONLN ) ) + string( "\",\n" );
+	res += "\t[\"CPU frequency\"] = \"" + to_string( atoi( readproc( "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq" ).c_str() ) / 1000 ) + string( "MHz\",\n" );
+	res += "\t[\"GPU frequency\"] = \"" + to_string( atoi( readcmd( "vcgencmd measure_clock core", "frequency", "=" ).c_str() ) / 1000000 ) + string( "MHz\",\n" );
+	res += "\t[\"SoC voltage\"] = \"" + readcmd( "vcgencmd measure_volts core", "volt", "=" ) + string( "\",\n" );
+	res += "\t[\"RAM\"] = \"" + readcmd( "vcgencmd get_mem arm", "arm", "=" ) + string( "\",\n" );
+	res += "\t[\"VRAM\"] = \"" + readcmd( "vcgencmd get_mem gpu", "gpu", "=" ) + string( "\",\n" );
+	res += "}";
 
 	return res;
 }

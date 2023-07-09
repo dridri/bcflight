@@ -95,7 +95,12 @@ void SR04::Read( float* altitude )
 }
 
 
-string SR04::infos()
+LuaValue SR04::infos()
 {
-	return "";
+	LuaValue ret;
+
+	ret["Trigger Pin"] = mTriggerPin;
+	ret["Echo Pin"] = mEchoPin;
+
+	return ret;
 }

@@ -213,6 +213,7 @@ static void Recurse( lua_State* L, QTreeWidgetItem* parent, QString name, int in
 	if ( indent == 0 ) {
 		lua_getfield( L, LUA_GLOBALSINDEX, name.toLatin1().data() );
 	}
+	std::cout << "lua_type( L, index ) = " << lua_type( L, index ) << "\n";
 	if ( lua_isnil( L, index ) ) {
 	} else if ( lua_isnumber( L, index ) ) {
 		data = lua_tonumber( L, index );
@@ -252,25 +253,23 @@ void MainWindow::connected()
 	ui->statusbar->showMessage( "Connected" );
 
 	if ( mController and not mController->isSpectate() ) {
-		QTreeWidgetItem* board_item = ui->system->findItems( "Board", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first();
-		QStringList board_infos = QString::fromStdString( mController->getBoardInfos() ).split("\n");
-		for ( QString s : board_infos ) {
-			if ( s.contains(":") ) {
-				QStringList key_value = s.split(":");
-				QString key = key_value.at(0);
-				QString value = key_value.at(1);
-				QTreeWidgetItem* item = new QTreeWidgetItem();
-				item->setData( 0, 0, key );
-				item->setData( 1, 0, value );
-				board_item->addChild( item );
-			}
-		}
+		lua_State* L = luaL_newstate();
+
+		QString board_infos = QString::fromStdString( mController->getBoardInfos() );
+		std::cout << "Board infos: " << board_infos.toStdString() << "\n";
+		luaL_dostring( L, ("Board=" + board_infos.toUtf8()).data() );
+		Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Board" );
 
 		QString sensors_infos = QString::fromStdString( mController->getSensorsInfos() );
-		qDebug() << "sensors_infos : " << sensors_infos;
-		lua_State* L = luaL_newstate();
-		luaL_dostring( L, sensors_infos.toUtf8().data() );
+		std::cout << "sensors_infos : " << sensors_infos.toStdString() << "\n";
+		luaL_dostring( L, ("Sensors=" + sensors_infos.toUtf8()).data() );
 		Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Sensors" );
+
+		QString cameras_infos = QString::fromStdString( mController->getCamerasInfos() );
+		std::cout << "cameras_infos : " << cameras_infos.toStdString() << "\n";
+		luaL_dostring( L, ("Cameras=" + cameras_infos.toUtf8()).data() );
+		Recurse( L, ui->system->findItems( "BCFlight", Qt::MatchCaseSensitive | Qt::MatchRecursive, 0 ).first(), "Cameras" );
+
 		lua_close(L);
 	}
 
@@ -365,12 +364,13 @@ void MainWindow::updateData()
 		plot( ui->magnetometer, mController->magnetometerHistory(), mDataTmagnetometer, mDataMagnetometerX, mDataMagnetometerY, mDataMagnetometerZ );
 		plot( ui->rates_dterm, mController->ratesDerivativeHistory(), mDataTratesdterm, mDataRatesdtermX, mDataRatesdtermY, mDataRatesdtermZ );
 
-/*
-		ui->altitude->graph(0)->setData( mDataT, mDataAltitude );
+		mDataTAltitude.append( mController->altitudeHistory().back().y );
+		mDataAltitude.append( mController->altitudeHistory().back().x );
+		ui->altitude->graph(0)->setData( mDataTAltitude, mDataAltitude );
 		ui->altitude->graph(0)->rescaleAxes();
 		ui->altitude->xAxis->rescale();
 		ui->altitude->replot();
-*/
+
 		if ( mController->isConnected() and /*not mController->isSpectate() and*/ ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
 			mPIDsReading = true;
 			mController->ReloadPIDs();

@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <cmath>
 #include "BMP280.h"
+#include "Lua.h"
 
 #define BMP280_REGISTER_DIG_T1       0x88
 #define BMP280_REGISTER_DIG_T2       0x8A
@@ -45,27 +46,11 @@
 #define BMP280_REGISTER_PRESSUREDATA 0xF7
 #define BMP280_REGISTER_TEMPDATA     0xFA
 
-int BMP280::flight_register( Main* main )
-{
-	Device dev;
-	dev.iI2CAddr = 0x76;
-	dev.name = "BMP280";
-	dev.fInstanciate = BMP280::Instanciate;
-	mKnownDevices.push_back( dev );
-	return 0;
-}
-
-
-Sensor* BMP280::Instanciate( Config* config, const string& object, Bus* bus )
-{
-	// TODO : use bus
-	return new BMP280();
-}
-
 
 BMP280::BMP280()
 	: Altimeter()
 	, mI2C( new I2C( 0x76 ) )
+	, mBaseAltitudeAccum( Vector2f() )
 {
 	mNames.emplace_back( "BMP280" );
 	mNames.emplace_back( "bmp280" );
@@ -86,9 +71,6 @@ BMP280::BMP280()
 
 // 	mI2C->Write8( BMP280_REGISTER_CONTROL, 0x3F );
 	mI2C->Write8( BMP280_REGISTER_CONTROL, 0b10110111 );
-
-	mBasePressure = ReadPressure();
-// 	mBasePressure = 1013.45 / pow( 1 - ( 65.0 / 44330.0 ), 5.255 );
 }
 
 
@@ -100,7 +82,16 @@ BMP280::~BMP280()
 void BMP280::Calibrate( float dt, bool last_pass )
 {
 	(void)dt;
-	(void)last_pass;
+	const float seaLevelhPA = 1013.25;
+	const float p = ReadPressure();
+	if ( p > 0.0f ) {
+		float altitude = 44330.0 * ( 1.0 - pow( p / seaLevelhPA, 0.1903 ) );
+		mBaseAltitudeAccum += Vector2f( altitude, 1.0f );
+	}
+	if ( last_pass ) {
+		mBaseAltitude = mBaseAltitudeAccum.x / mBaseAltitudeAccum.y;
+		mBaseAltitudeAccum = Vector2f();
+	}
 }
 
 
@@ -154,5 +145,19 @@ float BMP280::ReadPressure()
 
 void BMP280::Read( float* altitude )
 {
-	*altitude = 44330.0 * ( 1.0 - pow( ReadPressure() / mBasePressure, 1 / 5.255 ) );
+	const float seaLevelhPA = 1013.25;
+	const float p = ReadPressure();
+	if ( p > 0.0f ) {
+		*altitude = ( 44330.0 * ( 1.0 - pow( p / seaLevelhPA, 0.1903 ) ) - mBaseAltitude );
+	}
+}
+
+
+LuaValue BMP280::infos()
+{
+	LuaValue ret;
+
+	ret["Bus"] = mI2C->infos();
+
+	return ret;
 }
