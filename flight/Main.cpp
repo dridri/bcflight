@@ -148,6 +148,9 @@ Main::Main()
 	if ( mCamera ) {
 		mCamera->Start();
 	}
+	if ( mMicrophone ) {
+	//	mMicrophone->Setup();
+	}
 	if ( mController ) {
 		mController->setPriority( 98 );
 		mController->Start();

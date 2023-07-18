@@ -15,46 +15,47 @@
 extern std::mutex __global_rpi_drm_mutex;
 DShotDriver* DShotDriver::sInstance = nullptr;
 uint8_t DShotDriver::sDPIMode = 7;
+// Format : [ channel (R/G/B), pin bit ]
 uint8_t DShotDriver::sDPIPinMap[8][28][2] = {
 	{},	// invalid
 	{},	// unused
-	{	// mode 2, RGB565
+	{	// mode 2, RGB565, total of 16 pins available
 		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
 		{ 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
 		{ 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
-	{	// mode 3, RGB565
+	{	// mode 3, RGB565, total of 16 pins available
 		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
-		{}, {}, {},
+		{}, {}, {}, // pins 10,11,12 unused
 		{ 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
-		{}, {},
+		{}, {}, // pins 18,19 unused
 		{ 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
-	{	// mode 4, RGB565
+	{	// mode 4, RGB565, total of 16 pins available
 		{}, {}, {}, {}, {}, // pins 0,1,2,3,4 unused
 		{ 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
-		{}, {},
+		{}, {}, // pins 10,11 unused
 		{ 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
-		{}, {}, {},
+		{}, {}, {}, // pins 18,19,20 unused
 		{ 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
-	{	// mode 5, RGB666
+	{	// mode 5, RGB666, total of 18 pins available
 		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 2 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
 		{ 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
 		{ 2, 2 }, { 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
-	{	// mode 6, RGB666
+	{	// mode 6, RGB666, total of 18 pins available
 		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 2 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
-		{}, {},
+		{}, {}, // pins 10,11 unused
 		{ 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },
-		{}, {},
+		{}, {}, // pins 18,19 unused
 		{ 2, 2 }, { 2, 3 }, { 2, 4 }, { 2, 5 }, { 2, 6 }, { 2, 7 }
 	},
-	{	// mode 7, RGB888
+	{	// mode 7, RGB888, total of 24 pins available
 		{}, {}, {}, {}, // pins 0,1,2,3 unused
 		{ 0, 0 }, { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 }, { 0, 7 },
 		{ 1, 0 }, { 1, 1 }, { 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 1, 6 }, { 1, 7 },

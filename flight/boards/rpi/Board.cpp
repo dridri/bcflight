@@ -436,7 +436,7 @@ void Board::InformLoading( int force_led )
 		if ( force_led == 0 or force_led == 1 ) {
 			led_state = force_led;
 		}
-		sprintf( cmd, "echo %d > /sys/class/leds/led0/brightness", led_state );
+		sprintf( cmd, "echo %d > /sys/class/leds/ACT/brightness", led_state );
 		system( cmd );
 	}
 }
@@ -444,7 +444,7 @@ void Board::InformLoading( int force_led )
 
 void Board::LoadingDone()
 {
-	InformLoading( 1 );
+	InformLoading( 0 );
 }
 
 

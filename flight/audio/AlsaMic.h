@@ -39,7 +39,7 @@ LUA_CLASS class AlsaMic : public Microphone
 public:
 	LUA_EXPORT AlsaMic();
 	~AlsaMic();
-	void Setup();
+	virtual void Setup();
 
 protected:
 	bool LiveThreadRun();

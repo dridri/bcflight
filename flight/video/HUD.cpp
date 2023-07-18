@@ -16,6 +16,7 @@ HUD::HUD()
 	, mGLContext( nullptr )
 	, mRendererHUD( nullptr )
 	, mNightMode( false )
+	, mHUDFramerate( 30 )
 	, mWaitTicks( 0 )
 	, mShowFrequency( false )
 	, mAccelerationAccum( 0.0f )
@@ -28,44 +29,10 @@ HUD::HUD()
 	, mCorrection( false )
 	, mStereo( false )
 	, mStereoStrength( 0.004f )
+	, mReady( false )
 {
-	mShowFrequency = false;
-	mHUDFramerate = 30;
-	setFrequency( mHUDFramerate );
 
 	mGLContext = GLContext::instance();
-
-	mGLContext->runOnGLThread( [this]() {
-		Config* config = Main::instance()->config();
-		Vector4i render_region = Vector4i( mFrameTop, mFrameBottom, mFrameLeft, mFrameRight );
-		mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), mRatio, mFontSize, render_region, mCorrection );
-		mRendererHUD->setStereo( mStereo );
-		mRendererHUD->set3DStrength( mStereoStrength );
-		mRendererHUD->setStereo( false );
-		mRendererHUD->set3DStrength( 0.0f );
-	}, true );
-
-	mGLContext->addLayer( [this]() {
-		mRendererHUD->PreRender();
-		mRendererHUD->Render( &mDroneStats, 0.0f, &mVideoStats, &mLinkStats );
-		mImagesMutex.lock();
-		for ( std::pair< uintptr_t, Image > image : mImages ) {
-			Image img = image.second;
-			mRendererHUD->RenderImage( img.x, img.y, img.width, img.height, img.img );
-		}
-		mImagesMutex.unlock();
-
-		if ( false ) {
-			uint32_t time = Board::GetTicks() / 1000;
-			uint32_t minuts = time / ( 1000 * 60 );
-			uint32_t seconds = ( time / 1000 ) % 60;
-			uint32_t ms = time % 1000;
-			char txt[256];
-			sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
-			mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, true );
-		}
-	});
-
 	Start();
 }
 
@@ -77,6 +44,42 @@ HUD::~HUD()
 
 bool HUD::run()
 {
+	if ( not mReady ) {
+		mReady = true;
+		setFrequency( mHUDFramerate );
+
+		mGLContext->runOnGLThread( [this]() {
+			Config* config = Main::instance()->config();
+			Vector4i render_region = Vector4i( mFrameTop, mFrameBottom, mFrameLeft, mFrameRight );
+			mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), mRatio, mFontSize, render_region, mCorrection );
+			mRendererHUD->setStereo( mStereo );
+			mRendererHUD->set3DStrength( mStereoStrength );
+			mRendererHUD->setStereo( false );
+			mRendererHUD->set3DStrength( 0.0f );
+		}, true );
+
+		mGLContext->addLayer( [this]() {
+			mRendererHUD->PreRender();
+			mRendererHUD->Render( &mDroneStats, 0.0f, &mVideoStats, &mLinkStats );
+			mImagesMutex.lock();
+			for ( std::pair< uintptr_t, Image > image : mImages ) {
+				Image img = image.second;
+				mRendererHUD->RenderImage( mFrameLeft + img.x, mFrameTop + img.y, img.width, img.height, img.img );
+			}
+			mImagesMutex.unlock();
+
+			if ( false ) {
+				uint32_t time = Board::GetTicks() / 1000;
+				uint32_t minuts = time / ( 1000 * 60 );
+				uint32_t seconds = ( time / 1000 ) % 60;
+				uint32_t ms = time % 1000;
+				char txt[256];
+				sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
+				mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, true );
+			}
+		});
+	}
+
 	if ( frequency() != mHUDFramerate ) {
 		setFrequency( mHUDFramerate );
 	}

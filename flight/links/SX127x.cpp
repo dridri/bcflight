@@ -205,7 +205,7 @@ void SX127x::init()
 
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
-	mSPI = new SPI( mDevice, 1 * 1000 * 1000 ); // 7
+	mSPI = new SPI( mDevice, 2 * 1000 * 1000 ); // 7
 	mSPI->Connect();
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
@@ -232,7 +232,7 @@ void SX127x::init()
 			if ( mDiversityIrqPin < 0 ) {
 				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !";
 			} else {
-				mDiversitySpi = new SPI( mDiversityDevice, 1 * 1000 * 1000 ); // 7
+				mDiversitySpi = new SPI( mDiversityDevice, 2 * 1000 * 1000 ); // 7
 				mDiversitySpi->Connect();
 				GPIO::setMode( mDiversityResetPin, GPIO::Output );
 				GPIO::Write( mDiversityResetPin, false );

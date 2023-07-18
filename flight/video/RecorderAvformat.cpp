@@ -173,7 +173,7 @@ void RecorderAvformat::Start()
 			track->stream->id = mOutputContext->nb_streams - 1;
 			track->stream->time_base = (AVRational){ 1, 1000000 };
 			// track->stream->avg_frame_rate = (AVRational){ 30, 1 };
-			// track->stream->r_frame_rate = (AVRational){ 30, 1 };
+			track->stream->r_frame_rate = (AVRational){ 30, 1 };
 			track->stream->start_time = 0;
 			track->stream->codecpar->codec_id = AV_CODEC_ID_H264;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -371,18 +371,15 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 		if ( track->type == TrackTypeVideo ) {
 			mRecordStartTick = record_time_us;
 			mRecordStartSystemTick = Board::GetTicks();
-			gDebug() << "mRecordStartTick : " << mRecordStartTick;
-			gDebug() << "mRecordStartSystemTick : " << mRecordStartSystemTick;
 		} else {
 			// Wait for the video stream to start first
 			return;
 		}
 	}
-	record_time_us -= mRecordStartTick;
 
 	PendingSample* sample = new PendingSample;
 	sample->track = track;
-	sample->record_time_us = record_time_us;
+	sample->record_time_us = record_time_us - mRecordStartTick;
 	sample->buf = new uint8_t[buflen];
 	sample->buflen = buflen;
 	sample->keyframe = keyframe;

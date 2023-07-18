@@ -209,10 +209,12 @@ bool Controller::run()
 	}
 
 	if ( mSwitches[10] and not mVideoRecording ) {
+		printf("start recording\n");
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_START_RECORD );
 		mXferMutex.unlock();
 	} else if ( not mSwitches[10] and mVideoRecording ) {
+		printf("stop recording\n");
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();

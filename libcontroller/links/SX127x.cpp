@@ -190,7 +190,7 @@ SX127x::SX127x( const SX127x::Config& config )
 #endif
 
 	// Setup SPI and GPIO
-	mSPI = new SPI( mDevice, 4000000 );
+	mSPI = new SPI( mDevice, 2000000 );
 
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
@@ -746,6 +746,11 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 	Header* header = (Header*)buf;
 	uint8_t* data = buf + sizeof(Header);
 	int final_size = 0;
+
+	if ( buflen < sizeof(Header) ) {
+		return -1;
+	}
+
 	uint32_t datalen = buflen - sizeof(Header);
 
 	if ( crc8( data, datalen ) != header->crc ) {
@@ -876,7 +881,7 @@ void SX127x::Interrupt()
 	}
 	mSPI->Transfer( tx, rx, len + 1 );
 
-	if ( len > 0 ) {
+	if ( len != 0 ) {
 		PerfUpdate();
 		uint8_t* buf = new uint8_t[32768];
 		int ret = Receive( rx + 1, len, buf, 32768 );
