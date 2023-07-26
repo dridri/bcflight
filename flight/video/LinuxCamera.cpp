@@ -149,6 +149,34 @@ LinuxCamera::~LinuxCamera()
 }
 
 
+LuaValue LinuxCamera::infos()
+{
+	LuaValue ret;
+
+	ret["Device"] = mCamera->id();
+	if ( mPreviewStreamConfiguration ) {
+		ret["Viewfinder Configuration"] = mPreviewStreamConfiguration->toString();
+	}
+	if ( mVideoStreamConfiguration ) {
+		ret["Video Configuration"] = mVideoStreamConfiguration->toString();
+	}
+	if ( mStillStreamConfiguration ) {
+		ret["Still Configuration"] = mStillStreamConfiguration->toString();
+	}
+
+	ret["Width"] = mWidth;
+	ret["Height"] = mHeight;
+	ret["Framerate"] = mFps;
+	ret["HDR"] = ( mHDR ? "on" : "off" );
+
+	if ( mCamera->controls().find( libcamera::controls::MAX_LATENCY) != mCamera->controls().end() ) {
+		ret["Max Latency"] = mCamera->controls().at( libcamera::controls::MAX_LATENCY ).toString();
+	}
+
+	return ret;
+}
+
+
 void LinuxCamera::Start()
 {
 	fDebug();

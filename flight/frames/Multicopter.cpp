@@ -27,6 +27,8 @@ Frame* Multicopter::Instanciate( Config* config )
 Multicopter::Multicopter()
 	: Frame()
 	, mMaxSpeed( 1.0f )
+	, mAirModeTrigger( 1.0f )
+	, mAirModeSpeed( 0.0f )
 	// , mAirModeTrigger( config->Number( "frame.air_mode.trigger", 0.35f ) )
 	// , mAirModeSpeed( config->Number( "frame.air_mode.speed", 0.15f ) )
 {
@@ -104,9 +106,12 @@ void Multicopter::Disarm()
 	}
 
 	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-		mMotors[i]->setSpeed( 0.0f, false );
-		mMotors[i]->Disarm();
 		mStabSpeeds[i] = 0.0f;
+		mMotors[i]->setSpeed( 0.0f, true );
+	}
+
+	for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
+		mMotors[i]->Disarm();
 		spos += sprintf( stmp + spos, "%.4f,", mMotors[i]->speed() );
 	}
 

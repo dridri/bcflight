@@ -470,7 +470,13 @@ bool Controller::run()
 				break;
 			}
 			case GET_SENSORS_INFOS : {
-				string res = Sensor::infosAll();
+				string res = Sensor::infosAll().serialize();
+				response.WriteString( res );
+				do_response = true;
+				break;
+			}
+			case GET_CAMERAS_INFOS : {
+				string res = Camera::infosAll().serialize();
 				response.WriteString( res );
 				do_response = true;
 				break;
@@ -1267,7 +1273,7 @@ bool Controller::TelemetryRun()
 		telemetry.WriteU16( STABILIZER_FREQUENCY );
 		telemetry.WriteU32( mMain->loopFrequency() );
 
-		if ( mMain->frame() ) {
+		if ( mMain->frame() and mTelemetryFull ) {
 			vector< Motor* >* motors = mMain->frame()->motors();
 			if ( motors ) {
 				telemetry.WriteU16( MOTORS_SPEED );
@@ -1314,24 +1320,24 @@ bool Controller::TelemetryRun()
 
 	}
 
-	if ( mMain->stabilizer() ) {
-		telemetry.WriteU16( SET_THRUST );
-		telemetry.WriteFloat( mMain->stabilizer()->thrust() );
-	}
+	if ( mTelemetryFull ) {
+		if ( mMain->stabilizer() ) {
+			telemetry.WriteU16( SET_THRUST );
+			telemetry.WriteFloat( mMain->stabilizer()->thrust() );
+		}
 
-	if ( mMain->imu() ) {
-		telemetry.WriteU16( ROLL_PITCH_YAW );
-		telemetry.WriteFloat( mMain->imu()->RPY().x );
-		telemetry.WriteFloat( mMain->imu()->RPY().y );
-		telemetry.WriteFloat( mMain->imu()->RPY().z );
+		if ( mMain->imu() ) {
+			telemetry.WriteU16( ROLL_PITCH_YAW );
+			telemetry.WriteFloat( mMain->imu()->RPY().x );
+			telemetry.WriteFloat( mMain->imu()->RPY().y );
+			telemetry.WriteFloat( mMain->imu()->RPY().z );
 
-		telemetry.WriteU16( CURRENT_ACCELERATION );
-		telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
+			telemetry.WriteU16( CURRENT_ACCELERATION );
+			telemetry.WriteFloat( mMain->imu()->acceleration().xyz().length() );
 
-		telemetry.WriteU16( ALTITUDE );
-		telemetry.WriteFloat( mMain->imu()->altitude() );
+			telemetry.WriteU16( ALTITUDE );
+			telemetry.WriteFloat( mMain->imu()->altitude() );
 
-		if ( mTelemetryFull ) {
 			telemetry.WriteU16( GYRO );
 			telemetry.WriteFloat( mMain->imu()->rate().x );
 			telemetry.WriteFloat( mMain->imu()->rate().y );

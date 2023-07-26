@@ -60,6 +60,7 @@ Controller::Controller( Link* link, bool spectate )
 	, mRequestAck( false )
 	, mBoardInfos( "" )
 	, mSensorsInfos( "" )
+	, mCamerasInfos( "" )
 	, mConfigFile( "" )
 	, mRecordingsList( "" )
 	, mUpdateUploadValid( false )
@@ -208,10 +209,12 @@ bool Controller::run()
 	}
 
 	if ( mSwitches[10] and not mVideoRecording ) {
+		printf("start recording\n");
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_START_RECORD );
 		mXferMutex.unlock();
 	} else if ( not mSwitches[10] and mVideoRecording ) {
+		printf("stop recording\n");
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
@@ -451,6 +454,10 @@ bool Controller::RxRun()
 			}
 			case GET_SENSORS_INFOS : {
 				mSensorsInfos = telemetry.ReadString();
+				break;
+			}
+			case GET_CAMERAS_INFOS : {
+				mCamerasInfos = telemetry.ReadString();
 				break;
 			}
 			case GET_CONFIG_FILE : {
@@ -710,9 +717,12 @@ bool Controller::RxRun()
 				break;
 			}
 			case ALTITUDE : {
+				vec2 alt;
+				alt.x = mAltitude;
+				alt.y = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mAltitude = telemetry.ReadFloat();
-				mAltitudeHistory.emplace_back( mAltitude );
+				mAltitudeHistory.emplace_back( alt );
 				if ( mAltitudeHistory.size() > 256 ) {
 					mAltitudeHistory.pop_front();
 				}
@@ -944,6 +954,22 @@ string Controller::getSensorsInfos()
 	}
 
 	return mSensorsInfos;
+}
+
+
+string Controller::getCamerasInfos()
+{
+	// Wait for data to be filled by RX Thread (RxRun())
+	while ( mCamerasInfos.length() == 0 ) {
+		mXferMutex.lock();
+		for ( uint32_t retries = 0; retries < 1; retries++ ) {
+			mTxFrame.WriteU16( GET_CAMERAS_INFOS );
+		}
+		mXferMutex.unlock();
+		usleep( 1000 * 250 );
+	}
+
+	return mCamerasInfos;
 }
 
 
@@ -1592,10 +1618,10 @@ list< vec3 > Controller::outerPidHistory()
 }
 
 
-list< float > Controller::altitudeHistory()
+list< vec2 > Controller::altitudeHistory()
 {
 	mHistoryMutex.lock();
-	list< float > ret = mAltitudeHistory;
+	list< vec2 > ret = mAltitudeHistory;
 	mHistoryMutex.unlock();
 	return ret;
 }

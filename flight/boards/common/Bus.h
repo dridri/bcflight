@@ -31,7 +31,8 @@ public:
 	int WriteFloat( uint8_t reg, float value );
 	int WriteVector3f( uint8_t reg, const Vector3f& vec );
 
-	virtual std::string toString() = 0;
+	virtual std::string toString() { return std::string(); }
+	virtual LuaValue infos() { return LuaValue(); }
 
 protected:
 	bool mConnected;

@@ -71,6 +71,12 @@ Config::~Config()
 }
 
 
+Lua* Config::luaState() const
+{
+	return mLua;
+}
+
+
 string Config::ReadFile()
 {
 	string ret = "";
@@ -245,9 +251,11 @@ string Config::DumpVariable( const string& name, int index, int indent )
 }
 
 
-void Config::Execute( const string& code )
+void Config::Execute( const string& code, bool silent )
 {
-	fDebug( code );
+	if ( not silent ) {
+		fDebug( code );
+	}
 	mLua->do_string( code );
 }
 
@@ -280,7 +288,7 @@ void Config::Reload()
 	gDebug() << "Reload 1 : " << _mem_usage();
 
 	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
-	LUAdostring( "PID = setmetatable( {}, { __call = function ( p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
+	LUAdostring( "PID = setmetatable( {}, { __call = function ( self, p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
 
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "system = { loop_time = 2000 }" );
@@ -288,72 +296,11 @@ void Config::Reload()
 	if ( mFilename != "" ) {
 		int ret = mLua->do_file( mFilename );
 		if ( ret != 0 ) {
-			return;
-		}
-	}
-/*
-	LUAdostring( "frame = { motors = {} }" );
-	LUAdostring( "battery = {}" );
-	LUAdostring( "camera = { v1 = {}, v2 = {}, hq = {} }" );
-	LUAdostring( "hud = {}" );
-	LUAdostring( "microphone = {}" );
-	LUAdostring( "controller = {}" );
-	LUAdostring( "sensors_map_i2c = {}" );
-	LUAdostring( "accelerometers = {}" );
-	LUAdostring( "gyroscopes = {}" );
-	LUAdostring( "magnetometers = {}" );
-	LUAdostring( "altimeters = {}" );
-	LUAdostring( "GPSes = {}" );
-	LUAdostring( "user_sensors = {}" );
-	LUAdostring( "function RegisterSensor( name, params ) user_sensors[name] = params ; return params end" );
-	LUAdostring( "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
-	LUAdostring( "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" ); // TODO : remove this
-	LUAdostring( "function Voltmeter( params ) params.type = \"Voltemeter\" ; return params end" );
-	LUAdostring( "function SPI( address, speed ) return { type = 'SPI', address = address, speed = speed } end" );
-	gDebug() << "Reload 2 : " << _mem_usage();
-
-#ifdef BUILD_motors
-	for ( auto motor : Motor::knownMotors() ) {
-		LUAdostring( "function " + motor.first + "( params ) params.motor_type = \"" + motor.first + "\" ; return params end" );
-	}
-#endif
-	gDebug() << "Reload 3 : " << _mem_usage();
-#ifdef BUILD_links
-	for ( auto link : Link::knownLinks() ) {
-		LUAdostring( "function " + link.first + "( params ) params.link_type = \"" + link.first + "\" ; return params end" );
-	}
-#endif
-	gDebug() << "Reload 4 : " << _mem_usage();
-#ifdef BUILD_sensors
-	for ( const Sensor::Device& device : Sensor::KnownDevices() ) {
-		LUAdostring( "function " + string(device.name) + "( params ) params.sensor_type = \"" + string(device.name) + "\" ; return params end" );
-	}
-#endif
-	gDebug() << "Reload 5 : " << _mem_usage();
-
-
-	if ( mFilename != "" ) {
-		luaL_loadfile( L, mFilename.c_str() );
-		int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
-		if ( ret != 0 ) {
-			lua_Debug ar;
-			lua_getstack(L, 1, &ar);
-			lua_getinfo(L, "nSl", &ar);
-			gDebug() << "Lua : Error while executing file \"" << mFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"";
-			return;
+			exit(0);
 		}
 	}
 
 	if ( mSettingsFilename != "" ) {
-		luaL_loadfile( L, mSettingsFilename.c_str() );
-		int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
-		if ( ret != 0 ) {
-			lua_Debug ar;
-			lua_getstack(L, 1, &ar);
-			lua_getinfo(L, "nSl", &ar);
-			gDebug() << "Lua : Error while executing file \"" << mSettingsFilename << "\" : " << ar.currentline << " : \"" << lua_tostring( L, -1 ) << "\"";
-		}
-	
 		string line;
 		string key;
 		string value;
@@ -364,101 +311,17 @@ void Config::Reload()
 				value = line.substr( line.find( "=" ) + 1 );
 				key = trim( key );
 				value = trim( value );
-				mSettings[ key ] = value;
 				gDebug() << "mSettings[\"" << key << "\"] = '" << mSettings[ key ] << "'";
+				mSettings[ key ] = value;
+				LUAdostring( key + " = " + value );
 			}
 		}
 	}
-
-#ifdef BUILD_sensors
-	list< string > user_sensors;
-	LocateValue( "user_sensors" );
-	lua_pushnil( L );
-	while( lua_next( L, -2 ) != 0 ) {
-		string key = lua_tostring( L, -2 );
-		user_sensors.emplace_back( key );
-		lua_pop( L, 1 );
-	}
-	for ( string s : user_sensors ) {
-		Sensor::RegisterDevice( s, this, "user_sensors." + s );
-	}
-#endif
-*/
 }
 
 
 void Config::Apply()
 {
-/*
-#ifdef BUILD_sensors
-	list< string > accelerometers;
-	list< string > gyroscopes;
-	list< string > magnetometers;
-
-	lua_getglobal( L, "accelerometers" );
-	lua_pushnil( L );
-	while ( lua_next( L, -2 ) ) {
-		accelerometers.emplace_back( lua_tolstring( L, -2, nullptr ) );
-		lua_pop(L, 1);
-	}
-	lua_pop(L, 1);
-	lua_getglobal( L, "gyroscopes" );
-	lua_pushnil( L );
-	while ( lua_next( L, -2 ) ) {
-		gyroscopes.emplace_back( lua_tolstring( L, -2, nullptr ) );
-		lua_pop(L, 1);
-	}
-	lua_pop(L, 1);
-	lua_getglobal( L, "magnetometers" );
-	lua_pushnil( L );
-	while ( lua_next( L, -2 ) ) {
-		magnetometers.emplace_back( lua_tolstring( L, -2, nullptr ) );
-		lua_pop(L, 1);
-	}
-	lua_pop(L, 1);
-
-	for ( auto it : gyroscopes ) {
-		gDebug() << "On sensor \"" << it << "\"";
-		Gyroscope* gyro = Sensor::gyroscope( it );
-		if ( not gyro ) {
-			Sensor::RegisterDevice( it, this, "gyroscopes[" + it + "]" );
-			gyro = Sensor::gyroscope( it );
-		}
-		if ( gyro ) {
-			gDebug() << "Gyroscope \"" << it << "\" found";
-			int swap[4] = { 0, 0, 0, 0 };
-			swap[0] = Integer( "gyroscopes." + it + ".axis_swap.x" );
-			swap[1] = Integer( "gyroscopes." + it + ".axis_swap.y" );
-			swap[2] = Integer( "gyroscopes." + it + ".axis_swap.z" );
-			gyro->setAxisSwap( swap );
-		}
-	}
-	for ( auto it : accelerometers ) {
-		gDebug() << "On sensor \"" << it << "\"";
-		Accelerometer* accel = Sensor::accelerometer( it );
-		if ( accel ) {
-			gDebug() << "Accelerometer \"" << it << "\" found";
-			int swap[4] = { 0, 0, 0, 0 };
-			swap[0] = Integer( "accelerometers." + it + ".axis_swap.x" );
-			swap[1] = Integer( "accelerometers." + it + ".axis_swap.y" );
-			swap[2] = Integer( "accelerometers." + it + ".axis_swap.z" );
-			accel->setAxisSwap( swap );
-		}
-	}
-	for ( auto it : magnetometers ) {
-		gDebug() << "On sensor \"" << it << "\"";
-		Magnetometer* magn = Sensor::magnetometer( it );
-		if ( magn ) {
-			gDebug() << "Magnetometers \"" << it << "\" found";
-			int swap[4] = { 0, 0, 0, 0 };
-			swap[0] = Integer( "magnetometers." + it + ".axis_swap.x" );
-			swap[1] = Integer( "magnetometers." + it + ".axis_swap.y" );
-			swap[2] = Integer( "magnetometers." + it + ".axis_swap.z" );
-			magn->setAxisSwap( swap );
-		}
-	}
-#endif // BUILD_sensors
-*/
 }
 
 

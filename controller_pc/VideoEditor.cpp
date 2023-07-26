@@ -9,7 +9,7 @@
 #include "ui/VideoViewer.h"
 
 extern "C" {
-#include "../../external/openh264-master/codec/api/wels/codec_api.h"
+#include "../../external/openh264-master/codec/api/svc/codec_api.h"
 }
 
 VideoEditor::VideoEditor()

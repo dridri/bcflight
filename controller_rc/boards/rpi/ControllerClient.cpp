@@ -21,7 +21,8 @@
 #include <sys/mount.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <wiringPi.h>
+#include <pigpio.h>
+#include "GPIO.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -41,32 +42,33 @@ ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 {
 	mConfig = config;
 
-	wiringPiSetupGpio();
+	gpioInitialise();
 
-	pullUpDnControl( 0, PUD_DOWN );
-	pullUpDnControl( 1, PUD_DOWN );
-	pullUpDnControl( 4, PUD_DOWN );
-	pullUpDnControl( 5, PUD_DOWN );
-	pullUpDnControl( 6, PUD_DOWN );
-	pullUpDnControl( 12, PUD_DOWN );
-	pullUpDnControl( 13, PUD_DOWN );
-	pullUpDnControl( 22, PUD_DOWN );
-	pullUpDnControl( 23, PUD_DOWN );
-	pullUpDnControl( 24, PUD_DOWN );
-	pullUpDnControl( 26, PUD_DOWN );
-	pullUpDnControl( 27, PUD_DOWN );
-	pinMode( 0, INPUT );
-	pinMode( 1, INPUT );
-	pinMode( 4, INPUT );
-	pinMode( 5, INPUT );
-	pinMode( 6, INPUT );
-	pinMode( 12, INPUT );
-	pinMode( 13, INPUT );
-	pinMode( 22, INPUT );
-	pinMode( 23, INPUT );
-	pinMode( 24, INPUT );
-	pinMode( 26, INPUT );
-	pinMode( 27, INPUT );
+	GPIO::setPUD( 0, GPIO::PullDown );
+	GPIO::setPUD( 1, GPIO::PullDown );
+	GPIO::setPUD( 4, GPIO::PullDown );
+	GPIO::setPUD( 5, GPIO::PullDown );
+	GPIO::setPUD( 6, GPIO::PullDown );
+	GPIO::setPUD( 12, GPIO::PullDown );
+	GPIO::setPUD( 13, GPIO::PullDown );
+	GPIO::setPUD( 22, GPIO::PullDown );
+	GPIO::setPUD( 23, GPIO::PullDown );
+	GPIO::setPUD( 24, GPIO::PullDown );
+	GPIO::setPUD( 26, GPIO::PullDown );
+	GPIO::setPUD( 27, GPIO::PullDown );
+
+	GPIO::setMode( 0, GPIO::Input );
+	GPIO::setMode( 1, GPIO::Input );
+	GPIO::setMode( 4, GPIO::Input );
+	GPIO::setMode( 5, GPIO::Input );
+	GPIO::setMode( 6, GPIO::Input );
+	GPIO::setMode( 12, GPIO::Input );
+	GPIO::setMode( 13, GPIO::Input );
+	GPIO::setMode( 22, GPIO::Input );
+	GPIO::setMode( 23, GPIO::Input );
+	GPIO::setMode( 24, GPIO::Input );
+	GPIO::setMode( 26, GPIO::Input );
+	GPIO::setMode( 27, GPIO::Input );
 
 	mSimulatorThread = new HookThread<ControllerClient>( "Simulator", this, &ControllerClient::RunSimulator );
 	mSimulatorThread->Start();
@@ -89,7 +91,7 @@ int8_t ControllerClient::ReadSwitch( uint32_t id )
 		return 0;
 	}
 
-	int8_t ret = !digitalRead( map[id] );
+	int8_t ret = !GPIO::Read( map[id] );
 	if ( id == 1 ) {
 		ret = !ret;
 	}

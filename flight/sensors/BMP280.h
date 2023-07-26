@@ -22,24 +22,24 @@
 #include <I2C.h>
 #include "Altimeter.h"
 
-class BMP280 : public Altimeter
+LUA_CLASS class BMP280 : public Altimeter
 {
 public:
-	BMP280();
+	LUA_EXPORT BMP280();
 	~BMP280();
 
 	void Calibrate( float dt, bool last_pass = false );
 	void Read( float* altitude );
 
-	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
-	static int flight_register( Main* main );
+	LuaValue infos();
 
 private:
 	float ReadTemperature();
 	float ReadPressure();
 
 	I2C* mI2C;
-	float mBasePressure;
+	Vector2f mBaseAltitudeAccum;
+	float mBaseAltitude;
 
 	uint16_t dig_T1;
 	int16_t dig_T2;

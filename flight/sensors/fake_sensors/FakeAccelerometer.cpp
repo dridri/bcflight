@@ -54,9 +54,14 @@ void FakeAccelerometer::Read( Vector3f* v, bool raw )
 }
 
 
-string FakeAccelerometer::infos()
+LuaValue FakeAccelerometer::infos()
 {
-	return "Resolution = \"32 bits float\", Scale = \"16g\"";
+	LuaValue ret;
+
+	ret["Resolution"] = "32 bits float";
+	ret["Scale"] = "16g";
+
+	return ret;
 }
 
 #endif // BOARD_generic

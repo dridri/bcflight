@@ -63,10 +63,15 @@ LuaValue LuaValue::fromReference( Lua* lua, LuaValue* val )
 static int LuaPrint( lua_State* L )
 {
 	int nArgs = lua_gettop(L);
+	lua_getglobal( L, "serialize" );
 	lua_getglobal( L, "tostring" );
 	string ret = "";
 	for ( int i = 1; i <= nArgs; i++ ) {
-		lua_pushvalue( L, -1 );
+		if ( lua_type( L, i ) == LUA_TTABLE ) {
+			lua_pushvalue( L, -2 );
+		} else {
+			lua_pushvalue( L, -1 );
+		}
 		lua_pushvalue( L, i );
 		lua_call( L, 1, 1 );
 		const char* s = lua_tostring( L, -1 );
@@ -79,6 +84,8 @@ static int LuaPrint( lua_State* L )
 		ret += s;
 		lua_pop( L, 1 );
 	};
+	lua_pop( L, 1 );
+	lua_pop( L, 1 );
 	std::cout << "\x1B[93m[Lua]\x1B[0m " << ret << "\n";
 	return 0;
 }
@@ -343,6 +350,11 @@ Lua::Lua( const string& load_path )
 	lua_register( mLuaState, "traceback", &Traceback );
 	lua_register( mLuaState, "call_error", &CallError );
 	lua_register( mLuaState, "crc32", &LuaCRC32 );
+	lua_register( mLuaState, "serialize", []( lua_State* L ) {
+		LuaValue v = Lua::value( L, 1 );
+		LuaValue( v.serialize() ).push( L );
+		return 1;
+	});
 
 	do_string( "package.path = \"lua/?.lua;\" .. package.path" );
 	do_string( "package.path = \"lua/?/init.lua;\" .. package.path" );
@@ -572,7 +584,7 @@ LuaValue Lua::value( lua_State* L, int index )
 // 		mMutex.unlock();
 		return ret;
 	} else if ( lua_iscfunction( L, index ) ) {
-	} else if ( type == LUA_TUSERDATA ) {
+	} else if ( type == LUA_TUSERDATA or type == LUA_TLIGHTUSERDATA ) {
 		LuaValue ret = lua_touserdata( L, index );
 		return ret;
 	} else if ( type == LUA_TTABLE ) {
@@ -582,7 +594,9 @@ LuaValue Lua::value( lua_State* L, int index )
 			for ( size_t i = 1; i <= len; i++ ) {
 				lua_rawgeti( L, index, i );
 				if ( not lua_isfunction( L, -1 ) ) {
-					table[i] = value( L, -1 );
+					LuaValue v = value( L, -1 );
+					printf("on valuz %d %d\n", lua_type( L, -1 ), v.type());
+					table[i] = v;
 				}
 				lua_pop( L, 1 );
 			}
@@ -623,6 +637,7 @@ LuaValue Lua::value( const string& name )
 {
 	if ( LocateValue( name ) < 0 ) {
 		// std::cout << "Lua variable \"" << name << "\" not found\n";
+		return LuaValue();
 	}
 	return value( mLuaState, -1 );
 }
@@ -634,6 +649,53 @@ LuaValue Lua::value( int index, lua_State* L )
 		L = mLuaState;
 	}
 	return value( L, index );
+}
+
+
+std::vector<string> Lua::valueKeys( lua_State* L, int index )
+{
+	std::vector<string> ret;
+
+	const auto listKeys = [L, &ret]() {
+		lua_pushnil( L );
+		while ( lua_next( L, -2 ) != 0 ) {
+			const char* key = lua_tostring( L, -2 );
+			ret.push_back( string(key) );
+			lua_pop( L, 1 );
+		}
+	};
+
+	if ( lua_type( L, index ) == LUA_TTABLE ) {
+		bool istop = ( index > 0 );
+		if ( istop ) {
+			lua_pushvalue( L, index );
+		}
+		listKeys();
+		if ( istop ) {
+			lua_pop( L, 1 );
+		}
+	}
+	if ( lua_type( L, index ) == LUA_TTABLE or lua_type( L, index ) == LUA_TUSERDATA ) {
+		lua_getmetatable( L, index );
+			if ( lua_type( L, -1 ) == LUA_TTABLE ) {
+				lua_getfield( L, -1, "__index" );
+				if ( lua_type( L, -1 ) == LUA_TTABLE ) {
+					listKeys();
+				}
+			}
+		lua_pop( L, 1 );
+	}
+	return ret;
+}
+
+
+std::vector<string> Lua::valueKeys( const string& name )
+{
+	if ( LocateValue( name ) < 0 ) {
+		// std::cout << "Lua variable \"" << name << "\" not found\n";
+		return std::vector<string>();
+	}
+	return valueKeys( mLuaState, -1 );
 }
 
 
@@ -835,7 +897,7 @@ int Lua::LocateValue( const string& _name )
 
 	int top = lua_gettop( mLuaState );
 
-	if ( strchr( name, '.' ) == nullptr and strchr( name, '[' ) == nullptr ) {
+	if ( strchr( name, '.' ) == nullptr and strchr( name, ':' ) == nullptr and strchr( name, '[' ) == nullptr ) {
 		lua_getglobal( mLuaState, name );
 		if ( lua_type( mLuaState, -1 ) == LUA_TNIL ) {
 			return -1;
@@ -845,7 +907,7 @@ int Lua::LocateValue( const string& _name )
 		int i=0, j, k;
 		bool in_table = false;
 		for ( i = 0, j = 0, k = 0; name[i]; i++ ) {
-			if ( name[i] == '.' or name[i] == '[' or name[i] == ']' ) {
+			if ( name[i] == '.' or name[i] == ':' or name[i] == '[' or name[i] == ']' ) {
 				tmp[j] = 0;
 				if ( strlen(tmp) == 0 ) {
 					j = 0;

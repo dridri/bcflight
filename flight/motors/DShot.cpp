@@ -12,7 +12,7 @@ DShot::DShot( uint32_t pin )
 }
 
 
-DShot::~DShot()
+DShot::~DShot() 
 {
 }
 

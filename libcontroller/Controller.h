@@ -37,6 +37,9 @@
 	protected: type m##n1; \
 	public: void set##n1( const type& v );
 
+typedef struct vec2 {
+	float x, y, z;
+} vec2;
 typedef struct vec3 {
 	float x, y, z;
 } vec3;
@@ -68,6 +71,7 @@ public:
 	void setFullTelemetry( bool fullt );
 	string getBoardInfos();
 	string getSensorsInfos();
+	string getCamerasInfos();
 	string debugOutput();
 	vector< string > recordingsList();
 
@@ -147,7 +151,7 @@ public:
 	list< vec4 > accelerationHistory();
 	list< vec4 > magnetometerHistory();
 	list< vec3 > outerPidHistory();
-	list< float > altitudeHistory();
+	list< vec2 > altitudeHistory();
 
 	float localBatteryVoltage() const;
 	virtual uint16_t rawThrust() { return 0; }
@@ -188,6 +192,7 @@ protected:
 	HookThread<Controller>* mRxThread;
 	string mBoardInfos;
 	string mSensorsInfos;
+	string mCamerasInfos;
 	string mConfigFile;
 	string mRecordingsList;
 	bool mUpdateUploadValid;
@@ -211,7 +216,7 @@ protected:
 	list< vec4 > mAccelerationHistory;
 	list< vec4 > mMagnetometerHistory;
 	list< vec3 > mOuterPIDHistory;
-	list< float > mAltitudeHistory;
+	list< vec2 > mAltitudeHistory;
 	mutex mHistoryMutex;
 
 	float mLocalBatteryVoltage;

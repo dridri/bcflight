@@ -330,14 +330,11 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 
 	mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
 
-// 	if ( not ctrl->armed() ) {
 	if ( not mArmed ) {
 		return;
 	}
 
 	// We didn't take off yet (or really close to ground just after take-off), so we bypass stabilization, and just return
-// 	if ( mFrame->airMode() == false and ctrl->thrust() <= 0.15f ) {
-// 		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), ctrl->thrust() );
 	if ( mFrame->airMode() == false and mThrust <= 0.15f ) {
 		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), mThrust );
 		return;

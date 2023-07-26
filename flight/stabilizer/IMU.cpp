@@ -109,14 +109,14 @@ IMU::IMU()
 	 *     - roll-pitch-yaw 0 1 2
 	 **/
 	// Set Extended-Kalman-Filter mixing matrix (input, output, factor)
-/*
+
 	mAttitude.setSelector( 0, 0, 1.0f );
 	mAttitude.setSelector( 3, 0, 1.0f );
 	mAttitude.setSelector( 1, 1, 1.0f );
 	mAttitude.setSelector( 4, 1, 1.0f );
 	mAttitude.setSelector( 2, 2, 1.0f );
 	mAttitude.setSelector( 5, 2, 1.0f );
-*/
+
 /*
 	mAttitude.setSelector( 0, 0, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.accelerometer.factor.x", 1.0f ) ) ) );
 	mAttitude.setSelector( 3, 0, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.rates.factor.x", 1.0f ) ) ) );
@@ -222,7 +222,7 @@ const Vector3f IMU::rate() const
 
 const float IMU::altitude() const
 {
-	return mPosition.state( 0 ).x;
+	return mPosition.state( 0 ).z;
 }
 
 
@@ -330,6 +330,24 @@ void IMU::setAttitudeFilterOutput( const Vector3f& v )
 }
 
 
+void IMU::setPositionFilterInput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mPosition.setInputFilter( 0, v.x );
+	mPosition.setInputFilter( 1, v.y );
+	mPosition.setInputFilter( 2, v.z );
+}
+
+
+void IMU::setPositionFilterOutput( const Vector3f& v )
+{
+	fDebug(v.x, v.y, v.z);
+	mPosition.setOutputFilter( 0, v.x );
+	mPosition.setOutputFilter( 1, v.y );
+	mPosition.setOutputFilter( 2, v.z );
+}
+
+
 void IMU::registerConsumer( const std::function<void(uint64_t, const Vector3f&, const Vector3f&)>& f )
 {
 	mConsumers.push_back( f );
@@ -413,7 +431,7 @@ void IMU::Calibrate( float dt, bool all )
 		case 1 : {
 			// gDebug() << "calibrate " << mCalibrationStep << " " << 0;
 			for ( auto dev : Sensor::Devices() ) {
-				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
+				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr or dynamic_cast< Altimeter* >( dev ) != nullptr ) {
 					// gDebug() << "calibrate " << dev->names().front();
 					dev->Calibrate( dt, false );
 				}
@@ -427,7 +445,7 @@ void IMU::Calibrate( float dt, bool all )
 		case 2 : {
 			gDebug() << "Calibration last pass";
 			for ( auto dev : Sensor::Devices() ) {
-				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr ) {
+				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr or dynamic_cast< Altimeter* >( dev ) != nullptr ) {
 					dev->Calibrate( dt, true );
 				}
 			}
@@ -544,7 +562,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 	float ftmp;
 	// char stmp[64];
 
-	for ( Gyroscope* dev : Sensor::Gyroscopes() ) {
+	for ( Gyroscope* dev : mGyroscopes ) {
 		vtmp.x = vtmp.y = vtmp.z = 0.0f;
 		int ret = dev->Read( &vtmp );
 		if ( ret > 0 ) {
@@ -561,7 +579,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 
 	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
 	{
-		for ( Accelerometer* dev : Sensor::Accelerometers() ) {
+		for ( Accelerometer* dev : mAccelerometers ) {
 			vtmp.x = vtmp.y = vtmp.z = 0.0f;
 			dev->Read( &vtmp );
 			total_accel += Vector4f( vtmp, 1.0f );
@@ -572,10 +590,11 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 		}
 // 		geNormalize( &mAcceleration );
 		// sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
+		// gDebug() << "Aceleration : " << stmp;
 		// mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
 
-		if ( mSensorsUpdateSlow % 8 == 0 ) {
-			for ( Magnetometer* dev : Sensor::Magnetometers() ) {
+		if ( mSensorsUpdateSlow % 4 == 0 ) {
+			for ( Magnetometer* dev : mMagnetometers ) {
 				vtmp.x = vtmp.y = vtmp.z = 0.0f;
 				dev->Read( &vtmp );
 				total_magn += Vector4f( vtmp, 1.0f );
@@ -587,17 +606,17 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 			// mMain->blackbox()->Enqueue( "IMU:magnetometer", stmp );
 		}
 
-		if ( mSensorsUpdateSlow % 16 == 0 ) {
-			for ( Altimeter* dev : Sensor::Altimeters() ) {
+		if ( mSensorsUpdateSlow % 2 == 0 ) {
+			for ( Altimeter* dev : mAltimeters ) {
 				ftmp = 0.0f;
 				dev->Read( &ftmp );
 				if ( dev->type() == Altimeter::Proximity and ftmp > 0.0f ) {
 					total_proxi += Vector2f( ftmp, 1.0f );
-				} else if ( dev->type() == Altimeter::Absolute ) {
+				} else if ( dev->type() == Altimeter::Absolute and std::abs( ftmp - mAltitude ) < 15.0f ) { // this avoids to use erroneous values, 10 is arbitrary but nothing should be able to move by 10m in only one tick
 					total_alti += Vector2f( ftmp, 1.0f );
 				}
 			}
-			for ( GPS* dev : Sensor::GPSes() ) {
+			for ( GPS* dev : mGPSes ) {
 				float lattitude = 0.0f;
 				float longitude = 0.0f;
 				float altitude = 0.0f;
@@ -636,7 +655,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 
 	// Update RPY only at 1/16 update frequency when in Rate mode
 	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 16;
-	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 2048;
+	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 1000;
 }
 
 

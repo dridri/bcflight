@@ -32,11 +32,17 @@ public:
 		Output,
 	} Mode;
 	typedef enum {
+		PullOff = 0,
+		PullDown = 1,
+		PullUp = 2,
+	} PUDMode;
+	typedef enum {
 		Falling = 1,
 		Rising = 2,
 		Both = 3,
 	} ISRMode;
 
+	static void setPUD( int pin, PUDMode mode );
 	static void setMode( int pin, Mode mode );
 	static void setPWM( int pin, int initialValue, int pwmRange );
 	static void Write( int pin, bool en );

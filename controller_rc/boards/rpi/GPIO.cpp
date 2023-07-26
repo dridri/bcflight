@@ -16,12 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include <wiringPi.h>
+#include <pigpio.h>
+// #include <wiringPi.h>
 #include <unistd.h>
 #include <sys/poll.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <softPwm.h>
+#include <string.h>
 #include <string>
 #include "GPIO.h"
 
@@ -30,29 +32,36 @@ std::map< int, std::list<std::pair<std::function<void()>,GPIO::ISRMode>> > GPIO:
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
 	if ( mode == Output ) {
-		pinMode( pin, OUTPUT );
+		gpioSetMode( pin, PI_OUTPUT );
 	} else {
-		pinMode( pin, INPUT );
+		gpioSetMode( pin, PI_INPUT );
 	}
+}
+
+
+void GPIO::setPUD( int pin, PUDMode mode )
+{
+	gpioSetPullUpDown( pin, mode );
 }
 
 
 void GPIO::setPWM( int pin, int initialValue, int pwmRange )
 {
-	setMode( pin, Output );
-	softPwmCreate( pin, initialValue, pwmRange );
+	// TODO : switch from wiringPi to pigpio
+	// setMode( pin, Output );
+	// softPwmCreate( pin, initialValue, pwmRange );
 }
 
 
 void GPIO::Write( int pin, bool en )
 {
-	digitalWrite( pin, en );
+	gpioWrite( pin, en );
 }
 
 
 bool GPIO::Read( int pin )
 {
-	return digitalRead( pin );
+	return gpioRead( pin );
 }
 
 
@@ -91,7 +100,10 @@ void* GPIO::ISR( void* argp )
 	char buffer[16];
 
 	pthread_setname_np( pthread_self(), ( "GPIO::ISR_" + std::to_string( pin ) ).c_str() );
-	piHiPri(99);
+	struct sched_param sched;
+	memset( &sched, 0, sizeof(sched) );
+	sched.sched_priority = std::min( sched_get_priority_max( SCHED_RR ), 99 );
+	sched_setscheduler( 0, SCHED_RR, &sched );
 	usleep( 1000 );
 
 	std::list<std::pair<std::function<void()>,GPIO::ISRMode>>& fcts = mInterrupts.at( pin );

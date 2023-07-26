@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbol
 set(CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -mfloat-abi=hard -Wl,--unresolved-symbols=ignore-in-shared-libs -L/opt/vc/lib/ -Wl,-rpath=/opt/vc/lib")
 set(CMAKE_LINKER_FLAGS "${CMAKE_LD_FLAGS}")
 include_directories( /opt/vc/include )
-set( BOARD_LIBS -lwiringPi -lrt -lpthread -ldl -lz -liw )
+set( BOARD_LIBS -lpigpio -lrt -lpthread -ldl -lz -liw )
 
 set( BOARD_LIBS ${BOARD_LIBS} Qt5Widgets Qt5Gui Qt5PrintSupport Qt5Core -lGLESv2 -lEGL )
 get_filename_component( GCC_FULL_PATH ${CMAKE_C_COMPILER} ABSOLUTE )

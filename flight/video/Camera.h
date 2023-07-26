@@ -46,7 +46,7 @@ public:
 
 	virtual const uint32_t width() = 0;
 	virtual const uint32_t height() = 0;
-	virtual const uint32_t framerate() = 0;
+	LUA_PROPERTY("framerate") virtual const uint32_t framerate() = 0;
 	virtual const float brightness() = 0;
 	virtual const float contrast() = 0;
 	virtual const float saturation() = 0;
@@ -72,10 +72,15 @@ public:
 
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp ) = 0;
 
+	virtual LuaValue infos() { return LuaValue(); }
+	static LuaValue infosAll();
+
 protected:
 	LUA_PROPERTY("preview_output") VideoEncoder* mLiveEncoder;
 	LUA_PROPERTY("video_output") VideoEncoder* mVideoEncoder;
 // 	_LUA_PROPERTY("still_output") ImageEncoder* mStillEncoder;
+
+	static list<Camera*> sCameras;
 };
 
 

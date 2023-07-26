@@ -18,6 +18,8 @@
 #define FREQ_STEP 61.03515625f
 #define PACKET_SIZE 32
 
+// TODO : LoRa see https://github.com/chandrawi/LoRaRF-Python/blob/main/LoRaRF/SX127x.py
+
 static uint8_t GetFskBandwidthRegValue( uint32_t bandwidth );
 static const char* GetRegName( uint8_t reg );
 
@@ -139,20 +141,6 @@ const struct {
 static uint8_t crc8( const uint8_t* buf, uint32_t len );
 
 
-int SX127x::flight_register( Main* main )
-{
-	RegisterLink( "SX127x", &SX127x::Instanciate );
-	return 0;
-}
-
-
-Link* SX127x::Instanciate( Config* config, const string& lua_object )
-{
-	return nullptr;
-	// return new SX127x( config, lua_object );
-}
-
-
 SX127x::SX127x()
 	: Link()
 	, mSPI( nullptr )
@@ -217,7 +205,7 @@ void SX127x::init()
 
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
-	mSPI = new SPI( mDevice, 1 * 1000 * 1000 ); // 7
+	mSPI = new SPI( mDevice, 2 * 1000 * 1000 ); // 7
 	mSPI->Connect();
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
@@ -244,7 +232,7 @@ void SX127x::init()
 			if ( mDiversityIrqPin < 0 ) {
 				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !";
 			} else {
-				mDiversitySpi = new SPI( mDiversityDevice, 1 * 1000 * 1000 ); // 7
+				mDiversitySpi = new SPI( mDiversityDevice, 2 * 1000 * 1000 ); // 7
 				mDiversitySpi->Connect();
 				GPIO::setMode( mDiversityResetPin, GPIO::Output );
 				GPIO::Write( mDiversityResetPin, false );
@@ -768,9 +756,20 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 	if ( mRxQueue.size() == 0 ) {
 		mRxQueueMutex.unlock();
 		if ( timedout ) {
-			// if ( !ping() ) {
+			if ( mLedPin ) {
+				GPIO::Write( mLedPin, 1 );
+				if ( mDiversityLedPin ) {
+					GPIO::Write( mDiversityLedPin, 1 );
+				}
+				usleep( 500 );
+				GPIO::Write( mLedPin, 0 );
+				if ( mDiversityLedPin ) {
+					GPIO::Write( mDiversityLedPin, 0 );
+				}
+			}
+			if ( !ping() ) {
 				gDebug() << "Module online : " << ping();
-			// }
+			}
 			return TIMEOUT;
 		}
 		return 0;
@@ -1229,6 +1228,39 @@ uint8_t SX127x::readRegister( SPI* spi, uint8_t address )
 
 	spi->Transfer( tx, rx, 2 );
 	return rx[1];
+}
+
+
+string SX127x::name() const
+{
+	return "SX127x";
+}
+
+
+LuaValue SX127x::infos() const
+{
+	LuaValue ret;
+
+	ret["Bus"] = mSPI->infos();
+	ret["Frequency"] = mFrequency;
+	ret["Bandwidth"] = mBandwidth;
+	ret["Bandwidth Afc"] = mBandwidthAfc;
+	ret["Fdev"] = mFdev;
+	ret["Reset Pin"] = mResetPin;
+	ret["IRQ Pin"] = mIRQPin;
+	ret["LED Pin"] = mLedPin;
+	ret["TX Pin"] = mTXPin;
+	ret["RX Pin"] = mRXPin;
+	ret["Blocking"] = mBlocking;
+	if ( mDiversitySpi ) {
+		ret["Diversity"] = LuaValue();
+		ret["Diversity"]["Bus"] = mDiversitySpi->infos();
+		ret["Diversity"]["Reset Pin"] = mDiversityResetPin;
+		ret["Diversity"]["IRQ Pin"] = mDiversityIrqPin;
+		ret["Diversity"]["LED Pin"] = mDiversityLedPin;
+	}
+
+	return ret;
 }
 
 

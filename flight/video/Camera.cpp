@@ -19,16 +19,32 @@
 #include <Debug.h>
 #include "Camera.h"
 
+list<Camera*> Camera::sCameras;
+
 Camera::Camera()
 	: mLiveEncoder( nullptr )
 	, mVideoEncoder( nullptr )
 //	, mStillEncoder( nullptr )
 {
 	fDebug();
+	sCameras.push_back( this );
 }
 
 
 Camera::~Camera()
 {
 	fDebug();
+}
+
+
+LuaValue Camera::infosAll()
+{
+	LuaValue ret;
+
+	uint32_t i = 0;
+	for ( auto& c : sCameras ) {
+		ret["Camera " + to_string( i )] = c->infos();
+	}
+
+	return ret;
 }

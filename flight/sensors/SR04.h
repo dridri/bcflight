@@ -31,7 +31,7 @@ public:
 	virtual void Calibrate( float dt, bool last_pass );
 	virtual void Read( float* altitude );
 
-	virtual string infos();
+	virtual LuaValue infos();
 
 	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
 	static int flight_register( Main* main );

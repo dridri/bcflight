@@ -515,25 +515,36 @@ void ICM4xxxxMag::Read( Vector3f* v, bool raw )
 }
 
 
-string ICM4xxxxGyro::infos()
+LuaValue ICM4xxxxGyro::infos()
 {
-	return "";
-// TODO
-// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"2000°/s\"";
+	LuaValue ret;
+
+	ret["bus"] = mBus->infos();
+	ret["precision"] = "16 bits";
+	ret["scale"] = "2000°/s";
+	ret["sample_rate"] = "1kHz";
+	ret["swap_axis"] = swapInfos();
+
+	return ret;
 }
 
 
-string ICM4xxxxAccel::infos()
+LuaValue ICM4xxxxAccel::infos()
 {
-	return "";
-// TODO
-// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"16 bits\", " + "Scale = \"16g\"";
+	LuaValue ret;
+
+	ret["bus"] = mBus->infos();
+	ret["precision"] = "16 bits";
+	ret["scale"] = "16g";
+	ret["sample_rate"] = "1kHz";
+	ret["swap_axis"] = swapInfos();
+
+	return ret;
 }
 
 
-string ICM4xxxxMag::infos()
+LuaValue ICM4xxxxMag::infos()
 {
 	return "";
 // TODO
-// 	return "I2Caddr = " + to_string( mBus->address() ) + ", " + "Resolution = \"13 bits\", " + "Scale = \"1200μT\"";
 }

@@ -137,14 +137,51 @@ void Sensor::ApplySwap( Vector4f& v )
 	}
 }
 
+LuaValue Sensor::swapInfos() const
+{
+	LuaValue ret;
 
+	const auto axisString = [] ( const int axis ) {
+		const string sign = axis < 0 ? "-" : "";
+		switch ( std::abs( axis ) ) {
+			case 1:
+				return sign + "X";
+			case 2:
+				return sign + "Y";
+			case 3:
+				return sign + "Z";
+			case 4:
+				return sign + "W";
+		}
+	};
+
+	if ( mSwapMode == SwapModeAxis ) {
+		ret["x"] = axisString( mAxisSwap[0] );
+		ret["y"] = axisString( mAxisSwap[1] );
+		ret["z"] = axisString( mAxisSwap[2] );
+		if ( mAxisSwap[3] != 0 ) {
+			ret["w"] = axisString( mAxisSwap[3] );
+		}
+	} else {
+		for ( uint32_t i = 0; i < mAxisMatrix.height(); ++i ) {
+			ret[i] = LuaValue();
+			for ( uint32_t j = 0; j < mAxisMatrix.width(); ++j ) {
+				ret[i][j] = mAxisMatrix.constData()[i * mAxisMatrix.width() + j];
+			}
+		}
+	}
+
+	return ret;
+}
+
+/*
 void Sensor::AddDevice( Sensor* sensor )
 {
 	mDevices.push_back( sensor );
 	UpdateDevices();
 }
-
-
+*/
+/*
 void Sensor::RegisterDevice( int I2Caddr, const string& name, Config* config, const string& object )
 {
 	for ( Device d : mKnownDevices ) {
@@ -164,7 +201,7 @@ void Sensor::RegisterDevice( const string& name, Config* config, const string& o
 {
 	fDebug( name, config, object );
 	for ( Device d : mKnownDevices ) {
-		if ( /*d.iI2CAddr == 0 and */!strcmp( d.name, name.c_str() ) ) {
+		if ( !strcmp( d.name, name.c_str() ) ) {
 			const string dev = config->String( object + ".device" );
 			Bus* bus = nullptr;
 			if ( dev.find("spi") != string::npos or dev.find("SPI") != string::npos or dev.find("Spi") != string::npos ) {
@@ -181,7 +218,7 @@ void Sensor::RegisterDevice( const string& name, Config* config, const string& o
 		}
 	}
 }
-
+*/
 
 const list< Sensor::Device >& Sensor::KnownDevices()
 {
@@ -396,41 +433,44 @@ void Sensor::UpdateDevices()
 }
 
 
-string Sensor::infosAll()
+LuaValue Sensor::infosAll()
 {
-	stringstream ss;
-	ss << "Sensors = {\n";
+	LuaValue ret;
+	ret["Gyroscopes"] = LuaValue();
+	ret["Accelerometers"] = LuaValue();
+	ret["Magnetometers"] = LuaValue();
+	ret["Altimeters"] = LuaValue();
+	ret["GPSes"] = LuaValue();
+	ret["Voltmeters"] = LuaValue();
+	ret["CurrentSensors"] = LuaValue();
 
-	ss << "\tGyroscopes = {\n";
 	for ( Gyroscope* gyro : mGyroscopes ) {
-		ss << "\t\t" << gyro->names().front() << " = { " << gyro->infos() << " },\n";
+		ret["Gyroscopes"]["[\"" + gyro->names().front() + "\"]"] = gyro->infos();
 	}
-	ss << "\t},\n";
 
-	ss << "\tAccelerometers = {\n";
 	for ( Accelerometer* accel : mAccelerometers ) {
-		ss << "\t\t" << accel->names().front() << " = { " << accel->infos() << " },\n";
+		ret["Accelerometers"]["[\"" + accel->names().front() + "\"]"] = accel->infos();
 	}
-	ss << "\t},\n";
 
-	ss << "\tMagnetometers = {\n";
 	for ( Magnetometer* magn : mMagnetometers ) {
-		ss << "\t\t" << magn->names().front() << " = { " << magn->infos() << " },\n";
+		ret["Magnetometers"]["[\"" + magn->names().front() + "\"]"] = magn->infos();
 	}
-	ss << "\t},\n";
 
-	ss << "\tVoltmeters = {\n";
-	for ( Voltmeter* v : mVoltmeters ) {
-		ss << "\t\t" << v->names().front() << " = { " << v->infos() << " },\n";
+	for ( Altimeter* alti : mAltimeters ) {
+		ret["Altimeters"]["[\"" + alti->names().front() + "\"]"] = alti->infos();
 	}
-	ss << "\t},\n";
 
-	ss << "\tCurrentSensors = {\n";
-	for ( CurrentSensor* c : mCurrentSensors ) {
-		ss << "\t\t" << c->names().front() << " = { " << c->infos() << " },\n";
+	for ( GPS* gps : mGPSes ) {
+		ret["GPSes"]["[\"" + gps->names().front() + "\"]"] = gps->infos();
 	}
-	ss << "\t},\n";
 
-	ss << "}\n";
-	return ss.str();
+	for ( Voltmeter* volt : mVoltmeters ) {
+		ret["Voltmeters"]["[\"" + volt->names().front() + "\"]"] = volt->infos();
+	}
+
+	for ( CurrentSensor* curr : mCurrentSensors ) {
+		ret["CurrentSensors"]["[\"" + curr->names().front() + "\"]"] = curr->infos();
+	}
+
+	return ret;
 }

@@ -51,7 +51,7 @@ public:
 		return Write( b, v.size() * sizeof(T) + 1 );
 	}
 
-	std::string toString();
+	LuaValue infos();
 
 private:
 	LUA_PROPERTY("device") string mDevice;

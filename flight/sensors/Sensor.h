@@ -78,8 +78,11 @@ public:
 	static Voltmeter* voltmeter( const string& name );
 	static CurrentSensor* currentSensor( const string& name );
 
-	virtual string infos() { return ""; }
-	static string infosAll();
+	virtual LuaValue infos() { return LuaValue(); }
+	virtual string toString() { return ""; }
+	static LuaValue infosAll();
+
+	static void UpdateDevices();
 
 protected:
 	typedef enum {
@@ -100,6 +103,8 @@ protected:
 	void ApplySwap( Vector3f& v );
 	void ApplySwap( Vector4f& v );
 
+	LuaValue swapInfos() const;
+
 	static list< Device > mKnownDevices; // Contains all the known devices by this software
 	static list< Sensor* > mDevices; // Contains all the detected devices
 	static list< Gyroscope* > mGyroscopes; // Contains all the detected gyroscopes
@@ -109,8 +114,6 @@ protected:
 	static list< GPS* > mGPSes; // ^
 	static list< Voltmeter* > mVoltmeters; // ^
 	static list< CurrentSensor* > mCurrentSensors; // ^
-
-	static void UpdateDevices();
 };
 
 #endif // SENSOR_H

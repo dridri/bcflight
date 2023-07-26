@@ -56,9 +56,26 @@ int I2C::Connect()
 
 std::string I2C::toString()
 {
-	stringstream ss;
-	ss <<"I2C@0x" << std::hex << mAddr;
-	return ss.str();
+	string ret;
+
+	ret += "{\n";
+	ret += "\t\"Type\": \"I2C\",\n";
+	ret += "\t\"Address\": " + to_string( mAddr ) + "\n";
+	ret += "}\n";
+
+	return ret;
+}
+
+
+LuaValue I2C::infos()
+{
+	LuaValue ret;
+
+	ret["Type"] = "I2C";
+	ret["Device"] = "/dev/i2c-1";
+	ret["Address"] = mAddr;
+
+	return ret;
 }
 
 

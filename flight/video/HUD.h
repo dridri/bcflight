@@ -54,6 +54,7 @@ private:
 	VideoStats mVideoStats;
 	std::map< uintptr_t, Image > mImages;
 	std::mutex mImagesMutex;
+	bool mReady;
 };
 
 #else // SYSTEM_NAME_Linux

@@ -32,7 +32,7 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	float Read( int channel );
 
-	string infos();
+	LuaValue infos();
 
 private:
 	I2C* mI2C;

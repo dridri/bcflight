@@ -55,9 +55,13 @@ int FakeGyroscope::Read( Vector3f* v, bool raw )
 }
 
 
-string FakeGyroscope::infos()
+LuaValue FakeGyroscope::infos()
 {
-	return "Resolution = \"32 bits float\", Scale = \"16g\"";
+	LuaValue ret;
+
+	ret["Resolution"] = "32 bits float";
+
+	return ret;
 }
 
 #endif // BOARD_generic

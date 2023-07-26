@@ -51,10 +51,10 @@ public:
 	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
 	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
 
-	static int flight_register( Main* main );
+	string name() const { return "Socket"; }
+	LuaValue infos() const;
 
 protected:
-	static Link* Instanciate( Config* config, const string& lua_object );
 
 	LUA_PROPERTY("port") uint16_t mPort;
 	LUA_PROPERTY("type") Socket::PortType mPortType;

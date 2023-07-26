@@ -48,36 +48,6 @@ typedef struct in_addr IN_ADDR;
 #define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
 
 
-int Socket::flight_register( Main* main )
-{
-	RegisterLink( "Socket", &Socket::Instanciate );
-	return 0;
-}
-
-
-Link* Socket::Instanciate( Config* config, const string& lua_object )
-{
-	PortType type = UDPLite; // Default to UDPLite
-
-	string stype = config->String( lua_object + ".type" );
-	if ( stype == "TCP" ) {
-		type = TCP;
-	} else if ( stype == "UDP" ) {
-		type = UDP;
-	} else if ( stype == "UDPLite" ) {
-		type = UDPLite;
-	} else {
-		gDebug() << "FATAL ERROR : Unsupported Socket type \"" << stype << "\" !";
-	}
-
-	int port = config->Integer( lua_object + ".port" );
-	bool broadcast = config->Boolean( lua_object + ".broadcast" );
-	uint32_t timeout = config->Integer( lua_object + ".read_timeout" );
-
-	return new Socket( port, type, broadcast, timeout );
-}
-
-
 Socket::Socket( uint16_t port, Socket::PortType type, bool broadcast, uint32_t timeout )
 	: mPort( port )
 	, mPortType( type )
@@ -357,6 +327,25 @@ SyncReturn Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 		mConnected = false;
 		return -1;
 	}
+	return ret;
+}
+
+
+LuaValue Socket::infos() const
+{
+	LuaValue ret;
+
+	ret[ "Port" ] = (int)mPort;
+	if ( mPortType == TCP ) {
+		ret[ "Port Type" ] = "TCP";
+	} else if ( mPortType == UDP ) {
+		ret[ "Port Type" ] = "UDP";
+	} else if ( mPortType == UDPLite ) {
+		ret[ "Port Type" ] = "UDPLite";
+	}
+	ret[ "Broadcast" ] = mBroadcast ? "true" : "false";
+	ret[ "Timeout" ] = mTimeout;
+
 	return ret;
 }
 

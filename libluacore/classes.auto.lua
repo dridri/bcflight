@@ -94,11 +94,9 @@ end
 
 
 function parse_member(s)
--- 	print( "s : ", s )
 	local params = {}
 	local sig, b = s:gmatch( "(.-)%((.*)%)" )()
 	b = b:match("^%s*(.-)%s*$")
--- 	print( "sig : ", sig )
 
 	local tokens = {}
 	local modifiers = {}
@@ -114,11 +112,8 @@ function parse_member(s)
 	for i = 1, #tokens - 1 do
 		func_type = func_type .. " " .. tokens[i]
 	end
--- 	print( "func : ", table.concat(modifiers, ","), func_type, func )
 
--- 	print( "params : " .. b )
 	for param in b:gmatch("[^,]+") do
-		print("[" .. param .. "]")
 		param = param:match("^%s*(.-)%s*$")
 		if param:find( "=" ) then
 			local p, d = param:gmatch("(.*)%s*=%s*(.*)")()
@@ -130,7 +125,6 @@ function parse_member(s)
 			table.insert( params, { type = type, name = name, default = def } )
 		end
 	end
--- 	print(func, params, static)
 	if ( s:find("onEvent") ~= nil ) then
 -- 		os.exit()
 	end
@@ -572,7 +566,7 @@ for __, filename in ipairs(arg) do
 						end
 					end
 				end
-			elseif token == "LUA_PROPERTY" then
+			elseif token == "LUA_PROPERTY" and curr_class and #curr_class > 0 then
 				io.stderr:write("ON LUA_PROPERTY with " .. curr_class .. "\n")
 				i = i + 1
 				local line = {}
@@ -581,14 +575,22 @@ for __, filename in ipairs(arg) do
 					i = i + 1
 				end
 				line = table.concat(line, " ")
+				io.stderr:write("LINE : " .. line .. "\n")
 				local luaname, type, name = "", "", ""
 						io.stderr:write("LLL\n")
 						io.stderr:write(line)
 						io.stderr:write("\n")
-				if line:match("%(%s*\"([a-zA-Z0-9_%.]+)\"%s*%)%s+(void%s*[^%*])") then
+				local prop_matcher = "%(%s*\"([a-zA-Z0-9_%.]+)\"%s*,*%s*\"*([a-zA-Z0-9_%s%%,]*)\"*%s*%)"
+				if line:match(prop_matcher .. "%s+([virtual]*%s*void%s*[^%*])") then
 					io.stderr:write("\t→ mode 1\n")
-					luaname, funcname, params = line:gmatch("%(%s*\"([a-zA-Z0-9_%.]+)\"%s*%)%s+void%s+([a-zA-Z0-9_]+)%s*%((.*)%)")()
-					type = params:match("%s*(.-)%s*[a-zA-Z0-9_]+%s*$"):match("^%s*(.-)%s*$"):gsub("&", "")
+					luaname, explicit_args, funcname, params = line:gmatch(prop_matcher .. "%s+[virtual]*%s*void%s+([a-zA-Z0-9_]+)%s*%((.*)%)")()
+					io.stderr:write("\t→ " .. luaname .. "\n")
+					io.stderr:write("\t→ " .. explicit_args .. "\n")
+					io.stderr:write("\t→ " .. funcname .. "\n")
+					local start = math.min(line:find("static") or 999999, line:find("virtual") or 999999, line:find("void") or 999999)
+					local _, _, params = parse_member(line:sub(start))
+					type = params[1].type:gsub("&", "")
+					io.stderr:write("\t→ " .. type .. "\n")
 					local tables = {}
 					for t in luaname:gmatch("([^%.]+)") do
 						table.insert( tables, t )
@@ -598,13 +600,13 @@ for __, filename in ipairs(arg) do
 						parent[tables[i]] = parent[tables[i]] or {}
 						parent = parent[tables[i]]
 					end
-					io.stderr:write("\t→ " .. luaname .. "\n")
-					io.stderr:write("\t→ " .. funcname .. "\n")
-					io.stderr:write("\t→ " .. type .. "\n")
-					table.insert( parent, { __isprop = true, __issetter = true, luaname = tables[#tables], type = type, funcname = funcname, name = name, classname = curr_class } )
-				elseif line:match("%(%s*\"([a-zA-Z0-9_%.]+)\"%s*%)%s+[a-zA-Z0-9_%*<>:%s]+%s+[a-zA-Z0-9_]+%s*%(%s*[void]*%)") or line:match("%(%s*%)%s+[a-zA-Z0-9_%*<>:%s]+%s+[a-zA-Z0-9_]+%s*%(%s*[void]*%)") then
+					table.insert( parent, { __isprop = true, __issetter = true, luaname = tables[#tables], type = type, explicit_args = explicit_args, funcname = funcname, name = name, classname = curr_class } )
+					if funcname == "setAxisSwap" then
+-- 						os.exit()
+					end
+				elseif line:match(prop_matcher .. "%s+[a-zA-Z0-9_%*<>:%s]+%s+[a-zA-Z0-9_]+%s*%(%s*[void]*%)") or line:match("%(%s*%)%s+[a-zA-Z0-9_%*<>:%s]+%s+[a-zA-Z0-9_]+%s*%(%s*[void]*%)") then
 					io.stderr:write("\t→ mode 2\n")
-					luaname, type, funcname = line:gmatch("%(%s*\"*([a-zA-Z0-9_%.]*)\"*%s*%)%s+([a-zA-Z0-9_%*<>:%s]+)%s+([a-zA-Z0-9_]+)%s*%(%s*[void]*%)")()
+					luaname, explicit_args, type, funcname = line:gmatch("%(%s*\"*([a-zA-Z0-9_%.]*)\"*%s*,*%s*\"*([a-zA-Z0-9_%s%%,]*)\"*%s*%)%s+([a-zA-Z0-9_%*<>:%s]+)%s+([a-zA-Z0-9_]+)%s*%(%s*[void]*%)")()
 					if luaname == nil or #luaname == 0 then
 						luaname = funcname
 					end
@@ -621,7 +623,7 @@ for __, filename in ipairs(arg) do
 					table.insert( parent, { __isprop = true, __isgetter = true, luaname = tables[#tables], type = type, funcname = funcname, name = name, classname = curr_class } )
 				else
 					io.stderr:write("\t→ mode 3\n")
-					luaname, type, name = line:gmatch( "%(%s*\"([a-zA-Z0-9_%.]+)\"%s*%)%s*([a-zA-Z0-9_,%*<>%(%):%s]+)%s+([a-zA-Z0-9_]+)%s*$" )()
+					luaname, explicit_args, type, name = line:gmatch( prop_matcher .. "%s*([a-zA-Z0-9_,%*<>%(%):%s]+)%s+([a-zA-Z0-9_]+)%s*$" )()
 					io.stderr:write("\t→ " .. (luaname or "") .. "\n")
 					io.stderr:write("\t→ " .. (type or "") .. "\n")
 					io.stderr:write("\t→ " .. (name or "") .. "\n")
@@ -758,19 +760,26 @@ function output_class(classname, v, global)
 						if prop.__isprop then
 							local pad = string.rep("\t", level+5+2)
 							local lines = { pad }
-							if n > 1 then
-								table.insert( lines, "else " )
+							if not prop.__isgetter then
+								if n > 1 then
+									table.insert( lines, "else " )
+								end
+								table.insert( lines, "if ( !strcmp( field, \"" .. prop.luaname .. "\" ) ) {\n" )
+								if prop.__issetter then
+									local casted = cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v)
+									if prop.explicit_args and #prop.explicit_args > 0 then
+										table.insert( lines, string.format( pad .. "\tobject->%s(" .. prop.explicit_args:gsub("%%1", casted) .. ");\n", prop.funcname ) )
+									else
+										table.insert( lines, string.format( pad .. "\tobject->%s(" .. casted .. ");\n", prop.funcname ) )
+									end
+								elseif prop.__isgetter then
+								else
+									table.insert( lines, string.format( pad .. "\tobject->*get(%s_%s()) = " .. cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v) .. ";\n", namespace_string(prop.classname), prop.name ) )
+								end
+								table.insert( lines, pad .. "}" )
+								out( table.concat( lines, "" ) )
+								n = n + 1
 							end
-							table.insert( lines, "if ( !strcmp( field, \"" .. prop.luaname .. "\" ) ) {\n" )
-							if prop.__issetter then
-								table.insert( lines, string.format( pad .. "\tobject->%s(" .. cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v) .. ");\n", prop.funcname ) )
-							elseif prop.__isgetter then
-							else
-								table.insert( lines, string.format( pad .. "\tobject->*get(%s_%s()) = " .. cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v) .. ";\n", namespace_string(prop.classname), prop.name ) )
-							end
-							table.insert( lines, pad .. "}" )
-							out( table.concat( lines, "" ) )
-							n = n + 1
 						end
 					end
 					out( string.rep("\t", level+4) .. "			lua_pop( L, 2 );" )
@@ -843,19 +852,26 @@ function output_class(classname, v, global)
 		for i, prop in ipairs(v.properties) do
 			if prop.__isprop then
 					local lines = { "\t\t\t\t\t" }
-					if n > 1 then
-						table.insert( lines, "else " )
+					if not prop.__isgetter then
+						if n > 1 then
+							table.insert( lines, "else " )
+						end
+						table.insert( lines, "if ( !strcmp( field, \"" .. prop.luaname .. "\" ) ) {\n" )
+						if prop.__issetter then
+							local casted = cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v)
+							if prop.explicit_args and #prop.explicit_args > 0 then
+								table.insert( lines, string.format( "\t\t\t\t\t\tobject->%s(" .. prop.explicit_args:gsub("%%1", casted) .. ");\n", prop.funcname ) )
+							else
+								table.insert( lines, string.format( "\t\t\t\t\t\tobject->%s(" .. casted .. ");\n", prop.funcname ) )
+							end
+						elseif prop.__isgetter then
+						else
+							table.insert( lines, string.format( "\t\t\t\t\t\tobject->*get(%s_%s()) = " .. cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v) .. ";\n", namespace_string(prop.classname), prop.name ) )
+						end
+						table.insert( lines, "\t\t\t\t\t}" )
+						out( table.concat( lines, "" ) )
+						n = n + 1
 					end
-					table.insert( lines, "if ( !strcmp( field, \"" .. prop.luaname .. "\" ) ) {\n" )
-					if prop.__issetter then
-						table.insert( lines, string.format( "\t\t\t\t\t\tobject->%s(" .. cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v) .. ");\n", prop.funcname ) )
-					elseif prop.__isgetter then
-					else
-						table.insert( lines, string.format( "\t\t\t\t\t\tobject->*get(%s_%s()) = " .. cast(prop) .. "Lua::value(L, 3)" .. cast_suffix(prop, v) .. ";\n", namespace_string(prop.classname), prop.name ) )
-					end
-					table.insert( lines, "\t\t\t\t\t}" )
-					out( table.concat( lines, "" ) )
-					n = n + 1
 			end
 		end
 		out( "\t\t\t\t\treturn 0;" )
