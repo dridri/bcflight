@@ -24,8 +24,9 @@
 #include <map>
 #include <functional>
 #include "Thread.h"
+#include "Lua.h"
 
-class GPIO
+LUA_CLASS class GPIO
 {
 public:
 	typedef enum {
@@ -46,8 +47,8 @@ public:
 	static void setPUD( int pin, PUDMode mode );
 	static void setMode( int pin, Mode mode );
 	static void setPWM( int pin, int initialValue, int pwmRange );
-	static void Write( int pin, bool en );
-	static bool Read( int pin );
+	LUA_EXPORT static void Write( int pin, bool en );
+	LUA_EXPORT static bool Read( int pin );
 	static void SetupInterrupt( int pin, GPIO::ISRMode mode, function<void()> fct );
 
 private:

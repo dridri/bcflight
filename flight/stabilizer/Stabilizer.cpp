@@ -370,6 +370,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	mRateYawPID.Process( deltaY, deltaY, rate_control.z - mFilteredRPYDerivative.z, dt );
 
 	float thrust = mThrust;
+/*
 	if ( mAltitudeHold ) {
 		thrust = thrust * 2.0f - 1.0f;
 		if ( abs( thrust ) < 0.1f ) {
@@ -384,7 +385,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		mAltitudePID.Process( mAltitudeControl, imu->altitude(), dt );
 		thrust = mAltitudePID.state();
 	}
-
+*/
 	Vector3f ratePID( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
 /*
 	char stmp[64];

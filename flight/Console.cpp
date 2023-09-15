@@ -59,6 +59,11 @@ bool Console::run()
 		char buf[256];
 		memset( buf, 0, 256 );
 		int32_t res = read( 0, buf, 255 );
+		if (res <= 0) {
+			// This happens when flight is started as a service
+			Thread::Stop();
+			return false;
+		}
 		buf[res] = 0;
 		// printf("line: %d %02x %02X %02X %02X %02X %02X\n", res, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
 		if ( buf[0] == 0x0a ) {
@@ -73,7 +78,7 @@ bool Console::run()
 				end++;
 			}
 			if ( start >= 0 and end <= prompt->length() ) {
-				printf( "start, end : %d, %d\n", start, end );
+				// printf( "start, end : %d, %d\n", start, end );
 				string query = "_G." + prompt->substr( start, end - start );
 				string leftquery = query.substr( 0, query.rfind( "." ) );
 				string rightquery = query.substr( query.rfind( "." ) + 1 );

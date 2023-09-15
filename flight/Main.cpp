@@ -100,7 +100,8 @@ Main::Main()
 #endif
 
 #ifdef BUILD_blackbox
-// 	mBlackBox = new BlackBox();
+	mBlackBox = new BlackBox();
+	mBlackBox->Start();
 	Board::InformLoading();
 #endif
 

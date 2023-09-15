@@ -13,6 +13,8 @@ public:
 	BlackBox();
 	~BlackBox();
 
+	void Enable();
+	void Disable();
 	const uint32_t id() const;
 	void Enqueue( const string& data, const string& value );
 
@@ -21,6 +23,7 @@ protected:
 
 	uint32_t mID;
 	FILE* mFile;
+	bool mEnabled;
 #ifdef SYSTEM_NAME_Linux
 	mutex mQueueMutex;
 #endif
