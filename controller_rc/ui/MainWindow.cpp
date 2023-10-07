@@ -307,11 +307,13 @@ void MainWindow::Camera()
 	ui->centralLayout->removeWidget( mPageNetwork );
 	ui->centralLayout->removeWidget( mPageSettings );
 	ui->centralLayout->addWidget( mPageCamera );
+	/* TODO : debug
 	if ( mController and mController->isConnected() ) {
 		uiPageCamera->iso->setText( QString::number( mController->VideoGetIso() ) );
 		mController->getCameraLensShader( &mCameraLensShader.r, &mCameraLensShader.g, &mCameraLensShader.b );
 		CameraUpdateLensShader( false );
 	}
+	*/
 }
 
 

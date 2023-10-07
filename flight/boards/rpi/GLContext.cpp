@@ -253,6 +253,8 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 	eglQuerySurface( mEGLDisplay, mEGLSurface, EGL_HEIGHT, (EGLint*)&mHeight );
 	eglMakeCurrent( mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext );
 
+	eglSwapInterval( mEGLDisplay, 1 );
+
 	std::cout << "OpenGL version : " << glGetString( GL_VERSION ) << "\n";
 	std::cout << "Framebuffer resolution : " << mWidth << " x " << mHeight << "\n";
 	glViewport( 0, 0, mWidth, mHeight );
@@ -274,6 +276,9 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 
 void GLContext::SwapBuffers()
 {
+	glFlush();
+	glFinish();
+	usleep( 1000 * 1000 * 1 / 50 );
 	eglSwapBuffers( mEGLDisplay, mEGLSurface );
 
 	struct gbm_bo* bo = gbm_surface_lock_front_buffer( mGbmSurface );

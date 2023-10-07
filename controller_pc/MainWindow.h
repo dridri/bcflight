@@ -84,6 +84,7 @@ public slots:
 	void VideoPause();
 	void VideoRecord();
 	void VideoTakePicture();
+	void VideoWhiteBalanceLock();
 	void SetNightMode( int state );
 	void RecordingsRefresh();
 	void setFirmwareUpdateProgress( int val );

@@ -243,6 +243,8 @@ if ( ${BUILD_audio} MATCHES 1 )
 	list( APPEND HEADERS ${AUDIO_HEADERS} )
 endif()
 
+message(warning "${HEADERS}")
+
 set_source_files_properties( ${CMAKE_BINARY_DIR}/lua_init.cpp PROPERTIES GENERATED TRUE )
 add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/lua_init.cpp DEPENDS ${CMAKE_SOURCE_DIR}/../libluacore/classes.auto.lua ${HEADERS} COMMAND ${CMAKE_SOURCE_DIR}/../libluacore/classes.auto.lua --init=lua_init --output="${CMAKE_BINARY_DIR}/lua_init.cpp" ${HEADERS} )
 

@@ -90,6 +90,7 @@ LinuxCamera::LinuxCamera()
 	, mNightSaturation( 1.0f )
 	, mCurrentFramerate( 0 )
 	, mExposureTime( 0 )
+	, mAwbGains({ 0.0f, 0.0f })
 	, mNightMode( false )
 	, mRawStreamConfiguration( nullptr )
 	, mPreviewStreamConfiguration( nullptr )
@@ -273,21 +274,7 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::Contrast, mContrast );
 	mAllControls.set( libcamera::controls::Saturation, mSaturation );
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
-	if ( mWhiteBalance == "incandescent" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIncandescent );
-	} else if ( mWhiteBalance == "tungsten" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbTungsten );
-	} else if ( mWhiteBalance == "fluorescent" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbFluorescent );
-	} else if ( mWhiteBalance == "indoor" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIndoor );
-	} else if ( mWhiteBalance == "daylight" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbDaylight );
-	} else if ( mWhiteBalance == "cloudy" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCloudy );
-	} else if ( mWhiteBalance == "custom" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCustom );
-	}
+	setWhiteBalance( mWhiteBalance, &mAllControls );
 	if ( mExposureMode == "short" ) {
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
 	} else if ( mExposureMode == "long" ) {
@@ -400,7 +387,14 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 
 		mCurrentFramerate = 1000000L / *metadata.get( libcamera::controls::FrameDuration );
 		mExposureTime = *metadata.get( libcamera::controls::ExposureTime );
-
+		mAwbGains = *metadata.get( libcamera::controls::ColourGains );
+		mColorTemperature = *metadata.get( libcamera::controls::ColourTemperature );
+		/*
+		gDebug() << "Framerate: " << mCurrentFramerate;
+		gDebug() << "Exposure time: " << mExposureTime;
+		gDebug() << "AWB gains: " << mAwbGains[0] << ", " << mAwbGains[1];
+		gDebug() << "Color temperature: " << mColorTemperature;
+		*/
 		if ( buffers.size() > 0 ) {
 			libcamera::ControlList mergedControls;
 			for ( auto bufferPair : buffers ) {
@@ -533,37 +527,94 @@ void LinuxCamera::setLensShader( const Camera::LensShaderColor& r, const Camera:
 
 std::string LinuxCamera::switchExposureMode()
 {
+	return "";
+}
+
+
+bool LinuxCamera::setWhiteBalance( const std::string& mode, libcamera::ControlList* controlsList )
+{
+	static const std::map< std::string, libcamera::controls::AwbModeEnum > awbModes = {
+		{ "auto", libcamera::controls::AwbModeEnum::AwbAuto },
+		{ "incandescent", libcamera::controls::AwbModeEnum::AwbIncandescent },
+		{ "tungsten", libcamera::controls::AwbModeEnum::AwbTungsten },
+		{ "fluorescent", libcamera::controls::AwbModeEnum::AwbFluorescent },
+		{ "indoor", libcamera::controls::AwbModeEnum::AwbIndoor },
+		{ "daylight", libcamera::controls::AwbModeEnum::AwbDaylight },
+		{ "cloudy", libcamera::controls::AwbModeEnum::AwbCloudy },
+		{ "custom", libcamera::controls::AwbModeEnum::AwbCustom },
+	};
+
+
+	if ( awbModes.find( mode ) != awbModes.end() ) {
+		if ( controlsList ) {
+			(*controlsList).set( libcamera::controls::AwbMode, awbModes.at( mode ) );
+		} else {
+			libcamera::ControlList controls;
+			(controlsList ? *controlsList : controls).set( libcamera::controls::AwbMode, awbModes.at( mode ) );
+			pushControlList( controls );
+		}
+		mWhiteBalance = mode;
+		return true;
+	}
+
+	return false;
 }
 
 
 std::string LinuxCamera::switchWhiteBalance()
 {
+	static const std::map< std::string, std::string > nextMode = {
+		{ "auto", "incandescent" },
+		{ "incandescent", "fluorescent" },
+		{ "fluorescent", "daylight" },
+		{ "daylight", "cloudy" },
+		{ "cloudy", "auto" },
+		{ "custom", "auto" },
+	};
+	if ( nextMode.find( mWhiteBalance ) == nextMode.end() ) {
+		setWhiteBalance( "auto" );
+		libcamera::ControlList controls;
+		controls.set( libcamera::controls::ColourGains, libcamera::Span<const float, 2>({ 0.0f, 0.0f }) );
+		pushControlList( controls );
+		return "auto";
+	}
+	std::string newMode = nextMode.at( mWhiteBalance );
+	setWhiteBalance( newMode );
+	return newMode;
 }
 
 
 std::string LinuxCamera::lockWhiteBalance()
 {
+	libcamera::ControlList controls;
+
+	if ( mAwbGains[0] < 0.0f or mAwbGains[1] < 0.0f or mAwbGains[0] > 16.0f or mAwbGains[1] > 16.0f ) {
+		return mWhiteBalance;
+	}
+
+	auto span = libcamera::Span<const float, 2>({ mAwbGains[0], mAwbGains[1] });
+
+	controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCustom );
+	controls.set( libcamera::controls::ColourGains, span );
+
+	pushControlList( controls );
+	char buf[64];
+	snprintf( buf, sizeof(buf), "R%.2fB%.2f", span[0], span[1] );
+	mWhiteBalance = buf;
+	return mWhiteBalance;
 }
 
 
-void LinuxCamera::setNightMode( bool night_mode )
+void LinuxCamera::updateSettings()
 {
 	libcamera::ControlList controls;
 
-	mNightMode = night_mode;
-	if ( night_mode ) {
-		controls.set( libcamera::controls::AnalogueGain, (float)mNightISO / 100.0f );
-		controls.set( libcamera::controls::Brightness, mNightBrightness );
-		controls.set( libcamera::controls::Contrast, mNightContrast );
-		controls.set( libcamera::controls::Saturation, mNightSaturation );
-//		controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeHighQuality );
-	} else {
-		controls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
-		controls.set( libcamera::controls::Brightness, mBrightness );
-		controls.set( libcamera::controls::Contrast, mContrast );
-		controls.set( libcamera::controls::Saturation, mSaturation );
-//		controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeOff );
-	}
+	controls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
+	controls.set( libcamera::controls::Brightness, mBrightness );
+	controls.set( libcamera::controls::Contrast, mContrast );
+	controls.set( libcamera::controls::Saturation, mSaturation );
+	setWhiteBalance( mWhiteBalance, &controls );
+//	controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeOff );
 
 	pushControlList( controls );
 }
@@ -659,11 +710,13 @@ const bool LinuxCamera::recording()
 
 const std::string LinuxCamera::exposureMode()
 {
+	return "";
 }
 
 
 const std::string LinuxCamera::whiteBalance()
 {
+	return mWhiteBalance;
 }
 
 

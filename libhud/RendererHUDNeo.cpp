@@ -159,9 +159,9 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			thrust = 0.0f;
 		}
 		float acceleration = dronestats->acceleration / 9.7f;
-		if ( dronestats->mode != DroneMode::Rate ) {
+		// if ( dronestats->mode != DroneMode::Rate ) {
 			RenderAttitude( dronestats->rpy );
-		}
+		// }
 		RenderThrustAcceleration( thrust, std::min( 1.0f, acceleration / 5.0f ) );
 
 		DroneMode mode = dronestats->mode;
@@ -543,7 +543,8 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 	mSmoothRPY.x = rpy.x;
 	mSmoothRPY.y = rpy.y;
 	mSmoothRPY.z = rpy.z;
-	glLineWidth( 1.0f );
+
+	glLineWidth( 2.0f );
 
 	glBindBuffer( GL_ARRAY_BUFFER, mLineVBO );
 	glVertexAttribPointer( mColorShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertexColor ), (void*)( 0 ) );
@@ -561,11 +562,45 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 	float s = std::sin( xrot );
 	float c = std::cos( xrot );
 
+	float movingBarWidth = 0.4f;
+	float staticBarWidth = (1.0f - movingBarWidth ) / 2.0f;
+	float movingBarOffset = staticBarWidth;
+
+	static FastVertexColor allLinesBuffer[2*4*64 + 16];
+	uint32_t total = 0;
+
+	// Fixed lines
+	{
+		for ( uint32_t part = 0; part < 2; part++ ) {
+			for ( uint32_t j = 0; j < 4; j++ ) {
+				float xpos = ( part * ( staticBarWidth + movingBarWidth ) ) + staticBarWidth * (float)j / (float)4;
+				float xpos1 = ( part * ( staticBarWidth + movingBarWidth ) ) + staticBarWidth * (float)(j + 1) / (float)4;
+				allLinesBuffer[part * 2 + j * 4 + 0].x = xpos * mWidth;
+				allLinesBuffer[part * 2 + j * 4 + 0].y = mHeight / 2.0f;
+				allLinesBuffer[part * 2 + j * 4 + 0].color = color;
+				allLinesBuffer[part * 2 + j * 4 + 1].x = xpos1 * mWidth;
+				allLinesBuffer[part * 2 + j * 4 + 1].y = mHeight / 2.0f;
+				allLinesBuffer[part * 2 + j * 4 + 1].color = color;
+				total += 2;
+			}
+		}
+	}
+
+	if ( std::abs(mSmoothRPY.x) > 70.0f or std::abs(mSmoothRPY.y) > 70.0f ) {
+		/*
+		::Thread::EnterCritical();
+		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor) * total, allLinesBuffer );
+		::Thread::ExitCritical();
+		DrawArrays( mColorShader, GL_LINES, 0, total );
+		 return;
+		*/
+	}
+
 	// Attitude line
 	{
-		FastVertexColor linesBuffer[16];
+		static FastVertexColor linesBuffer[8];
 		for ( uint32_t j = 0; j < sizeof(linesBuffer)/sizeof(FastVertexColor); j++ ) {
-			float xpos = (float)j / (float)(sizeof(linesBuffer)/sizeof(FastVertexColor)-1);
+			float xpos = movingBarOffset + movingBarWidth * (float)j / (float)(sizeof(linesBuffer)/sizeof(FastVertexColor)-1);
 			Vector2f p;
 			Vector2f p0 = Vector2f( ( xpos - 0.5f ) * ( mWidth ), yofs );
 			p.x = mWidth / 2.0f + p0.x * c - p0.y * s;
@@ -586,9 +621,8 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 
 	// Degres lines
 	{
-		FastVertexColor linesBuffer[2*4*64];
-		uint32_t i = 0;
-		for ( int32_t j = -5; j <= 5; j++ ) {
+		uint32_t i = total;
+		for ( int32_t j = -4; j <= 4; j++ ) {
 			if ( j == 0 ) {
 				continue;
 			}
@@ -603,43 +637,41 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 			Vector2f p0 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * 0.15f, yofs + y ), s, c ) );
 			Vector2f p1 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * 0.225f, yofs + y ), s, c ) );
 			Vector2f p2 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * 0.225f, yofs + y + text_line ), s, c ) );
-			linesBuffer[i].x = p0.x;
-			linesBuffer[i].y = p0.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p1.x;
-			linesBuffer[i].y = p1.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p1.x;
-			linesBuffer[i].y = p1.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p2.x;
-			linesBuffer[i].y = p2.y;
-			linesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p0.x;
+			allLinesBuffer[i].y = p0.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p1.x;
+			allLinesBuffer[i].y = p1.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p1.x;
+			allLinesBuffer[i].y = p1.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p2.x;
+			allLinesBuffer[i].y = p2.y;
+			allLinesBuffer[i++].color = color;
 			Vector2f p3 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * -0.15f, yofs + y ), s, c ) );
 			Vector2f p4 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * -0.225f, yofs + y ), s, c ) );
 			Vector2f p5 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * -0.225f, yofs + y + text_line ), s, c ) );
-			linesBuffer[i].x = p3.x;
-			linesBuffer[i].y = p3.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p4.x;
-			linesBuffer[i].y = p4.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p4.x;
-			linesBuffer[i].y = p4.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p5.x;
-			linesBuffer[i].y = p5.y;
-			linesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p3.x;
+			allLinesBuffer[i].y = p3.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p4.x;
+			allLinesBuffer[i].y = p4.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p4.x;
+			allLinesBuffer[i].y = p4.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p5.x;
+			allLinesBuffer[i].y = p5.y;
+			allLinesBuffer[i++].color = color;
+			total += 8;
 		}
-
-		::Thread::EnterCritical();
-// 		printf( "glBufferSubData %d / %d\n", i, 2*4*64 ); fflush(stdout);
-		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor)*i, linesBuffer );
-// 		printf( "glBufferSubData oK\n" ); fflush(stdout);
-		::Thread::ExitCritical();
-
-		DrawArrays( mColorShader, GL_LINES, 0, i );
 	}
+
+	::Thread::EnterCritical();
+	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor) * total, allLinesBuffer );
+	::Thread::ExitCritical();
+	DrawArrays( mColorShader, GL_LINES, 0, total );
 }
 
 

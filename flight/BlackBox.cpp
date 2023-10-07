@@ -10,7 +10,6 @@ BlackBox::BlackBox()
 	: Thread( "BlackBox" )
 	, mID( 0 )
 	, mFile( nullptr )
-	, mEnabled( false )
 {
 #ifdef SYSTEM_NAME_Linux
 	char filename[256];
@@ -41,8 +40,7 @@ BlackBox::BlackBox()
 	}
 
 	setFrequency( 100 );
-// 	Start();
-	Stop();
+	Start();
 }
 
 
@@ -51,35 +49,9 @@ BlackBox::~BlackBox()
 }
 
 
-void BlackBox::Enable()
-{
-	if ( this == nullptr or mEnabled ) {
-		return;
-	}
-
-	mEnabled = true;
-	if ( not Thread::running() ) {
-		Start();
-	}
-}
-
-
-void BlackBox::Disable()
-{
-	if ( this == nullptr or not mEnabled ) {
-		return;
-	}
-
-	mEnabled = false;
-	if ( Thread::running() ) {
-		Stop();
-	}
-}
-
-
 const uint32_t BlackBox::id() const
 {
-	if ( this == nullptr or not mEnabled ) {
+	if ( this == nullptr or not Thread::running() ) {
 		return 0;
 	}
 
@@ -89,7 +61,7 @@ const uint32_t BlackBox::id() const
 
 void BlackBox::Enqueue( const string& data, const string& value )
 {
-	if ( this == nullptr or not mEnabled ) {
+	if ( this == nullptr or not Thread::running() ) {
 		return;
 	}
 

@@ -94,6 +94,10 @@ public:
 	LUA_PROPERTY() ICM4xxxxMag* magnetometer();
 	void InitChip();
 
+	LUA_PROPERTY("gyroscope_axis_swap") void setGyroscopeAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("accelerometer_axis_swap") void setAccelerometerAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("magnetometer_axis_swap") void setMagnetometerAxisSwap( const Vector4i& swap );
+
 protected:
 	ICM4xxxx( I2C* i2c );
 	uint8_t dmpInitialize();

@@ -96,8 +96,6 @@ bool HUD::run()
 		mRendererHUD->setNightMode( mNightMode );
 	}
 
-	glClear( GL_COLOR_BUFFER_BIT );
-
 	DroneStats dronestats;
 	LinkStats linkStats;
 
@@ -132,7 +130,13 @@ bool HUD::run()
 	mLinkStats = linkStats;
 
 	if ( camera ) {
-		mVideoStats = VideoStats( (int)camera->width(), (int)camera->height(), (int)camera->framerate() );
+		mVideoStats = VideoStats(
+			(int)camera->width(),
+			(int)camera->height(),
+			(int)camera->framerate(),
+			0,
+			camera->whiteBalance()
+		);
 		// strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
 		// strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
 		// video_stats.photo_id = camera->getLastPictureID();

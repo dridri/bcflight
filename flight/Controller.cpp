@@ -721,11 +721,9 @@ bool Controller::run()
 					setRoll( 0.0f, true );
 					setPitch( 0.0f, true );
 					if ( mode == (uint32_t)Stabilizer::Rate ) {
-						mMain->imu()->setRateOnly( true );
 						setYaw( 0.0f, true );
 						mMain->blackbox()->Enqueue( "Controller:mode", "Rate" );
 					} else if ( mode == (uint32_t)Stabilizer::Stabilize ) {
-						mMain->imu()->setRateOnly( false );
 						mMain->imu()->ResetRPY();
 						setYaw( mMain->imu()->RPY().z, true );
 						mMain->blackbox()->Enqueue( "Controller:mode", "Stabilize" );

@@ -29,6 +29,8 @@ if ( ${USE_MINISTD} MATCHES TRUE )
 	include_directories( ${CMAKE_SOURCE_DIR}/../libministd/include )
 endif()
 
+add_definitions( -DSTD=std )
+
 if ( RAWWIFI_ON MATCHES 1 )
 	add_subdirectory( ../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )
 	include_directories( ../librawwifi )

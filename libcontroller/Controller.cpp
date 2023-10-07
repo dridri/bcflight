@@ -1330,7 +1330,7 @@ string Controller::VideoWhiteBalance()
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
 		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
-	} while ( mVideoWhiteBalance == "" );
+	} while ( retry < 32 and mVideoWhiteBalance == "" );
 
 	mXferMutex.unlock();
 	return mVideoWhiteBalance;
@@ -1341,21 +1341,21 @@ string Controller::VideoLockWhiteBalance()
 {
 	mVideoWhiteBalance = "";
 
-	mXferMutex.lock();
+	// mXferMutex.lock();
 	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
 // 	mXferMutex.unlock();
 
 	uint32_t retry = 0;
 	do {
-// 		mXferMutex.lock();
+		mXferMutex.lock();
 		mTxFrame.WriteU16( ACK_ID | ack );
 		mTxFrame.WriteU16( VIDEO_LOCK_WHITE_BALANCE );
 		mLink->Write( &mTxFrame );
 		mTxFrame = Packet();
-// 		mXferMutex.unlock();
+		mXferMutex.unlock();
 		usleep( 125 * 1000 );
 		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
-	} while ( mVideoWhiteBalance == "" );
+	} while ( retry < 32 and mVideoWhiteBalance == "" );
 
 	mXferMutex.unlock();
 	return mVideoWhiteBalance;

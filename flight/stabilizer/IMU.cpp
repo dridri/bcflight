@@ -67,18 +67,7 @@ IMU::IMU()
 	mRates.setSelector( 0, 0, 1.0f );
 	mRates.setSelector( 1, 1, 1.0f );
 	mRates.setSelector( 2, 2, 1.0f );
-/*
-	// Set gyroscope filtering factors
-	mRates.setInputFilter( 0, main->config()->Number( "stabilizer.filters.rates.input.x", 80.0f ) );
-	mRates.setInputFilter( 1, main->config()->Number( "stabilizer.filters.rates.input.y", 80.0f ) );
-	mRates.setInputFilter( 2, main->config()->Number( "stabilizer.filters.rates.input.z", 80.0f ) );
 
-	// Set output rates filtering factors
-	mRates.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.rates.output.x", 0.5f ) );
-	mRates.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.rates.output.y", 0.5f ) );
-	mRates.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.rates.output.z", 0.5f ) );
-
-*/
 	/** mAccelerationSmoother matrix :
 	 *   - Inputs :
 	 *     - acceleration 0 1 2
@@ -89,17 +78,6 @@ IMU::IMU()
 	mAccelerationSmoother.setSelector( 0, 0, 1.0f );
 	mAccelerationSmoother.setSelector( 1, 1, 1.0f );
 	mAccelerationSmoother.setSelector( 2, 2, 1.0f );
-/*
-	// Set gyroscope filtering factors
-	mAccelerationSmoother.setInputFilter( 0, main->config()->Number( "stabilizer.filters.accelerometer.input.x", 100.0f ) );
-	mAccelerationSmoother.setInputFilter( 1, main->config()->Number( "stabilizer.filters.accelerometer.input.y", 100.0f ) );
-	mAccelerationSmoother.setInputFilter( 2, main->config()->Number( "stabilizer.filters.accelerometer.input.z", 250.0f ) );
-
-	// Set output rates filtering factors
-	mAccelerationSmoother.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.accelerometer.output.x", 0.5f ) );
-	mAccelerationSmoother.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.accelerometer.output.y", 0.5f ) );
-	mAccelerationSmoother.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.accelerometer.output.z", 0.5f ) );
-*/
 
 	/** mAttitude matrix :
 	 *   - Inputs :
@@ -117,30 +95,6 @@ IMU::IMU()
 	mAttitude.setSelector( 2, 2, 1.0f );
 	mAttitude.setSelector( 5, 2, 1.0f );
 
-/*
-	mAttitude.setSelector( 0, 0, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.accelerometer.factor.x", 1.0f ) ) ) );
-	mAttitude.setSelector( 3, 0, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.rates.factor.x", 1.0f ) ) ) );
-	mAttitude.setSelector( 1, 1, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.accelerometer.factor.y", 1.0f ) ) ) );
-	mAttitude.setSelector( 4, 1, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.rates.factor.y", 1.0f ) ) ) );
-	mAttitude.setSelector( 2, 2, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.accelerometer.factor.z", 1.0f ) ) ) );
-	mAttitude.setSelector( 5, 2, max( 0.01f, min( 1000.0f, main->config()->Number( "stabilizer.filters.attitude.rates.factor.z", 1.0f ) ) ) );
-
-	// Set acceleration filtering factors
-	mAttitude.setInputFilter( 0, main->config()->Number( "stabilizer.filters.attitude.input.accelerometer.x", 0.1f ) );
-	mAttitude.setInputFilter( 1, main->config()->Number( "stabilizer.filters.attitude.input.accelerometer.y", 0.1f ) );
-	mAttitude.setInputFilter( 2, main->config()->Number( "stabilizer.filters.attitude.input.accelerometer.z", 0.1f ) );
-
-	// Set rates filtering factors
-	mAttitude.setInputFilter( 3, main->config()->Number( "stabilizer.filters.attitude.input.rates.x", 0.01f ) );
-	mAttitude.setInputFilter( 4, main->config()->Number( "stabilizer.filters.attitude.input.rates.y", 0.01f ) );
-	mAttitude.setInputFilter( 5, main->config()->Number( "stabilizer.filters.attitude.input.rates.z", 0.01f ) );
-
-	// Set output roll-pitch-yaw filtering factors
-	mAttitude.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.attitude.output.z", 0.25f ) );
-	mAttitude.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.attitude.output.y", 0.25f ) );
-	mAttitude.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.attitude.output.z", 0.25f ) );
-*/
-
 	/** mPosition matrix :
 	 *   - Inputs :
 	 *     - XY velocity integrated over time 0 1
@@ -152,14 +106,6 @@ IMU::IMU()
 	mPosition.setSelector( 0, 0, 1.0f );
 	mPosition.setSelector( 1, 1, 1.0f );
 	mPosition.setSelector( 2, 2, 1.0f );
-/*
-	mPosition.setInputFilter( 0, main->config()->Number( "stabilizer.filters.position.input.velocity.x", 1.0f ) );
-	mPosition.setInputFilter( 1, main->config()->Number( "stabilizer.filters.position.input.velocity.y", 1.0f ) );
-	mPosition.setInputFilter( 2, main->config()->Number( "stabilizer.filters.position.input.velocity.z", 10.0f ) );
-	mPosition.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.position.output.x", 0.99f ) );
-	mPosition.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.position.output.y", 0.99f ) );
-	mPosition.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.position.output.z", 0.99f ) );
-*/
 
 	/** mVelocity matrix :
 	 *   - Inputs :
@@ -170,22 +116,6 @@ IMU::IMU()
 	mVelocity.setSelector( 0, 0, 1.0f );
 	mVelocity.setSelector( 1, 1, 1.0f );
 	mVelocity.setSelector( 2, 2, 1.0f );
-/*
-	// Set input velocity filtering factors
-	mVelocity.setInputFilter( 0, main->config()->Number( "stabilizer.filters.velocity.input.x", 1.0f ) );
-	mVelocity.setInputFilter( 1, main->config()->Number( "stabilizer.filters.velocity.input.y", 1.0f ) );
-	mVelocity.setInputFilter( 2, main->config()->Number( "stabilizer.filters.velocity.input.z", 1.0f ) );
-
-	// Set output velocity filtering factors
-	mVelocity.setOutputFilter( 0, main->config()->Number( "stabilizer.filters.velocity.output.x", 0.99f ) );
-	mVelocity.setOutputFilter( 1, main->config()->Number( "stabilizer.filters.velocity.output.y", 0.99f ) );
-	mVelocity.setOutputFilter( 2, main->config()->Number( "stabilizer.filters.velocity.output.z", 0.99f ) );
-*/
-	mSensorsThreadTick = 0;
-	mSensorsThreadTickRate = 0;
-// 	mSensorsThread = new HookThread<IMU>( "imu_sensors", this, &IMU::SensorsThreadRun );
-// 	mSensorsThread->Start();
-// 	mSensorsThread->setPriority( 99 );
 
 	mMain->blackbox()->Enqueue( "IMU:state", "Off" );
 }
@@ -253,17 +183,6 @@ const Vector3f IMU::gyroscope() const
 const Vector3f IMU::magnetometer() const
 {
 	return mMagnetometer;
-}
-
-
-void IMU::setRateOnly( bool enabled )
-{
-	fDebug( enabled );
-	if ( enabled ) {
-// 		mSensorsThread->Pause();
-	} else {
-// 		mSensorsThread->Start();
-	}
 }
 
 
@@ -351,39 +270,6 @@ void IMU::setPositionFilterOutput( const Vector3f& v )
 void IMU::registerConsumer( const std::function<void(uint64_t, const Vector3f&, const Vector3f&)>& f )
 {
 	mConsumers.push_back( f );
-}
-
-
-// static int imu_fps = 0;
-// static uint64_t imu_ticks = 0;
-bool IMU::SensorsThreadRun()
-{
-/*
-	if ( mState == Running ) {
-		float dt = ((float)( Board::GetTicks() - mSensorsThreadTick ) ) / 1000000.0f;
-		mSensorsThreadTick = Board::GetTicks();
-		if ( abs( dt ) >= 1.0 ) {
-			gDebug() << "Critical : dt too high !! ( " << dt << " )";
-			return true;
-		}
-
-		bool rate = ( mMain->stabilizer()->mode() == Stabilizer::Rate );
-		UpdateSensors( dt, rate );
-		mSensorsThreadTickRate = Board::WaitTick( 1000000 / 500, mSensorsThreadTickRate, -200 );
-
-		imu_fps++;
-		if ( Board::GetTicks() - imu_ticks >= 1000 * 1000 * 5 ) {
-			gDebug() << "Sampling rate : " << ( imu_fps / 5 ) << " Hz";
-			imu_fps = 0;
-			imu_ticks = Board::GetTicks();
-		}
-	} else {
-		usleep( 1000 * 100 );
-		mSensorsThreadTick = Board::GetTicks();
-	}
-	return true;
-*/	// TEST
-	return false;
 }
 
 
@@ -593,7 +479,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 		// gDebug() << "Aceleration : " << stmp;
 		// mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
 
-		if ( mSensorsUpdateSlow % 4 == 0 ) {
+		if ( mSensorsUpdateSlow % 2 == 0 ) {
 			for ( Magnetometer* dev : mMagnetometers ) {
 				vtmp.x = vtmp.y = vtmp.z = 0.0f;
 				dev->Read( &vtmp );
@@ -604,9 +490,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 			}
 			// sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mMagnetometer.x, mMagnetometer.y, mMagnetometer.z );
 			// mMain->blackbox()->Enqueue( "IMU:magnetometer", stmp );
-		}
 
-		if ( mSensorsUpdateSlow % 2 == 0 ) {
 			for ( Altimeter* dev : mAltimeters ) {
 				ftmp = 0.0f;
 				dev->Read( &ftmp );
@@ -655,7 +539,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 
 	// Update RPY only at 1/16 update frequency when in Rate mode
 	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 16;
-	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 1000;
+	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 16;
 }
 
 
@@ -676,12 +560,26 @@ void IMU::UpdateAttitude( float dt )
 	Vector3f accel = mAccelerationSmoother.state( 0 );
 
 	Vector2f accel_roll_pitch = Vector2f();
+	if ( accel.z >= 0.5f * 9.8f ) {
+		accel_roll_pitch.x = atan2( accel.x, accel.z ) * 180.0f / M_PI;
+		accel_roll_pitch.y = atan2( accel.y, accel.z ) * 180.0f / M_PI;
+	} else 
+	{
+		accel_roll_pitch.x = mRPY.x + mRate.x * dt;
+		accel_roll_pitch.y = mRPY.y + mRate.y * dt;
+	}
+	/*
 	if ( abs( accel.x ) >= 0.5f * 9.8f or abs( accel.z ) >= 0.5f * 9.8f ) {
 		accel_roll_pitch.x = atan2( accel.x, accel.z ) * 180.0f / M_PI;
+	} else {
+		accel_roll_pitch.x = mRPY.x + mRate.x * dt;
 	}
 	if ( abs( accel.y ) >= 0.5f * 9.8f or abs( accel.z ) >= 0.5f * 9.8f ) {
 		accel_roll_pitch.y = atan2( accel.y, accel.z ) * 180.0f / M_PI;
+	} else {
+		accel_roll_pitch.y = mRPY.y + mRate.y * dt;
 	}
+	*/
 
 	// Update accelerometer values
 	mAttitude.UpdateInput( 0, accel_roll_pitch.x );

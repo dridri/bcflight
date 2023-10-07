@@ -22,20 +22,22 @@
 #include <GLES2/gl2.h>
 #include <vector>
 #include <string>
+#include <cstring>
 #include "Vector.h"
 #include "Matrix.h"
 
 class Controller;
 
 typedef struct VideoStats {
-	VideoStats(int w = 0, int h = 0, int f = 0)
+	VideoStats(int w = 0, int h = 0, int f = 0, uint32_t p = 0, const std::string& wb = "", const std::string& e = "")
 		: width(w)
 		, height(h)
 		, fps(f)
-		, photo_id(0)
-		, whitebalance("")
-		, exposure("")
-		{}
+		, photo_id(p)
+		{
+			strncpy( whitebalance, wb.c_str(), 32 );
+			strncpy( exposure, e.c_str(), 32 );
+		}
 	int width;
 	int height;
 	int fps;

@@ -7,23 +7,27 @@
 using namespace STD;
 
 
-class BlackBox : public Thread
+LUA_CLASS class BlackBox : public Thread
 {
 public:
-	BlackBox();
+	LUA_EXPORT BlackBox();
 	~BlackBox();
 
-	void Enable();
-	void Disable();
 	const uint32_t id() const;
-	void Enqueue( const string& data, const string& value );
+	LUA_EXPORT void Enqueue( const string& data, const string& value );
+	LUA_PROPERTY("enabled") void Start( bool enabled ) {
+		if ( enabled and not Thread::running() ) {
+			Thread::Start();
+		} else {
+			Thread::Stop();
+		}
+	}
 
 protected:
 	virtual bool run();
 
 	uint32_t mID;
 	FILE* mFile;
-	bool mEnabled;
 #ifdef SYSTEM_NAME_Linux
 	mutex mQueueMutex;
 #endif

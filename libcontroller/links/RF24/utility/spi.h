@@ -11,6 +11,7 @@
 #define _SPI_H_INCLUDED
 
 #include <string>
+#include <stdint.h>
 #include <stdio.h>
 #include <linux/spi/spidev.h>
 

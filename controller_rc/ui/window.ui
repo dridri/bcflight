@@ -48,8 +48,8 @@
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="data.qrc">
-           <normaloff>:/icons/data/icon_home.png</normaloff>:/icons/data/icon_home.png</iconset>
+          <iconset>
+           <normaloff>data/icon_home.png</normaloff>data/icon_home.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -72,7 +72,7 @@
          </property>
          <property name="icon">
           <iconset resource="data.qrc">
-           <normaloff>:/icons/data/icon_pid.png</normaloff>:/icons/data/icon_pid.png</iconset>
+           <normaloff>data/icon_pid.png</normaloff>:data/icon_pid.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -95,7 +95,7 @@
          </property>
          <property name="icon">
           <iconset resource="data.qrc">
-           <normaloff>:/icons/data/icon_network.png</normaloff>:/icons/data/icon_network.png</iconset>
+           <normaloff>data/icon_network.png</normaloff>data/icon_network.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -118,7 +118,7 @@
          </property>
          <property name="icon">
           <iconset resource="data.qrc">
-           <normaloff>:/icons/data/icon_camera.png</normaloff>:/icons/data/icon_camera.png</iconset>
+           <normaloff>data/icon_camera.png</normaloff>data/icon_camera.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -141,7 +141,7 @@
          </property>
          <property name="icon">
           <iconset resource="data.qrc">
-           <normaloff>:/icons/data/icon_settings.png</normaloff>:/icons/data/icon_settings.png</iconset>
+           <normaloff>data/icon_settings.png</normaloff>data/icon_settings.png</iconset>
          </property>
          <property name="iconSize">
           <size>

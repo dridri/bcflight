@@ -99,12 +99,6 @@ Main::Main()
 	#endif
 #endif
 
-#ifdef BUILD_blackbox
-	mBlackBox = new BlackBox();
-	mBlackBox->Start();
-	Board::InformLoading();
-#endif
-
 	mBoard = new Board( this );
 	Board::InformLoading();
 
@@ -124,6 +118,11 @@ Main::Main()
 	Board::InformLoading();
 
 	mUsername = mConfig->String( "username" );
+
+#ifdef BUILD_blackbox
+	mBlackBox = mConfig->Object<BlackBox>( "blackbox" );
+	Board::InformLoading();
+#endif
 
 #ifdef BUILD_power
 	mPowerThread = new PowerThread( this );

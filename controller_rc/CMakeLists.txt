@@ -71,7 +71,7 @@ add_custom_target( ui_headers COMMAND
 	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/settings.ui > ${CMAKE_BINARY_DIR}/ui_settings.h
 )
 
-add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/rc_data.cpp COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
+# add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/rc_data.cpp COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/MainWindow.moc.cpp COMMAND ${MOC} ${CMAKE_SOURCE_DIR}/ui/MainWindow.h > ${CMAKE_BINARY_DIR}/MainWindow.moc.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 
 file( GLOB_RECURSE BOARD_SOURCES boards/${board}/*.cpp boards/${board}/*.c )

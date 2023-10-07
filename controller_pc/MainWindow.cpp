@@ -136,6 +136,7 @@ MainWindow::MainWindow()
 	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
 	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
 	connect( ui->take_picture, SIGNAL( pressed() ), this, SLOT( VideoTakePicture() ) );
+	connect( ui->white_balance_lock, SIGNAL( pressed() ), this, SLOT( VideoWhiteBalanceLock() ) );
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
 	connect( ui->night_mode, SIGNAL( stateChanged(int) ), this, SLOT( SetNightMode(int) ) );
 	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
@@ -769,6 +770,14 @@ void MainWindow::VideoTakePicture()
 {
 	if ( mController and mController->isConnected() ) {
 		mController->VideoTakePicture();
+	}
+}
+
+
+void MainWindow::VideoWhiteBalanceLock()
+{
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
+		mController->VideoLockWhiteBalance();
 	}
 }
 

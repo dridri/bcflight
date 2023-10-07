@@ -20,7 +20,6 @@
 #define IMU_H
 
 #include <Main.h>
-#include <Thread.h>
 #include <Vector.h>
 #include <EKF.h>
 #include <list>
@@ -48,7 +47,6 @@ public:
 	LUA_EXPORT IMU();
 	virtual ~IMU();
 
-	LUA_EXPORT void setRateOnly( bool enabled );
 	LUA_PROPERTY("filters.rates.input") void setRatesFilterInput( const Vector3f& v );
 	LUA_PROPERTY("filters.rates.output") void setRatesFilterOutput( const Vector3f& v );
 	LUA_PROPERTY("filters.accelerometer.input") void setAccelerometerFilterInput( const Vector3f& v );
@@ -80,7 +78,6 @@ public:
 	void registerConsumer( const std::function<void(uint64_t, const Vector3f&, const Vector3f&)>& f );
 
 protected:
-	bool SensorsThreadRun();
 	void Calibrate( float dt, bool all = false );
 	void UpdateSensors( uint64_t tick, bool gyro_only = false );
 	void UpdateAttitude( float dt );
@@ -88,9 +85,6 @@ protected:
 	void UpdatePosition( float dt );
 
 	Main* mMain;
-	HookThread<IMU>* mSensorsThread;
-	uint64_t mSensorsThreadTick;
-	uint64_t mSensorsThreadTickRate;
 	uint32_t mSensorsUpdateSlow;
 	bool mPositionUpdate;
 #ifdef SYSTEM_NAME_Linux

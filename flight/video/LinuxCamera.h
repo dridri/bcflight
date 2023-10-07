@@ -41,7 +41,8 @@ public:
 	LUA_EXPORT virtual void setSaturation( float value );
 	LUA_EXPORT virtual void setISO( int32_t value );
 	virtual void setShutterSpeed( uint32_t value );
-	virtual void setNightMode( bool night_mode );
+	// virtual void setNightMode( bool night_mode );
+	LUA_EXPORT virtual void updateSettings();
 	virtual void setHDR( bool hdr, bool force = false );
 	virtual string switchWhiteBalance();
 	virtual string lockWhiteBalance();
@@ -84,6 +85,8 @@ protected:
 
 	int64_t mCurrentFramerate;
 	int64_t mExposureTime;
+	libcamera::Span<const float, 2> mAwbGains;
+	int32_t mColorTemperature;
 	bool mNightMode;
 
 	static std::unique_ptr<libcamera::CameraManager> sCameraManager;
@@ -107,6 +110,8 @@ protected:
 
 	HookThread<LinuxCamera>* mLiveThread;
 	bool mStopping;
+
+ 	bool setWhiteBalance( const std::string& mode, libcamera::ControlList* controlsList = nullptr );
 
 	void requestComplete( libcamera::Request* request );
 	void pushControlList( const libcamera::ControlList& list );

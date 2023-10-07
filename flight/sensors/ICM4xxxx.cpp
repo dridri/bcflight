@@ -203,6 +203,24 @@ ICM4xxxxMag* ICM4xxxx::magnetometer()
 }
 
 
+void ICM4xxxx::setGyroscopeAxisSwap( const Vector4i& swap )
+{
+	gyroscope()->setAxisSwap( swap );
+}
+
+
+void ICM4xxxx::setAccelerometerAxisSwap( const Vector4i& swap )
+{
+	accelerometer()->setAxisSwap( swap );
+}
+
+
+void ICM4xxxx::setMagnetometerAxisSwap( const Vector4i& swap )
+{
+	magnetometer()->setAxisSwap( swap );
+}
+
+
 ICM4xxxxAccel::ICM4xxxxAccel( Bus* bus, const std::string& name )
 	: Accelerometer()
 	, mBus( bus )
