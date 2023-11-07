@@ -3,6 +3,7 @@
 
 #include <Thread.h>
 #include <mutex>
+#include "Config.h"
 
 using namespace STD;
 
@@ -15,13 +16,7 @@ public:
 
 	const uint32_t id() const;
 	LUA_EXPORT void Enqueue( const string& data, const string& value );
-	LUA_PROPERTY("enabled") void Start( bool enabled ) {
-		if ( enabled and not Thread::running() ) {
-			Thread::Start();
-		} else {
-			Thread::Stop();
-		}
-	}
+	LUA_PROPERTY("enabled") void Start( bool enabled = true );
 
 protected:
 	virtual bool run();

@@ -304,6 +304,7 @@ bool Controller::run()
 
 	uint32_t ticks = Thread::GetTick();
 	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
+		mUpdateFrequency = 10;
 		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
 	}
 	mTicks = Thread::GetTick();

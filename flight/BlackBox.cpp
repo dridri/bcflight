@@ -49,6 +49,16 @@ BlackBox::~BlackBox()
 }
 
 
+void BlackBox::Start( bool enabled )
+{
+	if ( enabled and not Thread::running() ) {
+		Thread::Start();
+	} else {
+		Thread::Stop();
+	}
+}
+
+
 const uint32_t BlackBox::id() const
 {
 	if ( this == nullptr or not Thread::running() ) {

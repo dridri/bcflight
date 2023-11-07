@@ -32,9 +32,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <execinfo.h>
-#if ( BUILD_RAWWIFI == 1 )
-#include "rawwifi.h"
-#endif
 
 extern "C" {
 #include <interface/vmcs_host/vc_vchi_gencmd.h>
@@ -679,12 +676,12 @@ static void cmd( const char* fmt, ... )
 }
 
 
+/*
 #if ( BUILD_RAWWIFI == 1 )
 typedef struct tun_args {
 	int fd;
 	rawwifi_t* rwifi;
 } tun_args;
-
 
 static void* thread_rx( void* argp )
 {
@@ -720,10 +717,11 @@ static void* thread_tx( void* argp )
 	return NULL;
 }
 #endif
-
+*/
 
 void Board::EnableTunDevice()
 {
+	/*
 	if ( true ) { // TODO : detect if rawwifi is currently in use
 #if ( BUILD_RAWWIFI == 1 )
 		int port = 128; // TODO : Dynamically find unused ports
@@ -753,6 +751,7 @@ void Board::EnableTunDevice()
 	} else {
 		// TODO
 	}
+	*/
 }
 
 

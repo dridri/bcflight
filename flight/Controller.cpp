@@ -354,7 +354,7 @@ bool Controller::run()
 	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-			// gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
+			gTrace() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 		bool do_response = false;
 		Packet response;

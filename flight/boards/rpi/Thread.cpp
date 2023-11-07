@@ -36,6 +36,14 @@ Thread::~Thread()
 {
 }
 
+void Thread::setName( const string& name )
+{
+	mName = name;
+	if ( mSpawned and mThread != 0 ) {
+		pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
+	}
+}
+
 
 void Thread::Start()
 {

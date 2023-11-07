@@ -28,7 +28,8 @@ public:
 		Error = 0,
 		Warning,
 		Info,
-		Verbose
+		Verbose,
+		Trace
 	} Level;
 	Debug( Level level = Verbose, bool nobreak = false ) : mLevel( level ), mNoBreak( nobreak ) {
 	}
@@ -288,6 +289,7 @@ template<typename... Args> void Debug::fDebug_top2( const char* end, const Args&
 	}
 }
 
+#define gTrace() Debug(Debug::Trace) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
 #define gDebug() Debug(Debug::Verbose) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
 #define gInfo() Debug(Debug::Info) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
 #define gWarning() Debug(Debug::Warning) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41;93m") + "WARNING" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "

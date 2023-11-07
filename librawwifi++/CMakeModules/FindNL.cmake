@@ -11,9 +11,14 @@ find_library (NLROUTE_LIBRARY nl-route-3 PATHS ${ARM_LIBS} )
 
 set(NL_LIBRARIES ${NLGENL_LIBRARY} ${NLROUTE_LIBRARY} ${NL_LIBRARY} )
 
-find_path( NL_INCLUDE_DIR PATH_SUFFIXES include/libnl3 NAMES netlink/version.h)
+find_path(
+	NL_INCLUDE_DIR
+	PATH_SUFFIXES include/libnl3
+	NAMES netlink/version.h
+    HINTS ${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf
+)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Libnl-3  DEFAULT_MSG  NL_LIBRARY NL_INCLUDE_DIR)
+find_package_handle_standard_args(NL  DEFAULT_MSG  NL_LIBRARY NL_INCLUDE_DIR)
 
 mark_as_advanced(NL_INCLUDE_DIR NL_LIBRARY)

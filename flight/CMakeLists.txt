@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.0 )
+cmake_minimum_required( VERSION 3.5 )
 
 include(ProcessorCount)
 ProcessorCount(NCPU)
@@ -149,7 +149,7 @@ include_directories( audio )
 
 if ( "${rawwifi}" MATCHES 1 )
 	SET( RAWWIFI_ON ${rawwifi} CACHE INTERNAL "RAWWIFI_ON" )
-	include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
+	include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi++ )
 	set( LIBS ${LIBS} rawwifi ${NLGENL_LIBRARY} ${NLROUTE_LIBRARY} ${NL_LIBRARY} )
 endif()
 # 	add_subdirectory( ${CMAKE_SOURCE_DIR}/../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )

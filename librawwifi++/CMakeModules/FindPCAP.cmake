@@ -21,6 +21,7 @@
 
 find_path(PCAP_ROOT_DIR
     NAMES include/pcap.h
+    HINTS ${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf
 )
 
 find_path(PCAP_INCLUDE_DIR

@@ -1,177 +1,78 @@
-/*
- * BCFlight
- * Copyright (C) 2016 Adrien Aubry (drich)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-**/
-
-#if ( BUILD_RAWWIFI == 1 )
-
-#include <unistd.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <Debug.h>
 #include "RawWifi.h"
-#include "../Config.h"
-#include <Board.h>
-#include <algorithm>
-#include <iostream>
-
-mutex RawWifi::mInitializingMutex;
-bool RawWifi::mInitializing = false;
-list< string> RawWifi::mInitialized;
-map<string, list<int16_t> > RawWifi::mUsedPorts;
+#include "../librawwifi++/RawWifi.h"
+#include "../librawwifi++/WifiInterfaceLinux.h"
+#include <Debug.h>
 
 
-int RawWifi::flight_register( Main* main )
-{
-	RegisterLink( "RawWifi", &RawWifi::Instanciate );
-	return 0;
-}
-
-
-Link* RawWifi::Instanciate( Config* config, const string& lua_object )
-{
-	string device = config->String( lua_object + ".device", "wlan0" );
-	int output_port = config->Integer( lua_object + ".output_port", 1 );
-	int input_port = config->Integer( lua_object + ".input_port", 0 );
-	int timeout = config->Integer( lua_object + ".read_timeout", 2000 );
-	bool blocking = config->Boolean( lua_object + ".blocking", true );
-	bool drop = config->Boolean( lua_object + ".drop", true );
-
-	if ( mUsedPorts.find( device ) != mUsedPorts.end() ) {
-		if ( output_port >= 0 and find( mUsedPorts[device].begin(), mUsedPorts[device].end(), output_port ) != mUsedPorts[device].end() ) {
-			gDebug() << "ERROR : Port " << output_port << " already used on interface \"" << device << "\" !";
-			return nullptr;
-		}
-		if ( input_port >= 0 and find( mUsedPorts[device].begin(), mUsedPorts[device].end(), input_port ) != mUsedPorts[device].end() ) {
-			gDebug() << "ERROR : Port " << input_port << " already used on interface \"" << device << "\" !";
-			return nullptr;
-		}
-	} else {
-		mUsedPorts.insert( make_pair( device, list<int16_t>() ) );
-	}
-	if ( output_port >= 0 ) {
-		mUsedPorts[device].emplace_back( output_port );
-	}
-	if ( input_port >= 0 ) {
-		mUsedPorts[device].emplace_back( input_port );
-	}
-
-	Link* link = new RawWifi( device, output_port, input_port, timeout, blocking, drop );
-	static_cast< RawWifi* >( link )->setRetriesCount( config->Integer( lua_object + ".retries", 1 ) );
-	static_cast< RawWifi* >( link )->setCECMode( config->String( lua_object + ".cec_mode", "none" ) );
-	static_cast< RawWifi* >( link )->SetChannel( config->Integer( lua_object + ".channel", 11 ) );
-	static_cast< RawWifi* >( link )->setMaxBlockSize( config->Integer( lua_object + ".max_block_size", 0 ) );
-	if ( config->Boolean( lua_object + ".hamming84", false ) ) {
-		static_cast< RawWifi* >( link )->setTXFlags( RAWWIFI_BLOCK_FLAGS_HAMMING84 );
-	}
-	return link;
-}
-
-
-RawWifi::RawWifi( const string& device, int16_t out_port, int16_t in_port, int read_timeout_ms, bool blocking, bool drop_invalid_packets )
+RawWifi::RawWifi()
 	: Link()
+	, Thread( "RawWifi" )
+	, mDevice( "wlan0" )
+	, mOutputPort( 0 )
+	, mInputPort( 1 )
+	, mChannel( 9 )
+	, mBlocking( true )
 	, mRawWifi( nullptr )
-	, mDevice( device )
-	, mReadTimeout( read_timeout_ms )
-	, mMaxBlockSize( 0 )
-	, mChannel( 11 )
-	, mTxPower( 33 )
-	, mOutputPort( out_port )
-	, mInputPort( in_port )
-	, mBlocking( blocking )
-	, mDrop( drop_invalid_packets )
-	, mRetries( 2 )
-	, mSendFlags( RAWWIFI_BLOCK_FLAGS_NONE )
+	, mWifiInterface( nullptr )
 {
 }
 
 
 RawWifi::~RawWifi()
 {
+	mConnected = false;
+	if ( mRawWifi ) {
+		delete mRawWifi;
+	}
+	if ( mWifiInterface ) {
+		delete mWifiInterface;
+	}
+}
+
+
+int RawWifi::Connect()
+{
+	// Debug::setDebugLevel( Debug::Level::Trace );
+
+	try {
+		mWifiInterface = new rawwifi::WifiInterfaceLinux( mDevice, 11, 18, 20, 3 );
+		// mWifiInterface = new rawwifi::WifiInterfaceLinux( mDevice, 11, 18, 0, 54 );
+	} catch ( std::exception& e ) {
+		gError() << "Failed to create WifiInterface: " << e.what();
+		mWifiInterface = nullptr;
+		return -1;
+	}
+
+	try {
+		mRawWifi = new rawwifi::RawWifi( mDevice, mInputPort, mOutputPort, mBlocking, 0 );
+	} catch ( std::exception& e ) {
+		gError() << "Failed to create RawWifi: " << e.what();
+		mRawWifi = nullptr;
+		return -1;
+	}
+
+	Thread::setName( "RawWifi[" + mDevice + "][" + to_string( mInputPort ) + "," + to_string( mOutputPort ) + "]" );
+	Thread::Start();
+
+	mConnected = true;
+	return 0;
 }
 
 
 int RawWifi::setBlocking( bool blocking )
 {
-	// TODO
 	return 0;
-}
-
-
-void RawWifi::setCECMode( const string& mode )
-{
-	if ( mRawWifi ) {
-		if ( mode == "weighted" ) {
-			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FEC_WEIGHTED );
-			gDebug() << "RawWifi " << mDevice << ":" << mChannel << ":inport_port_" << mInputPort << " is now in FEC weighted mode";
-		} else {
-			rawwifi_set_recv_mode( mRawWifi, RAWWIFI_RX_FAST );
-		}
-	}
-}
-
-
-void RawWifi::SetChannel( int chan )
-{
-	mChannel = chan;
-	if ( mConnected ) {
-		// TODO : reconnect
-	}
-}
-
-
-void RawWifi::SetTxPower( int mBm )
-{
-	mTxPower = mBm;
-	if ( mConnected ) {
-		// TODO : reconnect
-	}
 }
 
 
 void RawWifi::setRetriesCount( int retries )
 {
-	mRetries = retries;
 }
 
 
-void RawWifi::setMaxBlockSize( int max )
+int RawWifi::retriesCount() const
 {
-	mMaxBlockSize = max;
-	if ( mRawWifi and mMaxBlockSize > 0 ) {
-		rawwifi_set_send_max_block_size( mRawWifi, mMaxBlockSize );
-	}
-}
-
-
-uint32_t RawWifi::TXHeadersSize()
-{
-	return rawwifi_send_headers_length( mRawWifi );
-}
-
-
-RAWWIFI_BLOCK_FLAGS RawWifi::TXFlags()
-{
-	return mSendFlags;
-}
-
-
-void RawWifi::setTXFlags( RAWWIFI_BLOCK_FLAGS flags )
-{
-	mSendFlags = flags;
+	return 1;
 }
 
 
@@ -183,133 +84,56 @@ int32_t RawWifi::Channel()
 
 int32_t RawWifi::Frequency()
 {
-	if ( mChannel == 14 ) {
-		return 2484;
-	}
-	return 2407 + mChannel * 5;
+	return 0;
 }
 
 
 int32_t RawWifi::RxQuality()
 {
-	return rawwifi_recv_quality( mRawWifi );
+	return 0;
 }
 
 
 int32_t RawWifi::RxLevel()
 {
-	return rawwifi_recv_level( mRawWifi );
-}
-
-
-uint32_t RawWifi::fullReadSpeed()
-{
-	return rawwifi_recv_speed( mRawWifi );
-}
-
-
-void RawWifi::Initialize( const string& device, uint32_t channel, uint32_t txpower )
-{
-	mInitializingMutex.lock();
-	while ( mInitializing ) {
-		usleep( 1000 * 100 );
-	}
-	if ( find( begin(mInitialized), end(mInitialized), device) == end(mInitialized) ) {
-		mInitializing = true;
-		mInitialized.emplace_back( device );
-
-		rawwifi_setup_interface( device.c_str(), channel, txpower, false, 0 );
-/*
-		stringstream ss;
-
-		(void)system( "ifconfig" );
-		usleep( 1000 * 250 );
-		(void)system( "iwconfig" );
-		usleep( 1000 * 250 );
-		if ( Board::readcmd( "ifconfig " + device + " | grep " + device, "encap", ":" ).find( "UNSPEC" ) == string::npos ) {
-			ss << "ifconfig " << device << " down && sleep 0.5";
-			ss << " && iw dev " << device << " set monitor otherbss fcsfail && sleep 0.5";
-			ss << " && ifconfig " << device << " up && sleep 0.5 && ";
-		}
-		ss << "iwconfig " << device << " channel " << ( ( channel + 1 ) % 11 + 1 ) << " && sleep 0.5 && ";
-		ss << "iwconfig " << device << " channel " << channel;
-		if ( txpower > 0 ) {
-			ss << " && iw dev " << device << " set txpower fixed " << ( txpower * 1000 );
-		}
-
-		cout << "executing : " << ss.str().c_str() << "\n";
-		(void)system( ss.str().c_str() );
-		usleep( 1000 * 250 );
-		(void)system( "ifconfig" );
-		usleep( 1000 * 250 );
-		(void)system( "iwconfig" );
-*/
-		mInitializing = false;
-	}
-	mInitializingMutex.unlock();
-}
-
-
-int RawWifi::Connect()
-{
-	Initialize( mDevice, mChannel, mTxPower );
-
-	mRawWifi = rawwifi_init( mDevice.c_str(), mOutputPort, mInputPort, mBlocking, mReadTimeout );
-	if ( !mRawWifi ) {
-		return -1;
-	}
-
-	if ( mMaxBlockSize > 0 ) {
-		rawwifi_set_send_max_block_size( mRawWifi, mMaxBlockSize );
-	}
-	rawwifi_set_send_block_flags( mRawWifi, mSendFlags );
-
-	mConnected = true;
 	return 0;
 }
 
 
-SyncReturn RawWifi::Read( void* buf, uint32_t len, int timeout )
+SyncReturn RawWifi::Read( void* buf, uint32_t len, int32_t timeout )
 {
-	if ( !mConnected or mInputPort < 0 ) {
-		return -1;
-	}
-
-	uint32_t valid = 0;
-	int ret = rawwifi_recv( mRawWifi, (uint8_t*)buf, len, &valid );
-
-	if ( ret == -3 ) {
-		cout << "WARNING : Read timeout\n";
-		return TIMEOUT;
-	}
-
-	if ( ret < 0 ) {
-		mConnected = false;
-	}
-	if ( ret > 0 and not valid ) {
-		if ( mDrop ) {
-			cout << "WARNING : Received corrupt packets, dropping\n";
-			return 0;
-		} else {
-			cout << "WARNING : Received corrupt packets\n";
-		}
-	}
-	return ret;
+	fDebug( buf, len, timeout );
+	bool valid = false;
+	return mRawWifi->Receive( reinterpret_cast<uint8_t*>(buf), len, &valid, timeout );
 }
 
 
-SyncReturn RawWifi::Write( const void* buf, uint32_t len, bool ack, int timeout )
+SyncReturn RawWifi::Write( const void* buf, uint32_t len, bool ack, int32_t timeout )
 {
-	if ( !mConnected or mOutputPort < 0 ) {
-		return -1;
-	}
-
-	int ret = rawwifi_send_retry( mRawWifi, (uint8_t*)buf, len, mRetries );
-
-	if ( ret < 0 ) {
-		mConnected = false;
-	}
-	return ret;
+	// return mRawWifi->Send( reinterpret_cast<const uint8_t*>(buf), len, 1 );
+	std::lock_guard<std::mutex> lck(mPacketsQueueMutex);
+	mPacketsQueue.push_back( std::vector<uint8_t>( reinterpret_cast<const uint8_t*>(buf), reinterpret_cast<const uint8_t*>(buf) + len ) );
+	mPacketsQueueCond.notify_one();
+	return len;
 }
 
-#endif // ( BUILD_RAWWIFI == 1 )
+
+bool RawWifi::run()
+{
+    std::unique_lock<std::mutex> lk(mPacketsQueueMutex);
+	mPacketsQueueCond.wait( lk, [this]{ return not mPacketsQueue.empty(); } );
+	lk.unlock();
+
+	mPacketsQueueMutex.lock();
+	while ( not mPacketsQueue.empty() ) {
+		std::vector<uint8_t> packet = mPacketsQueue.front();
+		mPacketsQueue.pop_front();
+		mPacketsQueueMutex.unlock();
+		mRawWifi->Send( packet.data(), packet.size(), 1 );
+		mPacketsQueueMutex.lock();
+	}
+	mPacketsQueueMutex.unlock();
+
+	return true;
+}
+
