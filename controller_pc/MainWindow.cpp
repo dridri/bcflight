@@ -76,20 +76,20 @@ MainWindow::MainWindow()
 		if ( device != "" ) {
 			RawWifi* controllerLink = new RawWifi( device, mConfig->value( "rawwifi/controller/outport", 0 ).toInt(), mConfig->value( "rawwifi/controller/inport", 1 ).toInt() );
 			mControllerLink = controllerLink;
-			controllerLink->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
-			controllerLink->setRetriesCount( mConfig->value( "rawwifi/controller/retries", 1 ).toInt() );
-			controllerLink->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
-			controllerLink->setDropBroken( not mConfig->value( "rawwifi/controller/nodrop", false ).toBool() );
+			// controllerLink->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			// controllerLink->setRetriesCount( mConfig->value( "rawwifi/controller/retries", 1 ).toInt() );
+			// controllerLink->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			// controllerLink->setDropBroken( not mConfig->value( "rawwifi/controller/nodrop", false ).toBool() );
 			mStreamLink = new RawWifi( device, mConfig->value( "rawwifi/video/outport", 10 ).toInt(), mConfig->value( "rawwifi/video/inport", 11 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/video/cec", "" ).toString().toLower().toStdString() );
-			static_cast<RawWifi*>(mStreamLink)->setDropBroken( not mConfig->value( "rawwifi/video/nodrop", false ).toBool() );
-			mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/audio/cec", "" ).toString().toLower().toStdString() );
-			static_cast<RawWifi*>(mAudioLink)->setDropBroken( not mConfig->value( "rawwifi/audio/nodrop", false ).toBool() );
+			// static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			// static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
+			// static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/video/cec", "" ).toString().toLower().toStdString() );
+			// static_cast<RawWifi*>(mStreamLink)->setDropBroken( not mConfig->value( "rawwifi/video/nodrop", false ).toBool() );
+			// mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
+			// static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			// static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
+			// static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/audio/cec", "" ).toString().toLower().toStdString() );
+			// static_cast<RawWifi*>(mAudioLink)->setDropBroken( not mConfig->value( "rawwifi/audio/nodrop", false ).toBool() );
 		}
 #endif // NO_RAWWIFI
 	} else {
@@ -98,6 +98,8 @@ MainWindow::MainWindow()
 		mStreamLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/video/port", 2021 ).toInt(), socket_type( mConfig->value( "tcpip/video/type", "UDPLite" ).toString() ) );
 		mAudioLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/audio/port", 2022 ).toInt(), socket_type( mConfig->value( "tcpip/audio/type", "TCP" ).toString() ) );
 	}
+	uint8_t test[2048];
+	// mControllerLink->Read( test, 2048, 0 );
 	mController = new ControllerPC( mControllerLink, mConfig->value( "controller/spectate", false ).toBool() );
 
 	if ( mController ) {
@@ -286,7 +288,11 @@ void MainWindow::updateData()
 		}
 	} else {
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s    |    Camera :%6 KB/s (%7 KB/s |%8 % |%9 dBm )    |    %10 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		if ( mStreamLink ) {
+			ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s    |    Camera :%6 KB/s (%7 KB/s |%8 % |%9 dBm )    |    %10 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		} else {
+			ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ) );
+		}
 
 		if ( mController->ping() < 10000 ) {
 			ui->latency->setText( QString::number( mController->ping() ) + " ms" );

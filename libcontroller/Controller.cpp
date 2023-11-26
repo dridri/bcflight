@@ -27,6 +27,7 @@
 #include <iostream>
 #include "Controller.h"
 #include "links/RawWifi.h"
+#include "Debug.h"
 
 
 Controller::Controller( Link* link, bool spectate )
@@ -54,6 +55,7 @@ Controller::Controller( Link* link, bool spectate )
 	, mSpectate( spectate )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
+	, mTelemetryTimer( 0 )
 	, mDataTimer( 0 )
 	, mMsCounter( 0 )
 	, mMsCounter50( 0 )
@@ -129,7 +131,13 @@ string Controller::debugOutput()
 
 bool Controller::run()
 {
-	uint64_t ticks0 = Thread::GetTick();
+	uint32_t ticks = Thread::GetTick();
+	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
+		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
+	}
+	float dt = ((float)( Thread::GetTick() - mTicks ) ) / 1000000.0f;
+	mTicks = Thread::GetTick();
+	uint64_t ticks0 = mTicks;
 
 	if ( mLockState >= 1 ) {
 		mLockState = 2;
@@ -143,15 +151,15 @@ bool Controller::run()
 	}
 
 	if ( not mLink->isConnected() ) {
-		cout << "Connecting...";
+		gDebug() << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
 			setPriority( 99, 0 );
-			cout << "Ok !\n" << flush;
+			gDebug() << "Ok !" << flush;
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
 		} else {
-			cout << "Nope !\n" << flush;
+			gDebug() << "Nope !" << flush;
 			usleep( 1000 * 250 );
 		}
 
@@ -161,7 +169,7 @@ bool Controller::run()
 	if ( mSpectate ) {
 		mXferMutex.lock();
 		if ( mTxFrame.data().size() > 0 ) {
-			cout << "Sending " << mTxFrame.data().size()*4 << " bytes\n";
+			gDebug() << "Sending " << mTxFrame.data().size()*4 << " bytes";
 			mLink->Write( &mTxFrame );
 		}
 		mTxFrame = Packet();
@@ -178,9 +186,9 @@ bool Controller::run()
 	for ( uint32_t i = 0; i < 12; i++ ) {
 		bool on = ReadSwitch( i );
 		if ( on and not mSwitches[i] ) {
-			cout << "Switch " << i << " on\n" << flush;
+			gDebug() << "Switch " << i << " on" << flush;
 		} else if ( not on and mSwitches[i] ) {
-			cout << "Switch " << i << " off\n" << flush;
+			gDebug() << "Switch " << i << " off" << flush;
 		}
 		mSwitches[i] = on;
 	}
@@ -202,28 +210,29 @@ bool Controller::run()
 		setMode( Rate );
 	}
 	if ( mSwitches[6] and mNightMode == false ) {
-		printf("set night mode\n");
+		gDebug() << "set night mode";
 		setNightMode( true );
 	} else if ( not mSwitches[6] and mNightMode == true ) {
 		setNightMode( false );
 	}
 
 	if ( mSwitches[10] and not mVideoRecording ) {
-		printf("start recording\n");
+		gDebug() << "start recording";
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_START_RECORD );
 		mXferMutex.unlock();
 	} else if ( not mSwitches[10] and mVideoRecording ) {
-		printf("stop recording\n");
+		gDebug() << "stop recording";
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
 	}
 
-	float f_thrust = ReadThrust();
-	float f_yaw = ReadYaw();
-	float f_pitch = ReadPitch();
-	float f_roll = ReadRoll();
+	float f_thrust = ReadThrust( dt * 1000.0f / mUpdateFrequency );
+	float f_yaw = ReadYaw( dt * 1000.0f / mUpdateFrequency );
+	float f_pitch = ReadPitch( dt * 1000.0f / mUpdateFrequency );
+	float f_roll = ReadRoll( dt * 1000.0f / mUpdateFrequency );
+	gTrace() << "Controls : " << f_thrust << ", " << f_yaw << ", " << f_pitch << ", " << f_roll << "\n";
 	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
 		mControls.thrust = (int8_t)( max( 0, min( 127, (int32_t)( f_thrust * 127.0f ) ) ) );
 	}
@@ -284,14 +293,21 @@ bool Controller::run()
 			mTxFrame.WriteU16( HORIZON_OFFSET );
 			mXferMutex.unlock();
 		}
+		if ( mUsername == "" ) {
+			mXferMutex.lock();
+			mTxFrame.WriteU16( GET_USERNAME );
+			mXferMutex.unlock();
+		}
 
 		mPingTimer = Thread::GetTick();
 	}
 
-	if ( mUsername == "" ) {
+	if ( Thread::GetTick() - mTelemetryTimer >= 500 ) {
+		request_ack = true;
 		mXferMutex.lock();
-		mTxFrame.WriteU16( GET_USERNAME );
+		mTxFrame.WriteU8( TELEMETRY );
 		mXferMutex.unlock();
+		mTelemetryTimer = Thread::GetTick();
 	}
 
 	mXferMutex.lock();
@@ -302,13 +318,7 @@ bool Controller::run()
 	mTxFrame = Packet();
 	mXferMutex.unlock();
 
-	uint32_t ticks = Thread::GetTick();
-	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
-		mUpdateFrequency = 10;
-		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
-	}
-	mTicks = Thread::GetTick();
-	mMsCounter += ( mTicks - ticks0 );
+	mMsCounter += ( Thread::GetTick() - ticks0 );
 	return true;
 }
 
@@ -316,12 +326,12 @@ bool Controller::run()
 bool Controller::RxRun()
 {
 	if ( mSpectate and not mLink->isConnected() ) {
-		cout << "Connecting..." << flush;
+		gDebug() << "Connecting..." << flush;
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
-			cout << "Ok !\n" << flush;
+			gDebug() << "Ok !" << flush;
 		} else {
-			cout << "Nope !\n" << flush;
+			gDebug() << "Nope !" << flush;
 			usleep( 1000 * 250 );
 		}
 		return true;
@@ -330,7 +340,7 @@ bool Controller::RxRun()
 	Packet telemetry;
 	int rret = 0;
 	if ( ( rret = mLink->Read( &telemetry ) ) <= 0 ) {
-		cout << "Controller Link read error : " << rret << "\n";
+		gDebug() << "Controller Link read error : " << rret;
 		usleep( 500 );
 		return true;
 	}
@@ -355,7 +365,7 @@ bool Controller::RxRun()
 	bool acknowledged = false;
 	while ( ReadCmd( &telemetry, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-// 			cout << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)] << "\n";
+			gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 
 		acknowledged = false;
@@ -410,7 +420,7 @@ bool Controller::RxRun()
 			case DEBUG_OUTPUT : {
 				mDebugMutex.lock();
 				string str = telemetry.ReadString();
-				cout << str << flush;
+				gDebug() << str << flush;
 				mDebug += str;
 				mDebugMutex.unlock();
 				break;
@@ -419,7 +429,7 @@ bool Controller::RxRun()
 				uint32_t value = telemetry.ReadU32();
 				if ( value == 0 ) {
 					mCalibrated = true;
-					cout << "Calibration success\n" << flush;
+					gDebug() << "Calibration success" << flush;
 				} else if ( value == 2 ) {
 					// This value is regularily sent to tell that the drone is still calibrated
 					mCalibrated = true;
@@ -427,7 +437,7 @@ bool Controller::RxRun()
 					// This value is regularily sent to tell that the drone is not calibrated
 					mCalibrated = false;
 				} else {
-					cout << "WARNING : Calibration failed !\n" << flush;
+					gDebug() << "WARNING : Calibration failed !" << flush;
 				}
 				break;
 			}
@@ -467,19 +477,19 @@ bool Controller::RxRun()
 				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
 					mConfigFile = content;
 				} else {
-					cout << "Received broken config flie, retrying...\n" << flush;
+					gDebug() << "Received broken config flie, retrying..." << flush;
 					mConfigFile = "";
 				}
 				break;
 			}
 			case SET_CONFIG_FILE : {
-				cout << "SET_CONFIG_FILE\n";
+				gDebug() << "SET_CONFIG_FILE";
 				mConfigUploadValid = ( telemetry.ReadU32() == 0 );
 				break;
 			}
 			case UPDATE_UPLOAD_DATA : {
 				bool ok = ( telemetry.ReadU32() == 1 );
-				cout << "UPDATE_UPLOAD_DATA : " << ok << "\n" << flush;
+				gDebug() << "UPDATE_UPLOAD_DATA : " << ok << "" << flush;
 				mUpdateUploadValid = ok;
 				break;
 			}
@@ -779,7 +789,7 @@ bool Controller::RxRun()
 				uint32_t night = telemetry.ReadU32();
 				if ( night != mNightMode ) {
 					mNightMode = night;
-					cout << "Video switched to " << ( mNightMode ? "night" : "day" ) << " mode\n";
+					gDebug() << "Video switched to " << ( mNightMode ? "night" : "day" ) << " mode";
 				}
 				break;
 			}
@@ -789,7 +799,7 @@ bool Controller::RxRun()
 				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
 					mRecordingsList = content;
 				} else {
-					cout << "Received broken recordings list, retrying...\n";
+					gDebug() << "Received broken recordings list, retrying...";
 					mRecordingsList = "broken";
 				}
 				break;
@@ -807,7 +817,7 @@ bool Controller::RxRun()
 			}
 
 			default :
-				cout << "WARNING : Received unknown command (" << (uint16_t)cmd << ") !\n" << flush;
+				gDebug() << "WARNING : Received unknown command (" << (uint16_t)cmd << ") !" << flush;
 				break;
 		}
 	}
@@ -818,7 +828,7 @@ bool Controller::RxRun()
 
 void Controller::Calibrate()
 {
-	cout << "Controller::Calibrate()\n";
+	gDebug() << "Controller::Calibrate()";
 
 	if ( !mLink || !isConnected() ) {
 		return;
@@ -846,7 +856,7 @@ void Controller::Calibrate()
 
 void Controller::CalibrateAll()
 {
-	cout << "Controller::CalibrateAll()\n";
+	gDebug() << "Controller::CalibrateAll()";
 
 	if ( !mLink || !isConnected() ) {
 		return;
@@ -992,7 +1002,7 @@ string Controller::getConfigFile()
 
 void Controller::setConfigFile( const string& content )
 {
-	cout << "setConfigFile...\n" << flush;
+	gDebug() << "setConfigFile..." << flush;
 	Packet packet( SET_CONFIG_FILE );
 	packet.WriteU32( crc32( (uint8_t*)content.c_str(), content.length() ) );
 	packet.WriteString( content );
@@ -1002,13 +1012,13 @@ void Controller::setConfigFile( const string& content )
 		mXferMutex.lock();
 // 		mTxFrame.WriteU16( SET_CONFIG_FILE );
 // 		mTxFrame.WriteString( content );
-		cout << "Sending " << packet.data().size()*4 << " bytes\n";
+		gDebug() << "Sending " << packet.data().size()*4 << " bytes";
 		mLink->Write( &packet );
 		mXferMutex.unlock();
 		usleep( 1000 * 250 );
 	};
 	mConfigFile = "";
-	cout << "setConfigFile ok\n" << flush;
+	gDebug() << "setConfigFile ok" << flush;
 }
 
 
@@ -1045,7 +1055,7 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 		mLink->Write( &packet );
 		usleep( 1000 * 50 );
 		if ( not mUpdateUploadValid ) {
-			cout << "Broken data received, retrying...\n" << flush;
+			gDebug() << "Broken data received, retrying..." << flush;
 			usleep( 1000 * 10 );
 		}
 	} while ( not mUpdateUploadValid );
@@ -1101,7 +1111,7 @@ void Controller::ReloadPIDs()
 
 void Controller::setRollPID( const vec3& v )
 {
-	cout << "setRollPID...\n" << flush;
+	gDebug() << "setRollPID..." << flush;
 	while ( mRollPID.x != v.x or mRollPID.y != v.y or mRollPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_ROLL_PID_P );
@@ -1113,13 +1123,13 @@ void Controller::setRollPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setRollPID ok\n" << flush;
+	gDebug() << "setRollPID ok" << flush;
 }
 
 
 void Controller::setPitchPID( const vec3& v )
 {
-	cout << "setPitchPID...\n" << flush;
+	gDebug() << "setPitchPID..." << flush;
 	while ( mPitchPID.x != v.x or mPitchPID.y != v.y or mPitchPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_PITCH_PID_P );
@@ -1131,13 +1141,13 @@ void Controller::setPitchPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setPitchPID ok\n" << flush;
+	gDebug() << "setPitchPID ok" << flush;
 }
 
 
 void Controller::setYawPID( const vec3& v )
 {
-	cout << "setYawPID...\n" << flush;
+	gDebug() << "setYawPID..." << flush;
 	while ( mYawPID.x != v.x or mYawPID.y != v.y or mYawPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_YAW_PID_P );
@@ -1149,13 +1159,13 @@ void Controller::setYawPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setYawPID ok\n" << flush;
+	gDebug() << "setYawPID ok" << flush;
 }
 
 
 void Controller::setOuterPID( const vec3& v )
 {
-	cout << "setOuterPID...\n" << flush;
+	gDebug() << "setOuterPID..." << flush;
 	while ( mOuterPID.x != v.x or mOuterPID.y != v.y or mOuterPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_OUTER_PID_P );
@@ -1167,7 +1177,7 @@ void Controller::setOuterPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setOuterPID ok\n" << flush;
+	gDebug() << "setOuterPID ok" << flush;
 }
 
 
@@ -1330,7 +1340,8 @@ string Controller::VideoWhiteBalance()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
+		gDebug() << "lock " << retry << " ('" << mVideoWhiteBalance << "')";
+		retry++;
 	} while ( retry < 32 and mVideoWhiteBalance == "" );
 
 	mXferMutex.unlock();
@@ -1355,7 +1366,8 @@ string Controller::VideoLockWhiteBalance()
 		mTxFrame = Packet();
 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
+		gDebug() << "lock " << retry << " ('" << mVideoWhiteBalance << "')";
+		retry++;
 	} while ( retry < 32 and mVideoWhiteBalance == "" );
 
 	mXferMutex.unlock();
@@ -1380,7 +1392,8 @@ string Controller::VideoExposureMode()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%s')\n", retry++, mVideoExposureMode.c_str() );
+		gDebug() << "lock " << retry << " ('" << mVideoExposureMode << "')";
+		retry++;
 	} while ( mVideoExposureMode == "" );
 
 	mXferMutex.unlock();
@@ -1405,7 +1418,8 @@ int32_t Controller::VideoGetIso()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%d')\n", retry++, mVideoIso );
+		gDebug() << "lock " << retry << " ('" << mVideoIso << "')";
+		retry++;
 	} while ( mVideoIso == -1 );
 
 	mXferMutex.unlock();
@@ -1430,7 +1444,8 @@ uint32_t Controller::VideoGetShutterSpeed()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%d')\n", retry++, mVideoShutterSpeed );
+		gDebug() << "lock " << retry << " ('" << mVideoShutterSpeed << "')";
+		retry++;
 	} while ( mVideoShutterSpeed == -1 );
 
 	mXferMutex.unlock();
@@ -1548,7 +1563,7 @@ vector< string > Controller::recordingsList()
 		}
 	} while ( mRecordingsList == "broken" );
 
-	cout << "mRecordingsList : " << mRecordingsList << "\n";
+	gDebug() << "mRecordingsList : " << mRecordingsList;
 	vector< string > list;
 	string full = mRecordingsList;
 	while ( full.length() > 0 ) {

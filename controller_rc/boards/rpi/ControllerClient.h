@@ -19,7 +19,7 @@
 #ifndef CONTROLLERPI_H
 #define CONTROLLERPI_H
 
-#include <Controller.h>
+#include "../../libcontroller/Controller.h"
 #include <Link.h>
 #include "../../ADCs/MCP320x.h"
 
@@ -38,9 +38,9 @@ public:
 		Joystick() : mADC( nullptr ), mADCChannel( 0 ), mCalibrated( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ), mLastRaw( 0 ) {}
 		Joystick( MCP320x* adc, int id, int channel, bool thrust_mode = false );
 		~Joystick();
-		uint16_t ReadRaw();
+		uint16_t ReadRaw( float dt );
 		uint16_t LastRaw() const { return mLastRaw; }
-		float Read();
+		float Read( float dt );
 		void SetCalibratedValues( uint16_t min, uint16_t center, uint16_t max );
 		uint16_t max() const { return mMax; }
 		uint16_t center() const { return mCenter; }
@@ -58,10 +58,10 @@ public:
 	};
 
 	Joystick* joystick( int x ) { return &mJoysticks[x]; }
-	uint16_t rawThrust() { return mJoysticks[0].ReadRaw(); }
-	uint16_t rawYaw() { return mJoysticks[1].ReadRaw(); }
-	uint16_t rawRoll() { return mJoysticks[3].ReadRaw(); }
-	uint16_t rawPitch() { return mJoysticks[2].ReadRaw(); }
+	uint16_t rawThrust( float dt ) { return mJoysticks[0].ReadRaw( dt ); }
+	uint16_t rawYaw( float dt ) { return mJoysticks[1].ReadRaw( dt ); }
+	uint16_t rawRoll( float dt ) { return mJoysticks[3].ReadRaw( dt ); }
+	uint16_t rawPitch( float dt ) { return mJoysticks[2].ReadRaw( dt ); }
 	void SaveThrustCalibration( uint16_t min, uint16_t center, uint16_t max );
 	void SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max );
 	void SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max );
@@ -72,10 +72,10 @@ protected:
 	virtual bool run();
 	bool RunSimulator();
 
-	float ReadThrust();
-	float ReadRoll();
-	float ReadPitch();
-	float ReadYaw();
+	float ReadThrust( float dt );
+	float ReadRoll( float dt );
+	float ReadPitch( float dt );
+	float ReadYaw( float dt );
 	int8_t ReadSwitch( uint32_t id );
 
 	static Config* mConfig;

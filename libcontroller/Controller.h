@@ -165,10 +165,10 @@ public:
 	virtual bool SimulatorMode( bool enabled ) { return false; }
 
 protected:
-	virtual float ReadThrust() { return 0.0f; }
-	virtual float ReadRoll() { return 0.0f; }
-	virtual float ReadPitch() { return 0.0f; }
-	virtual float ReadYaw() { return 0.0f; }
+	virtual float ReadThrust( float dt ) { return 0.0f; }
+	virtual float ReadRoll( float dt ) { return 0.0f; }
+	virtual float ReadPitch( float dt ) { return 0.0f; }
+	virtual float ReadYaw( float dt ) { return 0.0f; }
 	virtual int8_t ReadSwitch( uint32_t id ) { return 0; }
 	virtual bool run();
 	bool RxRun();
@@ -182,6 +182,7 @@ protected:
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
 	uint64_t mPingTimer;
+	uint64_t mTelemetryTimer;
 	uint64_t mDataTimer;
 	uint64_t mMsCounter;
 	uint64_t mMsCounter50;

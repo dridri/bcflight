@@ -9,6 +9,7 @@
 #include <Thread.h>
 #include <GPIO.h>
 #include <SPI.h>
+#include <Debug.h>
 #ifdef BOARD_rpi
 #include <pigpio.h>
 #endif
@@ -18,6 +19,8 @@
 #define XTAL_FREQ 32000000
 #define FREQ_STEP 61.03515625f
 #define PACKET_SIZE 32
+// #define MAX_BLOCK_ID 256
+#define MAX_BLOCK_ID 128
 
 static uint8_t GetFskBandwidthRegValue( uint32_t bandwidth );
 static const char* GetRegName( uint8_t reg );
@@ -161,6 +164,7 @@ SX127x::SX127x( const SX127x::Config& config )
 	, mFdev( config.fdev )
 	, mSending( false )
 	, mSendingEnd( false )
+	, mReceiving( false )
 	, mSendTime( 0 )
 	, mRSSI( 0 )
 	, mRxQuality( 0 )
@@ -190,7 +194,7 @@ SX127x::SX127x( const SX127x::Config& config )
 #endif
 
 	// Setup SPI and GPIO
-	mSPI = new SPI( mDevice, 2000000 );
+	mSPI = new SPI( mDevice, 8000000 );
 
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
@@ -511,6 +515,7 @@ void SX127x::startReceiving()
 
 void SX127x::startTransmitting()
 {
+	mInterruptMutex.lock();
 	if ( mRXPin >= 0 ) {
 		GPIO::Write( mRXPin, false );
 	}
@@ -524,6 +529,7 @@ void SX127x::startTransmitting()
 	}
 
 	setOpMode( RF_OPMODE_TRANSMITTER );
+	mInterruptMutex.unlock();
 }
 
 
@@ -662,24 +668,44 @@ int SX127x::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 // 	while ( mSending ) {
 // 		usleep( 10 );
 // 	}
+	{
+		std::unique_lock<std::mutex> lock(mReceivingMutex);
+		if ( mReceiving ) {
+			mReceivingCond.wait(lock, [this] { return mReceiving.load() == false; });
+		}
+	}
 	mSending = true;
 
 	uint8_t buf[32];
 	memset( buf, 0, sizeof(buf) );
 	Header* header = (Header*)buf;
 
-	header->block_id = ++mTXBlockID;
-	header->packets_count = (uint8_t)std::ceil( (float)len / (float)( 32 - sizeof(Header) ) );
+	mTXBlockID = ( mTXBlockID + 1 ) % MAX_BLOCK_ID;
+	header->block_id = mTXBlockID;
+
+	uint8_t packets_count = (uint8_t)std::ceil( (float)len / (float)( PACKET_SIZE - sizeof(Header) ) );
+	uint8_t header_len = sizeof(Header);
+	if ( len <= PACKET_SIZE - sizeof(Header) ) {
+		header->small_packet = 1;
+		header_len = sizeof(HeaderMini);
+		HeaderMini* small_header = (HeaderMini*)buf;
+		small_header->crc = crc8( (uint8_t*)data, len );
+		packets_count = 1;
+	} else {
+		header->packets_count = packets_count;
+	}
 
 	uint32_t offset = 0;
-	for ( uint8_t packet = 0; packet < header->packets_count; packet++ ) {
-		uint32_t plen = 32 - sizeof(Header);
+	for ( uint8_t packet = 0; packet < packets_count; packet++ ) {
+		uint32_t plen = 32 - header_len;
 		if ( offset + plen > len ) {
 			plen = len - offset;
 		}
 
-		memcpy( buf + sizeof(Header), (uint8_t*)data + offset, plen );
-		header->crc = crc8( (uint8_t*)data + offset, plen );
+		memcpy( buf + header_len, (uint8_t*)data + offset, plen );
+		if ( header->small_packet == 0 ) {
+			header->crc = crc8( (uint8_t*)data + offset, plen );
+		}
 
 // 		for ( int32_t retry = 0; retry < mRetries; retry++ )
 		{
@@ -692,28 +718,28 @@ int SX127x::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 			memset( rx, 0, sizeof(rx) );
 
 			if ( mModem == LoRa ) {
-				writeRegister( REG_LR_PAYLOADLENGTH, plen + sizeof(Header) );
+				writeRegister( REG_LR_PAYLOADLENGTH, plen + header_len );
 				writeRegister( REG_LR_FIFOTXBASEADDR, 0 );
 				writeRegister( REG_LR_FIFOADDRPTR, 0 );
 
 				tx[0] = REG_FIFO | 0x80;
-				memcpy( &tx[1], buf, plen + sizeof(Header) );
+				memcpy( &tx[1], buf, plen + header_len );
 			} else {
-				writeRegister( REG_FIFOTHRESH, RF_FIFOTHRESH_TXSTARTCONDITION_FIFOTHRESH | ( plen + sizeof(Header) ) );
+				writeRegister( REG_FIFOTHRESH, RF_FIFOTHRESH_TXSTARTCONDITION_FIFOTHRESH | ( plen + header_len ) );
 
 				tx[0] = REG_FIFO | 0x80;
-				tx[1] = plen + sizeof(Header);
-				memcpy( &tx[2], buf, plen + sizeof(Header) );
+				tx[1] = plen + header_len;
+				memcpy( &tx[2], buf, plen + header_len );
 			}
 
 			mSendingEnd = false;
 
-// 			printf( "Sending [%u] { %d %d %d } [%d bytes]\n", plen + sizeof(Header), header->block_id, header->packet_id, header->packets_count, plen );
+// 			printf( "Sending [%u] { %d %d %d } [%d bytes]\n", plen + header_len, header->block_id, header->packet_id, header->packets_count, plen );
 
 			mSendingEnd = true;
 			mSendTime = TICKS;
 			startTransmitting();
-			mSPI->Transfer( tx, rx, plen + sizeof(Header) + 1 + ( mModem == FSK ) );
+			mSPI->Transfer( tx, rx, plen + header_len + 1 + ( mModem == FSK ) );
 // 			printf( "Sending ok\n" );
 
 			while ( mModem == LoRa and mSending ) {
@@ -721,7 +747,9 @@ int SX127x::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 			}
 		}
 
-		header->packet_id++;
+		if ( header->small_packet == 0 ) {
+			header->packet_id++;
+		}
 		offset += plen;
 	}
 
@@ -752,6 +780,28 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 	}
 
 	uint32_t datalen = buflen - sizeof(Header);
+
+	if ( header->small_packet ) {
+		HeaderMini* small_header = (HeaderMini*)buf;
+		data = buf + sizeof(HeaderMini);
+		datalen = buflen - sizeof(HeaderMini);
+		if ( crc8( data, datalen ) != small_header->crc ) {
+			return -1;
+		}
+		if ( small_header->block_id == mRxBlock.block_id and mRxBlock.received ) {
+			// gTrace() << "Block " << (int)header->block_id << " already received";
+			return -1;
+		}
+		mRxBlock.block_id = small_header->block_id;
+		mRxBlock.received = true;
+		mPerfValidBlocks++;
+		mPerfMutex.lock();
+		mPerfHistory.push_back( TICKS );
+		mPerfMutex.unlock();
+		memcpy( pRet, data, datalen );
+		return datalen;
+	}
+
 
 	if ( crc8( data, datalen ) != header->crc ) {
 		std::cout << "Invalid CRC\n";
@@ -821,6 +871,7 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 void SX127x::Interrupt()
 {
 	uint64_t tick_ms = TICKS;
+	mInterruptMutex.lock();
 
 	uint8_t opMode = getOpMode();
 	if ( opMode != RF_OPMODE_RECEIVER and opMode != RF_OPMODE_SYNTHESIZER_RX ) {
@@ -830,9 +881,12 @@ void SX127x::Interrupt()
 			startReceiving();
 		}
 		mSending = false;
+		mInterruptMutex.unlock();
 		return;
 	}
-// 	std::cout << "SX127x::Interrupt()\n";
+	fDebug();
+	std::lock_guard<std::mutex> lock(mReceivingMutex);
+	mReceiving = true;
 
 	if ( mModem == FSK ) {
 		mRSSI = -( readRegister( REG_RSSIVALUE ) >> 1 );
@@ -848,10 +902,11 @@ void SX127x::Interrupt()
 		} else {
 			uint8_t irqFlags = readRegister( REG_IRQFLAGS2 );
 			crc_err = ( ( irqFlags & RF_IRQFLAGS2_CRCOK ) != RF_IRQFLAGS2_CRCOK );
-			
 		}
 		if( crc_err ) {
 			if ( mModem == LoRa ) {
+				mReceiving = false;
+				mInterruptMutex.unlock();
 				return;
 			}
 			// Clear Irqs
@@ -863,6 +918,8 @@ void SX127x::Interrupt()
 			while ( writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK ) == false and TICKS - tick_ms < 50 ) {
 				usleep( 1 );
 			}
+			mReceiving = false;
+			mInterruptMutex.unlock();
 			return;
 		}
 	}
@@ -904,6 +961,8 @@ void SX127x::Interrupt()
 	if ( mModem == FSK ) {
 		writeRegister( REG_RXCONFIG, readRegister( REG_RXCONFIG ) | RF_RXCONFIG_RESTARTRXWITHOUTPLLLOCK );
 	}
+	mReceiving = false;
+	mInterruptMutex.unlock();
 }
 
 

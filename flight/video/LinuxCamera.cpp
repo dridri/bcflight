@@ -195,7 +195,7 @@ void LinuxCamera::Start()
 	mCamera = sCameraManager->get( sCameraManager->cameras()[0]->id() );
 	mCamera->acquire();
 
-	libcamera::StreamRoles roles;
+	std::vector<libcamera::StreamRole> roles;
 	// roles.push_back( libcamera::StreamRole::Raw );
 	roles.push_back( libcamera::StreamRole::Viewfinder );
 	roles.push_back( libcamera::StreamRole::VideoRecording );

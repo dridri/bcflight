@@ -465,6 +465,20 @@ for __, filename in ipairs(arg) do
 						table.insert( parent_classes, parent )
 					end
 				end
+			elseif token == "namespace" then
+				is_block = true
+				while i <= #tokens and tokens[i] ~= "{" do
+					if tokens[i] == ";" then
+						is_block = false
+						break
+					end
+					i = i + 1
+				end
+				if is_block then
+					while i <= #tokens and tokens[i] ~= "}" do
+						i = i + 1
+					end
+				end
 			elseif token == "class" then
 				io.stderr:write("ON NON-LUA CLASS " .. tokens[i+1] .. "\n")
 				curr_class = tokens[i + 1]

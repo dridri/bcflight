@@ -4,6 +4,7 @@
 #include <atomic>
 #include <mutex>
 #include <list>
+#include <condition_variable>
 #include "Link.h"
 
 class Main;
@@ -57,11 +58,18 @@ public:
 
 protected:
 	typedef struct __attribute__((packed)) {
-		uint8_t block_id;
+		uint8_t small_packet : 1;
+		uint8_t block_id : 7;
 		uint8_t packet_id;
 		uint8_t packets_count;
 		uint8_t crc;
 	} Header;
+
+	typedef struct __attribute__((packed)) {
+		uint8_t small_packet : 1;
+		uint8_t block_id : 7;
+		uint8_t crc;
+	} HeaderMini;
 
 	typedef struct RxConfig_t
 	{
@@ -126,7 +134,11 @@ protected:
 	uint32_t mFdev;
 	std::atomic_bool mSending;
 	std::atomic_bool mSendingEnd;
+	std::atomic_bool mReceiving;
+	std::mutex mReceivingMutex;
+	std::condition_variable mReceivingCond;
 	uint64_t mSendTime;
+	std::mutex mInterruptMutex;
 
 	void PerfUpdate();
 	std::mutex mPerfMutex;

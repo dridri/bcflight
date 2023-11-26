@@ -24,6 +24,7 @@
 #include "ControllerClient.h"
 #include "ui/GlobalUI.h"
 #include "Config.h"
+#include "Debug.h"
 #include <links/Socket.h>
 #include <nRF24L01.h>
 #include <SX127x.h>
@@ -63,6 +64,7 @@ void SegFaultHandler( int sig )
 
 int main( int ac, char** av )
 {
+	Debug::setDebugLevel( Debug::Verbose );
 	Controller* controller = nullptr;
 	Link* controller_link = nullptr;
 

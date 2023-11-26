@@ -111,6 +111,7 @@ Main::Main()
 	mConfig = new Config( "", "" );
 #endif
 	mConfig->Reload();
+	Debug::setDebugLevel( static_cast<Debug::Level>( mConfig->Integer( "debug_level", 3 ) ) );
 	Board::InformLoading();
 	DetectDevices();
 	Board::InformLoading();

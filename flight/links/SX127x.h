@@ -43,11 +43,18 @@ protected:
 	void init();
 
 	typedef struct __attribute__((packed)) {
-		uint8_t block_id;
+		uint8_t small_packet : 1;
+		uint8_t block_id : 7;
 		uint8_t packet_id;
 		uint8_t packets_count;
 		uint8_t crc;
 	} Header;
+
+	typedef struct __attribute__((packed)) {
+		uint8_t small_packet : 1;
+		uint8_t block_id : 7;
+		uint8_t crc;
+	} HeaderMini;
 
 	typedef struct RxConfig_t
 	{

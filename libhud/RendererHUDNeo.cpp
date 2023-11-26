@@ -347,7 +347,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 	if ( dronestats ) {
 		int w = 0, h = 0;
 		float latency_red = std::min( 1.0f, ((float)dronestats->ping ) / 100.0f );
-		std::string latency_str = std::to_string( dronestats->ping ) + "ms";
+		std::string latency_str = std::to_string( dronestats->ping / 2 ) + "ms";
 		FontMeasureString( latency_str, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 2.0f, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ), 0.8f );
 		if ( dronestats->ping > 50 ) {

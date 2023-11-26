@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <cxxabi.h>
 #include <chrono>
+#include <map>
 
 #ifdef TARGET_OS_IPHONE
 	#define _Debug_Color( color ) ""
@@ -81,6 +82,11 @@ public:
 		}
 		return *this;
 	}
+
+	Debug& operator<<(std::ostream& (*manip)(std::ostream&)) {
+		(*manip)(mStream);
+		return *this;
+	}
 /*
 	template<typename T> Debug& operator<<( uint32_t t )
 	{
@@ -130,7 +136,8 @@ public:
 	static void setDebugLevel( Level lvl ) { mDebugLevel = lvl; }
 	static void setVerbose( bool en ) { if ( en ) mDebugLevel = Verbose; }
 	static void setLogFile( const std::string& filename ) { mLogFile = std::ofstream(filename); }
-	static bool verbose() { return ( mDebugLevel == Verbose ); }
+	static bool verbose() { return ( mDebugLevel >= Verbose ); }
+	static bool trace() { return ( mDebugLevel >= Trace ); }
 	static pthread_t mMainThread;
 
 
@@ -232,6 +239,23 @@ static void fDebug_base( Debug& dbg, const char* end, bool f ) {
 	dbg << " " << end;
 }
 
+static std::string _debug_level( Debug::Level level ) {
+	const static std::map< Debug::Level, std::string > levels = {
+		{ Debug::Error, std::string(_Debug_Color("\x1B[1;41m")) + "ERROR" + _Debug_Color("\x1B[0m") },
+		{ Debug::Warning, std::string(_Debug_Color("\x1B[1;41;93m")) + "WARNING" + _Debug_Color("\x1B[0m") },
+		{ Debug::Info, std::string(_Debug_Color("\x1B[1;42m")) + "INFO" + _Debug_Color("\x1B[0m") },
+		{ Debug::Verbose, std::string(_Debug_Color("\x1B[1;100m")) + "VERBOSE" + _Debug_Color("\x1B[0m") },
+		{ Debug::Trace, std::string(_Debug_Color("\x1B[1;100;32m")) + "TRACE" + _Debug_Color("\x1B[0m") }
+	};
+	if ( not Debug::trace() and level == Debug::Verbose ) {
+		return "";
+	}
+	if ( not Debug::verbose() and level == Debug::Info ) {
+		return "";
+	}
+	return levels.at( level ) + " ";
+}
+
 template<typename Arg1, typename... Args> static void fDebug_base( Debug& dbg, const char* end, bool first, const Arg1& arg1, const Args&... args ) {
 	char* type = abi::__cxa_demangle(typeid(arg1).name(), nullptr, nullptr, nullptr);
 	char cap = 0;
@@ -289,12 +313,13 @@ template<typename... Args> void Debug::fDebug_top2( const char* end, const Args&
 	}
 }
 
-#define gTrace() Debug(Debug::Trace) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gDebug() Debug(Debug::Verbose) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gInfo() Debug(Debug::Info) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gWarning() Debug(Debug::Warning) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41;93m") + "WARNING" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gError() Debug(Debug::Error) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41m") + "ERROR" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define fDebug( ... ) { Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
+#define gTrace() Debug(Debug::Trace) + _debug_date() + self_thread() + _debug_level(Debug::Trace) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gDebug() Debug(Debug::Verbose) + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gInfo() Debug(Debug::Info) + _debug_date() + self_thread() + _debug_level(Debug::Info) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gWarning() Debug(Debug::Warning) + _debug_date() + self_thread() + _debug_level(Debug::Warning) + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gError() Debug(Debug::Error) + _debug_date() + self_thread() + _debug_level(Debug::Error) + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define fTrace( ... ) { Debug dbg(Debug::Trace);dbg + _debug_date() + self_thread() + _debug_level(Debug::Trace) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
+#define fDebug( ... ) { Debug dbg;dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
 #define aDebug( name, ... ) { Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + " = { "; dbg.fDebug_top2( "}", __VA_ARGS__ ); }
 #define vDebug( name, ... ) Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + "{ "; dbg.fDebug_top2( "} ", __VA_ARGS__ ); dbg + ""
 

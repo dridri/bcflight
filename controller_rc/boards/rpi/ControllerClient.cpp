@@ -84,6 +84,9 @@ int8_t ControllerClient::ReadSwitch( uint32_t id )
 {
 	static const uint32_t map[] = { 0, 1, 4, 5, 6, 12, 13, 22, 23, 24, 26, 27 };
 
+	if ( id == 4 ) {
+		return 0;
+	}
 	if ( id >= 12 ) {
 		return 0;
 	}
@@ -99,27 +102,27 @@ int8_t ControllerClient::ReadSwitch( uint32_t id )
 }
 
 
-float ControllerClient::ReadThrust()
+float ControllerClient::ReadThrust( float dt )
 {
-	return mJoysticks[0].Read();
+	return mJoysticks[0].Read( dt );
 }
 
 
-float ControllerClient::ReadRoll()
+float ControllerClient::ReadRoll( float dt )
 {
-	return mJoysticks[3].Read();
+	return mJoysticks[3].Read( dt );
 }
 
 
-float ControllerClient::ReadPitch()
+float ControllerClient::ReadPitch( float dt )
 {
-	return mJoysticks[2].Read();
+	return mJoysticks[2].Read( dt );
 }
 
 
-float ControllerClient::ReadYaw()
+float ControllerClient::ReadYaw( float dt )
 {
-	return -mJoysticks[1].Read();
+	return -mJoysticks[1].Read( dt );
 }
 
 
@@ -140,7 +143,7 @@ bool ControllerClient::run()
 		}
 	}
 	if ( mADC ) {
-		uint16_t battery_voltage = mADC->Read( 4 );
+		uint16_t battery_voltage = mADC->Read( 4, 0.001f );
 		if ( battery_voltage != 0 ) {
 			float voltage = (float)battery_voltage * 4.2902f / 1024.0f;
 			if ( mLocalBatteryVoltage == 0.0f ) {
@@ -157,6 +160,13 @@ bool ControllerClient::run()
 
 bool ControllerClient::RunSimulator()
 {
+	uint64_t ticks = Thread::GetTick();
+	if ( ticks - mSimulatorTicks < 1000 / 100 ) {
+		usleep( 1000LLU * std::max( 0LL, 1000LL / 100LL - (int64_t)( ticks - mTicks ) - 1LL ) );
+	}
+	float dt = ((float)( Thread::GetTick() - mSimulatorTicks ) ) / 1000000.0f;
+	mSimulatorTicks = Thread::GetTick();
+
 	typedef struct {
 		int8_t throttle;
 		int8_t roll;
@@ -188,10 +198,10 @@ bool ControllerClient::RunSimulator()
 		std::cout << "mSimulatorSocket : " << mSimulatorSocket << "\n";
 	}
 
-	float f_thrust = ReadThrust();
-	float f_yaw = ReadYaw();
-	float f_pitch = ReadPitch();
-	float f_roll = ReadRoll();
+	float f_thrust = ReadThrust( dt );
+	float f_yaw = ReadYaw( dt );
+	float f_pitch = ReadPitch( dt );
+	float f_roll = ReadRoll( dt );
 	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
 		data.throttle = (int8_t)( std::max( 0, std::min( 127, (int32_t)( f_thrust * 127.0f ) ) ) );
 	}
@@ -234,11 +244,6 @@ bool ControllerClient::RunSimulator()
 		mSimulatorSocket = nullptr;
 	}
 
-	uint64_t ticks = Thread::GetTick();
-	if ( ticks - mSimulatorTicks < 1000 / 100 ) {
-		usleep( 1000LLU * std::max( 0LL, 1000LL / 100LL - (int64_t)( ticks - mTicks ) - 1LL ) );
-	}
-	mSimulatorTicks = Thread::GetTick();
 	return true;
 }
 
@@ -276,12 +281,12 @@ void ControllerClient::Joystick::SetCalibratedValues( uint16_t min, uint16_t cen
 }
 
 
-uint16_t ControllerClient::Joystick::ReadRaw()
+uint16_t ControllerClient::Joystick::ReadRaw( float dt )
 {
 	if ( mADC == nullptr ) {
 		return 0;
 	}
-	uint32_t raw = mADC->Read( mADCChannel );
+	uint32_t raw = mADC->Read( mADCChannel, dt );
 	if ( raw != 0 ) {
 		mLastRaw = mLastRaw * 0.5f + raw * 0.5f;
 	}
@@ -289,9 +294,9 @@ uint16_t ControllerClient::Joystick::ReadRaw()
 }
 
 
-float ControllerClient::Joystick::Read()
+float ControllerClient::Joystick::Read( float dt )
 {
-	uint16_t raw = ReadRaw();
+	uint16_t raw = ReadRaw( dt );
 	if ( raw == 0 ) {
 		return -10.0f;
 	}

@@ -398,42 +398,44 @@ bool Controller::run()
 					mPing = last;
 					response.WriteU16( last ); // Copy-back reported ping
 					// mMain->blackbox()->Enqueue( "Controller:ping", to_string(mPing) + "ms" );
-
-					// Send status
-					uint32_t status = 0;
-					if ( mMain->stabilizer()->armed() ) {
-						status |= STATUS_ARMED;
-					}
-					if ( mMain->imu()->state() == IMU::Running ) {
-						status |= STATUS_CALIBRATED;
-					} else if ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
-						status |= STATUS_CALIBRATING;
-					}
-/*
-					if ( mMain->camera() ) {
-						if ( mMain->camera()->nightMode() ) {
-							status |= STATUS_NIGHTMODE;
-						}
-					}
-*/
-					response.WriteU8( STATUS );
-					response.WriteU32( status );
-
-					// Send telemetry
-					Telemetry telemetry;
-					telemetry.battery_voltage = (uint16_t)( mMain->powerThread()->VBat() * 100.0f );
-					telemetry.total_current = (uint16_t)( mMain->powerThread()->CurrentTotal() * 1000.0f );
-					telemetry.current_draw = (uint8_t)( mMain->powerThread()->CurrentDraw() * 10.0f );
-					telemetry.battery_level = (uint8_t)( mMain->powerThread()->BatteryLevel() * 100.0f );
-					telemetry.cpu_load = Board::CPULoad();
-					telemetry.cpu_temp = Board::CPUTemp();
-					telemetry.rx_quality = mLink->RxQuality();
-					telemetry.rx_level = mLink->RxLevel();
-					response.WriteU8( TELEMETRY );
-					response.Write( (uint8_t*)&telemetry, sizeof(telemetry) );
-
 					do_response = true;
 				}
+				break;
+			}
+			case TELEMETRY: {
+				// Send telemetry
+				Telemetry telemetry;
+				telemetry.battery_voltage = (uint16_t)( mMain->powerThread()->VBat() * 100.0f );
+				telemetry.total_current = (uint16_t)( mMain->powerThread()->CurrentTotal() * 1000.0f );
+				telemetry.current_draw = (uint8_t)( mMain->powerThread()->CurrentDraw() * 10.0f );
+				telemetry.battery_level = (uint8_t)( mMain->powerThread()->BatteryLevel() * 100.0f );
+				telemetry.cpu_load = Board::CPULoad();
+				telemetry.cpu_temp = Board::CPUTemp();
+				telemetry.rx_quality = mLink->RxQuality();
+				telemetry.rx_level = mLink->RxLevel();
+				response.Write( (uint8_t*)&telemetry, sizeof(telemetry) );
+
+				// Send status
+				uint32_t status = 0;
+				if ( mMain->stabilizer()->armed() ) {
+					status |= STATUS_ARMED;
+				}
+				if ( mMain->imu()->state() == IMU::Running ) {
+					status |= STATUS_CALIBRATED;
+				} else if ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
+					status |= STATUS_CALIBRATING;
+				}
+
+				// if ( mMain->camera() ) {
+				// 	if ( mMain->camera()->nightMode() ) {
+				// 		status |= STATUS_NIGHTMODE;
+				// 	}
+				// }
+
+				response.WriteU8( STATUS );
+				response.WriteU32( status );
+
+				do_response = true;
 				break;
 			}
 			case CONTROLS : {
@@ -453,10 +455,15 @@ bool Controller::run()
 						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 					}
 					if ( mMain->stabilizer()->armed() ) {
-						setThrust( ((float)controls.thrust) / 127.0f );
-						setRoll( ((float)controls.roll) / 128.0f );
-						setPitch( ((float)controls.pitch) / 128.0f );
-						setYaw( ((float)controls.yaw) / 128.0f );
+						float thrust = ((float)controls.thrust) / 127.0f;
+						float roll = ((float)controls.roll) / 128.0f;
+						float pitch = ((float)controls.pitch) / 128.0f;
+						float yaw = ((float)controls.yaw) / 128.0f;
+						gTrace() << "Controls : " << thrust << ", " << roll << ", " << pitch << ", " << yaw;
+						setThrust( thrust );
+						setRoll( roll );
+						setPitch( pitch );
+						setYaw( yaw );
 // 						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
 // 						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
 					}
@@ -1246,7 +1253,6 @@ bool Controller::run()
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.lock();
 #endif
-// 			gDebug() << "Responding with " << response.data().size() << " bytes";
 			mLink->Write( &response );
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.unlock();
@@ -1361,6 +1367,7 @@ bool Controller::TelemetryRun()
 #ifdef SYSTEM_NAME_Linux
 	mSendMutex.lock();
 #endif
+	gDebug() << "Sending telemetry with " << telemetry.data().size() << " bytes";
 	mLink->Write( &telemetry );
 #ifdef SYSTEM_NAME_Linux
 	mSendMutex.unlock();
