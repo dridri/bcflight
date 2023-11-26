@@ -16,6 +16,11 @@ Open-source Linux-based Raspberry drone and ground controller.
  * Supports multiple cameras recording in MKV file format (for a total max throughput of ~120 MPix/s without overclock)
  * Supports [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
 
+## Pre-built binaries
+[![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight)](https://ci.drich.fr/job/BCFlight/)
+
+Pre-built 32-bits binaries for Raspberry Pi 4 can be found here : [https://ci.drich.fr/](https://ci.drich.fr/)
+
 ## Pre-built images
 These images are generated using the [tools/image-builder/generate-flight-image.sh](./tools/image-builder/generate-flight-image.sh) script. The root filesystem is set to read-only on boot to prevent data corruption, this can be changed by running `rw` command in terminal.
 

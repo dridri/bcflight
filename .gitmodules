@@ -1,6 +1,6 @@
-[submodule "coprocessors/stm32/stm32/STM32CubeF4"]
-	path = coprocessors/stm32/stm32/STM32CubeF4
-	url = https://github.com/STMicroelectronics/STM32CubeF4
-[submodule "coprocessors/stm32/stm32/STM32CubeG4"]
-	path = coprocessors/stm32/stm32/STM32CubeG4
-	url = https://github.com/STMicroelectronics/STM32CubeG4
+#[submodule "coprocessors/stm32/stm32/STM32CubeF4"]
+#	path = coprocessors/stm32/stm32/STM32CubeF4
+#	url = https://github.com/STMicroelectronics/STM32CubeF4
+#[submodule "coprocessors/stm32/stm32/STM32CubeG4"]
+#	path = coprocessors/stm32/stm32/STM32CubeG4
+#	url = https://github.com/STMicroelectronics/STM32CubeG4
