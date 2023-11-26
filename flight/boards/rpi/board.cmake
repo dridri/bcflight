@@ -12,13 +12,9 @@ set( TARGET_CPU_BITS 32 )
 
 find_package( Threads REQUIRED )
 find_package( GPS REQUIRED )
-find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC )
 
 if ( GPS_FOUND )
 	set( BOARD_LIBS ${BOARD_LIBS} ${GPS_LIBRARIES} )
-endif()
-if ( FFmpeg_FOUND )
-	set( BOARD_LIBS ${BOARD_LIBS} ${FFMPEG_LIBRARIES} )
 endif()
 
 SET( CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE" )

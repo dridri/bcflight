@@ -42,6 +42,10 @@ endif()
 enable_language( ASM )
 project( flight )
 
+find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC REQUIRED )
+set( LIBS ${LIBS} ${FFMPEG_LIBRARIES} )
+
+
 macro( DIRLIST result curdir removes )
 	file(GLOB children RELATIVE ${curdir} ${curdir}/*)
 	set(dirlist "")
@@ -242,8 +246,6 @@ if ( ${BUILD_audio} MATCHES 1 )
 	list( APPEND SOURCES ${AUDIO_SOURCES} )
 	list( APPEND HEADERS ${AUDIO_HEADERS} )
 endif()
-
-message(warning "${HEADERS}")
 
 set_source_files_properties( ${CMAKE_BINARY_DIR}/lua_init.cpp PROPERTIES GENERATED TRUE )
 add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/lua_init.cpp DEPENDS ${CMAKE_SOURCE_DIR}/../libluacore/classes.auto.lua ${HEADERS} COMMAND ${CMAKE_SOURCE_DIR}/../libluacore/classes.auto.lua --init=lua_init --output="${CMAKE_BINARY_DIR}/lua_init.cpp" ${HEADERS} )

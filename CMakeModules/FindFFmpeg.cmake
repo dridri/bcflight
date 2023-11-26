@@ -6,14 +6,6 @@ set( FFMPEG_INC "${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf/include" )
 
 foreach (_component ${FFmpeg_FIND_COMPONENTS})
 	string( TOLOWER ${_component} libname )
-	find_library( FFmpeg_${_component}_LIBRARIES
-		NAMES
-			${libname}
-		PATHS
-			"${FFMPEG_LIB}"
-		PATH_SUFFIXES
-			lib
-	)
 	find_path( FFmpeg_${_component}_INCLUDE_DIR
 		NAMES
 			lib${libname}/${libname}.h
@@ -21,6 +13,17 @@ foreach (_component ${FFmpeg_FIND_COMPONENTS})
 			"${FFMPEG_INC}"
 		PATH_SUFFIXES
 			include
+	)
+	find_library( FFmpeg_${_component}_LIBRARIES
+		NAMES
+			${libname}
+		PATHS
+			"${FFMPEG_LIB}"
+		PATH_SUFFIXES
+			lib
+		HINTS
+			${FFmpeg_${_component}_INCLUDE_DIR}/../lib
+			${FFmpeg_${_component}_INCLUDE_DIR}/../lib/arm-linux-gnueabihf
 	)
 	if ( FFmpeg_${_component}_LIBRARIES )
 		set( FFMPEG_${_component}_FOUND 1 )
