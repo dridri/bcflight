@@ -1,6 +1,3 @@
-[submodule "external/OpenMaxIL++"]
-	path = external/OpenMaxIL++
-	url = https://github.com/dridri/OpenMaxIL-cpp
 [submodule "coprocessors/stm32/stm32/STM32CubeF4"]
 	path = coprocessors/stm32/stm32/STM32CubeF4
 	url = https://github.com/STMicroelectronics/STM32CubeF4
