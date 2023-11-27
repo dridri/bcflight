@@ -4,7 +4,7 @@ set -xe
 
 BASEDIR=$PWD
 
-apt install kpartx qemu binfmt-support qemu-user-static wget
+apt install bc fdisk binfmt-support qemu-user-static wget
 update-binfmts --import
 
 
@@ -46,19 +46,24 @@ p
 w
 EOF
 
-LOOP=$(kpartx -v -a *-lite.img | head -n1 | cut -d' ' -f3 | rev | cut -d'p' -f2- | rev)
-fsck.ext4 /dev/mapper/${LOOP}p2
-resize2fs /dev/mapper/${LOOP}p2
-mkfs.ext4 /dev/mapper/${LOOP}p3
-mount -o rw /dev/mapper/${LOOP}p2 /tmp/raspbian/bcflight/root
-mount -o rw /dev/mapper/${LOOP}p1 /tmp/raspbian/bcflight/root/boot
+# LOOP=/dev/mapper/loop8
+LOOP=$1
+if [ -z "$LOOP" ]; then
+	LOOP=$(losetup -f)
+fi
+losetup -P ${LOOP} *-lite.img
+fsck.ext4 ${LOOP}p2
+resize2fs ${LOOP}p2
+mkfs.ext4 ${LOOP}p3
+mount -o rw ${LOOP}p2 /tmp/raspbian/bcflight/root
+mount -o rw ${LOOP}p1 /tmp/raspbian/bcflight/root/boot
 
 mkdir /tmp/raspbian/bcflight/root/var2
-mount -o rw /dev/mapper/${LOOP}p3 /tmp/raspbian/bcflight/root/var2
+mount -o rw ${LOOP}p3 /tmp/raspbian/bcflight/root/var2
 cp -a /tmp/raspbian/bcflight/root/var/* /tmp/raspbian/bcflight/root/var2/
 umount /tmp/raspbian/bcflight/root/var2
 rm -rf /tmp/raspbian/bcflight/root/var/* /tmp/raspbian/bcflight/root/var2
-mount -o rw /dev/mapper/${LOOP}p3 /tmp/raspbian/bcflight/root/var
+mount -o rw ${LOOP}p3 /tmp/raspbian/bcflight/root/var
 mkdir -p /tmp/raspbian/bcflight/root/var/flight
 mkdir -p /tmp/raspbian/bcflight/root/var/BLACKBOX
 mkdir -p /tmp/raspbian/bcflight/root/var/PHOTO
@@ -80,7 +85,7 @@ systemctl restart systemd-binfmt.service
 # chroot to raspbian
 chroot /tmp/raspbian/bcflight/root <<EOF_
 apt update
-apt remove --purge -y logrotate dbus dphys-swapfile fake-hwclock wpasupplicant man-db
+apt remove --purge -y logrotate dbus dphys-swapfile fake-hwclock man-db
 apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd lua5.3
 apt autoremove -y
 apt autoclean -y
@@ -225,16 +230,22 @@ EOF
 
 wget --no-check-certificate https://datasheets.raspberrypi.com/cmio/dt-blob-cam1.bin -O /tmp/raspbian/bcflight/root/boot/dt-blob.bin
 
-if test -f "$BASEDIR/../../flight/extras/dpi4.dtbo"; then
-	cp "$BASEDIR/../../flight/extras/dpi4.dtbo" /tmp/raspbian/bcflight/root/boot/overlays/dpi4.dtbo
+if test -f "$BASEDIR/../../flight/extras/rpi/dpi4.dtbo"; then
+	cp "$BASEDIR/../../flight/extras/rpi/dpi4.dtbo" /tmp/raspbian/bcflight/root/boot/overlays/dpi4.dtbo
 fi
 
 if test -f "$BASEDIR/../../flight/build/flight"; then
 	cp "$BASEDIR/../../flight/build/flight" /tmp/raspbian/bcflight/root/var/flight/flight
 fi
+
 if test -f "$BASEDIR/../../flight/build/flight_unstripped"; then
 	cp "$BASEDIR/../../flight/build/flight_unstripped" /tmp/raspbian/bcflight/root/var/flight/flight_unstripped
 fi
+
+if test -d "$BASEDIR/../../libhud/data"; then
+	cp -r "$BASEDIR/../../libhud/data" /tmp/raspbian/bcflight/root/var/flight/data
+fi
+
 cp $BASEDIR/basic-config.lua /tmp/raspbian/bcflight/root/var/flight/config.lua
 
 
@@ -247,11 +258,9 @@ chroot /tmp/raspbian/bcflight/root
 sed -i 's/^#CHROOT //g' /tmp/raspbian/bcflight/root/etc/ld.so.preload
 
 # unmount everything
-umount /tmp/raspbian/bcflight/root/{dev/pts,dev,sys,proc,boot,var,}
-kpartx -dv /dev/$LOOP
-if ls /dev/mapper/${LOOP}* 1> /dev/null 2>&1; then
-	dmsetup remove /dev/mapper/${LOOP}*
-fi
+umount -l /tmp/raspbian/bcflight/root/{dev/pts,dev,sys,proc,boot,var,} || true
+umount -l /tmp/raspbian/bcflight/root || true
+losetup -dv ${LOOP} 2>/dev/null || true
 
 OUTFILE=$(date +"%Y-%m-%d")-raspbian-bcflight.img
 mv *-lite.img $BASEDIR/$OUTFILE
