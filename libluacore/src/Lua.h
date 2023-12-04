@@ -261,8 +261,11 @@ public:
 		return operator[]( to_string(idx) );
 	}
 	const LuaValue& operator[]( const string& s ) const {
-		if ( mType == Table and mMap.find( s ) != mMap.end() ) {
-			return mMap.at( s );
+		if ( mType == Table ) {
+			const std::map<std::string, LuaValue>::const_iterator idx = mMap.find( s );
+			if ( idx != mMap.end() ) {
+				return idx->second;
+			}
 		}
 		return mNil;
 	}
@@ -658,5 +661,6 @@ protected:
 #define LUA_EXPORT
 #define LUA_MEMBER
 #define LUA_PROPERTY(...)
+#define LUA_GLOBAL(...)
 
 #endif // LUA_H

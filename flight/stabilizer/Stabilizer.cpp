@@ -37,6 +37,11 @@ Stabilizer::Stabilizer()
 	, mHorizonPID( PID<Vector3f>() )
 	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
+	, mTPAMultiplier( 1.0f )
+	, mTPAThreshold( 1.0f )
+	, mAntiGravityGain( 1.0f )
+	, mAntiGravityThreshold( 0.0f )
+	, mAntigravityThrustAccum( 0.0f )
 	, mArmed( false )
 	, mLockState( 0 )
 	, mFilteredRPYDerivative( Vector3f() )
@@ -65,7 +70,7 @@ Stabilizer::Stabilizer()
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
 
-	mDerivativeFilter = new PT1<Vector3f>( Vector3f(80, 80, 80) );
+	mDerivativeFilter = new PT1<Vector3f>( Vector3f(30, 30, 30) );
 
 // 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 }
@@ -313,6 +318,7 @@ void Stabilizer::setYaw( float value )
 
 void Stabilizer::setThrust( float value )
 {
+	mPreviousThrust = mThrust;
 	mThrust = value;
 }
 
@@ -340,24 +346,53 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		return;
 	}
 
+	Vector3f rollPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
+	Vector3f pitchPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
+	Vector3f yawPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
+
+	// TPA
+	if ( mTPAThreshold < 1.0f and mThrust >= mTPAThreshold ) {
+		float tpa = ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) * mTPAMultiplier;
+		rollPIDMultiplier.x = 1.0f - tpa;
+		rollPIDMultiplier.y = 1.0f - tpa;
+		rollPIDMultiplier.z = 1.0f - tpa;
+		pitchPIDMultiplier.x = 1.0f - tpa;
+		pitchPIDMultiplier.y = 1.0f - tpa;
+		pitchPIDMultiplier.z = 1.0f - tpa;
+		yawPIDMultiplier.x = 1.0f - tpa;
+		yawPIDMultiplier.y = 1.0f - tpa;
+		yawPIDMultiplier.z = 1.0f - tpa;
+	}
+
+	// Anti-gravity
+	if ( mAntiGravityThreshold > 0.0f ) {
+		float delta = std::max( 0.0f, (mThrust - mPreviousThrust) / dt );
+		// mAntigravityThrustAccum = std::max( 0.0f, mAntigravityThrustAccum * (1.0f - dt * 10.0f) + delta * dt );
+		mAntigravityThrustAccum = std::max( delta * dt, mAntigravityThrustAccum * (1.0f - dt * 10.0f) );
+		float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max( 0.0f, (mAntigravityThrustAccum - mAntiGravityThreshold)) / (1.0f - mAntiGravityThreshold);
+		rollPIDMultiplier.y *= ag;
+		pitchPIDMultiplier.y *= ag;
+		yawPIDMultiplier.y *= ag;
+	}
+
 	switch ( mMode ) {
-		case Rate : {
-			rate_control = mRPY * mRateFactor;
-			break;
-		}
-		case ReturnToHome :
-		case Follow :
-		case Stabilize :
-		default : {
+		case Stabilize : {
 			Vector3f control_angles = mRPY;
 			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
-			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting, if enabled
+			// TODO : when user-input is 0, set control_angles by using imu->velocity().xy to compensate position drifting, if enabled
 			mHorizonPID.Process( control_angles, imu->RPY(), dt );
 			rate_control = mHorizonPID.state();
 			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
 			rate_control.y = max( -mHorizonMaxRate.y, min( mHorizonMaxRate.y, rate_control.y ) );
-			rate_control.z = control_angles.z * mRateFactor; // TEST : Bypass heading for now
+			rate_control.z = mRPY.z * mRateFactor; // TEST : Bypass heading for now
+			break;
+		}
+		case ReturnToHome :
+		case Follow :
+		case Rate :
+		default : {
+			rate_control = mRPY * mRateFactor;
 			break;
 		}
 	}
@@ -365,9 +400,12 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	float deltaR = rate_control.x - rates.x;
 	float deltaP = rate_control.y - rates.y;
 	float deltaY = rate_control.z - rates.z;
-	mRateRollPID.Process( deltaR, deltaR, rate_control.x - mFilteredRPYDerivative.x, dt );
-	mRatePitchPID.Process( deltaP, deltaP, rate_control.y - mFilteredRPYDerivative.y, dt );
-	mRateYawPID.Process( deltaY, deltaY, rate_control.z - mFilteredRPYDerivative.z, dt );
+	float deltaRd = rate_control.x - mFilteredRPYDerivative.x;
+	float deltaPd = rate_control.y - mFilteredRPYDerivative.y;
+	float deltaYd = rate_control.z - mFilteredRPYDerivative.z;
+	mRateRollPID.Process( deltaR, deltaR, deltaRd, dt, rollPIDMultiplier );
+	mRatePitchPID.Process( deltaP, deltaP, deltaPd, dt, pitchPIDMultiplier );
+	mRateYawPID.Process( deltaY, deltaY, deltaYd, dt, yawPIDMultiplier );
 
 	float thrust = mThrust;
 /*

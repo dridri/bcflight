@@ -99,7 +99,7 @@ void ControllerPC::setRecording( const bool record )
 }
 
 
-float ControllerPC::ReadThrust()
+float ControllerPC::ReadThrust( float dt )
 {
 #ifdef WIN32
 	if (gamepadid != -1) {
@@ -120,7 +120,7 @@ float ControllerPC::ReadThrust()
 }
 
 
-float ControllerPC::ReadRoll()
+float ControllerPC::ReadRoll( float dt )
 {
 #ifdef WIN32
 	if (gamepadid != -1) {
@@ -132,7 +132,7 @@ float ControllerPC::ReadRoll()
 }
 
 
-float ControllerPC::ReadPitch()
+float ControllerPC::ReadPitch( float dt )
 {
 #ifdef WIN32
 	if (gamepadid != -1) {
@@ -144,7 +144,7 @@ float ControllerPC::ReadPitch()
 }
 
 
-float ControllerPC::ReadYaw()
+float ControllerPC::ReadYaw( float dt )
 {
 #ifdef WIN32
 	joyGetPosEx(gamepadid, &padinfo);
@@ -215,6 +215,6 @@ void ControllerMonitor::run()
 			mKnowConnected = true;
 		}
 
-		usleep( 1000 * 100 );
+		usleep( 1000 * 50 );
 	}
 }

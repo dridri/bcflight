@@ -1367,7 +1367,6 @@ bool Controller::TelemetryRun()
 #ifdef SYSTEM_NAME_Linux
 	mSendMutex.lock();
 #endif
-	gDebug() << "Sending telemetry with " << telemetry.data().size() << " bytes";
 	mLink->Write( &telemetry );
 #ifdef SYSTEM_NAME_Linux
 	mSendMutex.unlock();

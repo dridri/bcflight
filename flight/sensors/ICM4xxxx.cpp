@@ -66,15 +66,44 @@ void ICM4xxxx::InitChip()
 	mBus->Write8( ICM_4xxxx_DEVICE_CONFIG, 0b00000001 );
 	usleep( 1000 * 10 );
 
-// 	mBus->Write8( ICM_4xxxx_INTF_CONFIG0, 0b00000011 );
+	// Disable all sensors while configuring
+	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00000000 );
+
+	// Can be tweaked to :
+ 	// 249Hz : (21, 440, 6)
+	// 524Hz : (39, 1536, 4)
+	// 995Hz : (63, 3968, 3)
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
+    mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 21 );
+    mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 440 & 0xFF );
+    mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (440 >> 8) | (6 << 4) );
+
+	// Fixed values for accelerometer
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
+    mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 21 );
+    mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 440 & 0xFF );
+    mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (440 >> 8) | (6 << 4) );
+
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
+
+	// Accel & Gyro LPF : Low-latency
+	mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 14 << 4 ) | 14 );
+	// mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 7 << 4 ) | 7 );
+
+
+	// mBus->Write8( ICM_4xxxx_INTF_CONFIG0, 0b00000011 );
 	mBus->Write8( ICM_4xxxx_INTF_CONFIG0, 0b00110000 );
+	// uint8_t config1 = 0;
+	// mBus->Read8( ICM_4xxxx_INTF_CONFIG1, &config1 );
+    // config1 &= ~0xC0; // AFSR mask
+    // config1 |= 0x40; // AFSR disable
+	// mBus->Write8( ICM_4xxxx_INTF_CONFIG1, config1 );
 	mBus->Write8( ICM_4xxxx_INTF_CONFIG6, 0b01010011 );
 	mBus->Write8( ICM_4xxxx_DRIVE_CONFIG, 0b00000101 );
-
 	mBus->Write8( ICM_4xxxx_FIFO_CONFIG, 0b00000000 );
-
 	mBus->Write8( ICM_4xxxx_INT_CONFIG0, 0b00011011 );
 	mBus->Write8( ICM_4xxxx_INT_CONFIG1, 0b01100000 );
+
 	// Disable all interrupts
 	mBus->Write8( ICM_4xxxx_INT_SOURCE0, 0b00001000 );
 	mBus->Write8( ICM_4xxxx_INT_SOURCE1, 0b00000000 );
@@ -88,19 +117,29 @@ void ICM4xxxx::InitChip()
 	// Enable all sensors in low-noise mode + never go idle
 	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00011111 );
 
-	// Gyro range at +/-2000°/s @ 100Hz ODR
-// 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00001000 );
-	// Gyro range at +/-2000°/s @ 1kHz ODR
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000110 );
-	// Gyro range at +/-2000°/s @ 4kHz ODR
-	// mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000100 );
-// WTF	mBus->Write8( ICM_4xxxx_GYRO_CONFIG1, 0b00010110 );
-	// Accel range at +/-16g @ 1kHz ODR
-// 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, 0b00000110 );
-	// Accel range at +/-16g @ 1kHz ODR
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, 0b00000110 );
-	// Accel & Gyro LPF : BW=ODR/40
-	mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 7 << 4 ) | 7 );
+	uint32_t loopTime = Main::instance()->config()->Integer( "stabilizer.loop_time", 2000 );
+	uint32_t loopRate = 1000000 / loopTime;
+	const std::map< uint32_t, uint8_t > rates = {
+		{ 8000, 0b00000011 },
+		{ 4000, 0b00000100 },
+		{ 2000, 0b00000101 },
+		{ 1000, 0b00000110 },
+		{  500, 0b00001111 },
+		{  200, 0b00000111 },
+		{  100, 0b00001000 },
+		{   50, 0b00001001 },
+		{   25, 0b00001010 },
+	};
+	uint8_t rate = 0b00000000;
+	for ( auto r : rates ) {
+		if ( loopRate <= r.first ) {
+			rate = r.second;
+			break;
+		}
+	}
+	gDebug() << "Setting ICM4xxxx rate to " << loopRate << "Hz (" << (int)rate << ")";
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, rate );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, rate );
 /*
 	// Set sample_rate divider
 // 	const uint32_t rate = 1000000 / config->Integer( "stabilizer.loop_time", 2000 );

@@ -36,10 +36,10 @@ public:
 	void setRecording( const bool record );
 
 protected:
-	float ReadThrust();
-	float ReadRoll();
-	float ReadPitch();
-	float ReadYaw();
+	float ReadThrust( float dt );
+	float ReadRoll( float dt );
+	float ReadPitch( float dt );
+	float ReadYaw( float dt );
 	int8_t ReadSwitch( uint32_t id );
 
 

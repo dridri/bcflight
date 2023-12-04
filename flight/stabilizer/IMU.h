@@ -22,6 +22,8 @@
 #include <Main.h>
 #include <Vector.h>
 #include <EKF.h>
+#include <Filter.h>
+#include "SensorFusion.h"
 #include <list>
 #include <functional>
 
@@ -47,13 +49,13 @@ public:
 	LUA_EXPORT IMU();
 	virtual ~IMU();
 
-	LUA_PROPERTY("filters.rates.input") void setRatesFilterInput( const Vector3f& v );
-	LUA_PROPERTY("filters.rates.output") void setRatesFilterOutput( const Vector3f& v );
-	LUA_PROPERTY("filters.accelerometer.input") void setAccelerometerFilterInput( const Vector3f& v );
-	LUA_PROPERTY("filters.accelerometer.output") void setAccelerometerFilterOutput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.input.rates") void setAttitudeFilterRatesInput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.input.accelerometer") void setAttitudeFilterAccelerometerInput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.output") void setAttitudeFilterOutput( const Vector3f& v );
+	// LUA_PROPERTY("filters.rates.input") void setRatesFilterInput( const Vector3f& v );
+	// LUA_PROPERTY("filters.rates.output") void setRatesFilterOutput( const Vector3f& v );
+	// LUA_PROPERTY("filters.accelerometer.input") void setAccelerometerFilterInput( const Vector3f& v );
+	// LUA_PROPERTY("filters.accelerometer.output") void setAccelerometerFilterOutput( const Vector3f& v );
+	// LUA_PROPERTY("filters.attitude.input.rates") void setAttitudeFilterRatesInput( const Vector3f& v );
+	// LUA_PROPERTY("filters.attitude.input.accelerometer") void setAttitudeFilterAccelerometerInput( const Vector3f& v );
+	// LUA_PROPERTY("filters.attitude.output") void setAttitudeFilterOutput( const Vector3f& v );
 	LUA_PROPERTY("filters.position.input") void setPositionFilterInput( const Vector3f& v );
 	LUA_PROPERTY("filters.position.output") void setPositionFilterOutput( const Vector3f& v );
 
@@ -97,6 +99,9 @@ protected:
 	LUA_PROPERTY("altimeters") std::list<Altimeter*> mAltimeters;
 	LUA_PROPERTY("GPSes") std::list<GPS*> mGPSes;
 
+	LUA_PROPERTY("filters.rates") Filter<Vector3f>* mRatesFilter;
+	LUA_PROPERTY("filters.accelerometer") Filter<Vector3f>* mAccelerometerFilter;
+
 	// Running states
 	State mState;
 	Vector3f mAcceleration;
@@ -109,6 +114,7 @@ protected:
 	Vector3f mRPY;
 	Vector3f mdRPY;
 	Vector3f mRate;
+	Vector3f mAccelerationSmoothed;
 	Vector3f mRPYOffset;
 	Vector4f mAccelerometerOffset;
 
@@ -119,9 +125,10 @@ protected:
 	Vector4f mdRPYAccum;
 	Vector3f mGravity;
 
-	EKF mRates;
-	EKF mAccelerationSmoother;
-	EKF mAttitude;
+	// EKF mRates;
+	// EKF mAccelerationSmoother;
+	// EKF mAttitude;
+	SensorFusion<Vector3f>* mAttitude;
 	EKF mPosition;
 	EKF mVelocity;
 	Vector4f mLastAccelAttitude;

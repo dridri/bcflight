@@ -85,6 +85,11 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 	final_ret /= nbx;
 	final_ret &= 0xFFFFFFF7;
 
+	// Raw value
+	if ( dt == 0.0f ) {
+		return final_ret;
+	}
+
 	if ( mSmoothFactor.find(channel) != mSmoothFactor.end() ) {
 		float smooth = mSmoothFactor[channel];
 		if ( smooth > 0.0f and smooth < 1.0f ) {

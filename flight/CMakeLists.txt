@@ -193,6 +193,7 @@ set( SOURCES
 	Config.cpp
 	Console.cpp
 	Matrix.cpp
+	Quaternion.cpp
 	${CMAKE_BINARY_DIR}/lua_init.cpp )
 
 if ( ${BUILD_controller} MATCHES 1 )

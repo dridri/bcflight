@@ -132,6 +132,18 @@ public:
 		}
 	}
 
+	Vector<T,n> normalized() {
+		Vector<T,n> ret;
+		T add = 0;
+		VEC_ADD( add, this-> , * , this-> );
+		T l = sqrt( add );
+		if ( l > 0.00001f ) {
+			T il = 1 / l;
+			VEC_IM( ret. , this-> , * , il );
+		}
+		return ret;
+	}
+
 	T length() const {
 		T add = 0;
 		VEC_ADD( add, this-> , * , this-> );
@@ -227,6 +239,18 @@ public:
 		}
 		return ret;
 	}
+
+    friend std::ostream& operator<<(std::ostream& os, const Vector<T, n>& v) {
+		os << "[";
+		for ( int i = 0; i < n; i++ ) {
+			os << v.ptr[i];
+			if ( i < n - 1 ) {
+				os << ", ";
+			}
+		}
+		os << "]";
+        return os;
+    }
 
 public:
 	union {

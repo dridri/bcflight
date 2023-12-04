@@ -99,12 +99,18 @@ protected:
 	float mAltitudeControl;
 	Filter<Vector3f>* mDerivativeFilter;
 
+	LUA_PROPERTY("tpa.multiplier") float mTPAMultiplier;
+	LUA_PROPERTY("tpa.threshold") float mTPAThreshold;
+	LUA_PROPERTY("anti_gravity.gain") float mAntiGravityGain;
+	LUA_PROPERTY("anti_gravity.threshold") float mAntiGravityThreshold;
+	float mAntigravityThrustAccum;
+
 	bool mArmed;
 	Vector4f mExpo;
 	Vector3f mRPY;
 	Vector3f mFilteredRPYDerivative;
 	float mThrust;
-	float mThrustAccum;
+	float mPreviousThrust;
 
 	int mLockState;
 	LUA_PROPERTY("horizon_angles") Vector3f mHorizonMultiplier;

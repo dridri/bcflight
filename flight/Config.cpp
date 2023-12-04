@@ -288,14 +288,15 @@ void Config::Reload()
 	gDebug() << "Reload 1 : " << _mem_usage();
 
 	LUAdostring( "Debug = {}" );
-	LUAdostring( "Debug.ERROR = " + Debug::Error );
-	LUAdostring( "Debug.WARNING = " + Debug::Warning );
-	LUAdostring( "Debug.INFO = " + Debug::Info );
-	LUAdostring( "Debug.VERBOSE = " + Debug::Verbose );
-	LUAdostring( "Debug.TRACE = " + Debug::Trace );
+	LUAdostring( "Debug.ERROR = " + to_string((int)Debug::Error) );
+	LUAdostring( "Debug.WARNING = " + to_string((int)Debug::Warning) );
+	LUAdostring( "Debug.INFO = " + to_string((int)Debug::Info) );
+	LUAdostring( "Debug.VERBOSE = " + to_string((int)Debug::Verbose) );
+	LUAdostring( "Debug.TRACE = " + to_string((int)Debug::Trace) );
 
 	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
 	LUAdostring( "PID = setmetatable( {}, { __call = function ( self, p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
+	LUAdostring( "PT1 = PT1_3" );
 
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "system = { loop_time = 2000 }" );

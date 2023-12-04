@@ -3,7 +3,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QtCore/QTimer>
-#include <Controller.h>
+#include <ControllerClient.h>
 
 namespace Ui {
 	class MainWindow;
@@ -57,7 +57,7 @@ public slots:
 private:
 	void CameraUpdateLensShader( bool send = true );
 
-	Controller* mController;
+	ControllerClient* mController;
 	QTimer* mUpdateTimer;
 	Ui::MainWindow* ui;
 	Ui::PageMain* uiPageMain;

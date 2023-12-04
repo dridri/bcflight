@@ -31,7 +31,7 @@ RawWifi::RawWifi( const std::string& device, uint8_t rx_port, uint8_t tx_port, b
 	}
 
 	try {
-		mTxPcap = new PcapHandler( device, tx_port, blocking );
+		mTxPcap = new PcapHandler( device, tx_port, false, 1 );
 	} catch ( std::exception& e ) {
 		gError() << "Failed to setup RawWifi TX : " << e.what();
 	}

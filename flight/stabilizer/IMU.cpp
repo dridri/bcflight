@@ -27,12 +27,15 @@
 #include "Magnetometer.h"
 #include "Altimeter.h"
 #include "GPS.h"
+#include "MahonyAHRS.h"
 #include <Controller.h>
 
 IMU::IMU()
 	: mMain( Main::instance() )
 	, mSensorsUpdateSlow( 0 )
 	, mPositionUpdate( false )
+	, mRatesFilter( nullptr )
+	, mAccelerometerFilter( nullptr )
 	, mState( Off )
 	, mAcceleration( Vector3f() )
 	, mGyroscope( Vector3f() )
@@ -48,9 +51,9 @@ IMU::IMU()
 	, mCalibrationTimer( 0 )
 	, mRPYAccum( Vector4f() )
 	, mGravity( Vector3f() )
-	, mRates( EKF( 3, 3 ) )
-	, mAccelerationSmoother( EKF( 3, 3 ) )
-	, mAttitude( EKF( 6, 3 ) )
+	// , mRates( EKF( 3, 3 ) )
+	// , mAccelerationSmoother( EKF( 3, 3 ) )
+	// , mAttitude( EKF( 6, 3 ) )
 	, mPosition( EKF( 3, 3 ) )
 	, mVelocity( EKF( 3, 3 ) )
 	, mLastAccelAttitude( Vector4f() )
@@ -64,9 +67,9 @@ IMU::IMU()
 	 *     - rates 0 1 2
 	 **/
 	// Set Extended-Kalman-Filter mixing matrix
-	mRates.setSelector( 0, 0, 1.0f );
-	mRates.setSelector( 1, 1, 1.0f );
-	mRates.setSelector( 2, 2, 1.0f );
+	// mRates.setSelector( 0, 0, 1.0f );
+	// mRates.setSelector( 1, 1, 1.0f );
+	// mRates.setSelector( 2, 2, 1.0f );
 
 	/** mAccelerationSmoother matrix :
 	 *   - Inputs :
@@ -75,9 +78,9 @@ IMU::IMU()
 	 *     - smoothed linear acceleration 0 1 2
 	 **/
 	// Set Extended-Kalman-Filter mixing matrix
-	mAccelerationSmoother.setSelector( 0, 0, 1.0f );
-	mAccelerationSmoother.setSelector( 1, 1, 1.0f );
-	mAccelerationSmoother.setSelector( 2, 2, 1.0f );
+	// mAccelerationSmoother.setSelector( 0, 0, 1.0f );
+	// mAccelerationSmoother.setSelector( 1, 1, 1.0f );
+	// mAccelerationSmoother.setSelector( 2, 2, 1.0f );
 
 	/** mAttitude matrix :
 	 *   - Inputs :
@@ -87,13 +90,16 @@ IMU::IMU()
 	 *     - roll-pitch-yaw 0 1 2
 	 **/
 	// Set Extended-Kalman-Filter mixing matrix (input, output, factor)
-
+/*
 	mAttitude.setSelector( 0, 0, 1.0f );
 	mAttitude.setSelector( 3, 0, 1.0f );
 	mAttitude.setSelector( 1, 1, 1.0f );
 	mAttitude.setSelector( 4, 1, 1.0f );
 	mAttitude.setSelector( 2, 2, 1.0f );
 	mAttitude.setSelector( 5, 2, 1.0f );
+*/
+
+	mAttitude = new MahonyAHRS( 0.5f, 0.005f );
 
 	/** mPosition matrix :
 	 *   - Inputs :
@@ -170,7 +176,7 @@ const Vector3f IMU::position() const
 
 const Vector3f IMU::acceleration() const
 {
-	return mAcceleration;
+	return mAccelerationSmoothed;
 }
 
 
@@ -185,7 +191,7 @@ const Vector3f IMU::magnetometer() const
 	return mMagnetometer;
 }
 
-
+/*
 void IMU::setRatesFilterInput( const Vector3f& v )
 {
 	fDebug(v.x, v.y, v.z);
@@ -220,8 +226,8 @@ void IMU::setAccelerometerFilterOutput( const Vector3f& v )
 	mAccelerationSmoother.setOutputFilter( 1, v.y );
 	mAccelerationSmoother.setOutputFilter( 2, v.z );
 }
-
-
+*/
+/*
 void IMU::setAttitudeFilterRatesInput( const Vector3f& v )
 {
 	fDebug(v.x, v.y, v.z);
@@ -247,7 +253,7 @@ void IMU::setAttitudeFilterOutput( const Vector3f& v )
 	mAttitude.setOutputFilter( 1, v.y );
 	mAttitude.setOutputFilter( 2, v.z );
 }
-
+*/
 
 void IMU::setPositionFilterInput( const Vector3f& v )
 {
@@ -546,19 +552,29 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 void IMU::UpdateAttitude( float dt )
 {
 	// Process rates Extended-Kalman-Filter
-	mRates.UpdateInput( 0, mGyroscope.x );
-	mRates.UpdateInput( 1, mGyroscope.y );
-	mRates.UpdateInput( 2, mGyroscope.z );
-	mRates.Process( dt );
-	mRate = mRates.state( 0 );
+	// mRates.UpdateInput( 0, mGyroscope.x );
+	// mRates.UpdateInput( 1, mGyroscope.y );
+	// mRates.UpdateInput( 2, mGyroscope.z );
+	// mRates.Process( dt );
+	// mRate = mRates.state( 0 );
+	if ( mRatesFilter ) {
+		mRate = mRatesFilter->filter( mGyroscope, dt );
+	} else {
+		mRate = mGyroscope;
+	}
 
 	// Process acceleration Extended-Kalman-Filter
-	mAccelerationSmoother.UpdateInput( 0, mAcceleration.x );
-	mAccelerationSmoother.UpdateInput( 1, mAcceleration.y );
-	mAccelerationSmoother.UpdateInput( 2, mAcceleration.z );
-	mAccelerationSmoother.Process( dt );
-	Vector3f accel = mAccelerationSmoother.state( 0 );
-
+	// mAccelerationSmoother.UpdateInput( 0, mAcceleration.x );
+	// mAccelerationSmoother.UpdateInput( 1, mAcceleration.y );
+	// mAccelerationSmoother.UpdateInput( 2, mAcceleration.z );
+	// mAccelerationSmoother.Process( dt );
+	// Vector3f accel = mAccelerationSmoother.state( 0 );
+	Vector3f accel = mAcceleration;
+	if ( mAccelerometerFilter ) {
+		accel = mAccelerometerFilter->filter( accel, dt );
+	}
+	mAccelerationSmoothed = accel;
+/*
 	Vector2f accel_roll_pitch = Vector2f();
 	if ( accel.z >= 0.5f * 9.8f ) {
 		accel_roll_pitch.x = atan2( accel.x, accel.z ) * 180.0f / M_PI;
@@ -568,6 +584,7 @@ void IMU::UpdateAttitude( float dt )
 		accel_roll_pitch.x = mRPY.x + mRate.x * dt;
 		accel_roll_pitch.y = mRPY.y + mRate.y * dt;
 	}
+*/
 	/*
 	if ( abs( accel.x ) >= 0.5f * 9.8f or abs( accel.z ) >= 0.5f * 9.8f ) {
 		accel_roll_pitch.x = atan2( accel.x, accel.z ) * 180.0f / M_PI;
@@ -580,11 +597,11 @@ void IMU::UpdateAttitude( float dt )
 		accel_roll_pitch.y = mRPY.y + mRate.y * dt;
 	}
 	*/
-
+/*
 	// Update accelerometer values
 	mAttitude.UpdateInput( 0, accel_roll_pitch.x );
 	mAttitude.UpdateInput( 1, accel_roll_pitch.y );
-	if ( mMain->stabilizer()->mode() != Stabilizer::Rate and 0 /*TODO*/ ) {
+	if ( mMain->stabilizer()->mode() != Stabilizer::Rate and 0 /*TODO/ ) {
 // 		mAttitude.UpdateInput( 2, magnetometer.heading );
 	} else {
 		mAttitude.UpdateInput( 2, mRPY.z + mRate.z * dt );
@@ -599,6 +616,11 @@ void IMU::UpdateAttitude( float dt )
 
 	// Retrieve results
 	Vector4f rpy = mAttitude.state( 0 );
+*/
+	mAttitude->UpdateInput( 0, mRate );
+	mAttitude->UpdateInput( 1, accel );
+	mAttitude->Process( dt );
+	Vector4f rpy = mAttitude->state();
 /*
 	static uint32_t test = 0;
 	if ( test++ == 10 ) {
@@ -636,7 +658,8 @@ void IMU::UpdateAttitude( float dt )
 void IMU::UpdateVelocity( float dt )
 {
 	Vector3f velo = mVelocity.state( 0 );
-	Vector3f accel = mAccelerationSmoother.state( 0 );
+	// Vector3f accel = mAccelerationSmoother.state( 0 );
+	Vector3f accel = mAccelerometerFilter->state();
 
 	mVelocity.UpdateInput( 0, velo.x + accel.x * dt );
 	mVelocity.UpdateInput( 1, velo.y + accel.y * dt );

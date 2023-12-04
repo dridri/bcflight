@@ -205,16 +205,16 @@ void MainWindow::Update()
 		uint16_t value = 0;
 		if ( uiPageCalibrate->tabWidget->tabText(uiPageCalibrate->tabWidget->currentIndex()) == "Thrust" ) {
 			idx = 0;
-			value = mController->rawThrust();
+			value = mController->joystick(0)->LastRaw();
 		} else if ( uiPageCalibrate->tabWidget->tabText(uiPageCalibrate->tabWidget->currentIndex()) == "Yaw" ) {
 			idx = 1;
-			value = mController->rawYaw();
+			value = mController->joystick(1)->LastRaw();
 		} else if ( uiPageCalibrate->tabWidget->tabText(uiPageCalibrate->tabWidget->currentIndex()) == "Pitch" ) {
 			idx = 2;
-			value = mController->rawPitch();
+			value = mController->joystick(2)->LastRaw();
 		} else if ( uiPageCalibrate->tabWidget->tabText(uiPageCalibrate->tabWidget->currentIndex()) == "Roll" ) {
 			idx = 3;
-			value = mController->rawRoll();
+			value = mController->joystick(3)->LastRaw();
 		}
 		if ( idx >= 0 and value != 0 ) {
 			mCalibrationValues[idx].min = std::min( mCalibrationValues[idx].min, value );
