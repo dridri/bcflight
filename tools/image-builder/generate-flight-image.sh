@@ -52,7 +52,7 @@ if [ -z "$LOOP" ]; then
 	LOOP=$(losetup -f)
 fi
 losetup -P ${LOOP} *-lite.img
-fsck.ext4 ${LOOP}p2
+fsck.ext4 -y ${LOOP}p2
 resize2fs ${LOOP}p2
 mkfs.ext4 ${LOOP}p3
 mount -o rw ${LOOP}p2 /tmp/raspbian/bcflight/root
