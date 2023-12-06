@@ -79,8 +79,8 @@ mount --bind /dev/pts /tmp/raspbian/bcflight/root/dev/pts
 sed -i 's/^/#CHROOT /g' /tmp/raspbian/bcflight/root/etc/ld.so.preload
 
 # copy qemu binary
-cp $(which qemu-arm) /tmp/raspbian/bcflight/root$(which qemu-arm)
-systemctl restart systemd-binfmt.service
+cp $(which qemu-arm-static) /tmp/raspbian/bcflight/root$(which qemu-arm-static)
+#systemctl restart systemd-binfmt.service
 
 # chroot to raspbian
 chroot /tmp/raspbian/bcflight/root <<EOF_
@@ -260,7 +260,7 @@ sed -i 's/^#CHROOT //g' /tmp/raspbian/bcflight/root/etc/ld.so.preload
 # unmount everything
 umount -l /tmp/raspbian/bcflight/root/{dev/pts,dev,sys,proc,boot,var,} || true
 umount -l /tmp/raspbian/bcflight/root || true
-losetup -dv ${LOOP} 2>/dev/null || true
+losetup -d ${LOOP} 2>/dev/null || true
 
 OUTFILE=$(date +"%Y-%m-%d")-raspbian-bcflight.img
 mv *-lite.img $BASEDIR/$OUTFILE
