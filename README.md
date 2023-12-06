@@ -22,6 +22,9 @@ Open-source Linux-based Raspberry drone and ground controller.
 Pre-built 32-bits binaries for Raspberry Pi 4 can be found here : [https://ci.drich.fr/](https://ci.drich.fr/)
 
 ## Pre-built images
+[![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight-CM4-Images)](https://ci.drich.fr/job/BCFlight-CM4-Images/)
+
+
 These images are generated using the [tools/image-builder/generate-flight-image.sh](./tools/image-builder/generate-flight-image.sh) script. The root filesystem is set to read-only on boot to prevent data corruption, this can be changed by running `rw` command in terminal.
 
 Root SSH is enabled by default with password `bcflight`. The `flight` binary sits in the /var/flight folder.
