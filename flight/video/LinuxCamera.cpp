@@ -705,6 +705,7 @@ const uint32_t LinuxCamera::framerate()
 
 const bool LinuxCamera::recording()
 {
+	return false;
 }
 
 
@@ -734,21 +735,25 @@ const uint32_t LinuxCamera::shutterSpeed()
 
 const int32_t LinuxCamera::ISO()
 {
+	return mISO;
 }
 
 
 const float LinuxCamera::saturation()
 {
+	return mSaturation;
 }
 
 
 const float LinuxCamera::contrast()
 {
+	return mContrast;
 }
 
 
 const float LinuxCamera::brightness()
 {
+	return mBrightness;
 }
 
 
@@ -769,14 +774,17 @@ void LinuxCamera::StartRecording()
 
 uint32_t LinuxCamera::getLastPictureID()
 {
+	return 0;
 }
 
 
 const std::string LinuxCamera::recordFilename()
 {
+	return "";
 }
 
 
 uint32_t* LinuxCamera::getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp )
 {
+	return nullptr;
 }

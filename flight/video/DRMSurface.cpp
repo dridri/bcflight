@@ -60,12 +60,12 @@ DRMSurface::DRMSurface( int32_t zindex )
 	drmModePlaneResPtr planes = drmModeGetPlaneResources( drmFd() );
 	zindex = std::min( zindex, (int32_t)planes->count_planes - 1 );
 
-	for ( int i = 0; i < planes->count_planes && mPlaneId == 0; i++ ) {
+	for ( uint32_t i = 0; i < planes->count_planes && mPlaneId == 0; i++ ) {
 		drmModePlanePtr plane = drmModeGetPlane( drmFd(), planes->planes[i] );
-		if ( i >= zindex and std::find(usedPlanes.begin(), usedPlanes.end(), plane->plane_id) == usedPlanes.end() ) {
+		if ( i >= (uint32_t)zindex and std::find(usedPlanes.begin(), usedPlanes.end(), plane->plane_id) == usedPlanes.end() ) {
 			// printf( "Plane %d : %d %d %d %d\n", i, plane->x, plane->y, plane->crtc_x, plane->crtc_y );
 			drmModeObjectProperties* props = drmModeObjectGetProperties( drmFd(), plane->plane_id, DRM_MODE_OBJECT_ANY );
-			for ( int j = 0; j < props->count_props && mPlaneId == 0; j++ ) {
+			for ( uint32_t j = 0; j < props->count_props && mPlaneId == 0; j++ ) {
 				drmModePropertyRes* prop = drmModeGetProperty( drmFd(), props->props[j] );
 				// printf( " %s : %llu\n", prop->name, props->prop_values[j] );
 				if ( strcmp(prop->name, "type") == 0 and props->prop_values[j] == DRM_PLANE_TYPE_OVERLAY ) {

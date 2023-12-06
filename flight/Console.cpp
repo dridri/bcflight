@@ -74,10 +74,10 @@ bool Console::run()
 			while ( start > 0 and luavar((*prompt)[start - 1]) ) {
 				start--;
 			}
-			while ( end < prompt->length() and alnum((*prompt)[end]) ) {
+			while ( end < (int32_t)prompt->length() and alnum((*prompt)[end]) ) {
 				end++;
 			}
-			if ( start >= 0 and end <= prompt->length() ) {
+			if ( start >= 0 and end <= (int32_t)prompt->length() ) {
 				// printf( "start, end : %d, %d\n", start, end );
 				string query = "_G." + prompt->substr( start, end - start );
 				string leftquery = query.substr( 0, query.rfind( "." ) );
@@ -200,4 +200,6 @@ bool Console::run()
 	}
 
 	mConfig->Execute( *prompt, true );
+
+	return true;
 }

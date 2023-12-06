@@ -131,7 +131,7 @@ int32_t RawWifi::ReceiveFrame( uint8_t buffer[1450*2], int32_t* valid, uint32_t 
 
 	PenumbraRadiotapData prd;
 	try {
-		prd = iterateIEEE80211Header( (const struct ieee80211_radiotap_header*)payload, ppcapPacketHeader->len );
+		prd = iterateIEEE80211Header( (struct ieee80211_radiotap_header*)payload, ppcapPacketHeader->len );
 	} catch ( std::exception& e ) {
 		gError() << "iterateIEEE80211Header() failed : " << e.what();
 		mRxMutex.unlock();

@@ -104,6 +104,7 @@ protected:
 	LUA_PROPERTY("tpa.threshold") float mTPAThreshold;
 	LUA_PROPERTY("anti_gravity.gain") float mAntiGravityGain;
 	LUA_PROPERTY("anti_gravity.threshold") float mAntiGravityThreshold;
+	LUA_PROPERTY("anti_gravity.decay") float mAntiGravityDecay;
 	float mAntigravityThrustAccum;
 
 	bool mArmed;

@@ -153,6 +153,7 @@ LuaValue Sensor::swapInfos() const
 			case 4:
 				return sign + "W";
 		}
+		return string("");
 	};
 
 	if ( mSwapMode == SwapModeAxis ) {
@@ -163,9 +164,9 @@ LuaValue Sensor::swapInfos() const
 			ret["w"] = axisString( mAxisSwap[3] );
 		}
 	} else {
-		for ( uint32_t i = 0; i < mAxisMatrix.height(); ++i ) {
+		for ( uint32_t i = 0; i < (uint32_t)mAxisMatrix.height(); ++i ) {
 			ret[i] = LuaValue();
-			for ( uint32_t j = 0; j < mAxisMatrix.width(); ++j ) {
+			for ( uint32_t j = 0; j < (uint32_t)mAxisMatrix.width(); ++j ) {
 				ret[i][j] = mAxisMatrix.constData()[i * mAxisMatrix.width() + j];
 			}
 		}

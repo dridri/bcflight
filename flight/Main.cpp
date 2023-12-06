@@ -28,7 +28,6 @@
 #include "Config.h"
 #include "Console.h"
 #include "Controller.h"
-#include "Slave.h"
 #include <SPI.h>
 #include <I2C.h>
 #include <IMU.h>
@@ -44,7 +43,6 @@
 #include <fake_sensors/FakeGyroscope.h>
 #include <Servo.h>
 #include <Stabilizer.h>
-// #include <StabilizerProxy.h>
 #include <Frame.h>
 #include <Camera.h>
 #include <Microphone.h>
@@ -78,7 +76,6 @@ Main::Main()
 	: mReady( false )
 	, mLPS( 0 )
 	, mLPSCounter( 0 )
-	, mSlave( nullptr )
 	, mPowerThread( nullptr )
 	, mBlackBox( nullptr )
 	, mIMU( nullptr )

@@ -15,7 +15,7 @@
 #endif
 
 #define TICKS Thread::GetTick()
-#define TIMEOUT 1000 // 1000 ms
+#define SX_TIMEOUT 1000 // 1000 ms
 #define XTAL_FREQ 32000000
 #define FREQ_STEP 61.03515625f
 #define PACKET_SIZE 32
@@ -1040,7 +1040,7 @@ bool SX127x::setOpMode( uint32_t opMode )
 // 		std::cout << "SX127x : opMode now set to 0x" << std::hex << (int)opMode << std::dec << "\n";
 	}
 
-	return true; //time < TIMEOUT;
+	return true; //time < SX_TIMEOUT;
 }
 
 

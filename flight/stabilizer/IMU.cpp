@@ -584,7 +584,7 @@ void IMU::UpdateAttitude( float dt )
 	// Update accelerometer values
 	mAttitude.UpdateInput( 0, accel_roll_pitch.x );
 	mAttitude.UpdateInput( 1, accel_roll_pitch.y );
-	if ( mMain->stabilizer()->mode() != Stabilizer::Rate and 0 /*TODO/ ) {
+	if ( mMain->stabilizer()->mode() != Stabilizer::Rate and 0 /TODO/ ) {
 // 		mAttitude.UpdateInput( 2, magnetometer.heading );
 	} else {
 		mAttitude.UpdateInput( 2, mRPY.z + mRate.z * dt );

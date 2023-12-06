@@ -49,7 +49,6 @@ public:
 	bool armed() const;
 	bool airMode() const;
 
-	static Frame* Instanciate( const string& name, Config* config );
 	static void RegisterFrame( const string& name, function< Frame* ( Config* ) > instanciate );
 	static const map< string, function< Frame* ( Config* ) > > knownFrames() { return mKnownFrames; }
 

@@ -368,7 +368,7 @@ int test() {
 	if ( r < 0 ) {
 		perror("virt_to_phys_user\n");
 	}
-	printf( "pbuf : %p, %p (%s)\n", buf, pbuf, strerror(errno) );
+	printf( "pbuf : %p, %p (%s)\n", buf, (void*)pbuf, strerror(errno) );
 
 	memset(buf, 0, pitch*height);
 	return 0;

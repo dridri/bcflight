@@ -16,11 +16,7 @@ public:
 	void WarmUp();
 	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust );
 
-	static int flight_register( Main* main );
-
 protected:
-	static Frame* Instanciate( Config* config );
-
 	vector< float > mStabSpeeds;
 	LUA_PROPERTY("maxspeed") float mMaxSpeed;
 	LUA_PROPERTY("test") float mTest;

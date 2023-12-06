@@ -42,10 +42,11 @@ Stabilizer::Stabilizer()
 	, mTPAThreshold( 1.0f )
 	, mAntiGravityGain( 1.0f )
 	, mAntiGravityThreshold( 0.0f )
+	, mAntiGravityDecay( 10.0f )
 	, mAntigravityThrustAccum( 0.0f )
 	, mArmed( false )
-	, mLockState( 0 )
 	, mFilteredRPYDerivative( Vector3f() )
+	, mLockState( 0 )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
 	, mHorizonMaxRate( Vector3f( 300.0f, 300.0f, 300.0f ) )
@@ -370,16 +371,16 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 
 	// Anti-gravity
 	if ( mAntiGravityThreshold > 0.0f ) {
-		float delta = std::max( 0.0f, (mThrust - mPreviousThrust) / dt );
+		float delta = std::abs( mThrust - mPreviousThrust ) / dt;
 		// mAntigravityThrustAccum = std::max( 0.0f, mAntigravityThrustAccum * (1.0f - dt * 10.0f) + delta * dt );
-		mAntigravityThrustAccum = std::max( delta * dt, mAntigravityThrustAccum * (1.0f - dt * 10.0f) );
-		float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max( 0.0f, (mAntigravityThrustAccum - mAntiGravityThreshold)) / (1.0f - mAntiGravityThreshold);
+		// mAntigravityThrustAccum = std::max( delta * dt, mAntigravityThrustAccum * (1.0f - dt * 10.0f) );
+		mAntigravityThrustAccum = std::min( 1.0f, mAntigravityThrustAccum * ( 1.0f - dt * mAntiGravityDecay ) + delta * dt );
+		// float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max( 0.0f, (mAntigravityThrustAccum - mAntiGravityThreshold)) / (1.0f - mAntiGravityThreshold);
+		float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max(0.0f, std::min( 1.0f, ( mAntigravityThrustAccum - mAntiGravityThreshold ) / (1.0f - mAntiGravityThreshold) ) );
 		rollPIDMultiplier.y *= ag;
 		pitchPIDMultiplier.y *= ag;
 		yawPIDMultiplier.y *= ag;
 	}
-
-	// gDebug() << "mode : " << mMode;
 
 	switch ( mMode ) {
 		case Stabilize : {
@@ -387,17 +388,14 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 			Vector3f control_angles = mRPY;
 			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
-			// gDebug() << "Control angles : " << control_angles;
 			// TODO : when user-input is 0, set control_angles by using imu->velocity().xy to compensate position drifting, if enabled
 			mRollHorizonPID.Process( control_angles.x, drone_state.x, dt );
 			mPitchHorizonPID.Process( control_angles.y, drone_state.y, dt );
 			rate_control.x = mRollHorizonPID.state();
 			rate_control.y = mPitchHorizonPID.state();
-			// gDebug() << "Rate control : " << rate_control;
 			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
 			rate_control.y = max( -mHorizonMaxRate.y, min( mHorizonMaxRate.y, rate_control.y ) );
 			rate_control.z = mRPY.z * mRateFactor; // TEST : Bypass heading for now
-			// gDebug() << "Clamped rate control : " << rate_control;
 			break;
 		}
 		case ReturnToHome :

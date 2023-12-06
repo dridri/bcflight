@@ -102,15 +102,6 @@ bool Frame::airMode() const
 }
 
 
-Frame* Frame::Instanciate( const string& name, Config* config )
-{
-	if ( mKnownFrames.find( name ) != mKnownFrames.end() ) {
-		return mKnownFrames[ name ]( config );
-	}
-	return nullptr;
-}
-
-
 vector< Motor* >* Frame::motors()
 {
 	return &mMotors;

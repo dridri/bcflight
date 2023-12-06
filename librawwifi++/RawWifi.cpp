@@ -14,8 +14,8 @@ RawWifi::RawWifi( const std::string& device, uint8_t rx_port, uint8_t tx_port, b
 	, mRxPcap( nullptr )
 	, mRxFecMode( RxFecMode::RX_FAST )
 	, mRxBlockRecoverMode( RxBlockRecoverMode::FILL_WITH_ZEROS )
-	, mRxBlock({ 0xFFFFFFFF, 0, 0, 0 })
 	, mRxLastCompletedBlockId( 0 )
+	, mRxBlock({ 0xFFFFFFFF, 0, 0, 0 })
 	, mTxPcap( nullptr )
 	, mSendBlockId( 0 )
 {

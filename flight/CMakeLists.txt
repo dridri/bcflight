@@ -189,6 +189,7 @@ file( GLOB HEADERS ${CMAKE_SOURCE_DIR}/*.h ${CMAKE_SOURCE_DIR}/../libcontroller/
 list( APPEND HEADERS ${BOARD_HEADERS_AUTO} )
 
 set( SOURCES
+BlackBox.cpp
 	Main.cpp
 	Config.cpp
 	Console.cpp
@@ -199,15 +200,9 @@ set( SOURCES
 if ( ${BUILD_controller} MATCHES 1 )
 	list( APPEND SOURCES Controller.cpp )
 endif()
-# if ( ${BUILD_blackbox} MATCHES 1 )
-	list( APPEND SOURCES BlackBox.cpp )
-# endif()
 if ( ${BUILD_power} MATCHES 1 )
 	list( APPEND SOURCES PowerThread.cpp )
 endif()
-# if ( ${FLIGHT_SLAVE} MATCHES 1 )
-	list( APPEND SOURCES Slave.cpp )
-# endif()
 
 list( APPEND SOURCES ${BOARD_SOURCES} )
 list( APPEND SOURCES ${BOARD_SOURCES_AUTO} )
@@ -274,7 +269,7 @@ if ( "${CMAKE_SYSTEM_NAME}" MATCHES "Linux" )
 	else()
 		set( LUA_HOST_CC_OPTIONS "" )
 	endif()
-	add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} "${CMAKE_C_FLAGS}" )
+	add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} "${CMAKE_C_FLAGS} -Wno-misleading-indentation" )
 	add_dependencies( flight_unstripped libluajit_static )
 	include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 	set( LIBS ${LIBS} luajit_static )

@@ -11,18 +11,6 @@
 #define min( a, b ) ( ( (a) < (b) ) ? (a) : (b) )
 #define max( a, b ) ( ( (a) > (b) ) ? (a) : (b) )
 
-int Multicopter::flight_register( Main* main )
-{
-	RegisterFrame( "Multicopter", Multicopter::Instanciate );
-	return 0;
-}
-
-
-Frame* Multicopter::Instanciate( Config* config )
-{
-	// return new Multicopter( config );
-}
-
 
 Multicopter::Multicopter()
 	: Frame()
