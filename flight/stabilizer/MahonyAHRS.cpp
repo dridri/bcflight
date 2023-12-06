@@ -30,7 +30,7 @@ void MahonyAHRS::UpdateInput( uint32_t row, const Vector3f& input )
 void MahonyAHRS::Process( float dt )
 {
 	Vector3f gyro = mInputs[0] * M_PI / 180.0f;
-	gyro.z = -gyro.z;
+
 	Vector3f e = Vector3f();
 
 	if ( mInputs.size() >= 3 ) {
@@ -43,8 +43,7 @@ void MahonyAHRS::Process( float dt )
 		float tmp = acc.x;
 		acc.x = -acc.y;
 		acc.y = tmp;
-		acc.z = -acc.z;
-		Vector3f rot = Vector3f( mRotationMatrix( 2, 0 ), mRotationMatrix( 2, 1 ), mRotationMatrix( 2, 2 ) );
+		Vector3f rot = Vector3f( mRotationMatrix( 0, 2 ), mRotationMatrix( 1, 2 ), mRotationMatrix( 2, 2 ) );
 		e += acc ^ rot;
 	}
 
@@ -56,7 +55,7 @@ void MahonyAHRS::Process( float dt )
 	gyro *= 0.5f * dt;
 
 	// compute quaternion rate of change
-	mState += Quaternion(
+	mState = mState + Quaternion(
 		 mState.w * gyro.x + mState.y * gyro.z - mState.z * gyro.y,
 		 mState.w * gyro.y - mState.x * gyro.z + mState.z * gyro.x,
 		 mState.w * gyro.z + mState.x * gyro.y - mState.y * gyro.x,
@@ -70,9 +69,9 @@ void MahonyAHRS::Process( float dt )
 	computeMatrix();
 
 	// compute final state
-	float roll = std::atan2( mRotationMatrix( 2, 1 ), mRotationMatrix( 2, 2 ) ) * 180.0f / M_PI;
-	float pitch = ( 0.5f * M_PI - std::acos( -mRotationMatrix( 2, 0 ) ) ) * 180.0f / M_PI;
-	float yaw = std::atan2( mRotationMatrix( 1, 0 ), mRotationMatrix( 0, 0 ) ) * 180.0f / M_PI;
+	float roll = std::atan2( mRotationMatrix( 1, 2 ), mRotationMatrix( 2, 2 ) ) * 180.0f / M_PI;
+	float pitch = ( 0.5f * M_PI - std::acos( -mRotationMatrix( 0, 2 ) ) ) * 180.0f / M_PI;
+	float yaw = std::atan2( mRotationMatrix( 0, 1 ), mRotationMatrix( 0, 0 ) ) * 180.0f / M_PI;
 	mFinalState = Vector3f( roll, pitch, yaw );
 }
 

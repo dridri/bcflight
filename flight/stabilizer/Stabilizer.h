@@ -94,7 +94,8 @@ protected:
 	LUA_PROPERTY("pid_roll") PID<float> mRateRollPID;
 	LUA_PROPERTY("pid_pitch") PID<float> mRatePitchPID;
 	LUA_PROPERTY("pid_yaw") PID<float> mRateYawPID;
-	LUA_PROPERTY("pid_horizon") PID<Vector3f> mHorizonPID;
+	LUA_PROPERTY("pid_horizon_roll") PID<float> mRollHorizonPID;
+	LUA_PROPERTY("pid_horizon_pitch") PID<float> mPitchHorizonPID;
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
 	Filter<Vector3f>* mDerivativeFilter;

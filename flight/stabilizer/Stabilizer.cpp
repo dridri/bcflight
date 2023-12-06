@@ -34,7 +34,8 @@ Stabilizer::Stabilizer()
 	, mRateRollPID( PID<float>() )
 	, mRatePitchPID( PID<float>() )
 	, mRateYawPID( PID<float>() )
-	, mHorizonPID( PID<Vector3f>() )
+	, mRollHorizonPID( PID<float>() )
+	, mPitchHorizonPID( PID<float>() )
 	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
 	, mTPAMultiplier( 1.0f )
@@ -182,34 +183,36 @@ Vector3f Stabilizer::lastPIDOutput() const
 
 void Stabilizer::setOuterP( float p )
 {
-	mHorizonPID.setP( p );
-	Board::SaveRegister( "PID:Outerloop:P", to_string( p ) );
+	// mHorizonPID.setP( p );
+	// Board::SaveRegister( "PID:Outerloop:P", to_string( p ) );
 }
 
 
 void Stabilizer::setOuterI( float i )
 {
-	mHorizonPID.setI( i );
-	Board::SaveRegister( "PID:Outerloop:I", to_string( i ) );
+	// mHorizonPID.setI( i );
+	// Board::SaveRegister( "PID:Outerloop:I", to_string( i ) );
 }
 
 
 void Stabilizer::setOuterD( float d )
 {
-	mHorizonPID.setD( d );
-	Board::SaveRegister( "PID:Outerloop:D", to_string( d ) );
+	// mHorizonPID.setD( d );
+	// Board::SaveRegister( "PID:Outerloop:D", to_string( d ) );
 }
 
 
 Vector3f Stabilizer::getOuterPID() const
 {
-	return mHorizonPID.getPID();
+	return Vector3f();
+	// return mHorizonPID.getPID();
 }
 
 
 Vector3f Stabilizer::lastOuterPIDOutput() const
 {
-	return mHorizonPID.state();
+	return Vector3f();
+	// return mHorizonPID.state();
 }
 
 
@@ -290,7 +293,8 @@ void Stabilizer::Reset( const float& yaw )
 	mRateRollPID.Reset();
 	mRatePitchPID.Reset();
 	mRateYawPID.Reset();
-	mHorizonPID.Reset();
+	mRollHorizonPID.Reset();
+	mPitchHorizonPID.Reset();
 	mRPY.x = 0.0f;
 	mRPY.y = 0.0f;
 	mRPY.z = 0.0f;
@@ -350,7 +354,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	Vector3f pitchPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
 	Vector3f yawPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
 
-	// TPA
+	// Throttle PID Attenuation (TPA) : reduce PID gains when throttle is high
 	if ( mTPAThreshold < 1.0f and mThrust >= mTPAThreshold ) {
 		float tpa = ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) * mTPAMultiplier;
 		rollPIDMultiplier.x = 1.0f - tpa;
@@ -375,17 +379,25 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		yawPIDMultiplier.y *= ag;
 	}
 
+	// gDebug() << "mode : " << mMode;
+
 	switch ( mMode ) {
 		case Stabilize : {
+			Vector3f drone_state = imu->RPY();
 			Vector3f control_angles = mRPY;
 			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
 			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
+			// gDebug() << "Control angles : " << control_angles;
 			// TODO : when user-input is 0, set control_angles by using imu->velocity().xy to compensate position drifting, if enabled
-			mHorizonPID.Process( control_angles, imu->RPY(), dt );
-			rate_control = mHorizonPID.state();
+			mRollHorizonPID.Process( control_angles.x, drone_state.x, dt );
+			mPitchHorizonPID.Process( control_angles.y, drone_state.y, dt );
+			rate_control.x = mRollHorizonPID.state();
+			rate_control.y = mPitchHorizonPID.state();
+			// gDebug() << "Rate control : " << rate_control;
 			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
 			rate_control.y = max( -mHorizonMaxRate.y, min( mHorizonMaxRate.y, rate_control.y ) );
 			rate_control.z = mRPY.z * mRateFactor; // TEST : Bypass heading for now
+			// gDebug() << "Clamped rate control : " << rate_control;
 			break;
 		}
 		case ReturnToHome :
@@ -432,7 +444,7 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 
 	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
 		gDebug() << "stab error";
-		Reset( mHorizonPID.state().z );
+		Reset( imu->RPY().z );
 	}
 }
 

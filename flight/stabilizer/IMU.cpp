@@ -99,7 +99,7 @@ IMU::IMU()
 	mAttitude.setSelector( 5, 2, 1.0f );
 */
 
-	mAttitude = new MahonyAHRS( 0.5f, 0.005f );
+	mAttitude = new MahonyAHRS( 0.5f, 0.0f );
 
 	/** mPosition matrix :
 	 *   - Inputs :
@@ -312,23 +312,17 @@ void IMU::Calibrate( float dt, bool all )
 	switch ( mCalibrationStep ) {
 		case 0 : {
 			gDebug() << "Calibrating " << ( all ? "all" : "partial" ) << " sensors";
-			// gDebug() << "calibrate " << mCalibrationStep << " " << 0;
 			mMain->blackbox()->Enqueue( "IMU:state", "Calibrating" );
-			// gDebug() << "calibrate " << mCalibrationStep << " " << 1;
 			mCalibrationStep++;
 			mCalibrationTimer = Board::GetTicks();
-			// gDebug() << "calibrate " << mCalibrationStep << " " << 2;
 			break;
 		}
 		case 1 : {
-			// gDebug() << "calibrate " << mCalibrationStep << " " << 0;
 			for ( auto dev : Sensor::Devices() ) {
 				if ( all or dynamic_cast< Gyroscope* >( dev ) != nullptr or dynamic_cast< Altimeter* >( dev ) != nullptr ) {
-					// gDebug() << "calibrate " << dev->names().front();
 					dev->Calibrate( dt, false );
 				}
 			}
-			// gDebug() << "calibrate " << mCalibrationStep << " " << 1;
 			if ( Board::GetTicks() - mCalibrationTimer >= 1000 * 1000 * 2 ) {
 				mCalibrationStep++;
 			}
@@ -430,17 +424,6 @@ void IMU::ResetYaw()
 */
 }
 
-void geNormalize( Vector3f* v )
-{
-	double l = sqrt((double)( (v->x*v->x) + (v->y*v->y) + (v->z*v->z) ));
-	if ( l > 0.00001f ) {
-		double il = 1.0f / l;
-		v->x *= il;
-		v->y *= il;
-		v->z *= il;
-	}
-}
-
 
 void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 {
@@ -480,7 +463,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 			mLastAcceleration = mAcceleration;
 			mAcceleration = total_accel.xyz() / total_accel.w;
 		}
-// 		geNormalize( &mAcceleration );
+// 		mAcceleration.normalize();
 		// sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
 		// gDebug() << "Aceleration : " << stmp;
 		// mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
@@ -569,11 +552,11 @@ void IMU::UpdateAttitude( float dt )
 	// mAccelerationSmoother.UpdateInput( 2, mAcceleration.z );
 	// mAccelerationSmoother.Process( dt );
 	// Vector3f accel = mAccelerationSmoother.state( 0 );
-	Vector3f accel = mAcceleration;
 	if ( mAccelerometerFilter ) {
-		accel = mAccelerometerFilter->filter( accel, dt );
+		mAccelerationSmoothed = mAccelerometerFilter->filter( mAcceleration, dt );
+	} else {
+		mAccelerationSmoothed = mAcceleration;
 	}
-	mAccelerationSmoothed = accel;
 /*
 	Vector2f accel_roll_pitch = Vector2f();
 	if ( accel.z >= 0.5f * 9.8f ) {
@@ -618,7 +601,7 @@ void IMU::UpdateAttitude( float dt )
 	Vector4f rpy = mAttitude.state( 0 );
 */
 	mAttitude->UpdateInput( 0, mRate );
-	mAttitude->UpdateInput( 1, accel );
+	mAttitude->UpdateInput( 1, mAccelerationSmoothed );
 	mAttitude->Process( dt );
 	Vector4f rpy = mAttitude->state();
 /*
