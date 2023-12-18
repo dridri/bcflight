@@ -14,7 +14,7 @@ Open-source Linux-based Raspberry drone and ground controller.
  * ~100ms video latency over Ethernet / WiFi / RawWifi
  * Live camera view over HDMI / Composite output with On-Screen Display (showing telemetry, battery status, fly speed, acceleration...)
  * Supports multiple cameras recording in MKV file format (for a total max throughput of ~120 MPix/s without overclock)
- * Supports [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
+ * Produces [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
 
 
 [preview.webm](https://github.com/dridri/bcflight/assets/220731/773a024a-642d-4f69-babe-427d3c5535c6)
