@@ -365,7 +365,7 @@ bool Controller::RxRun()
 	bool acknowledged = false;
 	while ( ReadCmd( &telemetry, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-			gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
+			gTrace() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 
 		acknowledged = false;

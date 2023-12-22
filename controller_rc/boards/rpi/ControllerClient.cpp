@@ -29,6 +29,7 @@
 #include <Config.h>
 #include "ControllerClient.h"
 #include "Socket.h"
+#include "Debug.h"
 
 Config* ControllerClient::mConfig = nullptr;
 
@@ -122,7 +123,7 @@ float ControllerClient::ReadPitch( float dt )
 
 float ControllerClient::ReadYaw( float dt )
 {
-	return -mJoysticks[1].Read( dt );
+	return mJoysticks[1].Read( dt );
 }
 
 
@@ -136,10 +137,10 @@ bool ControllerClient::run()
 			mADC->setSmoothFactor( 2, 0.5f );
 			mADC->setSmoothFactor( 3, 0.5f );
 			mADC->setSmoothFactor( 4, 0.75f );
-			mJoysticks[0] = Joystick( mADC, 0, 0, true );
-			mJoysticks[1] = Joystick( mADC, 1, 1 );
-			mJoysticks[2] = Joystick( mADC, 2, 3 );
-			mJoysticks[3] = Joystick( mADC, 3, 2 );
+			mJoysticks[0] = Joystick( mADC, 0, 0, mConfig->boolean( "adc.inverse.thrust", false ), true );
+			mJoysticks[1] = Joystick( mADC, 1, 1, mConfig->boolean( "adc.inverse.yaw", false ) );
+			mJoysticks[2] = Joystick( mADC, 2, 3, mConfig->boolean( "adc.inverse.pitch", false ) );
+			mJoysticks[3] = Joystick( mADC, 3, 2, mConfig->boolean( "adc.inverse.roll", false ) );
 		}
 	}
 	if ( mADC ) {
@@ -248,16 +249,18 @@ bool ControllerClient::RunSimulator()
 }
 
 
-ControllerClient::Joystick::Joystick( MCP320x* adc, int id, int adc_channel, bool thrust_mode )
+ControllerClient::Joystick::Joystick( MCP320x* adc, int id, int adc_channel, bool inverse, bool thrust_mode )
 	: mADC( adc )
 	, mId( id )
 	, mADCChannel( adc_channel )
 	, mCalibrated( false )
+	, mInverse( inverse )
 	, mThrustMode( thrust_mode )
 	, mMin( 0 )
 	, mCenter( 32767 )
 	, mMax( 65535 )
 {
+	fDebug( adc, id, adc_channel, inverse, thrust_mode );
 	mMin = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":min", 0 );
 	mCenter = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":cen", 32767 );
 	mMax = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":max", 65535 );
@@ -287,6 +290,9 @@ uint16_t ControllerClient::Joystick::ReadRaw( float dt )
 		return 0;
 	}
 	uint32_t raw = mADC->Read( mADCChannel, dt );
+	if ( mInverse ) {
+		raw = 4096 - raw;
+	}
 	if ( raw != 0 ) {
 		mLastRaw = mLastRaw * 0.5f + raw * 0.5f;
 	}

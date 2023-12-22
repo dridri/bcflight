@@ -35,8 +35,8 @@ public:
 
 	class Joystick {
 	public:
-		Joystick() : mADC( nullptr ), mADCChannel( 0 ), mCalibrated( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ), mLastRaw( 0 ) {}
-		Joystick( MCP320x* adc, int id, int channel, bool thrust_mode = false );
+		Joystick() : mADC( nullptr ), mADCChannel( 0 ), mCalibrated( false ), mInverse( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ), mLastRaw( 0 ) {}
+		Joystick( MCP320x* adc, int id, int channel, bool inverse = false, bool thrust_mode = false );
 		~Joystick();
 		uint16_t ReadRaw( float dt );
 		uint16_t LastRaw() const { return mLastRaw; }
@@ -50,6 +50,7 @@ public:
 		int mId;
 		int mADCChannel;
 		bool mCalibrated;
+		bool mInverse;
 		bool mThrustMode;
 		uint16_t mMin;
 		uint16_t mCenter;

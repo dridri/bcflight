@@ -884,7 +884,7 @@ void SX127x::Interrupt()
 		mInterruptMutex.unlock();
 		return;
 	}
-	fDebug();
+	// fDebug();
 	std::lock_guard<std::mutex> lock(mReceivingMutex);
 	mReceiving = true;
 
