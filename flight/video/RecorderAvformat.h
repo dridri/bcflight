@@ -17,8 +17,8 @@ public:
 	LUA_EXPORT virtual void Stop();
 	LUA_EXPORT virtual void Start();
 
-	virtual uint32_t AddAudioTrack( uint32_t channels, uint32_t sample_rate, const std::string& extension );
-	virtual uint32_t AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const std::string& extension );
+	virtual uint32_t AddAudioTrack( const std::string& format, uint32_t channels, uint32_t sample_rate, const std::string& extension );
+	virtual uint32_t AddVideoTrack( const std::string& format, uint32_t width, uint32_t height, uint32_t average_fps, const std::string& extension );
 	virtual void WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe = false );
 
 	virtual void WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel = Vector3f() );
@@ -28,6 +28,7 @@ protected:
 		uint32_t id;
 		AVStream* stream;
 		TrackType type;
+		std::string format;
 		// video
 		uint32_t width;
 		uint32_t height;
@@ -74,6 +75,7 @@ protected:
 	uint64_t mWriteTicks;
 
 	std::vector< uint8_t > mVideoHeader;
+	std::vector< uint8_t > mAudioHeader;
 
 	uint8_t mOutputBuffer[1024 * 1024];
 	FILE* mOutputFile;

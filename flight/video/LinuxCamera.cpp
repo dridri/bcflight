@@ -274,6 +274,7 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::Contrast, mContrast );
 	mAllControls.set( libcamera::controls::Saturation, mSaturation );
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
+	mAllControls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeMinimal );
 	setWhiteBalance( mWhiteBalance, &mAllControls );
 	if ( mExposureMode == "short" ) {
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
@@ -281,6 +282,8 @@ void LinuxCamera::Start()
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureLong );
 	} else if ( mExposureMode == "custom" ) {
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureCustom );
+	} else {
+		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureNormal );
 	}
 	if ( mRawStreamConfiguration ) {
 		mControlListQueue[mRawStreamConfiguration->stream()] = libcamera::ControlList();
@@ -404,6 +407,17 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 					if ( mLivePreview and mPreviewSurface and ( mPreviewFrameBuffers.size() > 1 or not mPreviewSurfaceSet ) ) {
 						mPreviewSurfaceSet = true;
 						mPreviewSurface->Show( mPreviewFrameBuffers[buffer] );
+					}
+				}
+				if ( mPreviewStreamConfiguration and stream == mPreviewStreamConfiguration->stream() ) {
+					if ( mLiveEncoder ) {
+						auto ts = metadata.get(libcamera::controls::SensorTimestamp);
+						int64_t timestamp_ns = ts ? *ts : buffer->metadata().timestamp;
+						size_t sz = 0;
+						for ( auto plane : buffer->planes() ) {
+							sz += plane.length;
+						}
+						mLiveEncoder->EnqueueBuffer( sz, nullptr, timestamp_ns / 1000, buffer->planes()[0].fd.get() );
 					}
 				}
 				if ( mVideoStreamConfiguration and stream == mVideoStreamConfiguration->stream() ) {

@@ -11,12 +11,19 @@
 LUA_CLASS class V4L2Encoder : public VideoEncoder
 {
 public:
+	LUA_EXPORT typedef enum {
+		FORMAT_H264,
+		FORMAT_MJPEG
+	} Format;
+
 	LUA_EXPORT V4L2Encoder();
 	~V4L2Encoder();
 	void EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, int fd = -1 );
 
 protected:
 	void Setup();
+	void SetupH264();
+	void SetupMJPEG();
 	void pollThread();
 	void outputThread();
 
@@ -35,7 +42,9 @@ protected:
 	} OutputItem;
 
 	LUA_PROPERTY("video_device") std::string mVideoDevice;
+	LUA_PROPERTY("format") V4L2Encoder::Format mFormat;
 	LUA_PROPERTY("bitrate") int32_t mBitrate;
+	LUA_PROPERTY("quality") int32_t mQuality;
 	LUA_PROPERTY("width") int32_t mWidth;
 	LUA_PROPERTY("height") int32_t mHeight;
 	LUA_PROPERTY("framerate") int32_t mFramerate;

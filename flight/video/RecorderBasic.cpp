@@ -88,12 +88,13 @@ void RecorderBasic::Stop()
 }
 
 
-uint32_t RecorderBasic::AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const string& extension )
+uint32_t RecorderBasic::AddVideoTrack( const std::string& format, uint32_t width, uint32_t height, uint32_t average_fps, const string& extension )
 {
 	Track* track = (Track*)malloc( sizeof(Track) );
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeVideo;
+	track->format = format;
 	track->width = width;
 	track->height = height;
 	track->average_fps = average_fps;
@@ -118,12 +119,13 @@ uint32_t RecorderBasic::AddVideoTrack( uint32_t width, uint32_t height, uint32_t
 
 
 
-uint32_t RecorderBasic::AddAudioTrack( uint32_t channels, uint32_t sample_rate, const string& extension )
+uint32_t RecorderBasic::AddAudioTrack( const std::string& format, uint32_t channels, uint32_t sample_rate, const string& extension )
 {
 	Track* track = (Track*)malloc( sizeof(Track) );
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeAudio;
+	track->format = format;
 	track->channels = channels;
 	track->sample_rate = sample_rate;
 	strcpy( track->extension, extension.c_str() );

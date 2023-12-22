@@ -38,6 +38,7 @@ AlsaMic::AlsaMic()
 	, mRecordSyncCounter( 0 )
 	, mRecordStream( nullptr )
 {
+	fDebug();
 }
 
 
@@ -48,6 +49,7 @@ AlsaMic::~AlsaMic()
 
 void AlsaMic::Setup()
 {
+	fDebug( mDevice );
 	int err = 0;
 	snd_pcm_hw_params_t* hw_params;
 
@@ -134,12 +136,12 @@ void AlsaMic::Setup()
 	mShineConfig.wave.channels = ( ( mChannels == 2 ) ? PCM_STEREO : PCM_MONO );
 	mShineConfig.wave.samplerate = mRate;
 	mShineConfig.mpeg.mode = ( ( mChannels == 2 ) ? STEREO : MONO );
-	mShineConfig.mpeg.bitr = 128;
+	mShineConfig.mpeg.bitr = 320;
 	mShine = shine_initialise( &mShineConfig );
 	printf ("shine_samples_per_pass : %d\n", shine_samples_per_pass( mShine ) );
 
 	if ( mRecorder ) {
-		mRecorderTrackId = mRecorder->AddAudioTrack( mChannels, mRate, "mp3" );
+		mRecorderTrackId = mRecorder->AddAudioTrack( "wav", mChannels, mRate, "mp3" );
 	}
 
 	mLiveThread = new HookThread<AlsaMic>( "microphone", this, &AlsaMic::LiveThreadRun );
@@ -182,6 +184,10 @@ bool AlsaMic::LiveThreadRun()
 
 int AlsaMic::RecordWrite( char* data, int datalen )
 {
+	mRecorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen * 2 );
+	return datalen;
+
+	fTrace( (void*)data, datalen );
 	int baselen = datalen;
 	datalen = 0;
 	data = (char*)shine_encode_buffer_interleaved( mShine, (int16_t*)data, &datalen );

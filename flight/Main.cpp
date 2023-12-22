@@ -54,8 +54,6 @@
 	#include <RawWifi.h>
 #endif
 
-// #include "peripherals/WS2812.h" // TEST
-
 Main* Main::mInstance = nullptr;
 
 
@@ -103,9 +101,6 @@ Main::Main()
 	mConfig = new Config( "config.lua", "settings.lua" );
 #elif defined( SYSTEM_NAME_Linux )
 	mConfig = new Config( "/var/flight/config.lua", "/var/flight/settings.lua" );
-#else
-// 	mConfig = new Config( "#0xADDRESS+length", "" ); // Access to config buffer at addess 0xADDRESS with length specified
-	mConfig = new Config( "", "" );
 #endif
 	mConfig->Reload();
 	Debug::setDebugLevel( static_cast<Debug::Level>( mConfig->Integer( "debug_level", 3 ) ) );
@@ -147,7 +142,7 @@ Main::Main()
 		mCamera->Start();
 	}
 	if ( mMicrophone ) {
-	//	mMicrophone->Setup();
+		mMicrophone->Setup();
 	}
 	if ( mController ) {
 		mController->setPriority( 98 );
@@ -156,6 +151,7 @@ Main::Main()
 
 #ifdef BUILD_stabilizer
 	mLoopTime = mConfig->Integer( "stabilizer.loop_time", 2000 );
+	gDebug() << "Stabilizer frequency : " << ( 1000000 / mLoopTime ) << "Hz";
 	mTicks = 0;
 	mWaitTicks = 0;
 	mLPSTicks = 0;
