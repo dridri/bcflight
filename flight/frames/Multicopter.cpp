@@ -114,7 +114,7 @@ void Multicopter::WarmUp()
 }
 
 
-bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
+bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust )
 {
 	if ( not mArmed ) {
 		return false;
@@ -125,6 +125,9 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 		}
 		mAirMode = true;
 	}
+
+	thrust = min( mMaxSpeed, thrust );
+	float maxMotorSpeed = min( 1.0f, mMaxSpeed * 1.25f );
 
 	if ( mAirMode or thrust >= 0.075f ) {
 		float overall_min = 0.0f;
@@ -149,7 +152,7 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, const float& thrust )
 		}
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mMotors[i]->setSpeed( min( mMaxSpeed, mStabSpeeds[i] ), ( i >= mMotors.size() - 1 ) );
+			mMotors[i]->setSpeed( min( maxMotorSpeed, mStabSpeeds[i] ), ( i >= mMotors.size() - 1 ) );
 		}
 
 		if ( Main::instance()->blackbox() ) {

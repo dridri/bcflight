@@ -98,7 +98,7 @@ protected:
 	LUA_PROPERTY("pid_horizon_pitch") PID<float> mPitchHorizonPID;
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
-	Filter<Vector3f>* mDerivativeFilter;
+	LUA_PROPERTY("derivative_filter") Filter<Vector3f>* mDerivativeFilter;
 
 	LUA_PROPERTY("tpa.multiplier") float mTPAMultiplier;
 	LUA_PROPERTY("tpa.threshold") float mTPAThreshold;

@@ -38,6 +38,7 @@ Stabilizer::Stabilizer()
 	, mPitchHorizonPID( PID<float>() )
 	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
+	, mDerivativeFilter( nullptr )
 	, mTPAMultiplier( 1.0f )
 	, mTPAThreshold( 1.0f )
 	, mAntiGravityGain( 1.0f )
@@ -71,8 +72,6 @@ Stabilizer::Stabilizer()
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
-
-	mDerivativeFilter = new PT1<Vector3f>( Vector3f(30, 30, 30) );
 
 // 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 }
@@ -339,7 +338,11 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 
 	Vector3f rates = imu->rate();
 
-	mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
+	if ( mDerivativeFilter ) {
+		mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
+	} else {
+		mFilteredRPYDerivative = rates;
+	}
 
 	if ( not mArmed ) {
 		return;
@@ -356,17 +359,14 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	Vector3f yawPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
 
 	// Throttle PID Attenuation (TPA) : reduce PID gains when throttle is high
-	if ( mTPAThreshold < 1.0f and mThrust >= mTPAThreshold ) {
-		float tpa = ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) * mTPAMultiplier;
-		rollPIDMultiplier.x = 1.0f - tpa;
-		rollPIDMultiplier.y = 1.0f - tpa;
-		rollPIDMultiplier.z = 1.0f - tpa;
-		pitchPIDMultiplier.x = 1.0f - tpa;
-		pitchPIDMultiplier.y = 1.0f - tpa;
-		pitchPIDMultiplier.z = 1.0f - tpa;
-		yawPIDMultiplier.x = 1.0f - tpa;
-		yawPIDMultiplier.y = 1.0f - tpa;
-		yawPIDMultiplier.z = 1.0f - tpa;
+	// y=min( 1, 1 − ( (x−t) / (1−t) ) * m )
+	// See https://www.desmos.com/calculator/wi8qeuzct6
+	if ( mTPAThreshold > 0.0f and mTPAThreshold < 1.0f ) {
+		float tpa = ( ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) ) * mTPAMultiplier;
+		tpa = 1.0f - std::max( 0.0f, std::min( 1.0f, tpa ) );
+		rollPIDMultiplier *= tpa;
+		pitchPIDMultiplier *= tpa;
+		yawPIDMultiplier *= tpa;
 	}
 
 	// Anti-gravity
@@ -380,6 +380,9 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		rollPIDMultiplier.y *= ag;
 		pitchPIDMultiplier.y *= ag;
 		yawPIDMultiplier.y *= ag;
+		if ( ag > 1.0f ) {
+			// gDebug() << "AG: " << ag << " | " << mAntigravityThrustAccum << " | " << delta;
+		}
 	}
 
 	switch ( mMode ) {

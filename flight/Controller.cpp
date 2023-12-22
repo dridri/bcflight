@@ -159,7 +159,7 @@ void Controller::SendDebug( const string& s )
 }
 
 
-void Controller::setRoll( float value, bool raw )
+float Controller::setRoll( float value, bool raw )
 {
 	if ( not raw ) {
 		if ( value >= 0.0f ) {
@@ -170,10 +170,11 @@ void Controller::setRoll( float value, bool raw )
 	}
 // 	mRPY.x = value;
 	mMain->stabilizer()->setRoll( value );
+	return value;
 }
 
 
-void Controller::setPitch( float value, bool raw )
+float Controller::setPitch( float value, bool raw )
 {
 	if ( not raw ) {
 		if ( value >= 0.0f ) {
@@ -184,10 +185,11 @@ void Controller::setPitch( float value, bool raw )
 	}
 // 	mRPY.y = value;
 	mMain->stabilizer()->setPitch( value );
+	return value;
 }
 
 
-void Controller::setYaw( float value, bool raw )
+float Controller::setYaw( float value, bool raw )
 {
 	if ( abs( value ) < 0.05f ) {
 		value = 0.0f;
@@ -201,10 +203,11 @@ void Controller::setYaw( float value, bool raw )
 	}
 // 	mRPY.z = value;
 	mMain->stabilizer()->setYaw( value );
+	return value;
 }
 
 
-void Controller::setThrust( float value, bool raw )
+float Controller::setThrust( float value, bool raw )
 {
 	if ( abs( value ) < 0.05f ) {
 		value = 0.0f;
@@ -222,6 +225,7 @@ void Controller::setThrust( float value, bool raw )
 	}
 		mMain->stabilizer()->setThrust( value );
 //	}
+	return value;
 }
 
 
@@ -460,12 +464,12 @@ bool Controller::run()
 						float pitch = ((float)controls.pitch) / 128.0f;
 						float yaw = ((float)controls.yaw) / 128.0f;
 						gTrace() << "Controls : " << thrust << ", " << roll << ", " << pitch << ", " << yaw;
-						setThrust( thrust );
-						setRoll( roll );
-						setPitch( pitch );
-						setYaw( yaw );
-// 						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
-// 						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
+						thrust = setThrust( thrust );
+						roll = setRoll( roll );
+						pitch = setPitch( pitch );
+						yaw = setYaw( yaw );
+						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", thrust, roll, pitch, yaw );
+						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
 					}
 				}
 				break;

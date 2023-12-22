@@ -61,10 +61,10 @@ protected:
 
 	void Arm();
 	void Disarm();
-	void setRoll( float value, bool raw = false );
-	void setPitch( float value, bool raw = false );
-	void setYaw( float value, bool raw = false );
-	void setThrust( float value, bool raw = false );
+	float setRoll( float value, bool raw = false );
+	float setPitch( float value, bool raw = false );
+	float setYaw( float value, bool raw = false );
+	float setThrust( float value, bool raw = false );
 	Main* mMain;
 #ifdef SYSTEM_NAME_Linux
 	mutex mSendMutex;

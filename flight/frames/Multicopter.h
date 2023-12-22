@@ -14,7 +14,7 @@ public:
 	void Arm();
 	void Disarm();
 	void WarmUp();
-	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust );
+	virtual bool Stabilize( const Vector3f& pid_output, float thrust );
 
 protected:
 	vector< float > mStabSpeeds;

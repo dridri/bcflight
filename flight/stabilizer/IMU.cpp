@@ -435,7 +435,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 	Vector3f total_lat_lon;
 	Vector3f vtmp;
 	float ftmp;
-	// char stmp[64];
+	char stmp[64];
 
 	for ( Gyroscope* dev : mGyroscopes ) {
 		vtmp.x = vtmp.y = vtmp.z = 0.0f;
@@ -449,8 +449,8 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 		mGyroscope = total_gyro.xyz() / total_gyro.w;
 	}
 
-	// sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
-	// mMain->blackbox()->Enqueue( "IMU:gyroscope", stmp );
+	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
+	mMain->blackbox()->Enqueue( "IMU:gyroscope", stmp );
 
 	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
 	{
@@ -534,6 +534,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 
 void IMU::UpdateAttitude( float dt )
 {
+	char stmp[64];
 	// Process rates Extended-Kalman-Filter
 	// mRates.UpdateInput( 0, mGyroscope.x );
 	// mRates.UpdateInput( 1, mGyroscope.y );
@@ -545,6 +546,8 @@ void IMU::UpdateAttitude( float dt )
 	} else {
 		mRate = mGyroscope;
 	}
+	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mRate.x, mRate.y, mRate.z );
+	mMain->blackbox()->Enqueue( "IMU:rate", stmp );
 
 	// Process acceleration Extended-Kalman-Filter
 	// mAccelerationSmoother.UpdateInput( 0, mAcceleration.x );
