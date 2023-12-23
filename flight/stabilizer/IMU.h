@@ -70,6 +70,8 @@ public:
 	const Vector3f velocity() const;
 	const Vector3f position() const;
 	const float altitude() const;
+	const Vector3f gpsLocation() const;
+	const float gpsSpeed() const;
 
 	LUA_EXPORT void Recalibrate();
 	void RecalibrateAll();
@@ -85,6 +87,7 @@ protected:
 	void UpdateAttitude( float dt );
 	void UpdateVelocity( float dt );
 	void UpdatePosition( float dt );
+	void UpdateGPS();
 
 	Main* mMain;
 	uint32_t mSensorsUpdateSlow;
@@ -97,7 +100,7 @@ protected:
 	LUA_PROPERTY("accelerometers") std::list<Accelerometer*> mAccelerometers;
 	LUA_PROPERTY("magnetometers") std::list<Magnetometer*> mMagnetometers;
 	LUA_PROPERTY("altimeters") std::list<Altimeter*> mAltimeters;
-	LUA_PROPERTY("GPSes") std::list<GPS*> mGPSes;
+	LUA_PROPERTY("gps") std::list<GPS*> mGPSes;
 
 	LUA_PROPERTY("filters.rates") Filter<Vector3f>* mRatesFilter;
 	LUA_PROPERTY("filters.accelerometer") Filter<Vector3f>* mAccelerometerFilter;
@@ -107,8 +110,9 @@ protected:
 	Vector3f mAcceleration;
 	Vector3f mGyroscope;
 	Vector3f mMagnetometer;
-	Vector2f mLattitudeLongitude;
-	float mAltitude;
+	Vector2f mGPSLocation;
+	float mGPSSpeed;
+	float mGPSAltitude;
 	float mAltitudeOffset;
 	float mProximity;
 	Vector3f mRPY;

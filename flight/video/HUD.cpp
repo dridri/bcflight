@@ -75,7 +75,7 @@ bool HUD::run()
 				uint32_t ms = time % 1000;
 				char txt[256];
 				sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
-				mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, true );
+				mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, RendererHUD::TextAlignment::CENTER );
 			}
 		});
 	}
@@ -109,9 +109,11 @@ bool HUD::run()
 		dronestats.thrust = stabilizer->thrust();
 	}
 	if ( imu ) {
-		mAccelerationAccum = ( mAccelerationAccum * 0.95f + imu->acceleration().length() * 0.05f );
+		mAccelerationAccum = ( mAccelerationAccum * 0.99f + imu->acceleration().length() * 0.01f );
 		dronestats.acceleration = mAccelerationAccum;
 		dronestats.rpy = imu->RPY();
+		dronestats.gpsLocation = imu->gpsLocation();
+		dronestats.gpsSpeed = imu->gpsSpeed();
 	}
 	if ( powerThread ) {
 		dronestats.batteryLevel = powerThread->BatteryLevel();
@@ -178,6 +180,16 @@ void HUD::HideImage( const uintptr_t img )
 }
 
 
+void HUD::AddLayer( const std::function<void()>& func )
+{
+	mGLContext->addLayer( func );
+}
+
+
+void HUD::PrintText( int32_t x, int32_t y, const std::string& text, uint32_t color, TextAlignment halign, TextAlignment valign )
+{
+	mRendererHUD->RenderText( x, y, text, color, 0.75f, (RendererHUD::TextAlignment)halign, (RendererHUD::TextAlignment)valign );
+}
 
 
 #endif // ( BUILD_HUD == 1 )

@@ -9,6 +9,8 @@ LinuxGPS::LinuxGPS()
 	: GPS()
 	, mGpsData( nullptr )
 {
+	fDebug();
+
 	int rc = 0;
 	mGpsData = new struct gps_data_t;
 	memset( mGpsData, 0, sizeof(struct gps_data_t) );
@@ -67,7 +69,7 @@ bool LinuxGPS::Read( float* latitude, float* longitude, float* altitude, float* 
 					*speed = mGpsData->fix.speed;
 					return true;
 				} else {
-					gDebug() << "no GPS data available";
+					gTrace() << "no GPS data available";
 				}
 			}
 		}

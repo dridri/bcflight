@@ -401,13 +401,13 @@ void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, 
 }
 
 
-void RendererHUD::RenderText( int x, int y, const std::string& text, uint32_t color, float size, bool hcenter )
+void RendererHUD::RenderText( int x, int y, const std::string& text, uint32_t color, float size, TextAlignment halign, TextAlignment valign )
 {
-	RenderText( x, y, text, Vector4f( (float)( color & 0xFF ) / 256.0f, (float)( ( color >> 8 ) & 0xFF ) / 256.0f, (float)( ( color >> 16 ) & 0xFF ) / 256.0f, 1.0f ), size, hcenter );
+	RenderText( x, y, text, Vector4f( (float)( color & 0xFF ) / 256.0f, (float)( ( color >> 8 ) & 0xFF ) / 256.0f, (float)( ( color >> 16 ) & 0xFF ) / 256.0f, 1.0f ), size, halign, valign );
 }
 
 
-void RendererHUD::RenderText( int x, int y, const std::string& text, const Vector4f& _color, float size, bool hcenter )
+void RendererHUD::RenderText( int x, int y, const std::string& text, const Vector4f& _color, float size, TextAlignment halign, TextAlignment valign )
 {
 // 	y += mFontSize * size * 0.2f;
 
@@ -430,13 +430,36 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, const Vecto
 	glVertexAttribPointer( mTextShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( 0 ) );
 	glVertexAttribPointer( mTextShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( sizeof( float ) * 2 ) );
 
-	if ( hcenter ) {
+	if ( halign == TextAlignment::CENTER ) {
 		int w = 0;
 		for ( uint32_t i = 0; i < text.length(); i++ ) {
-			
 			w += mTextAdv[ (uint8_t)( (int)text.data()[i] ) ] * size;
 		}
 		x -= w / 2.0f;
+	} else if ( halign == TextAlignment::END ) {
+		int w = 0;
+		for ( uint32_t i = 0; i < text.length(); i++ ) {
+			w += mTextAdv[ (uint8_t)( (int)text.data()[i] ) ] * size;
+		}
+		x -= w;
+	}
+
+	if ( valign == TextAlignment::CENTER ) {
+		int h = mFontHeight * size;
+		for ( uint32_t i = 0; i < text.length(); i++ ) {
+			if ( text.data()[i] == '\n' ) {
+				h += mFontHeight * size;
+			}
+		}
+		y -= h / 2.0f;
+	} else if ( valign == TextAlignment::END ) {
+		int h = mFontHeight * size;
+		for ( uint32_t i = 0; i < text.length(); i++ ) {
+			if ( text.data()[i] == '\n' ) {
+				h += mFontHeight * size;
+			}
+		}
+		y -= h;
 	}
 
 	for ( uint32_t i = 0; i < text.length(); i++ ) {

@@ -178,9 +178,12 @@ function cast_suffix( prop, v )
 			return ".toString()"
 		end
 		if prop.type:find("::") then
-			v = classes[parent_class(prop.type)]
+			v2 = classes[parent_class(prop.type)]
+			if v2 then
+				v = v2
+			end
 		end
-		if v and v.enums and v.enums[basename(prop.type)] then
+		if v and v.enums and ( v.enums[basename(prop.type)] or v.enums[prop.type] ) then
 			return ".toInteger()"
 		end
 	end

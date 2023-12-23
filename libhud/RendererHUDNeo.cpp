@@ -149,7 +149,7 @@ RendererHUDNeo::~RendererHUDNeo()
 void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats )
 {
 	if ( dronestats and dronestats->username != "" ) {
-		RenderText( mWidth * 0.5f, mBorderTop, dronestats->username, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, true );
+		RenderText( mWidth * 0.5f, mBorderTop, dronestats->username, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, TextAlignment::CENTER );
 	}
 
 	// Controls
@@ -184,12 +184,12 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		Vector4f color = Vector4f( 1.0f, 1.0f, 1.0f, 1.0f );
 		std::string saccel = std::to_string( acceleration );
 		saccel = saccel.substr( 0, saccel.find( "." ) + 2 );
-		RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.575f, saccel + "g", color, 0.55f, true );
+		RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.575f, saccel + "g", color, 0.55f, TextAlignment::CENTER );
 	
 		if ( dronestats->armed ) {
-			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f, std::to_string( (int)( thrust * 100.0f ) ) + "%", color, 1.0f, true );
+			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f, std::to_string( (int)( thrust * 100.0f ) ) + "%", color, 1.0f, TextAlignment::CENTER );
 		} else {
-			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f * 0.6f, "disarmed", color, 0.6f, true );
+			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f * 0.6f, "disarmed", color, 0.6f, TextAlignment::CENTER );
 		}
 	}
 
@@ -200,11 +200,11 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		float level = dronestats->batteryLevel;
 		RenderBattery( level );
 		if ( level <= 0.0f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery dead", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery dead", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		} else if ( level <= 0.15f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery critical", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery critical", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		} else if ( level <= 0.25f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery low", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery low", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		}
 		float battery_red = 1.0f - level;
 		RenderText( mBorderLeft + 210, mBorderBottom - mFontHeight * 1, std::to_string( (int)( level * 100.0f ) ) + "%", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f - battery_red * 0.5f, 1.0f ), 0.9 );
@@ -217,7 +217,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 
 		if ( localVoltage > 0.0f ) {
 			if ( localVoltage <= 11.0f and mBlinkingViews ) {
-				RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize, "Low Goggles Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+				RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize, "Low Goggles Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 			}
 			battery_red = 1.0f - ( ( localVoltage - 11.0f ) / 1.6f );
 			svolt = std::to_string( localVoltage );
@@ -314,7 +314,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 // 			mWhiteBalanceTick = Thread::GetSeconds();
 // 		}
 // 		if ( Thread::GetSeconds() - mWhiteBalanceTick < 1.0f ) {
-// 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 3, mWhiteBalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, true );
+// 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 3, mWhiteBalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, TextAlignment::CENTER );
 // 		}
 		FontMeasureString( videostats->whitebalance, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 3.0f, videostats->whitebalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
@@ -351,13 +351,18 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		FontMeasureString( latency_str, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 2.0f, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ), 0.8f );
 		if ( dronestats->ping > 50 ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		}
+	}
+
+	if ( dronestats ) {
+		// Render dronestats->gpsSpeed as simple text, already in km/h
+		RenderText( mBorderRight, mBorderBottom - 256 - 16, std::to_string( (int)( dronestats->gpsSpeed ) ) + "km/h", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
 	}
 
 	int imsg = 0;
 	for ( std::string msg : dronestats->messages ) {
-		RenderText( mBorderLeft * 0.75f, mBorderTop + mFontSize * 0.75f * ( 3 + (imsg++) ), msg, Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 0.75f, false );
+		RenderText( mBorderLeft * 0.75f, mBorderTop + mFontSize * 0.75f * ( 3 + (imsg++) ), msg, Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 0.75f );
 	}
 }
 

@@ -38,7 +38,7 @@ static std::string averr( int err )
 
 void RecorderAvformat::WriteSample( PendingSample* sample )
 {
-	fTrace( sample->track->type, sample->track->stream->id, sample->record_time_us, sample->buflen, sample->keyframe );
+	// fTrace( sample->track->type, sample->track->stream->id, sample->record_time_us, sample->buflen, sample->keyframe );
 	AVPacket* pkt = av_packet_alloc();
 	av_packet_from_data( pkt, sample->buf, sample->buflen );
 	pkt->stream_index = sample->track->stream->id;
@@ -385,7 +385,7 @@ uint32_t RecorderAvformat::AddAudioTrack( const std::string& format, uint32_t ch
 
 void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe )
 {
-	fTrace( track_id, record_time_us, buf, buflen, keyframe );
+	// fTrace( track_id, record_time_us, buf, buflen, keyframe );
 
 	Track* track = mTracks.at(track_id);
 	if ( not track ) {

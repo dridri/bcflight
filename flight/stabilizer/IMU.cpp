@@ -40,7 +40,9 @@ IMU::IMU()
 	, mAcceleration( Vector3f() )
 	, mGyroscope( Vector3f() )
 	, mMagnetometer( Vector3f() )
-	, mAltitude( 0.0f )
+	, mGPSLocation( Vector2f() )
+	, mGPSAltitude( 0.0f )
+	, mGPSSpeed( 0.0f )
 	, mAltitudeOffset( 0.0f )
 	, mProximity( 0.0f )
 	, mRPY( Vector3f() )
@@ -191,6 +193,18 @@ const Vector3f IMU::magnetometer() const
 	return mMagnetometer;
 }
 
+
+const Vector3f IMU::gpsLocation() const
+{
+	return Vector3f( mGPSLocation.x, mGPSLocation.y, mGPSAltitude );
+}
+
+
+const float IMU::gpsSpeed() const
+{
+	return mGPSSpeed;
+}
+
 /*
 void IMU::setRatesFilterInput( const Vector3f& v )
 {
@@ -283,7 +297,9 @@ void IMU::Loop( uint64_t tick, float dt )
 {
 	// fDebug( dt, mState );
 	if ( mState == Off ) {
-		// Nothing to do
+		// Just update GPS
+		UpdateGPS();
+		// Nothing more to do
 	} else if ( mState == Calibrating or mState == CalibratingAll ) {
 		Calibrate( dt, ( mState == CalibratingAll ) );
 	} else if ( mState == CalibrationDone ) {
@@ -480,6 +496,8 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 			// sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mMagnetometer.x, mMagnetometer.y, mMagnetometer.z );
 			// mMain->blackbox()->Enqueue( "IMU:magnetometer", stmp );
 
+			// TODO : handle Altimeters
+/*
 			for ( Altimeter* dev : mAltimeters ) {
 				ftmp = 0.0f;
 				dev->Read( &ftmp );
@@ -489,28 +507,11 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 					total_alti += Vector2f( ftmp, 1.0f );
 				}
 			}
-			for ( GPS* dev : mGPSes ) {
-				float lattitude = 0.0f;
-				float longitude = 0.0f;
-				float altitude = 0.0f;
-				float speed = 0.0f;
-				dev->Read( &lattitude, &longitude, &altitude, &speed );
-				if ( lattitude != 0.0f and longitude != 0.0f ) {
-					total_lat_lon += Vector3f( lattitude, longitude, 1.0f );
-				}
-				if ( altitude != 0.0f ) {
-					total_alti += Vector2f( altitude, 1.0f );
-				}
-			}
-			if ( total_alti.y > 0.0f ) {
-				mAltitude = total_alti.x / total_alti.y;
-			}
 			if ( total_proxi.y > 0.0f ) {
 				mProximity = total_proxi.x / total_proxi.y;
 			}
-			if ( total_lat_lon.z > 0.0f ) {
-				mLattitudeLongitude = total_lat_lon.xy() * ( 1.0f / total_lat_lon.z );
-			}
+*/
+			UpdateGPS();
 
 #ifdef SYSTEM_NAME_Linux
 			mPositionUpdateMutex.lock();
@@ -529,6 +530,42 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 	// Update RPY only at 1/16 update frequency when in Rate mode
 	mAcroRPYCounter = ( mAcroRPYCounter + 1 ) % 16;
 	mSensorsUpdateSlow = ( mSensorsUpdateSlow + 1 ) % 16;
+}
+
+
+void IMU::UpdateGPS()
+{
+	if ( mGPSes.size() == 0 ) {
+		return;
+	}
+
+	char stmp[64];
+	Vector2f total_lat_lon;
+	float total_alti = 0.0f;
+	float total_speed = 0.0f;
+
+	for ( GPS* dev : mGPSes ) {
+		float lattitude = 0.0f;
+		float longitude = 0.0f;
+		float altitude = 0.0f;
+		float speed = 0.0f;
+		dev->Read( &lattitude, &longitude, &altitude, &speed );
+		if ( lattitude != 0.0f and longitude != 0.0f ) {
+			total_lat_lon += Vector2f( lattitude, longitude );
+		}
+		if ( altitude != 0.0f ) {
+			total_alti += altitude;
+		}
+		if ( speed > 0.0f ) {
+			total_speed += speed;
+		}
+	}
+	mGPSAltitude = total_alti / mGPSes.size();
+	mGPSLocation = total_lat_lon.xy() * ( 1.0f / mGPSes.size() );
+	mGPSSpeed = total_speed / mGPSes.size();
+
+	sprintf( stmp, "\"%.7f,%.7f,%.2f,%.4f\"", mGPSLocation.x, mGPSLocation.y, mGPSAltitude, mGPSSpeed );
+	mMain->blackbox()->Enqueue( "IMU:gps", stmp );
 }
 
 
@@ -658,6 +695,7 @@ void IMU::UpdateVelocity( float dt )
 
 void IMU::UpdatePosition( float dt )
 {
+/*
 	Vector3f position = mVelocity.state( 0 );
 	Vector3f velo = mVelocity.state( 0 );
 
@@ -672,6 +710,7 @@ void IMU::UpdatePosition( float dt )
 		altitude = mAltitude - mAltitudeOffset;
 	}
 	mPosition.UpdateInput( 2, altitude );
+*/
 /*
 	// Calculate acceleration on Z-axis
 	float accel_z = cos( mRPY.x ) * cos( mRPY.y ) * ( mAcceleration.z - mGravity.z );
@@ -680,5 +719,5 @@ void IMU::UpdatePosition( float dt )
 	mPosition.UpdateInput( 2, pos_z );
 */
 
-	mPosition.Process( dt );
+	// mPosition.Process( dt );
 }
