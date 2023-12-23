@@ -86,7 +86,7 @@ cp $(which qemu-arm-static) /tmp/raspbian/bcflight/root$(which qemu-arm-static)
 chroot /tmp/raspbian/bcflight/root <<EOF_
 apt update
 apt remove --purge -y logrotate dbus dphys-swapfile fake-hwclock man-db
-apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd lua5.3
+apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd lua5.3 python3-gps python3-serial
 apt autoremove -y
 apt autoclean -y
 apt clean -y
@@ -130,6 +130,11 @@ sed -i 's/#AddressFamily/AddressFamily/g' /tmp/raspbian/bcflight/root/etc/ssh/ss
 sed -i 's/#ListenAddress/ListenAddress/g' /tmp/raspbian/bcflight/root/etc/ssh/sshd_config
 sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' /tmp/raspbian/bcflight/root/etc/ssh/sshd_config
 
+sed -i 's/ExecStart=/ExecStartPre=ubxtool -S 115200 -f \/dev\/ttyAMA0\nExecStart=/g' /tmp/raspbian/bcflight/root/lib/systemd/system/gpsd.service
+sed -i -r -z 's/\n\[Install\]/ExecStartPost=bash -c "sleep 1 \&\& ubxtool -p CFG-RATE,100"\n\n[Install]/g' /tmp/raspbian/bcflight/root/lib/systemd/system/gpsd.service
+sed -i 's/DEVICES=""/DEVICES="\/dev\/ttyAMA0"/g' /tmp/raspbian/bcflight/root/etc/default/gpsd
+sed -i 's/GPSD_OPTIONS=""/GPSD_OPTIONS="-n -G -s 115200"/g' /tmp/raspbian/bcflight/root/etc/default/gpsd
+
 cat > /tmp/raspbian/bcflight/root/lib/systemd/system/flight.service <<EOF
 [Unit]
 Description=Beyond-Chaos Flight Controller
@@ -167,6 +172,7 @@ echo "#!/bin/bash
 $(grep -B1000 debug_quirks2 /tmp/raspbian/bcflight/root/usr/lib/raspberrypi-sys-mods/firstboot_bak)
 mount / -o remount,rw
 sed -i 's|quiet|consoleblank=0 noswap ro nosplash fastboot vc4.fkms_max_refresh_rate=50000|g' /boot/cmdline.txt
+sed -i 's|console=serial0,115200 ||g' /boot/cmdline.txt
 sed -i -r '1 ! s/([vfatex4]+\s*defaults)(,r[ow])?(,?)/\1,ro\3/g' /etc/fstab
 sed -i '1 ! s/defaults,ro,comment=var/defaults,rw/g' /etc/fstab
 mount / -o remount,ro
