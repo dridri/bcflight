@@ -55,7 +55,15 @@ bool Console::run()
 	string* prompt = &history.back();
 
 	printf("\33[2K\rflight> "); fflush(stdout);
-	while ( true ) {
+	while ( true and not Thread::stopped() ) {
+		fd_set selectset;
+		struct timeval timeout = { 0, 100000 };
+		FD_ZERO( &selectset );
+		FD_SET( 0, &selectset );
+		int waitRet = select( 1, &selectset, nullptr, nullptr, &timeout );
+		if( waitRet <= 0 ) {
+			continue;
+		}
 		char buf[256];
 		memset( buf, 0, 256 );
 		int32_t res = read( 0, buf, 255 );

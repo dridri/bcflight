@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <sys/poll.h>
 #include <sys/ioctl.h>
+#include <sys/eventfd.h>
 #include <fcntl.h>
 // #include <softPwm.h>
 #include <Debug.h>
@@ -109,6 +110,19 @@ void GPIO::SetupInterrupt( int pin, GPIO::ISRMode mode, function<void()> fct )
 }
 
 
+GPIO::ISR::ISR( int pin, int fd )
+	: Thread( "GPIO::ISR_" + to_string(pin) )
+	, mPin( pin )
+	, mFD( fd )
+	, mReady( false )
+{
+	mExitFD = eventfd( 0, EFD_NONBLOCK );
+	if ( mExitFD < 0 ) {
+		gDebug() << "Failed to create eventfd for GPIO ISR";
+	}
+}
+
+
 bool GPIO::ISR::run()
 {
 	if ( not mReady ) {
@@ -116,23 +130,38 @@ bool GPIO::ISR::run()
 		usleep( 1000 * 100 );
 	}
 
-	struct pollfd fds;
+	struct pollfd fds[2];
 	char buffer[16];
 	list<pair<function<void()>,GPIO::ISRMode>>& fcts = mInterrupts.at( mPin );
 
-	fds.fd = mFD;
-	fds.events = POLLPRI;
+	fds[0].fd = mFD;
+	fds[0].events = POLLPRI;
+	fds[1].fd = mExitFD;
+	fds[1].events = POLLIN;
 	lseek( mFD, 0, SEEK_SET );
-	int rpoll = poll( &fds, 1, -1 );
-	if ( rpoll == 1 and read( mFD, buffer, 2 ) > 0 ) {
-		for ( pair<function<void()>,GPIO::ISRMode> fct : fcts ) {
-			if ( buffer[0] == '1' and fct.second != Falling ) {
-				fct.first();
-			} else if ( buffer[0] == '0' and fct.second != Rising ) {
-				fct.first();
+	int rpoll = poll( fds, 2, -1 );
+	if ( rpoll >= 1 ) {
+		if ( read( mExitFD, buffer, 16 ) > 0 and buffer[0] == 1 ) {
+			return false;
+		}
+		if ( read( mFD, buffer, 2 ) > 0 ) {
+			for ( pair<function<void()>,GPIO::ISRMode> fct : fcts ) {
+				if ( buffer[0] == '1' and fct.second != Falling ) {
+					fct.first();
+				} else if ( buffer[0] == '0' and fct.second != Rising ) {
+					fct.first();
+				}
 			}
 		}
 	}
 
 	return true;
+}
+
+
+void GPIO::ISR::Stop()
+{
+	Thread::Stop();
+	uint64_t val = 1;
+	write( mExitFD, &val, sizeof(val) );
 }

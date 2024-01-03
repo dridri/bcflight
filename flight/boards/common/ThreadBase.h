@@ -38,9 +38,10 @@ public:
 
 	void Start();
 	void Pause();
-	void Stop();
+	virtual void Stop();
 	void Join();
 	bool running() const;
+	bool stopped() const;
 	uint32_t frequency() const;
 
 	void setFrequency( uint32_t hz );

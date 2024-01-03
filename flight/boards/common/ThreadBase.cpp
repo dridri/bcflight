@@ -129,6 +129,12 @@ bool ThreadBase::running() const
 }
 
 
+bool ThreadBase::stopped() const
+{
+	return mStopped;
+}
+
+
 uint32_t ThreadBase::frequency() const
 {
 	return mFrequency;

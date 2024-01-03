@@ -54,14 +54,16 @@ public:
 private:
 	class ISR : public Thread {
 	public:
-		ISR( int pin, int fd ) : Thread( "GPIO::ISR_" + to_string(pin) ), mPin( pin ), mFD( fd ), mReady( false ) {}
+		ISR( int pin, int fd );
 		~ISR() {}
+		virtual void Stop();
 	protected:
 		virtual bool run();
 	private:
 		int mPin;
 		int mFD;
 		bool mReady;
+		int mExitFD;
 	};
 
 	static map< int, list<pair<function<void()>,GPIO::ISRMode>> > mInterrupts;
