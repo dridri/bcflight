@@ -19,6 +19,7 @@ Open-source Linux-based Raspberry drone and ground controller.
 
 [preview.webm](https://github.com/dridri/bcflight/assets/220731/773a024a-642d-4f69-babe-427d3c5535c6)
 
+[https://www.youtube.com/@drichfpv/videos](https://www.youtube.com/@drichfpv/videos)
 
 
 
