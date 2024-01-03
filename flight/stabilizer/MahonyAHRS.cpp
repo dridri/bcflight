@@ -9,6 +9,7 @@ MahonyAHRS::MahonyAHRS( float kp, float ki )
 	, mKp( kp )
 	, mKi( ki )
 {
+	fDebug( kp, ki );
 	memset( mRotationMatrix.m, 0, sizeof( float ) * 9 );
 }
 

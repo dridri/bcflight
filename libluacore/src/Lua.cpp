@@ -595,7 +595,6 @@ LuaValue Lua::value( lua_State* L, int index )
 				lua_rawgeti( L, index, i );
 				if ( not lua_isfunction( L, -1 ) ) {
 					LuaValue v = value( L, -1 );
-					printf("on valuz %d %d\n", lua_type( L, -1 ), v.type());
 					table[i] = v;
 				}
 				lua_pop( L, 1 );

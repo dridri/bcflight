@@ -4,11 +4,12 @@
 #include <Vector.h>
 #include <Quaternion.h>
 #include <Matrix.h>
+#include "Lua.h"
 
-class MahonyAHRS : public SensorFusion<Vector3f>
+LUA_CLASS class MahonyAHRS : public SensorFusion<Vector3f>
 {
 public:
-	MahonyAHRS( float kp, float ki );
+	LUA_EXPORT MahonyAHRS( float kp, float ki );
 	virtual ~MahonyAHRS();
 
 	virtual void UpdateInput( uint32_t row, const Vector3f& input );

@@ -436,7 +436,7 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 
 void RecorderAvformat::WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel )
 {
-	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or mRecordStartSystemTick == 0 or not Thread::running() or mStopWrite ) {
+	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or mRecordStartSystemTick == 0 or not recording() or mStopWrite ) {
 		return;
 	}
 

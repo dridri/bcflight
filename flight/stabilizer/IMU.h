@@ -132,7 +132,7 @@ protected:
 	// EKF mRates;
 	// EKF mAccelerationSmoother;
 	// EKF mAttitude;
-	SensorFusion<Vector3f>* mAttitude;
+	LUA_PROPERTY("attitude") SensorFusion<Vector3f>* mAttitude;
 	EKF mPosition;
 	EKF mVelocity;
 	Vector4f mLastAccelAttitude;

@@ -410,12 +410,9 @@ public:
 	}
 
 	template<typename T> operator list<T> () const {
-		std::cout << "to std::list (" << mType << ")\n";
 		list< T > ret;
 		if ( mType == Table ) {
-			std::cout << "  size : " << mMap.size() << ")\n";
 			for ( auto entry : mMap ) {
-				std::cout << "    push : " << static_cast<T>( entry.second ) << "\n";
 				ret.emplace_back( static_cast<T>( entry.second ) );
 			}
 		}

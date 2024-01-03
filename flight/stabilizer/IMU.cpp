@@ -55,7 +55,7 @@ IMU::IMU()
 	, mGravity( Vector3f() )
 	// , mRates( EKF( 3, 3 ) )
 	// , mAccelerationSmoother( EKF( 3, 3 ) )
-	// , mAttitude( EKF( 6, 3 ) )
+	, mAttitude( nullptr )
 	, mPosition( EKF( 3, 3 ) )
 	, mVelocity( EKF( 3, 3 ) )
 	, mLastAccelAttitude( Vector4f() )
@@ -101,7 +101,7 @@ IMU::IMU()
 	mAttitude.setSelector( 5, 2, 1.0f );
 */
 
-	mAttitude = new MahonyAHRS( 0.5f, 0.0f );
+	// mAttitude = new MahonyAHRS( 0.5f, 0.0f );
 
 	/** mPosition matrix :
 	 *   - Inputs :
