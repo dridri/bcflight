@@ -53,27 +53,10 @@ Stabilizer::Stabilizer()
 	, mHorizonMaxRate( Vector3f( 300.0f, 300.0f, 300.0f ) )
 {
 	fDebug(this);
-/*
-	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->Number( "stabilizer.pid_roll.p" ) ) );
-	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->Number( "stabilizer.pid_roll.i" ) ) );
-	mRateRollPID.setD( Board::LoadRegisterFloat( "PID:Roll:D", main->config()->Number( "stabilizer.pid_roll.d" ) ) );
-	mRatePitchPID.setP( Board::LoadRegisterFloat( "PID:Pitch:P", main->config()->Number( "stabilizer.pid_pitch.p" ) ) );
-	mRatePitchPID.setI( Board::LoadRegisterFloat( "PID:Pitch:I", main->config()->Number( "stabilizer.pid_pitch.i" ) ) );
-	mRatePitchPID.setD( Board::LoadRegisterFloat( "PID:Pitch:D", main->config()->Number( "stabilizer.pid_pitch.d" ) ) );
-	mRateYawPID.setP( Board::LoadRegisterFloat( "PID:Yaw:P", main->config()->Number( "stabilizer.pid_yaw.p" ) ) );
-	mRateYawPID.setI( Board::LoadRegisterFloat( "PID:Yaw:I", main->config()->Number( "stabilizer.pid_yaw.i" ) ) );
-	mRateYawPID.setD( Board::LoadRegisterFloat( "PID:Yaw:D", main->config()->Number( "stabilizer.pid_yaw.d" ) ) );
-
-	mHorizonPID.setP( Board::LoadRegisterFloat( "PID:Outerloop:P", main->config()->Number( "stabilizer.pid_horizon.p" ) ) );
-	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->Number( "stabilizer.pid_horizon.i" ) ) );
-	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->Number( "stabilizer.pid_horizon.d" ) ) );
-*/
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
-
-// 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 }
 
 
@@ -178,41 +161,6 @@ Vector3f Stabilizer::getYawPID() const
 Vector3f Stabilizer::lastPIDOutput() const
 {
 	return Vector3f( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
-}
-
-
-void Stabilizer::setOuterP( float p )
-{
-	// mHorizonPID.setP( p );
-	// Board::SaveRegister( "PID:Outerloop:P", to_string( p ) );
-}
-
-
-void Stabilizer::setOuterI( float i )
-{
-	// mHorizonPID.setI( i );
-	// Board::SaveRegister( "PID:Outerloop:I", to_string( i ) );
-}
-
-
-void Stabilizer::setOuterD( float d )
-{
-	// mHorizonPID.setD( d );
-	// Board::SaveRegister( "PID:Outerloop:D", to_string( d ) );
-}
-
-
-Vector3f Stabilizer::getOuterPID() const
-{
-	return Vector3f();
-	// return mHorizonPID.getPID();
-}
-
-
-Vector3f Stabilizer::lastOuterPIDOutput() const
-{
-	return Vector3f();
-	// return mHorizonPID.state();
 }
 
 
@@ -372,16 +320,13 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	// Anti-gravity
 	if ( mAntiGravityThreshold > 0.0f ) {
 		float delta = std::abs( mThrust - mPreviousThrust ) / dt;
-		// mAntigravityThrustAccum = std::max( 0.0f, mAntigravityThrustAccum * (1.0f - dt * 10.0f) + delta * dt );
-		// mAntigravityThrustAccum = std::max( delta * dt, mAntigravityThrustAccum * (1.0f - dt * 10.0f) );
 		mAntigravityThrustAccum = std::min( 1.0f, mAntigravityThrustAccum * ( 1.0f - dt * mAntiGravityDecay ) + delta * dt );
-		// float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max( 0.0f, (mAntigravityThrustAccum - mAntiGravityThreshold)) / (1.0f - mAntiGravityThreshold);
 		float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max(0.0f, std::min( 1.0f, ( mAntigravityThrustAccum - mAntiGravityThreshold ) / (1.0f - mAntiGravityThreshold) ) );
 		rollPIDMultiplier.y *= ag;
 		pitchPIDMultiplier.y *= ag;
 		yawPIDMultiplier.y *= ag;
 		if ( ag > 1.0f ) {
-			// gDebug() << "AG: " << ag << " | " << mAntigravityThrustAccum << " | " << delta;
+			gTrace() << "AG: " << ag << " | " << mAntigravityThrustAccum << " | " << delta;
 		}
 	}
 

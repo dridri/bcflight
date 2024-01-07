@@ -61,14 +61,23 @@ void V4L2Encoder::Setup()
 	}
 	gDebug() << "Opened V4L2Encoder on " << mVideoDevice << " as fd " << mFD;
 
+	if ( mInputWidth == 0 ) {
+		mInputWidth = mWidth;
+	}
+	if ( mInputHeight == 0 ) {
+		mInputHeight = mHeight;
+	}
+
+	gDebug() << "input resolution : " << mInputWidth << "x" << mInputHeight;
+
 	v4l2_format fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	fmt.fmt.pix_mp.width = mWidth;
-	fmt.fmt.pix_mp.height = mHeight;
+	fmt.fmt.pix_mp.width = mInputWidth;
+	fmt.fmt.pix_mp.height = mInputHeight;
 	// We assume YUV420 here, but it would be nice if we could do something
 	// like info.pixel_format.toV4L2Fourcc();
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
-	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = mWidth; // On YUV420, stride == width
+	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = mInputWidth; // On YUV420, stride == width
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 // 	fmt.fmt.pix_mp.colorspace = get_v4l2_colorspace(info.colour_space); // TOD
 	fmt.fmt.pix_mp.num_planes = 1;
@@ -174,8 +183,8 @@ void V4L2Encoder::Setup()
 		}
 	}
 
-// 	mOutputThread = std::thread( &V4L2Encoder::outputThread, this );
-	mPollThread = std::thread( &V4L2Encoder::pollThread, this );
+	Thread::setName( "V4L2Encoder::pollThread" );
+	Thread::Start();
 }
 
 
@@ -318,79 +327,79 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 }
 
 
-void V4L2Encoder::pollThread()
+bool V4L2Encoder::run()
 {
-	while ( true ) {
-		pollfd p = { mFD, POLLIN, 0 };
-		int ret = poll(&p, 1, 200);
-		{
-			std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
-			if ( mInputBuffersAvailable.size() == NUM_OUTPUT_BUFFERS ) {
-				break;
+	pollfd p = { mFD, POLLIN, 0 };
+	int ret = poll( &p, 1, 200 );
+	{
+		std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
+		if ( mInputBuffersAvailable.size() == NUM_OUTPUT_BUFFERS ) {
+			return true;
+		}
+	}
+	if ( ret < 0 ) {
+		if ( errno == EINTR ) {
+			return true;
+		}
+		throw std::runtime_error("unexpected errno " + std::to_string(errno) + " from poll");
+	}
+	if ( p.revents & POLLIN ) {
+		v4l2_plane planes[VIDEO_MAX_PLANES] = {};
+		memset(planes, 0, sizeof(planes));
+		v4l2_buffer buf = {};
+		buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+		buf.memory = V4L2_MEMORY_DMABUF;
+		buf.length = 1;
+		buf.m.planes = planes;
+		int ret = xioctl( mFD, VIDIOC_DQBUF, &buf );
+		if ( ret == 0 ) {
+			// Return this to the caller, first noting that this buffer, identified
+			// by its index, is available for queueing up another frame.
+			{
+				std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
+				mInputBuffersAvailable.push(buf.index);
 			}
 		}
-		if ( ret < 0 ) {
-			if ( errno == EINTR ) {
-				continue;
+
+		buf = {};
+		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.length = 1;
+		buf.m.planes = planes;
+		ret = xioctl( mFD, VIDIOC_DQBUF, &buf );
+		if ( ret == 0 ) {
+			// We push this encoded buffer to another thread so that our
+			// application can take its time with the data without blocking the
+			// encode process.
+			int64_t timestamp_us = (buf.timestamp.tv_sec * (int64_t)1000000) + buf.timestamp.tv_usec;
+			if ( mRecorder and (int32_t)mRecorderTrackId != -1 ) {
+				mRecorder->WriteSample( mRecorderTrackId, timestamp_us, mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused, buf.flags & V4L2_BUF_FLAG_KEYFRAME );
 			}
-			throw std::runtime_error("unexpected errno " + std::to_string(errno) + " from poll");
-		}
-		if ( p.revents & POLLIN ) {
+			if ( mLink and mLink->isConnected() ) {
+				if ( dynamic_cast<Socket*>(mLink) ) {
+					uint32_t dummy = 0;
+					mLink->Read( &dummy, sizeof(dummy), 0 ); // Dummy Read to get sockaddr_t from client
+				}
+				int err = mLink->Write( (uint8_t*)mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused, false, 0 );
+				if ( err < 0 ) {
+					gWarning() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")";
+				}
+			}
+
+			v4l2_buffer buf2 = {};
 			v4l2_plane planes[VIDEO_MAX_PLANES] = {};
-			memset(planes, 0, sizeof(planes));
-			v4l2_buffer buf = {};
-			buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-			buf.memory = V4L2_MEMORY_DMABUF;
-			buf.length = 1;
-			buf.m.planes = planes;
-			int ret = xioctl( mFD, VIDIOC_DQBUF, &buf );
-			if ( ret == 0 ) {
-				// Return this to the caller, first noting that this buffer, identified
-				// by its index, is available for queueing up another frame.
-				{
-					std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
-					mInputBuffersAvailable.push(buf.index);
-				}
-			}
-
-			buf = {};
-			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-			buf.memory = V4L2_MEMORY_MMAP;
-			buf.length = 1;
-			buf.m.planes = planes;
-			ret = xioctl( mFD, VIDIOC_DQBUF, &buf );
-			if ( ret == 0 ) {
-				// We push this encoded buffer to another thread so that our
-				// application can take its time with the data without blocking the
-				// encode process.
-				int64_t timestamp_us = (buf.timestamp.tv_sec * (int64_t)1000000) + buf.timestamp.tv_usec;
-				if ( mRecorder and (int32_t)mRecorderTrackId != -1 ) {
-					mRecorder->WriteSample( mRecorderTrackId, timestamp_us, mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused, buf.flags & V4L2_BUF_FLAG_KEYFRAME );
-				}
-				if ( mLink and mLink->isConnected() ) {
-					if ( dynamic_cast<Socket*>(mLink) ) {
-						uint32_t dummy = 0;
-						mLink->Read( &dummy, sizeof(dummy), 0 ); // Dummy Read to get sockaddr_t from client
-					}
-					int err = mLink->Write( (uint8_t*)mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused, false, 0 );
-					if ( err < 0 ) {
-						gWarning() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")";
-					}
-				}
-
-				v4l2_buffer buf2 = {};
-				v4l2_plane planes[VIDEO_MAX_PLANES] = {};
-				buf2.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-				buf2.memory = V4L2_MEMORY_MMAP;
-				buf2.index = buf.index;
-				buf2.length = 1;
-				buf2.m.planes = planes;
-				buf2.m.planes[0].bytesused = 0;
-				buf2.m.planes[0].length = buf.m.planes[0].length;
-				if ( xioctl( mFD, VIDIOC_QBUF, &buf2) < 0 ) {
-					throw std::runtime_error("failed to re-queue encoded buffer");
-				}
+			buf2.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+			buf2.memory = V4L2_MEMORY_MMAP;
+			buf2.index = buf.index;
+			buf2.length = 1;
+			buf2.m.planes = planes;
+			buf2.m.planes[0].bytesused = 0;
+			buf2.m.planes[0].length = buf.m.planes[0].length;
+			if ( xioctl( mFD, VIDIOC_QBUF, &buf2) < 0 ) {
+				throw std::runtime_error("failed to re-queue encoded buffer");
 			}
 		}
 	}
+
+	return true;
 }

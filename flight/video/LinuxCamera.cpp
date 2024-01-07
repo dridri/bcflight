@@ -331,6 +331,13 @@ void LinuxCamera::Start()
 		mRequests.push_back(std::move(request));
 	}
 
+	if ( mVideoEncoder ) {
+		mVideoEncoder->SetInputResolution( mWidth, mHeight );
+	}
+	if ( mLiveEncoder ) {
+		mLiveEncoder->SetInputResolution( mWidth, mHeight );
+	}
+
 	mCamera->requestCompleted.connect( this, &LinuxCamera::requestComplete );
 	mCamera->start(&mAllControls);
 

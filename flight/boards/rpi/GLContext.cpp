@@ -278,7 +278,7 @@ void GLContext::SwapBuffers()
 {
 	glFlush();
 	glFinish();
-	usleep( 1000 * 1000 * 1 / 50 );
+	usleep( 1000 * 1000 * 1 / 30 );
 	eglSwapBuffers( mEGLDisplay, mEGLSurface );
 
 	struct gbm_bo* bo = gbm_surface_lock_front_buffer( mGbmSurface );

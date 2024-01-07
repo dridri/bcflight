@@ -9,6 +9,7 @@
 #include <IMU.h>
 #include <Link.h>
 #include <Config.h>
+#include <Sensor.h>
 
 
 HUD::HUD()
@@ -109,11 +110,15 @@ bool HUD::run()
 		dronestats.thrust = stabilizer->thrust();
 	}
 	if ( imu ) {
-		mAccelerationAccum = ( mAccelerationAccum * 0.99f + imu->acceleration().length() * 0.01f );
+		mAccelerationAccum = ( mAccelerationAccum * 0.995f + imu->acceleration().length() * 0.005f );
 		dronestats.acceleration = mAccelerationAccum;
 		dronestats.rpy = imu->RPY();
-		dronestats.gpsLocation = imu->gpsLocation();
-		dronestats.gpsSpeed = imu->gpsSpeed();
+		if ( Sensor::GPSes().size() > 0 ) {
+			dronestats.gpsLocation = imu->gpsLocation();
+			dronestats.gpsSpeed = imu->gpsSpeed();
+		} else {
+			dronestats.gpsSpeed = NAN;
+		}
 	}
 	if ( powerThread ) {
 		dronestats.batteryLevel = powerThread->BatteryLevel();

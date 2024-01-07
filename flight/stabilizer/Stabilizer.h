@@ -51,12 +51,6 @@ public:
 	Vector3f getYawPID() const;
 	virtual Vector3f lastPIDOutput() const;
 
-	virtual void setOuterP( float p );
-	virtual void setOuterI( float i );
-	virtual void setOuterD( float d );
-	Vector3f getOuterPID() const;
-	virtual Vector3f lastOuterPIDOutput() const;
-
 	virtual void setHorizonOffset( const Vector3f& v );
 	virtual Vector3f horizonOffset() const;
 

@@ -23,6 +23,14 @@
 #include "SPI.h"
 
 
+static const map< uint8_t, string > known = {
+	{ 0x42, "ICM-42605" }
+};
+
+static const map< uint8_t, bool > hasMagnetometer = {
+	{ 0x42, false }
+};
+
 
 ICM4xxxx::ICM4xxxx()
 	: Sensor()
@@ -37,9 +45,6 @@ ICM4xxxx::ICM4xxxx()
 
 void ICM4xxxx::InitChip()
 {
-	const map< uint8_t, string > known = {
-		{ 0x42, "ICM-42605" }
-	};
 
 	uint8_t read_reg = 0;
 	if ( dynamic_cast<SPI*>(mBus) != nullptr ) {
@@ -140,49 +145,6 @@ void ICM4xxxx::InitChip()
 	gDebug() << "Setting ICM4xxxx rate to " << loopRate << "Hz (" << (int)rate << ")";
 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, rate );
 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, rate );
-/*
-	// Set sample_rate divider
-// 	const uint32_t rate = 1000000 / config->Integer( "stabilizer.loop_time", 2000 );
-// 	mBus->Write8( ICM_4xxxx_SMPRT_DIV, 8000 / min(8000U, rate) - 1 );
-	if ( config && config->Boolean( "gyroscopes.ICM4xxxx.DLPF", true ) ) { // Enable DLPF
-		if ( mpu9250 or icm20608 ) {
-			// No ext sync, DLPF at 98Hz for the gyro
-			mBus->Write8( ICM_4xxxx_DEFINE, 0b00000010 );
-		} else {
-			// ICM4xxxx : No ext sync, DLPF at 94Hz for the accel and 98Hz for the gyro: 0b00000010) (~200Hz: 0b00000001)
-			mBus->Write8( ICM_4xxxx_DEFINE, 0b00000010 );
-		}
-// 		// 1 kHz sampling rate: 0b00000000
-// 		mBus->Write8( ICM_4xxxx_SMPRT_DIV, 0b00000000 );
-	} else {
-		// No ext sync, no DLPF
-		mBus->Write8( ICM_4xxxx_DEFINE, 0b00000000 );
-// 		if ( ( mpu9250 or icm20608 ) and rate > 8000 ) {
-// 			mBus->Write8( ICM_4xxxx_GYRO_CONFIG, 0b00011011 );
-// 		}
-	}
-	if ( config && ( mpu9250 or icm20608 ) and config->Boolean( "accelerometers.ICM4xxxx.DLPF", true ) ) { // Enable DLPF
-		// DLPF at 99Hz for the accel
-		mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_2, 0b00000010 );
-	}
-	// Bypass mode enabled: 0b00000010
-	mBus->Write8( ICM_4xxxx_INT_PIN_CFG, 0b00000010 );
-	// No FIFO and no I2C slaves: 0b00000000
-	if ( dynamic_cast<SPI*>(bus) != nullptr ) {
-		mBus->Write8( ICM_4xxxx_USER_CTRL, 0b00010000 ); // Force SPI mode
-	} else {
-		mBus->Write8( ICM_4xxxx_USER_CTRL, 0b00000000 );
-	}
-*/
-
-	// TODO : use config ('use_dmp')
-	// TODO : see https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/ICM4xxxx/ICM4xxxx_6Axis_MotionApps20.h
-	if ( false ) {
-// 		ICM4xxxx* mpu = new ICM4xxxx( bus );
-// 		delete mpu;
-// 		exit(0);
-	}
-// 	delete i2c;
 
 	mChipReady = true;
 }
@@ -229,7 +191,7 @@ ICM4xxxxMag* ICM4xxxx::magnetometer()
 	if ( !mChipReady ) {
 		InitChip();
 	}
-	if ( !mMagnetometer ) {
+	if ( !mMagnetometer and hasMagnetometer.at( mWhoAmI ) ) {
 		mMagnetometer = new ICM4xxxxMag( mBus, mName );
 		if ( mSwapMode == SwapModeAxis ) {
 			mMagnetometer->setAxisSwap(mAxisSwap);

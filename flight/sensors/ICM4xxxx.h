@@ -99,6 +99,8 @@ public:
 	LUA_PROPERTY("magnetometer_axis_swap") void setMagnetometerAxisSwap( const Vector4i& swap );
 
 protected:
+	uint8_t mWhoAmI;
+
 	ICM4xxxx( I2C* i2c );
 	uint8_t dmpInitialize();
 	uint8_t dmpGetAccel(int32_t* data, const uint8_t* packet);

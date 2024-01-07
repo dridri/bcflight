@@ -162,7 +162,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		// if ( dronestats->mode != DroneMode::Rate ) {
 			RenderAttitude( dronestats->rpy );
 		// }
-		RenderThrustAcceleration( thrust, std::min( 1.0f, acceleration / 5.0f ) );
+		RenderThrustAcceleration( thrust, acceleration / 5.0f );
 
 		DroneMode mode = dronestats->mode;
 		Vector4f color_acro = Vector4f( 0.4f, 0.4f, 0.4f, 1.0f );
@@ -355,7 +355,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		}
 	}
 
-	if ( dronestats ) {
+	if ( dronestats and not std::isnan( dronestats->gpsSpeed ) ) {
 		// Render dronestats->gpsSpeed as simple text, already in km/h
 		RenderText( mBorderRight, mBorderBottom - 256 - 16, std::to_string( (int)( dronestats->gpsSpeed ) ) + "km/h", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
 	}
@@ -627,7 +627,7 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 	// Degres lines
 	{
 		uint32_t i = total;
-		for ( int32_t j = -4; j <= 4; j++ ) {
+		for ( int32_t j = -3; j <= 3; j++ ) {
 			if ( j == 0 ) {
 				continue;
 			}

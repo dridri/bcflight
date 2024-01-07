@@ -883,7 +883,7 @@ bool Controller::run()
 				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
-				mMain->stabilizer()->setOuterP( value );
+				// mMain->stabilizer()->setOuterP( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
@@ -893,7 +893,7 @@ bool Controller::run()
 				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
-				mMain->stabilizer()->setOuterI( value );
+				// mMain->stabilizer()->setOuterI( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
@@ -903,24 +903,30 @@ bool Controller::run()
 				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
-				mMain->stabilizer()->setOuterD( value );
+				// mMain->stabilizer()->setOuterD( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
 			}
 			case OUTER_PID_FACTORS : {
-				Vector3f pid = mMain->stabilizer()->getOuterPID();
-				response.WriteFloat( pid.x );
-				response.WriteFloat( pid.y );
-				response.WriteFloat( pid.z );
+				// Vector3f pid = mMain->stabilizer()->getOuterPID();
+				// response.WriteFloat( pid.x );
+				// response.WriteFloat( pid.y );
+				// response.WriteFloat( pid.z );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
 				do_response = true;
 				break;
 			}
 			case OUTER_PID_OUTPUT : {
-				Vector3f pid = mMain->stabilizer()->lastOuterPIDOutput();
-				response.WriteFloat( pid.x );
-				response.WriteFloat( pid.y );
-				response.WriteFloat( pid.z );
+				// Vector3f pid = mMain->stabilizer()->lastOuterPIDOutput();
+				// response.WriteFloat( pid.x );
+				// response.WriteFloat( pid.y );
+				// response.WriteFloat( pid.z );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
 				do_response = true;
 				break;
 			}
@@ -967,37 +973,11 @@ bool Controller::run()
 				break;
 			}
 			case VIDEO_START_RECORD : {
-				/*
-				uint32_t count = 0;
-				for ( const auto& recorder : Recorder::recorders() ) {
-					try {
-						recorder->Start();
-						count++;
-					} catch ( const std::exception& e ) {
-					}
-				}
-				if ( count > 0 ) {
-					gDebug() << "Recording started";
-				}
-				*/
 				response.WriteU32( 1 );
 				do_response = true;
 				break;
 			}
 			case VIDEO_STOP_RECORD : {
-				/*
-				uint32_t count = 0;
-				for ( const auto& recorder : Recorder::recorders() ) {
-					try {
-						recorder->Stop();
-						count++;
-					} catch ( const std::exception& e ) {
-					}
-				}
-				if ( count > 0 ) {
-					gDebug() << "Recording stopped";
-				}
-				*/
 				response.WriteU32( 0 );
 				do_response = true;
 				break;
