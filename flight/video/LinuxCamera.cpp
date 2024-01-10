@@ -165,8 +165,7 @@ LuaValue LinuxCamera::infos()
 		ret["Still Configuration"] = mStillStreamConfiguration->toString();
 	}
 
-	ret["Width"] = mWidth;
-	ret["Height"] = mHeight;
+	ret["Resolution"] = std::to_string(mWidth) + "x" + std::to_string(mHeight);
 	ret["Framerate"] = mFps;
 	ret["HDR"] = ( mHDR ? "on" : "off" );
 
@@ -635,6 +634,15 @@ void LinuxCamera::updateSettings()
 	controls.set( libcamera::controls::Contrast, mContrast );
 	controls.set( libcamera::controls::Saturation, mSaturation );
 	setWhiteBalance( mWhiteBalance, &controls );
+	if ( mExposureMode == "short" ) {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
+	} else if ( mExposureMode == "long" ) {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureLong );
+	} else if ( mExposureMode == "custom" ) {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureCustom );
+	} else {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureNormal );
+	}
 //	controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeOff );
 
 	pushControlList( controls );
