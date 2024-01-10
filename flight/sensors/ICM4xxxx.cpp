@@ -539,6 +539,7 @@ LuaValue ICM4xxxxGyro::infos()
 	LuaValue ret;
 
 	ret["bus"] = mBus->infos();
+	// TODO : read from chip
 	ret["precision"] = "16 bits";
 	ret["scale"] = "2000°/s";
 	ret["sample_rate"] = "1kHz";
@@ -553,6 +554,7 @@ LuaValue ICM4xxxxAccel::infos()
 	LuaValue ret;
 
 	ret["bus"] = mBus->infos();
+	// TODO : read from chip
 	ret["precision"] = "16 bits";
 	ret["scale"] = "16g";
 	ret["sample_rate"] = "1kHz";
