@@ -395,7 +395,7 @@ void ICM4xxxxAccel::Read( Vector3f* v, bool raw )
 	int16_t curr[3] = { 0 };
 	uint8_t saccel[6] = { 0 };
 
-	mBus->Read( ICM_4xxxx_ACCEL_DATA_X1 | 0x80, saccel, sizeof(saccel) );
+	int r = mBus->Read( ICM_4xxxx_ACCEL_DATA_X1 | 0x80, saccel, sizeof(saccel) );
 
 	curr[0] = (int16_t)( saccel[0] << 8 | saccel[1] );
 	curr[1] = (int16_t)( saccel[2] << 8 | saccel[3] );
@@ -422,9 +422,9 @@ int ICM4xxxxGyro::Read( Vector3f* v, bool raw )
 	uint8_t sgyro[6] = { 0 };
 	int ret = 0;
 
-	if ( ( ret = mBus->Read( ICM_4xxxx_GYRO_DATA_X1 | 0x80, sgyro, sizeof(sgyro) ) ) != sizeof(sgyro) ) {
-		printf( "err : %d (%d, %s)\n", ret, errno, strerror(errno) );
-		gDebug() << "ret -1";
+	ret = mBus->Read( ICM_4xxxx_GYRO_DATA_X1 | 0x80, sgyro, sizeof(sgyro) );
+	if ( ret != sizeof(sgyro) ) {
+		gWarning() << "ICM4xxxxAccel::Read() : read " << ret << " bytes instead of " << sizeof(sgyro);
 		return -1;
 	}
 	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;

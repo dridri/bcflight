@@ -159,7 +159,7 @@ Main::Main()
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
 	mStabilizerThread->setFrequency( 100 );
 	mStabilizerThread->Start();
-	mStabilizerThread->setPriority( 99, 0 );
+	mStabilizerThread->setPriority( 99, -1, true );
 #endif // BUILD_stabilizer
 
 #ifdef SYSTEM_NAME_Linux
@@ -194,7 +194,7 @@ bool Main::StabilizerThreadRun()
 	mTicks = mBoard->GetTicks();
 
 	if ( abs( dt ) >= 1.0 ) {
-		gDebug() << "Critical : dt too high !! ( " << dt << " )";
+		gWarning() << "Critical : dt too high !! ( " << dt << " )";
 // 		mFrame->Disarm();
 		return true;
 	}
@@ -214,8 +214,8 @@ bool Main::StabilizerThreadRun()
 	}
 
 	mLPSCounter++;
-	if ( mBoard->GetTicks() >= mLPSTicks + 1000 * 1000 ) {
-		mLPS = mLPSCounter;
+	if ( mBoard->GetTicks() >= mLPSTicks + 1000 * 1000 / 10 ) {
+		mLPS = mLPSCounter * 10;
 		mLPSCounter = 0;
 		mLPSTicks = mBoard->GetTicks();
 		mBlackBox->Enqueue( "Stabilizer:lps", to_string(mLPS) );

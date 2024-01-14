@@ -40,6 +40,7 @@ ThreadBase::ThreadBase( const string& name )
 	, mSetPriority( 0 )
 	, mAffinity( -1 )
 	, mSetAffinity( -1 )
+	, mPriorityFifo( false )
 	, mFrequency( 0 )
 	, mFrequencyTick( 0 )
 {
@@ -148,14 +149,13 @@ void ThreadBase::setMainPriority( int p )
 }
 
 
-void ThreadBase::setPriority( int p, int affinity )
+void ThreadBase::setPriority( int p, int affinity, bool priorityFifo )
 {
 	mSetPriority = p;
-#ifdef sysconf
-	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
+	if ( affinity >= 0 ) {
 		mSetAffinity = affinity;
+		mPriorityFifo = priorityFifo;
 	}
-#endif
 }
 
 
