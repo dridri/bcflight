@@ -8,9 +8,6 @@
 #include <Board.h>
 #include "Multicopter.h"
 
-#define min( a, b ) ( ( (a) < (b) ) ? (a) : (b) )
-#define max( a, b ) ( ( (a) > (b) ) ? (a) : (b) )
-
 
 Multicopter::Multicopter()
 	: Frame()
@@ -126,33 +123,36 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust )
 		mAirMode = true;
 	}
 
-	thrust = min( mMaxSpeed, thrust );
-	float maxMotorSpeed = min( 1.0f, mMaxSpeed * 1.25f );
-
-	if ( mAirMode or thrust >= 0.075f ) {
-		float overall_min = 0.0f;
-		float overall_max = 1.0f;
-		float stab_shift = 0.0f;
-		float stab_multiplier = 0.0f;
+	if ( mAirMode or thrust >= 0.0f ) {
+		float expected_min = ( mAirMode ? mAirModeSpeed : 0.0f );
+		float expected_max = mMaxSpeed;
+		float overall_min = 1e6f;
+		float overall_max = -1e6f;
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 			mStabSpeeds[i] = mMatrix[i].xyz() * pid_output + mMatrix[i].w * thrust;
-			overall_min = min( overall_min, mStabSpeeds[i] );
-			overall_max = max( overall_max, mStabSpeeds[i] );
+			overall_min = std::min( overall_min, mStabSpeeds[i] );
+			overall_max = std::max( overall_max, mStabSpeeds[i] );
 		}
-		if ( mAirMode ) {
-			stab_multiplier = ( 1.0f - mAirModeSpeed ) / ( overall_max - overall_min );
-			stab_shift = mAirModeSpeed;
-		} else {
-			stab_multiplier = 1.0f / ( overall_max - overall_min );
+
+		if ( overall_min < expected_min ) {
+			for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
+				mStabSpeeds[i] += expected_min - overall_min;
+			}
+			overall_max += expected_min - overall_min;
+			overall_min = expected_min;
+		}
+
+		float stab_shift = 0;
+		float stab_multiplier = 1.0f;
+		if ( overall_max > expected_max ) {
+			stab_multiplier = ( expected_max ) / ( std::max(1.0f, overall_max) - std::min(0.0f, overall_min) );
 		}
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mStabSpeeds[i] = stab_shift + max( 0.0f, ( mStabSpeeds[i] - overall_min ) * stab_multiplier );
-		}
-
-		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mMotors[i]->setSpeed( min( maxMotorSpeed, mStabSpeeds[i] ), ( i >= mMotors.size() - 1 ) );
+			float v = mStabSpeeds[i];
+			mStabSpeeds[i] = expected_min + ( mStabSpeeds[i] - expected_min ) * stab_multiplier;
+			mMotors[i]->setSpeed( mStabSpeeds[i], ( i >= mMotors.size() - 1 ) );
 		}
 
 		if ( Main::instance()->blackbox() ) {

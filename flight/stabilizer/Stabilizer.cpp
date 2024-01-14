@@ -311,10 +311,14 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	// See https://www.desmos.com/calculator/wi8qeuzct6
 	if ( mTPAThreshold > 0.0f and mTPAThreshold < 1.0f ) {
 		float tpa = ( ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) ) * mTPAMultiplier;
-		tpa = 1.0f - std::max( 0.0f, std::min( 1.0f, tpa ) );
-		rollPIDMultiplier *= tpa;
-		pitchPIDMultiplier *= tpa;
-		yawPIDMultiplier *= tpa;
+		Vector3f tpaPID = Vector3f(
+			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
+			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
+			1.0f - std::max( 0.0f, std::min( 1.0f, tpa ) )
+		);
+		rollPIDMultiplier = rollPIDMultiplier & tpaPID;
+		pitchPIDMultiplier = pitchPIDMultiplier & tpaPID;
+		yawPIDMultiplier = yawPIDMultiplier & tpaPID;
 	}
 
 	// Anti-gravity
