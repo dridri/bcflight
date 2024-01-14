@@ -191,7 +191,7 @@ float Controller::setPitch( float value, bool raw )
 
 float Controller::setYaw( float value, bool raw )
 {
-	if ( abs( value ) < 0.05f ) {
+	if ( abs( value ) < 0.01f ) {
 		value = 0.0f;
 	}
 	if ( not raw ) {
@@ -209,7 +209,7 @@ float Controller::setYaw( float value, bool raw )
 
 float Controller::setThrust( float value, bool raw )
 {
-	if ( abs( value ) < 0.05f ) {
+	if ( abs( value ) < 0.01f ) {
 		value = 0.0f;
 	}
 //	if ( not mMain->stabilizer()->altitudeHold() ) {
