@@ -302,7 +302,7 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 		std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
 		if ( mInputBuffersAvailable.empty() ) {
 			// throw std::runtime_error("no buffers available to queue codec input");
-			gWarning() << "No buffers available to queue codec input, dropping frame";
+			// gWarning() << "No buffers available to queue codec input, dropping frame";
 			return;
 		}
 		index = mInputBuffersAvailable.front();

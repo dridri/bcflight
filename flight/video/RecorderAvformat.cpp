@@ -287,6 +287,8 @@ void RecorderAvformat::Start()
 void RecorderAvformat::Stop()
 {
 	if ( not recording() or not mActive ) {
+		mWriteMutex.unlock();
+		mGyroMutex.unlock();
 		return;
 	}
 

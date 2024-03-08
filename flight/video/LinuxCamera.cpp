@@ -92,6 +92,7 @@ LinuxCamera::LinuxCamera()
 	, mExposureTime( 0 )
 	, mAwbGains({ 0.0f, 0.0f })
 	, mNightMode( false )
+	, mCamera( nullptr )
 	, mRawStreamConfiguration( nullptr )
 	, mPreviewStreamConfiguration( nullptr )
 	, mVideoStreamConfiguration( nullptr )
@@ -153,6 +154,11 @@ LinuxCamera::~LinuxCamera()
 LuaValue LinuxCamera::infos()
 {
 	LuaValue ret;
+
+	if ( not mCamera ) {
+		ret["Device"] = "None";
+		return ret;
+	}
 
 	ret["Device"] = mCamera->id();
 	if ( mPreviewStreamConfiguration ) {
