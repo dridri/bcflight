@@ -65,6 +65,8 @@ public:
 	const float altitude() const;
 	const Vector3f gpsLocation() const;
 	const float gpsSpeed() const;
+	const uint32_t gpsSatellitesSeen() const;
+	const uint32_t gpsSatellitesUsed() const;
 
 	LUA_EXPORT void Recalibrate();
 	void RecalibrateAll();
@@ -106,6 +108,8 @@ protected:
 	Vector2f mGPSLocation;
 	float mGPSSpeed;
 	float mGPSAltitude;
+	uint32_t mGPSSatellitesSeen;
+	uint32_t mGPSSatellitesUsed;
 	float mAltitudeOffset;
 	float mProximity;
 	Vector3f mRPY;

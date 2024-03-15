@@ -612,7 +612,17 @@ for __, filename in ipairs(arg) do
 					local prev = 0
 					local subG = {}
 					for k, v in pairs(local_definitions) do
-						local caps = ( type(v) == "string" and "'" or "" )
+						local caps = ""
+						if type(v) == "string" then
+							if v:sub(1, 1) >= "0" and v:sub(1, 1) <= "9" then
+								caps = ""
+								if v:sub(2, 2) == "b" then
+									v = "" .. tonumber(v:sub(3), 2)
+								end
+							else
+								caps = "'"
+							end
+						end
 						table.insert( subG, "_G['" .. k .. "'] = " .. caps .. v .. caps )
 					end
 					for i, line in ipairs(lines) do

@@ -77,4 +77,16 @@ bool LinuxGPS::Read( float* latitude, float* longitude, float* altitude, float* 
 	return false;
 }
 
+
+bool LinuxGPS::Stats( uint32_t* satSeen, uint32_t* satUsed )
+{
+	if ( mGpsData ) {
+		*satSeen = mGpsData->satellites_visible;
+		*satUsed = mGpsData->satellites_used;
+		return true;
+	}
+	return false;
+}
+
+
 #endif // BOARD_rpi

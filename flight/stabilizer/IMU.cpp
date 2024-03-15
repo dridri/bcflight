@@ -165,6 +165,18 @@ const float IMU::gpsSpeed() const
 }
 
 
+const uint32_t IMU::gpsSatellitesSeen() const
+{
+	return mGPSSatellitesSeen;
+}
+
+
+const uint32_t IMU::gpsSatellitesUsed() const
+{
+	return mGPSSatellitesUsed;
+}
+
+
 void IMU::setPositionFilterInput( const Vector3f& v )
 {
 	fDebug(v.x, v.y, v.z);
@@ -432,26 +444,31 @@ void IMU::UpdateGPS()
 	Vector2f total_lat_lon;
 	float total_alti = 0.0f;
 	float total_speed = 0.0f;
+	uint32_t total_seen = 0;
+	uint32_t total_used = 0;
 
 	for ( GPS* dev : mGPSes ) {
 		float lattitude = 0.0f;
 		float longitude = 0.0f;
 		float altitude = 0.0f;
 		float speed = 0.0f;
-		dev->Read( &lattitude, &longitude, &altitude, &speed );
-		if ( lattitude != 0.0f and longitude != 0.0f ) {
+		bool ret = dev->Read( &lattitude, &longitude, &altitude, &speed );
+		if ( ret ) {
 			total_lat_lon += Vector2f( lattitude, longitude );
-		}
-		if ( altitude != 0.0f ) {
 			total_alti += altitude;
-		}
-		if ( speed > 0.0f ) {
 			total_speed += speed;
 		}
+		uint32_t seen = 0;
+		uint32_t used = 0;
+		ret = dev->Stats( &seen, &used );
+		total_seen += seen;
+		total_used += used;
 	}
 	mGPSAltitude = total_alti / mGPSes.size();
 	mGPSLocation = total_lat_lon.xy() * ( 1.0f / mGPSes.size() );
 	mGPSSpeed = total_speed / mGPSes.size();
+	mGPSSatellitesSeen = total_seen;
+	mGPSSatellitesUsed = total_used;
 
 	sprintf( stmp, "\"%.7f,%.7f,%.2f,%.4f\"", mGPSLocation.x, mGPSLocation.y, mGPSAltitude, mGPSSpeed );
 	mMain->blackbox()->Enqueue( "IMU:gps", stmp );

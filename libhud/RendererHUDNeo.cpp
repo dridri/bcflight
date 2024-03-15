@@ -357,7 +357,10 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 
 	if ( dronestats and not std::isnan( dronestats->gpsSpeed ) ) {
 		// Render dronestats->gpsSpeed as simple text, already in km/h
-		RenderText( mBorderRight, mBorderBottom - 256 - 16, std::to_string( (int)( dronestats->gpsSpeed ) ) + "km/h", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
+		std::string speed = std::to_string((int)dronestats->gpsSpeed) + "km/h";
+		std::string sats = std::to_string((int)dronestats->gpsSatellitesUsed) + "/" + std::to_string((int)dronestats->gpsSatellitesSeen);
+		RenderText( mBorderRight, mBorderBottom - 256 - 46, speed, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
+		RenderText( mBorderRight, mBorderBottom - 256 - 6, sats, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
 	}
 
 	int imsg = 0;

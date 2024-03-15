@@ -92,6 +92,8 @@ typedef struct DroneStats {
 	Vector3f rpy;
 	Vector3f gpsLocation;
 	float gpsSpeed;
+	uint32_t gpsSatellitesSeen;
+	uint32_t gpsSatellitesUsed;
 	// Battery
 	float batteryLevel;
 	float batteryVoltage;

@@ -116,6 +116,8 @@ bool HUD::run()
 		if ( Sensor::GPSes().size() > 0 ) {
 			dronestats.gpsLocation = imu->gpsLocation();
 			dronestats.gpsSpeed = imu->gpsSpeed();
+			dronestats.gpsSatellitesSeen = imu->gpsSatellitesSeen();
+			dronestats.gpsSatellitesUsed = imu->gpsSatellitesUsed();
 		} else {
 			dronestats.gpsSpeed = NAN;
 		}
