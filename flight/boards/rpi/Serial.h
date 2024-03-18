@@ -30,7 +30,7 @@ using namespace std;
 LUA_CLASS class Serial : public Bus
 {
 public:
-	Serial( const string& device = "", int speed = 9600 );
+	Serial( const string& device = "", int speed = 9600, bool singleWire = false );
 	~Serial();
 
 	int Connect();
@@ -43,6 +43,7 @@ public:
 
 private:
 	int mFD;
+	LUA_PROPERTY("single_wire") bool mSingleWire;
 	LUA_PROPERTY("device") std::string mDevice;
 	LUA_PROPERTY("speed") uint32_t mSpeed;
 };

@@ -47,9 +47,10 @@ static map< int, int > sSpeeds = {
 };
 
 
-Serial::Serial( const string& device, int speed )
+Serial::Serial( const string& device, int speed, bool singleWire )
 	: Bus()
 	, mFD( -1 )
+	, mSingleWire( singleWire )
 	, mDevice( device )
 	, mSpeed( speed )
 {
@@ -65,63 +66,47 @@ int Serial::Connect()
 {
 	mFD = open( mDevice.c_str(), O_RDWR | O_NOCTTY/* | O_NDELAY*/ );
 	if ( mFD < 0 ) {
-		gDebug() << "Err0 : " << strerror(errno);
+		gError() << "Err0 : " << strerror(errno);
 		return -1;
 	}
-/*
-	int speed_macro = B0;
-	for ( auto it = sSpeeds.begin(); it != sSpeeds.end(); it++ ) {
-		if ( speed >= (*it).first && speed < (*std::next(it, 1)).first ) {
-			speed_macro = (*it).second;
-			break;
-		}
-	}
-
-	struct termios options;
-	tcgetattr( mFD, &options );
-	options.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;
-	tcflush( mFD, TCIFLUSH );
-	tcsetattr( mFD, TCSANOW, &options );
-*/
 
 	struct termios2 options;
 
 	ioctl( mFD, TCGETS2, &options );
 	
-    options.c_cflag |= PARENB;
-    options.c_cflag |= CSTOPB;
-    options.c_cflag |= CS8;
-    options.c_cflag &= ~CRTSCTS;
-    options.c_cflag |= CREAD | CLOCAL;
+	// Set baud rate
+	options.c_cflag &= ~CBAUD;
+	options.c_cflag |= B115200; // Example baud rate: 115200
 
-    options.c_lflag &= ~ICANON;
-    options.c_lflag &= ~ECHO;
-    options.c_lflag &= ~ECHOE;
-    options.c_lflag &= ~ECHONL;
-    options.c_lflag &= ~ISIG;
+	// Set data bits
+	options.c_cflag &= ~CSIZE;
+	options.c_cflag |= CS8; // 8 data bits
 
-    options.c_iflag &= ~(IXON | IXOFF | IXANY);
-    options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+	// Disable parity
+	options.c_cflag &= ~PARENB;
 
+	// Set stop bits
+	options.c_cflag &= ~CSTOPB; // 1 stop bit
+
+	// Disable hardware flow control
+	options.c_cflag &= ~CRTSCTS;
+
+
+    // Enable binary mode
+    options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR);
     options.c_oflag &= ~OPOST;
-    options.c_oflag &= ~ONLCR;
-
+    options.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    options.c_cc[VMIN] = 1; // 25
     options.c_cc[VTIME] = 0;
-    options.c_cc[VMIN] = 25;
 
     options.c_cflag &= ~CBAUD;
     options.c_cflag |= BOTHER;
 
-// 	options.c_cflag &= ~CBAUD & ~CRTSCTS;
-// 	options.c_cflag |= BOTHER | CSTOPB | CS8 | PARENB;
 	options.c_ispeed = mSpeed;
 	options.c_ospeed = mSpeed;
 	int ret = ioctl( mFD, TCSETS2, &options );
 	if ( ret < 0 ) {
-		gDebug() << "Err1 : " << errno << ", " << strerror(errno);
+		gError() << "Err1 : " << errno << ", " << strerror(errno);
 		return -1;
 	}
 
@@ -154,7 +139,23 @@ int Serial::Read( void* buf, uint32_t len )
 
 int Serial::Write( const void* buf, uint32_t len )
 {
-	return 0;
+	int ret = write( mFD, buf, len );
+	if ( ret < 0 ) {
+		gDebug() << errno << ", " << strerror(errno);
+	}
+	if ( mSingleWire ) {
+		usleep( 1000 );
+		void* dummy = new uint8_t[ len ];
+		ret = read( mFD, dummy, len );
+		delete[] dummy;
+		if ( ret < 0 ) {
+			gDebug() << "Single-wire echo-read failed: " << errno << ", " << strerror(errno);
+		}
+		if ( ret != len ) {
+			gDebug() << "Single-wire echo-read failed: " << ret << " != " << len;
+		}
+	}
+	return ret;
 }
 
 
