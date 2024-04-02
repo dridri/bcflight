@@ -90,13 +90,13 @@ This carrier board has the following features :
  * dual RFM95W radio sockets with seperate status LEDs and external antennas plugs
  * optional S-BUS input (with TTL inverter)
  * ICM-42605 high-precision IMU
- * BMP280 barometer / altimeter
+ * BMP581 barometer / altimeter
  * dual camera CSI connectors
  * exposed IO pads :
    * 8 PWM / OneShot125 / DSHOT outputs
    * ADC channels 1-2-3
    * I2C (for additionnal sensors and peripheral drivers)
-   * UART (external GPS)
+   * UART (for external GPS)
    * USB
    * Video composite output (can be directly connected to any FPV drone VTX)
 
