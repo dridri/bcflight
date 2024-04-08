@@ -520,11 +520,15 @@ void IMU::UpdateAttitude( float dt )
 	mRPY = rpy;
 
 	char tmp[64];
-	sprintf( tmp, "\"%.4f,%.4f,%.4f\"", mRate.x, mRate.y, mRate.z );
+	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
+	mMain->blackbox()->Enqueue( "IMU:gyroscope", tmp );
+	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
+	mMain->blackbox()->Enqueue( "IMU:accelerometer", tmp );
+	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mRate.x, mRate.y, mRate.z );
 	mMain->blackbox()->Enqueue( "IMU:rate", tmp );
-	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", mAccelerationSmoothed.x, mAccelerationSmoothed.y, mAccelerationSmoothed.z );
+	sprintf( stmp, "\"%.6f,%.6f,%.6f\"", mAccelerationSmoothed.x, mAccelerationSmoothed.y, mAccelerationSmoothed.z );
 	mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
-	sprintf( tmp, "\"%.4f,%.4f,%.4f\"", mRPY.x, mRPY.y, mRPY.z );
+	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mRPY.x, mRPY.y, mRPY.z );
 	mMain->blackbox()->Enqueue( "IMU:rpy", tmp );
 }
 
