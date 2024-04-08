@@ -38,8 +38,8 @@ battery = {
 frame = Multicopter {
 	maxspeed = 1.0,
 	air_mode = {
-		trigger = 0.25,
-		speed = 0.15
+		trigger = 0.15,
+		speed = 0.05
 	},
 	motors = {
 		BrushlessPWM( 4 ), -- front left

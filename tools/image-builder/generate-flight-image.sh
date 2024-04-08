@@ -86,7 +86,7 @@ cp $(which qemu-arm-static) /tmp/raspbian/bcflight/root$(which qemu-arm-static)
 chroot /tmp/raspbian/bcflight/root <<EOF_
 apt update
 apt remove --purge -y logrotate dbus dphys-swapfile fake-hwclock man-db
-apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd lua5.3 python3-gps python3-serial
+apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd dnsmasq lua5.3 python3-gps python3-serial
 apt autoremove -y
 apt autoclean -y
 apt clean -y
@@ -135,6 +135,37 @@ sed -i -r -z 's/\n\[Install\]/ExecStartPost=bash -c "sleep 1 \&\& ubxtool -p CFG
 sed -i 's/DEVICES=""/DEVICES="\/dev\/ttyAMA0"/g' /tmp/raspbian/bcflight/root/etc/default/gpsd
 sed -i 's/GPSD_OPTIONS=""/GPSD_OPTIONS="-n -G -s 115200"/g' /tmp/raspbian/bcflight/root/etc/default/gpsd
 
+cat > /tmp/raspbian/bcflight/root/etc/network/interfaces <<EOF
+source /etc/network/interfaces.d/*
+
+auto wlan0
+iface wlan0 inet static
+	address 192.168.32.1
+	netmask 255.255.255.0
+	wireless-power off
+EOF
+
+cat > /tmp/raspbian/bcflight/root/etc/dnsmasq.conf <<EOF
+interface=wlan0
+dhcp-range=192.168.32.50,192.168.32.150,12h
+EOF
+
+cat > /tmp/raspbian/bcflight/root/etc/hostapd/hostapd.conf <<EOF
+interface=wlan0
+driver=nl80211
+ssid=drone
+hw_mode=g
+channel=6
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0 #
+wpa=2
+wpa_passphrase=12345678
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+EOF
+
 cat > /tmp/raspbian/bcflight/root/lib/systemd/system/flight.service <<EOF
 [Unit]
 Description=Beyond-Chaos Flight Controller
@@ -161,6 +192,9 @@ systemctl disable flight # systemctl enable flight
 systemctl disable userconfig
 systemctl disable fake-hwclock
 /lib/systemd/systemd-sysv-install disable resize2fs_once
+
+systemctl enable hostapd
+systemctl enable dnsmasq
 
 echo i2c-dev >> /etc/modules
 EOF_
