@@ -73,6 +73,7 @@ protected:
 //	bool mArmed;
 	uint32_t mPing;
 	LUA_PROPERTY("expo") Vector4f mExpo;
+	LUA_PROPERTY("thrust_expo") Vector2f mThrustExpo;
 /*
 	Vector3f mRPY;
 	float mThrust;

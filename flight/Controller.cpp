@@ -59,6 +59,9 @@ Controller::Controller()
 	mExpo.y = 4;
 	mExpo.z = 3;
 	mExpo.w = 2;
+	mThrustExpo = Vector2f();
+	mThrustExpo.x = 0.0f;
+	mThrustExpo.y = 0.0f;
 }
 
 
@@ -214,7 +217,8 @@ float Controller::setThrust( float value, bool raw )
 	}
 //	if ( not mMain->stabilizer()->altitudeHold() ) {
 	if ( not raw ) {
-		value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
+		// value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
+		value = pow( value, mThrustExpo.x ) * ( 1.0f - value ) * -mThrustExpo.y + value;
 		if ( value < 0.0f or isnan( value ) or ( isinf( value ) and value < 0.0f ) ) {
 			value = 0.0f;
 		}
