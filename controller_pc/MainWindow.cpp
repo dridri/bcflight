@@ -142,6 +142,8 @@ MainWindow::MainWindow()
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
 	connect( ui->night_mode, SIGNAL( stateChanged(int) ), this, SLOT( SetNightMode(int) ) );
 	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
+	connect( ui->motorsBeepStart, &QPushButton::pressed, [this]() { MotorsBeep(true); });
+	connect( ui->motorsBeepStop, &QPushButton::pressed, [this]() { MotorsBeep(false); });
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -866,10 +868,20 @@ void MainWindow::RecordingsRefresh()
 	ui->recordings->setHorizontalHeaderLabels( headers );
 }
 
-void MainWindow::MotorTest() {
-	int id = ui->motorTestSpinBox->value();
 
-	if ( mController and not mController->isSpectate() ) {
-		mController->MotorTest( id );
+void MainWindow::MotorTest() {
+	if ( not mController or mController->isSpectate() ) {
+		return;
 	}
+	int id = ui->motorTestSpinBox->value();
+	mController->MotorTest( id );
+}
+
+
+void MainWindow::MotorsBeep( bool enabled ) {
+	std::cout << "MotorsBeep(" << enabled << " )\n";
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
+	mController->MotorsBeep( enabled );
 }

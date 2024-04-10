@@ -218,7 +218,8 @@ float Controller::setThrust( float value, bool raw )
 //	if ( not mMain->stabilizer()->altitudeHold() ) {
 	if ( not raw ) {
 		// value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
-		value = pow( value, mThrustExpo.x ) * ( 1.0f - value ) * -mThrustExpo.y + value;
+		// value = pow( value, mThrustExpo.x ) * ( 1.0f - value ) * -mThrustExpo.y + value;
+		value = value * mThrustExpo.x * ( 1.0f - value ) + pow( value, mThrustExpo.y );
 		if ( value < 0.0f or isnan( value ) or ( isinf( value ) and value < 0.0f ) ) {
 			value = 0.0f;
 		}
@@ -617,11 +618,19 @@ bool Controller::run()
 				break;
 			}
 			case MOTOR_TEST : {
-				// test motors
 				uint32_t id = command.ReadU32();
 				if ( not mMain->stabilizer()->armed() ) {
 					mMain->stabilizer()->MotorTest(id);
 				}
+				break;
+			}
+			case MOTORS_BEEP : {
+				bool enabled = command.ReadU16() != 0;
+				gDebug() << "MOTORS_BEEP : " << enabled;
+				if ( not mMain->frame()->armed() ) {
+					mMain->frame()->MotorsBeep( enabled );
+				}
+				break;
 			}
 			case SET_TIMESTAMP : {
 				uint32_t timestamp = 0;
@@ -997,48 +1006,48 @@ bool Controller::run()
 			case VIDEO_BRIGHTNESS_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera brightness to " << cam->brightness() + 1;
-					cam->setBrightness( cam->brightness() + 1 );
+					gDebug() << "Setting camera brightness to " << cam->brightness() + 0.05f;
+					cam->setBrightness( cam->brightness() + 0.05f );
 				}
 				break;
 			}
 			case VIDEO_BRIGHTNESS_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera brightness to " << cam->brightness() - 1;
-					cam->setBrightness( cam->brightness() - 1 );
+					gDebug() << "Setting camera brightness to " << cam->brightness() - 0.05f;
+					cam->setBrightness( cam->brightness() - 0.05f );
 				}
 				break;
 			}
 			case VIDEO_CONTRAST_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera contrast to " << cam->contrast() + 1;
-					cam->setContrast( cam->contrast() + 1 );
+					gDebug() << "Setting camera contrast to " << cam->contrast() + 0.05f;
+					cam->setContrast( cam->contrast() + 0.05f );
 				}
 				break;
 			}
 			case VIDEO_CONTRAST_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera contrast to " << cam->contrast() - 1;
-					cam->setContrast( cam->contrast() - 1 );
+					gDebug() << "Setting camera contrast to " << cam->contrast() - 0.05f;
+					cam->setContrast( cam->contrast() - 0.05f );
 				}
 				break;
 			}
 			case VIDEO_SATURATION_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera saturation to " << cam->saturation() + 1;
-					cam->setSaturation( cam->saturation() + 1 );
+					gDebug() << "Setting camera saturation to " << cam->saturation() + 0.05f;
+					cam->setSaturation( cam->saturation() + 0.05f );
 				}
 				break;
 			}
 			case VIDEO_SATURATION_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera saturation to " << cam->saturation() - 1;
-					cam->setSaturation( cam->saturation() - 1 );
+					gDebug() << "Setting camera saturation to " << cam->saturation() - 0.05f;
+					cam->setSaturation( cam->saturation() - 0.05f );
 				}
 				break;
 			}

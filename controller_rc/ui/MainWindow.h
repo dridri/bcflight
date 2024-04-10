@@ -32,6 +32,7 @@ public slots:
 	void Settings();
 	void CalibrateGyro();
 	void CalibrateIMU();
+	void MotorsBeep();
 	void ResetBattery();
 	void CalibrationReset();
 	void CalibrationApply();

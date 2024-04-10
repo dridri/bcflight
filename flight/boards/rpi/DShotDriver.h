@@ -21,9 +21,11 @@ public:
 private:
 	DShotDriver();
 	~DShotDriver();
+	void _Update();
+	static void AtExit();
 
 	std::map< uint32_t, bool > mFlatValues;
-	std::map< uint32_t, uint16_t > mPinValues;
+	std::map< uint32_t, uint32_t > mPinValues;
 	/*
 	uint16_t mValueMap[DSHOT_MAX_OUTPUTS];
 	uint16_t mChannelMap[DSHOT_MAX_OUTPUTS];

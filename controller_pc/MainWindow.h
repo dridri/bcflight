@@ -90,6 +90,7 @@ public slots:
 	void setFirmwareUpdateProgress( int val );
 	void appendDebugOutput( const QString& str );
 	void MotorTest();
+	void MotorsBeep( bool enabled );
 
 signals:
 	void firmwareUpdateProgress( int val );

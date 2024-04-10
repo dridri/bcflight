@@ -227,7 +227,6 @@ void IMU::Loop( uint64_t tick, float dt )
 			UpdatePosition( dt );
 		}
 	}
-
 }
 
 

@@ -209,7 +209,8 @@ public:
 // 		RECORD_DOWNLOAD_PROCESS = 0xD4,
 
 		// Testing
-		MOTOR_TEST = SHORT_COMMAND | 0xE0,
+		MOTOR_TEST = 0xE0,
+		MOTORS_BEEP = 0xE1,
 
 		// User datas - 0x1xxx
 		GET_USERNAME = 0x1001,

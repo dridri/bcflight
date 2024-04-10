@@ -124,21 +124,21 @@ void ICM4xxxx::InitChip()
 
 	uint32_t loopTime = Main::instance()->config()->Integer( "stabilizer.loop_time", 2000 );
 	uint32_t loopRate = 1000000 / loopTime;
-	const std::map< uint32_t, uint8_t > rates = {
-		{ 8000, 0b00000011 },
-		{ 4000, 0b00000100 },
-		{ 2000, 0b00000101 },
-		{ 1000, 0b00000110 },
-		{  500, 0b00001111 },
-		{  200, 0b00000111 },
-		{  100, 0b00001000 },
-		{   50, 0b00001001 },
+	const std::list< std::tuple< uint32_t, uint8_t > > rates = {
 		{   25, 0b00001010 },
+		{   50, 0b00001001 },
+		{  100, 0b00001000 },
+		{  200, 0b00000111 },
+		{  500, 0b00001111 },
+		{ 1000, 0b00000110 },
+		{ 2000, 0b00000101 },
+		{ 4000, 0b00000100 },
+		{ 8000, 0b00000011 },
 	};
 	uint8_t rate = 0b00000000;
 	for ( auto r : rates ) {
-		if ( loopRate <= r.first ) {
-			rate = r.second;
+		if ( loopRate <= std::get<0>(r) ) {
+			rate = std::get<1>(r);
 			break;
 		}
 	}

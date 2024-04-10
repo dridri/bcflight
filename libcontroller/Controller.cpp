@@ -1666,7 +1666,7 @@ uint32_t Controller::crc32( const uint8_t* buf, uint32_t len )
 	return ~crc;
 }
 
-void Controller::MotorTest(uint32_t id)
+void Controller::MotorTest( uint32_t id )
 {
 	if ( !mLink ) {
 		return;
@@ -1675,6 +1675,19 @@ void Controller::MotorTest(uint32_t id)
 	mXferMutex.lock();
 	mTxFrame.WriteU16( MOTOR_TEST );
 	mTxFrame.WriteU32( id );
+	mXferMutex.unlock();
+}
+
+
+void Controller::MotorsBeep( bool enabled )
+{
+	if ( !mLink ) {
+		return;
+	}
+
+	mXferMutex.lock();
+	mTxFrame.WriteU16( MOTORS_BEEP );
+	mTxFrame.WriteU16( enabled );
 	mXferMutex.unlock();
 }
 

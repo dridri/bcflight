@@ -148,6 +148,7 @@ void Thread::ThreadEntry()
 	mIsRunning = false;
 	mFinished = true;
 	mSpawned = false;
+	pthread_exit( nullptr );
 }
 
 

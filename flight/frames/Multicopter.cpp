@@ -58,6 +58,8 @@ void Multicopter::Arm()
 {
 	fDebug();
 
+	Frame::Arm();
+
 	char stmp[256] = "\"";
 	uint32_t spos = 1;
 

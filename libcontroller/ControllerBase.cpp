@@ -111,6 +111,9 @@ map< ControllerBase::Cmd, string > ControllerBase::mCommandsNames = {
 	{ ControllerBase::VIDEO_LOCK_WHITE_BALANCE, "Lock video white balance" },
 	// User datas
 	{ ControllerBase::GET_USERNAME, "Get username" },
+	// Testing
+	{ ControllerBase::MOTOR_TEST, "Motor test" },
+	{ ControllerBase::MOTORS_BEEP, "Motors beep" },
 };
 
 ControllerBase::ControllerBase( Link* link )

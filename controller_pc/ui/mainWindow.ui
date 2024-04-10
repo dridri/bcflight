@@ -1204,7 +1204,7 @@ color: rgb(255, 255, 255);</string>
        <attribute name="title">
         <string>Test Bench</string>
        </attribute>
-       <layout class="QGridLayout" name="gridLayout_33">
+       <layout class="QGridLayout" name="gridLayout_38">
         <item row="0" column="0">
          <widget class="QGroupBox" name="groupBox_22">
           <property name="title">
@@ -1214,7 +1214,7 @@ color: rgb(255, 255, 255);</string>
            <item row="0" column="0">
             <widget class="QSpinBox" name="motorTestSpinBox"/>
            </item>
-           <item row="1" column="0">
+           <item row="0" column="1">
             <widget class="QPushButton" name="motorTestButton">
              <property name="text">
               <string>Test</string>
@@ -1224,7 +1224,56 @@ color: rgb(255, 255, 255);</string>
           </layout>
          </widget>
         </item>
-        <item row="0" column="1">
+        <item row="2" column="0" colspan="5">
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>718</width>
+            <height>578</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_27">
+          <property name="title">
+           <string>Beep Motors</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_33">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="motorsBeepStart">
+             <property name="text">
+              <string>Start</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="motorsBeepStop">
+             <property name="text">
+              <string>Stop</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="0" column="3" rowspan="2">
+         <spacer name="horizontalSpacer_8">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>502</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="4" rowspan="2">
          <widget class="QGroupBox" name="groupBox_13">
           <property name="title">
            <string>Update Firmware</string>
@@ -1266,32 +1315,6 @@ color: rgb(255, 255, 255);</string>
            </item>
           </layout>
          </widget>
-        </item>
-        <item row="0" column="2">
-         <spacer name="horizontalSpacer_8">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>502</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item row="1" column="0" colspan="3">
-         <spacer name="verticalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>718</width>
-            <height>578</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </widget>

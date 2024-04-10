@@ -163,6 +163,8 @@ DShotDriver::DShotDriver()
 	mDRMHeight = creq.height;
 	gDebug() << "DRM buffer : " << mDRMBuffer << "(" << mDRMWidth << "x" << mDRMHeight << ")";
 	memset( mDRMBuffer, 0, mDRMPitch * mDRMHeight );
+
+	atexit( []() { DShotDriver::AtExit(); });
 }
 
 
@@ -171,10 +173,26 @@ DShotDriver::~DShotDriver()
 }
 
 
+void DShotDriver::AtExit()
+{
+	if ( sInstance ) {
+		sInstance->Kill();
+	}
+}
+
+
 void DShotDriver::Kill() noexcept
 {
 	fDebug();
 	sKilled = true;
+	for ( uint8_t retry = 0; retry < 10; retry++ ) {
+		for ( auto iter = mPinValues.begin(); iter != mPinValues.end(); ++iter ) {
+			mFlatValues[iter->first] = true;
+			mPinValues[iter->first] = 0;
+		}
+		_Update();
+		usleep( 1000 );
+	}
 	memset( mDRMBuffer, 0, mDRMPitch * mDRMHeight );
 }
 
@@ -190,9 +208,8 @@ void DShotDriver::setPinValue( uint32_t pin, uint16_t value, bool telemetry )
 void DShotDriver::disablePinValue( uint32_t pin )
 {
 	mFlatValues[pin] = true;
-	mPinValues[pin] = 0;
+	mPinValues[pin] = 0xFFFFFFFF;
 }
-
 
 
 void DShotDriver::Update()
@@ -200,9 +217,14 @@ void DShotDriver::Update()
 	if ( sKilled ) {
 		return;
 	}
+	_Update();
+}
 
+
+void DShotDriver::_Update()
+{
 	// uint16_t valueFlat[DSHOT_MAX_OUTPUTS] = { 0 };
-	uint16_t valueMap[DSHOT_MAX_OUTPUTS] = { 0 };
+	uint32_t valueMap[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint16_t channelMap[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint16_t bitmaskMap[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint8_t count = 0;
@@ -221,7 +243,11 @@ void DShotDriver::Update()
 	uint8_t outbuf[16 * bitwidth * 3];
 	memset( outbuf, 0, 16 * bitwidth * 3 );
 	for ( uint32_t ivalue = 0; ivalue < count; ivalue++ ) {
-			uint16_t value = valueMap[ivalue];
+			uint32_t value_ = valueMap[ivalue];
+			if ( value_ == 0xFFFFFFFF ) {
+				continue;
+			}
+			uint16_t value = uint16_t(value_);
 			uintptr_t map = channelMap[ivalue];
 			uintptr_t bitmask = bitmaskMap[ivalue];
 			uint8_t* bPointer = outbuf;

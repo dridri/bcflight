@@ -139,7 +139,8 @@ public:
 
 	DECL_RO_VAR( string, Username, username );
 
-	void MotorTest(uint32_t id);
+	void MotorTest( uint32_t id );
+	void MotorsBeep( bool enabled );
 	
 	// Errors
 	DECL_RO_VAR( bool, CameraMissing, cameraMissing );

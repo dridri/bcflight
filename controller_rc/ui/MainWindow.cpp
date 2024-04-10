@@ -47,6 +47,7 @@ MainWindow::MainWindow( Controller* controller )
 	uiPageMain->setupUi( mPageMain );
 	connect( uiPageMain->calibrate_gyro, SIGNAL( clicked() ), this, SLOT( CalibrateGyro() ) );
 	connect( uiPageMain->calibrate_imu, SIGNAL( clicked() ), this, SLOT( CalibrateIMU() ) );
+	connect( uiPageMain->beep, SIGNAL( released() ), this, SLOT( MotorsBeep() ) );
 	connect( uiPageMain->reset_battery, SIGNAL( clicked() ), this, SLOT( ResetBattery() ) );
 
 	uiPageCalibrate = new Ui::PageCalibrate;
@@ -352,6 +353,12 @@ void MainWindow::CalibrateIMU()
 void MainWindow::ResetBattery()
 {
 	mController->ResetBattery();
+}
+
+
+void MainWindow::MotorsBeep()
+{
+	mController->MotorsBeep( uiPageMain->beep->isChecked() );
 }
 
 
