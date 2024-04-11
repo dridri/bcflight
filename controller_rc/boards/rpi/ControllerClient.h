@@ -22,6 +22,7 @@
 #include "../../libcontroller/Controller.h"
 #include <Link.h>
 #include "../../ADCs/MCP320x.h"
+#include "../../libcontroller/Filter.h"
 
 namespace rpi {
 	class Socket;
@@ -35,13 +36,25 @@ public:
 
 	class Joystick {
 	public:
-		Joystick() : mADC( nullptr ), mADCChannel( 0 ), mCalibrated( false ), mInverse( false ), mThrustMode( false ), mMin( 0 ), mCenter( 0 ), mMax( 0 ), mLastRaw( 0 ) {}
+		Joystick()
+			: mADC( nullptr ),
+			mADCChannel( 0 ),
+			mCalibrated( false ),
+			mInverse( false ),
+			mThrustMode( false ),
+			mMin( 0 ),
+			mCenter( 0 ),
+			mMax( 0 ),
+			mLastRaw( 0 ),
+			mFilter( nullptr )
+		{}
 		Joystick( MCP320x* adc, int id, int channel, bool inverse = false, bool thrust_mode = false );
 		~Joystick();
 		uint16_t ReadRaw( float dt );
 		uint16_t LastRaw() const { return mLastRaw; }
 		float Read( float dt );
 		void SetCalibratedValues( uint16_t min, uint16_t center, uint16_t max );
+		void setFilter( Filter<float>* filter ) { mFilter = filter; }
 		uint16_t max() const { return mMax; }
 		uint16_t center() const { return mCenter; }
 		uint16_t min() const { return mMin; }
@@ -56,6 +69,7 @@ public:
 		uint16_t mCenter;
 		uint16_t mMax;
 		uint16_t mLastRaw;
+		Filter<float>* mFilter;
 	};
 
 	Joystick* joystick( int x ) { return &mJoysticks[x]; }

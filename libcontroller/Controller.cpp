@@ -135,7 +135,7 @@ bool Controller::run()
 	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
 		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
 	}
-	float dt = ((float)( Thread::GetTick() - mTicks ) ) / 1000000.0f;
+	float dt = ((float)( Thread::GetTick() - mTicks ) ) / 1000.0f;
 	mTicks = Thread::GetTick();
 	uint64_t ticks0 = mTicks;
 
@@ -228,47 +228,56 @@ bool Controller::run()
 		mXferMutex.unlock();
 	}
 
-	float f_thrust = ReadThrust( dt * 1000.0f / mUpdateFrequency );
-	float f_yaw = ReadYaw( dt * 1000.0f / mUpdateFrequency );
-	float f_pitch = ReadPitch( dt * 1000.0f / mUpdateFrequency );
-	float f_roll = ReadRoll( dt * 1000.0f / mUpdateFrequency );
-	gTrace() << "Controls : " << f_thrust << ", " << f_yaw << ", " << f_pitch << ", " << f_roll << "\n";
+	float f_thrust = ReadThrust( dt );
+	float f_yaw = ReadYaw( dt );
+	float f_pitch = ReadPitch( dt );
+	float f_roll = ReadRoll( dt );
 	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
-		mControls.thrust = (int8_t)( max( 0, min( 127, (int32_t)( f_thrust * 127.0f ) ) ) );
+		if ( fabsf( f_thrust ) <= 0.01f ) {
+			f_thrust = 0.0f;
+		} else if ( f_thrust < 0.0f ) {
+			f_thrust += 0.01f;
+		} else if ( f_thrust > 0.0f ) {
+			f_thrust -= 0.01f;
+		}
+		f_thrust *= 1.0f / ( 1.0f - 0.01f );
+		mControls.thrust = (int16_t)( max( 0, min( 511, (int32_t)( f_thrust * 511.0f ) ) ) );
 	}
 	if ( f_yaw >= -1.0f and f_yaw <= 1.0f ) {
-		if ( fabsf( f_yaw ) <= 0.025f ) {
+		if ( fabsf( f_yaw ) <= 0.01f ) {
 			f_yaw = 0.0f;
 		} else if ( f_yaw < 0.0f ) {
-			f_yaw += 0.025f;
+			f_yaw += 0.01f;
 		} else if ( f_yaw > 0.0f ) {
-			f_yaw -= 0.025f;
+			f_yaw -= 0.01f;
 		}
-		f_yaw *= 1.0f / ( 1.0f - 0.025f );
-		mControls.yaw = (int8_t)( max( -127, min( 127, (int32_t)( f_yaw * 127.0f ) ) ) );
+		f_yaw *= 1.0f / ( 1.0f - 0.01f );
+		mControls.yaw = (int16_t)( max( -511, min( 511, (int32_t)( f_yaw * 511.0f ) ) ) );
 	}
 	if ( f_pitch >= -1.0f and f_pitch <= 1.0f ) {
-		if ( fabsf( f_pitch ) <= 0.025f ) {
+		if ( fabsf( f_pitch ) <= 0.01f ) {
 			f_pitch = 0.0f;
 		} else if ( f_pitch < 0.0f ) {
-			f_pitch += 0.025f;
+			f_pitch += 0.01f;
 		} else if ( f_pitch > 0.0f ) {
-			f_pitch -= 0.025f;
+			f_pitch -= 0.01f;
 		}
-		f_pitch *= 1.0f / ( 1.0f - 0.025f );
-		mControls.pitch = (int8_t)( max( -127, min( 127, (int32_t)( f_pitch * 127.0f ) ) ) );
+		f_pitch *= 1.0f / ( 1.0f - 0.01f );
+		mControls.pitch = (int16_t)( max( -511, min( 511, (int32_t)( f_pitch * 511.0f ) ) ) );
 	}
 	if ( f_roll >= -1.0f and f_roll <= 1.0f ) {
-		if ( fabsf( f_roll ) <= 0.025f ) {
+		if ( fabsf( f_roll ) <= 0.01f ) {
 			f_roll = 0.0f;
 		} else if ( f_roll < 0.0f ) {
-			f_roll += 0.025f;
+			f_roll += 0.01f;
 		} else if ( f_roll > 0.0f ) {
-			f_roll -= 0.025f;
+			f_roll -= 0.01f;
 		}
-		f_roll *= 1.0f / ( 1.0f - 0.025f );
-		mControls.roll = (int8_t)( max( -127, min( 127, (int32_t)( f_roll * 127.0f ) ) ) );
+		f_roll *= 1.0f / ( 1.0f - 0.01f );
+		mControls.roll = (int16_t)( max( -511, min( 511, (int32_t)( f_roll * 511.0f ) ) ) );
 	}
+	gTrace() << "Controls : " << f_thrust << ", " << f_yaw << ", " << f_pitch << ", " << f_roll << "\n";
+	gTrace() << "Controls : " << mControls.thrust << ", " << mControls.yaw << ", " << mControls.pitch << ", " << mControls.roll << "\n\n";
 	mControls.arm = arm;
 	mTxFrame.WriteU8( CONTROLS );
 	mTxFrame.Write( (uint8_t*)&mControls, sizeof(mControls) );

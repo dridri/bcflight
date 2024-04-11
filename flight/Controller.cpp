@@ -464,10 +464,10 @@ bool Controller::run()
 						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 					}
 					if ( mMain->stabilizer()->armed() ) {
-						float thrust = ((float)controls.thrust) / 127.0f;
-						float roll = ((float)controls.roll) / 128.0f;
-						float pitch = ((float)controls.pitch) / 128.0f;
-						float yaw = ((float)controls.yaw) / 128.0f;
+						float thrust = ((float)controls.thrust) / 511.0f;
+						float roll = ((float)controls.roll) / 511.0f;
+						float pitch = ((float)controls.pitch) / 511.0f;
+						float yaw = ((float)controls.yaw) / 511.0f;
 						gTrace() << "Controls : " << thrust << ", " << roll << ", " << pitch << ", " << yaw;
 						thrust = setThrust( thrust );
 						roll = setRoll( roll );

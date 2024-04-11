@@ -30,6 +30,7 @@
 #include "ControllerClient.h"
 #include "Socket.h"
 #include "Debug.h"
+#include "../../libcontroller/PT1.h"
 
 Config* ControllerClient::mConfig = nullptr;
 
@@ -132,15 +133,19 @@ bool ControllerClient::run()
 	if ( mADC == nullptr ) {
 		mADC = new MCP320x( mConfig->string( "adc.device", "/dev/spidev1.0" ) );
 		if ( mADC ) {
-			mADC->setSmoothFactor( 0, 0.5f );
-			mADC->setSmoothFactor( 1, 0.5f );
-			mADC->setSmoothFactor( 2, 0.5f );
-			mADC->setSmoothFactor( 3, 0.5f );
+			// mADC->setSmoothFactor( 0, 0.5f );
+			// mADC->setSmoothFactor( 1, 0.5f );
+			// mADC->setSmoothFactor( 2, 0.5f );
+			// mADC->setSmoothFactor( 3, 0.5f );
 			mADC->setSmoothFactor( 4, 0.75f );
 			mJoysticks[0] = Joystick( mADC, 0, 0, mConfig->boolean( "adc.inverse.thrust", false ), true );
 			mJoysticks[1] = Joystick( mADC, 1, 1, mConfig->boolean( "adc.inverse.yaw", false ) );
 			mJoysticks[2] = Joystick( mADC, 2, 3, mConfig->boolean( "adc.inverse.pitch", false ) );
 			mJoysticks[3] = Joystick( mADC, 3, 2, mConfig->boolean( "adc.inverse.roll", false ) );
+			mJoysticks[0].setFilter( new PT1_1( 10.0f ) );
+			mJoysticks[1].setFilter( new PT1_1( 10.0f ) );
+			mJoysticks[2].setFilter( new PT1_1( 10.0f ) );
+			mJoysticks[3].setFilter( new PT1_1( 10.0f ) );
 		}
 	}
 	if ( mADC ) {
@@ -293,9 +298,10 @@ uint16_t ControllerClient::Joystick::ReadRaw( float dt )
 	if ( mInverse ) {
 		raw = 4096 - raw;
 	}
-	if ( raw != 0 ) {
-		mLastRaw = mLastRaw * 0.5f + raw * 0.5f;
-	}
+	// if ( raw != 0 ) {
+	// 	mLastRaw = mLastRaw * 0.5f + raw * 0.5f;
+	// }
+	mLastRaw = raw;
 	return mLastRaw;
 }
 
@@ -309,8 +315,11 @@ float ControllerClient::Joystick::Read( float dt )
 
 	if ( mThrustMode ) {
 		float ret = (float)( raw - mMin ) / (float)( mMax - mMin );
-		ret = 0.01f * std::round( ret * 100.0f );
+		ret = 0.001953125f * std::round( ret * 512.0f );
 		ret = std::max( 0.0f, std::min( 1.0f, ret ) );
+		if ( mFilter ) {
+			ret = mFilter->filter( ret, dt );
+		}
 		return ret;
 	}
 
@@ -320,8 +329,11 @@ float ControllerClient::Joystick::Read( float dt )
 	}
 
 	float ret = (float)( raw - mCenter ) / base;
-	ret = 0.01f * std::round( ret * 100.0f );
+		ret = 0.001953125f * std::round( ret * 512.0f );
 	ret = std::max( -1.0f, std::min( 1.0f, ret ) );
+	if ( mFilter ) {
+		ret = mFilter->filter( ret, dt );
+	}
 //	std::cout << mADCChannel << " : " << ret << "\n";
 	return ret;
 }

@@ -80,6 +80,7 @@ int main( int ac, char** av )
 
 	Config* config = new Config( av[1] );
 	config->Reload();
+	Debug::setDebugLevel( static_cast<Debug::Level>( config->integer( "debug_level", 3 ) ) );
 	config->LoadSettings();
 
 	if ( config->string( "controller.link.link_type" ) == "Socket" ) {

@@ -64,10 +64,10 @@ public:
 #define STATUS_NIGHTMODE	0b10000000
 
 	typedef struct __attribute__((packed)) Controls {
-		int8_t thrust;
-		int8_t roll;
-		int8_t pitch;
-		int8_t yaw;
+		int16_t thrust : 10;
+		int16_t roll : 10;
+		int16_t pitch : 10;
+		int16_t yaw : 10;
 		int8_t arm : 1;
 		int8_t stabilizer_mode : 1;
 		int8_t night_mode : 1;
