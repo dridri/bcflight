@@ -43,7 +43,9 @@ enable_language( ASM )
 project( flight )
 
 find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC REQUIRED )
-set( LIBS ${LIBS} ${FFMPEG_LIBRARIES} )
+find_package( PkgConfig REQUIRED )
+pkg_search_module( FFTW REQUIRED fftw3f IMPORTED_TARGET )
+set( LIBS ${LIBS} ${FFMPEG_LIBRARIES} -lfftw3f )
 
 
 macro( DIRLIST result curdir removes )

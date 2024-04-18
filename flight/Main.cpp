@@ -203,11 +203,11 @@ bool Main::StabilizerThreadRun()
 	if ( mIMU->state() == IMU::Off ) {
 		// Nothing to do
 	} else if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
-		mStabilizerThread->setFrequency( 1000000 / 1000 ); // Calibrate at a reasonable constant rate
+		mStabilizerThread->setFrequency( 1000000 / mLoopTime );
 		Board::InformLoading();
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
-		mStabilizerThread->setFrequency( 1000000 / mLoopTime ); // Set frequency only when calibration is done
+		mStabilizerThread->setFrequency( 1000000 / mLoopTime );
 	} else {
 		mStabilizer->Update( mIMU, mController, dt );
 // 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );

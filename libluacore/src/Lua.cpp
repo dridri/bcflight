@@ -634,11 +634,14 @@ LuaValue Lua::value( lua_State* L, int index )
 
 LuaValue Lua::value( const string& name )
 {
+	int top = lua_gettop( mLuaState );
 	if ( LocateValue( name ) < 0 ) {
 		// std::cout << "Lua variable \"" << name << "\" not found\n";
 		return LuaValue();
 	}
-	return value( mLuaState, -1 );
+	LuaValue ret = value( mLuaState, -1 );
+	lua_settop( mLuaState, top );
+	return ret;
 }
 
 
