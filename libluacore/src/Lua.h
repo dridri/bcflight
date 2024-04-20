@@ -338,6 +338,12 @@ public:
 		}
 		return nullptr;
 	}
+	template<typename T> T* toUserData() const {
+		if ( mType == UserData ) {
+			return reinterpret_cast<T*>( mUserData );
+		}
+		return nullptr;
+	}
 
 	operator double () {
 		return toNumber();

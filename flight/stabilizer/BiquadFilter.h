@@ -39,6 +39,7 @@ public:
 				a2 = V(1) - alpha;
 				break;
 			case NOTCH:
+			default:
 				b0 = 1;
 				b1 = -2 * cs;
 				b2 = 1;

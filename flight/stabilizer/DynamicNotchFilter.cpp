@@ -29,6 +29,7 @@ template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_
 			mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
 		}
 	}
+	Start();
 }
 
 
@@ -92,6 +93,8 @@ template<> float DynamicNotchFilter<float>::filter( const float& input, float dt
 
 template<> Vector3f DynamicNotchFilter<Vector3f>::filter( const Vector3f& input, float dt )
 {
+	pushSample( input );
+
 	Vector3f result = Vector3f( input.x, input.y, input.z );
 
 	for ( uint8_t i = 0; i < 3; i++ ) {
