@@ -2,7 +2,7 @@ Open-source Linux-based Raspberry drone and ground controller.
 
 ## Features
  * Supports Raspberry Pi 1/2/3/4/zero boards
- * Low CPU (<10% on Raspberry Pi 4) and RAM (~100MB) usage
+ * Mid CPU (20~40% on Raspberry Pi 4) and low RAM (~100MB) usage
  * Sensors and stabilizer loop-time up to 8kHz (on rPi4)
  * Up to 8 motors with customizable configuration matrix
  * DShot (150 & 300), OneShot125 and standard PWM motor protocols
