@@ -177,6 +177,10 @@ public:
 		VEC_IM( this-> , this-> , / , v );
 	}
 
+	VECTOR_INLINE void operator/=( const Vector<T,n>& v ) {
+		VEC_OP( this-> , this-> , / , v. );
+	}
+
 
 	VECTOR_INLINE Vector<T,n> operator-() const
 	{
@@ -216,13 +220,13 @@ public:
 		return ret;
 	}
 
-	VECTOR_INLINE T operator*( const Vector<T,n>& v ) const {
+	VECTOR_INLINE T operator&( const Vector<T,n>& v ) const {
 		T ret = 0;
 		VEC_ADD( ret, this-> , * , v. );
 		return ret;
 	}
 
-	VECTOR_INLINE Vector<T,n> operator&( const Vector<T,n>& v ) const {
+	VECTOR_INLINE Vector<T,n> operator*( const Vector<T,n>& v ) const {
 		Vector<T,n> ret;
 		VEC_OP( ret., this-> , * , v. );
 		return ret;
@@ -249,8 +253,8 @@ public:
 			}
 		}
 		os << "]";
-        return os;
-    }
+		return os;
+	}
 
 public:
 	union {
@@ -260,10 +264,9 @@ public:
 			T z;
 			T w;
 		};
-		T ptr[4];
+		T ptr[std::max(n, 4)];
 	};
 };
-
 
 template <typename T, int n> Vector<T, n> operator*( T im, const Vector<T, n>& v ) {
 	Vector<T, n> ret;
@@ -299,6 +302,24 @@ template <typename T, int n> bool operator!=( const Vector<T, n>& v1, const Vect
 	}
 	return ret;
 }
+
+
+namespace std {
+	template <typename T, int n> Vector<T, n> cos( const Vector<T, n>& v ) {
+		Vector<T, n> ret;
+		for ( int i = 0; i < n; i++ ) {
+			ret.ptr[i] = std::cos( v.ptr[i] );
+		}
+		return ret;
+	}
+	template <typename T, int n> Vector<T, n> sin( const Vector<T, n>& v ) {
+		Vector<T, n> ret;
+		for ( int i = 0; i < n; i++ ) {
+			ret.ptr[i] = std::sin( v.ptr[i] );
+		}
+		return ret;
+	}
+};
 
 
 typedef Vector<int, 2> Vector2i;

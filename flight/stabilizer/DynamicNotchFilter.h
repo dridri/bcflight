@@ -9,19 +9,20 @@
 typedef struct fftwf_plan_s* fftwf_plan;
 typedef float fftwf_complex[2];
 
-#define DYNAMIC_NOTCH_COUNT 8
+#define DYNAMIC_NOTCH_COUNT 4
 
-LUA_CLASS template<typename V> class DynamicNotchFilter : public Filter<V>
+template<typename V> class _DynamicNotchFilterBase : public Filter<V>
 {
 public:
-	DynamicNotchFilter();
-	// DynamicNotchFilter();
-	virtual V filter( const V& input, float dt );
+	_DynamicNotchFilterBase( uint8_t n );
+	virtual ~_DynamicNotchFilterBase() {}
+
+	template<typename T, uint8_t N> Vector<T, N> filter( const Vector<T, N>& input, float dt );
 	virtual V state();
 	void Start();
 
 protected:
-	typedef struct {
+	typedef struct DFT {
 		float* input;
 		float* inputBuffer;
 		fftwf_complex* output;
@@ -37,24 +38,45 @@ protected:
 		BiquadFilter<float>* filter;
 	} PeakFilter;
 
+	uint8_t mN;
 	V mState;
 	uint32_t mNumSamples;
+	uint32_t mSampleResolution;
 	uint32_t mInputIndex;
 	std::mutex mInputMutex;
-	DFT mDFTs[3];
-	PeakFilter mPeakFilters[3][DYNAMIC_NOTCH_COUNT];
-	HookThread<DynamicNotchFilter<V>>* mAnalysisThread;
+	std::vector<DFT> mDFTs;
+	std::vector<std::vector<PeakFilter>> mPeakFilters;
+	HookThread<_DynamicNotchFilterBase<V>>* mAnalysisThread;
 
-	void imuConsumer( uint64_t tick, const Vector3f& gyro, const Vector3f& accel );
 	bool analysisRun();
-
-	float mul( const float& a, const float& b ) {
-		return a * b;
-	}
-	template<typename T, int n> Vector<T, n> mul( const Vector<T, n>& a, const Vector<T, n>& b ) {
-		return a & b;
-	}
 };
+
+
+LUA_CLASS template<typename V> class DynamicNotchFilter : public _DynamicNotchFilterBase<V>
+{
+public:
+	DynamicNotchFilter();
+	~DynamicNotchFilter() {}
+
+	void pushSample( const V& sample );
+	// template<typename T, uint8_t N> void pushSample( const Vector<T, N>& sample );
+
+	virtual V filter( const V& input, float dt );
+};
+
+/*
+template<typename T, template <typename, uint8_t> class Vector, uint8_t N> class DynamicNotchFilter<Vector<T, N>> : public _DynamicNotchFilterBase<Vector<T, N>>
+{
+public:
+	DynamicNotchFilter() : _DynamicNotchFilterBase<Vector<T,N>>( N ) {}
+	~DynamicNotchFilter() {}
+	void pushSample( const Vector<T, N>& sample );
+	virtual Vector<T, N> filter( const Vector<T, N>& input, float dt );
+protected:
+	void _pushSample( const Vector<T, N>& sample );
+};
+*/
+
 
 // LUA_CLASS class DynamicNotchFilter_1 : public DynamicNotchFilter<float>
 // {
@@ -68,8 +90,8 @@ protected:
 // 	LUA_EXPORT DynamicNotchFilter_2() : DynamicNotchFilter() {}
 // };
 
-LUA_CLASS class DynamicNotchFilter_3 : public DynamicNotchFilter<Vector3f>
+LUA_CLASS class DynamicNotchFilter_3 : public DynamicNotchFilter<Vector<float, 3>>
 {
 public:
-	LUA_EXPORT DynamicNotchFilter_3() : DynamicNotchFilter() {}
+	LUA_EXPORT DynamicNotchFilter_3();
 };

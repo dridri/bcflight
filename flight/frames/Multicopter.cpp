@@ -132,7 +132,7 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust )
 		float overall_max = -1e6f;
 
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
-			mStabSpeeds[i] = mMatrix[i].xyz() * pid_output + mMatrix[i].w * thrust;
+			mStabSpeeds[i] = ( mMatrix[i].xyz() & pid_output ) + mMatrix[i].w * thrust;
 			overall_min = std::min( overall_min, mStabSpeeds[i] );
 			overall_max = std::max( overall_max, mStabSpeeds[i] );
 		}

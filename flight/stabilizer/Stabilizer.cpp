@@ -316,9 +316,9 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
 			1.0f - std::max( 0.0f, std::min( 1.0f, tpa ) )
 		);
-		rollPIDMultiplier = rollPIDMultiplier & tpaPID;
-		pitchPIDMultiplier = pitchPIDMultiplier & tpaPID;
-		yawPIDMultiplier = yawPIDMultiplier & tpaPID;
+		rollPIDMultiplier = rollPIDMultiplier * tpaPID;
+		pitchPIDMultiplier = pitchPIDMultiplier * tpaPID;
+		yawPIDMultiplier = yawPIDMultiplier * tpaPID;
 	}
 
 	// Anti-gravity

@@ -1339,10 +1339,15 @@ bool Controller::TelemetryRun()
 			telemetry.WriteU16( ALTITUDE );
 			telemetry.WriteFloat( mMain->imu()->altitude() );
 
-			telemetry.WriteU16( GYRO );
+			telemetry.WriteU16( RATES );
 			telemetry.WriteFloat( mMain->imu()->rate().x );
 			telemetry.WriteFloat( mMain->imu()->rate().y );
 			telemetry.WriteFloat( mMain->imu()->rate().z );
+
+			telemetry.WriteU16( GYRO );
+			telemetry.WriteFloat( mMain->imu()->gyroscope().x );
+			telemetry.WriteFloat( mMain->imu()->gyroscope().y );
+			telemetry.WriteFloat( mMain->imu()->gyroscope().z );
 
 			telemetry.WriteU16( ACCEL );
 			telemetry.WriteFloat( mMain->imu()->acceleration().x );

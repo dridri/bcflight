@@ -17,7 +17,7 @@ public:
 	virtual V filter( const V& input, float dt ) {
 		V RC = 1.0f / ( float(2.0f * M_PI) * mCutOff );
 		V coeff = dt / ( RC + dt );
-		mState += mul( coeff, ( input - mState ) );
+		mState += coeff * ( input - mState );
 		return mState;
 	}
 
@@ -28,12 +28,6 @@ public:
 protected:
 	V mCutOff;
 	V mState;
-	float mul( const float& a, const float& b ) {
-		return a * b;
-	}
-	template<typename T, int n> Vector<T, n> mul( const Vector<T, n>& a, const Vector<T, n>& b ) {
-		return a & b;
-	}
 };
 
 LUA_CLASS class PT1_1 : public PT1<float>
