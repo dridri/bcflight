@@ -41,8 +41,8 @@ IMU::IMU()
 	, mGyroscope( Vector3f() )
 	, mMagnetometer( Vector3f() )
 	, mGPSLocation( Vector2f() )
-	, mGPSAltitude( 0.0f )
 	, mGPSSpeed( 0.0f )
+	, mGPSAltitude( 0.0f )
 	, mAltitudeOffset( 0.0f )
 	, mProximity( 0.0f )
 	, mRPY( Vector3f() )
@@ -62,6 +62,7 @@ IMU::IMU()
 	, mLastAcceleration( Vector3f() )
 	, mGyroscopeErrorCounter( 0 )
 {
+
 	/** mPosition matrix :
 	 *   - Inputs :
 	 *     - XY velocity integrated over time 0 1
@@ -479,11 +480,11 @@ void IMU::UpdateAttitude( float dt )
 	char stmp[64];
 
 	// Process rates
+	Vector3f rate = mGyroscope;
 	if ( mRatesFilter ) {
-		mRate = mRatesFilter->filter( mGyroscope, dt );
-	} else {
-		mRate = mGyroscope;
+		rate = mRatesFilter->filter( mGyroscope, dt );
 	}
+	mRate = rate;
 
 	// Process acceleration
 	if ( mAccelerometerFilter ) {
@@ -518,17 +519,17 @@ void IMU::UpdateAttitude( float dt )
 	mdRPY = ( rpy - mRPY ) * dt;
 	mRPY = rpy;
 
-	char tmp[64];
-	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
-	mMain->blackbox()->Enqueue( "IMU:gyroscope", tmp );
-	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
-	mMain->blackbox()->Enqueue( "IMU:accelerometer", tmp );
-	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mRate.x, mRate.y, mRate.z );
-	mMain->blackbox()->Enqueue( "IMU:rate", tmp );
-	sprintf( stmp, "\"%.6f,%.6f,%.6f\"", mAccelerationSmoothed.x, mAccelerationSmoothed.y, mAccelerationSmoothed.z );
-	mMain->blackbox()->Enqueue( "IMU:acceleration", stmp );
-	sprintf( tmp, "\"%.6f,%.6f,%.6f\"", mRPY.x, mRPY.y, mRPY.z );
-	mMain->blackbox()->Enqueue( "IMU:rpy", tmp );
+	if ( mMain->blackbox() ) {
+		char tmp[5][128] = { "", "", "", "", "" };
+		sprintf( tmp[0], "\"%.6f,%.6f,%.6f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
+		sprintf( tmp[1], "\"%.6f,%.6f,%.6f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
+		sprintf( tmp[2], "\"%.6f,%.6f,%.6f\"", mRate.x, mRate.y, mRate.z );
+		sprintf( tmp[3], "\"%.6f,%.6f,%.6f\"", mAccelerationSmoothed.x, mAccelerationSmoothed.y, mAccelerationSmoothed.z );
+		sprintf( tmp[4], "\"%.6f,%.6f,%.6f\"", mRPY.x, mRPY.y, mRPY.z );
+		const char* keys[5] = { "IMU:gyroscope", "IMU:accelerometer", "IMU:rate", "IMU:acceleration", "IMU:rpy" };
+		const char* arr[5] = { tmp[0], tmp[1], tmp[2], tmp[3], tmp[4] };
+		mMain->blackbox()->Enqueue( keys, arr, 5 );
+	}
 }
 
 

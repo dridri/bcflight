@@ -16,6 +16,8 @@ public:
 
 	const uint32_t id() const;
 	LUA_EXPORT void Enqueue( const string& data, const string& value );
+	void Enqueue( const string* data, const string* values, int n );
+	void Enqueue( const char* data[], const char* values[], int n );
 	LUA_PROPERTY("enabled") void Start( bool enabled = true );
 
 protected:

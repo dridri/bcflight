@@ -86,6 +86,45 @@ void BlackBox::Enqueue( const string& data, const string& value )
 }
 
 
+void BlackBox::Enqueue( const string* data, const string* values, int n )
+{
+	if ( this == nullptr or not Thread::running() ) {
+		return;
+	}
+
+#ifdef SYSTEM_NAME_Linux
+	uint64_t time = Board::GetTicks();
+
+	mQueueMutex.lock();
+	for ( int i = 0; i < n; i++ ) {
+		string str = to_string(time) + "," + data[i] + "," + values[i];
+		mQueue.emplace_back( str );
+	}
+	mQueueMutex.unlock();
+#endif
+}
+
+
+void BlackBox::Enqueue( const char* data[], const char* values[], int n )
+{
+	if ( this == nullptr or not Thread::running() ) {
+		return;
+	}
+
+#ifdef SYSTEM_NAME_Linux
+	uint64_t time = Board::GetTicks();
+	char str[2048] = "";
+
+	mQueueMutex.lock();
+	for ( int i = 0; i < n; i++ ) {
+		sprintf( str, "%llu,%s,%s", time, data[i], values[i] );
+		mQueue.emplace_back( string(str) );
+	}
+	mQueueMutex.unlock();
+#endif
+}
+
+
 bool BlackBox::run()
 {
 	// exit(0);
