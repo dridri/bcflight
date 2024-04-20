@@ -34,8 +34,8 @@ static const std::map< V4L2Encoder::Format, std::string > formatToString = {
 
 V4L2Encoder::V4L2Encoder()
 	: VideoEncoder()
-	, mFormat( FORMAT_H264 )
 	, mVideoDevice( "/dev/video11" )
+	, mFormat( FORMAT_H264 )
 	, mBitrate( 4 * 1024 * 1024 )
 	, mQuality( 100 )
 	, mWidth( 1280 )

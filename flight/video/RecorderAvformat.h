@@ -28,7 +28,7 @@ protected:
 		uint32_t id;
 		AVStream* stream;
 		TrackType type;
-		std::string format;
+		char format[32];
 		// video
 		uint32_t width;
 		uint32_t height;
@@ -63,6 +63,7 @@ protected:
 	uint32_t mRecordId;
 	uint64_t mRecordStartTick;
 	uint64_t mRecordStartSystemTick;
+	std::string mRecordFilename;
 	bool mActive;
 	std::mutex mActiveMutex;
 

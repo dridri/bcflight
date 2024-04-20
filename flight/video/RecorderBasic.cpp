@@ -94,7 +94,7 @@ uint32_t RecorderBasic::AddVideoTrack( const std::string& format, uint32_t width
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeVideo;
-	track->format = format;
+	strcpy( track->format, format.c_str() );
 	track->width = width;
 	track->height = height;
 	track->average_fps = average_fps;
@@ -125,7 +125,7 @@ uint32_t RecorderBasic::AddAudioTrack( const std::string& format, uint32_t chann
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeAudio;
-	track->format = format;
+	strcpy( track->format, format.c_str() );
 	track->channels = channels;
 	track->sample_rate = sample_rate;
 	strcpy( track->extension, extension.c_str() );

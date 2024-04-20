@@ -25,7 +25,7 @@ protected:
 	typedef struct {
 		uint32_t id;
 		TrackType type;
-		std::string format;
+		char format[32];
 		char filename[256];
 		FILE* file;
 		char extension[8];

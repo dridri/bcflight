@@ -76,6 +76,7 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 			} else {
 				gDebug() << "Avformat muxer ready";
 				mMuxerReady = true;
+				Main::instance()->blackbox()->Enqueue( "Recorder:start", mRecordFilename );
 			}
 		} else {
 			av_packet_free(&pkt);
@@ -159,6 +160,7 @@ void RecorderAvformat::Start()
 
 	char filename[256];
 	sprintf( filename, (mBaseDirectory + "/record_%010u.mkv").c_str(), mRecordId );
+	mRecordFilename = std::string( filename );
 
 	avformat_alloc_output_context2( &mOutputContext, nullptr, nullptr, filename );
 	if ( !mOutputContext ) {
@@ -176,11 +178,11 @@ void RecorderAvformat::Start()
 			track->stream->time_base = (AVRational){ 1, 1000000 };
 			// track->stream->r_frame_rate = (AVRational){ 30, 1 };
 			track->stream->start_time = 0;
-			track->stream->codecpar->codec_id = track->format == "mp3" ? AV_CODEC_ID_MP3 : AV_CODEC_ID_PCM_S16LE;
+			track->stream->codecpar->codec_id = std::string(track->format) == "mp3" ? AV_CODEC_ID_MP3 : AV_CODEC_ID_PCM_S16LE;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
 			track->stream->codecpar->channels = track->channels;
 			track->stream->codecpar->sample_rate = track->sample_rate;
-			if ( track->format == "mp3" ) {
+			if ( std::string(track->format) == "mp3" ) {
 				track->stream->codecpar->bit_rate = 320 * 1024;
 			}
 			track->stream->codecpar->codec_tag = 0;
@@ -193,13 +195,13 @@ void RecorderAvformat::Start()
 			// track->stream->avg_frame_rate = (AVRational){ 30, 1 };
 			track->stream->r_frame_rate = (AVRational){ 30, 1 };
 			track->stream->start_time = 0;
-			track->stream->codecpar->codec_id = track->format == "h264" ? AV_CODEC_ID_H264 : AV_CODEC_ID_MJPEG;
+			track->stream->codecpar->codec_id = std::string(track->format) == "h264" ? AV_CODEC_ID_H264 : AV_CODEC_ID_MJPEG;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 			track->stream->codecpar->width = track->width;
 			track->stream->codecpar->height = track->height;
 			track->stream->codecpar->bit_rate = 0;
 			track->stream->codecpar->codec_tag = 0;
-			track->stream->codecpar->format = track->format == "h264" ? AV_PIX_FMT_YUV420P : AV_PIX_FMT_RGB24;
+			track->stream->codecpar->format = std::string(track->format) == "h264" ? AV_PIX_FMT_YUV420P : AV_PIX_FMT_RGB24;
 			track->stream->codecpar->extradata = nullptr;
 		}
 	}
@@ -308,6 +310,7 @@ void RecorderAvformat::Stop()
 	}
 	mWriteMutex.unlock();
 	gTrace() << "B";
+	Main::instance()->blackbox()->Enqueue( "Recorder:stop", mRecordFilename );
 
 	av_write_trailer( mOutputContext );
 	avio_flush( mOutputContext->pb );
@@ -356,7 +359,7 @@ uint32_t RecorderAvformat::AddVideoTrack( const std::string& format, uint32_t wi
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeVideo;
-	track->format = format;
+	strcpy( track->format, format.c_str() );
 	track->width = width;
 	track->height = height;
 	track->average_fps = average_fps;
@@ -374,7 +377,7 @@ uint32_t RecorderAvformat::AddAudioTrack( const std::string& format, uint32_t ch
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeAudio;
-	track->format = format;
+	strcpy( track->format, format.c_str() );
 	track->channels = channels;
 	track->sample_rate = sample_rate;
 
