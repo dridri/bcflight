@@ -116,8 +116,10 @@ private:
 	Link* mStreamLink;
 	QTimer* mUpdateTimer;
 	FirmwareUpdateThread* mFirmwareUpdateThread;
-	QVBoxLayout *motorSpeedLayout = NULL;
+	QVBoxLayout *motorSpeedLayout;
 	QList<QProgressBar*> motorSpeedProgress;
+	bool mRatesPlot;
+	bool mRatesPlotSpectrum;
 
 	QElapsedTimer mTicks;
 	QVector< double > mDataTrpy;

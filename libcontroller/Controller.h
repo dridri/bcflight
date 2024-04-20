@@ -149,6 +149,7 @@ public:
 	list< vec4 > rpyHistory();
 	list< vec4 > ratesHistory();
 	list< vec4 > ratesDerivativeHistory();
+	list< vec4 > gyroscopeHistory();
 	list< vec4 > accelerationHistory();
 	list< vec4 > magnetometerHistory();
 	list< vec3 > outerPidHistory();
@@ -215,6 +216,7 @@ protected:
 	list< vec4 > mRPYHistory;
 	list< vec4 > mRatesHistory;
 	list< vec4 > mRatesDerivativeHistory;
+	list< vec4 > mGyroscopeHistory;
 	list< vec4 > mAccelerationHistory;
 	list< vec4 > mMagnetometerHistory;
 	list< vec3 > mOuterPIDHistory;

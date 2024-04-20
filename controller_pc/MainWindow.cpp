@@ -26,6 +26,7 @@
 #include <Qsci/qsciscintilla.h>
 #include <Qsci/qscilexerlua.h>
 #include <iostream>
+#include <fftw3.h>
 
 extern "C" {
 #include <luajit.h>
@@ -52,6 +53,7 @@ MainWindow::MainWindow()
 	, mStreamLink( nullptr )
 	, mFirmwareUpdateThread( nullptr )
 	, motorSpeedLayout( nullptr )
+	, mRatesPlotSpectrum( false )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
@@ -144,6 +146,9 @@ MainWindow::MainWindow()
 	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
 	connect( ui->motorsBeepStart, &QPushButton::pressed, [this]() { MotorsBeep(true); });
 	connect( ui->motorsBeepStop, &QPushButton::pressed, [this]() { MotorsBeep(false); });
+	connect( ui->gyroPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = false; });
+	connect( ui->ratesPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = true; });
+	connect( ui->gyroSpectrumButton, &QCheckBox::stateChanged, [this](int state) { mRatesPlotSpectrum = ( state == Qt::Checked ); });
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -338,7 +343,7 @@ void MainWindow::updateData()
 			}
 		}
 
-		auto plot = []( QCustomPlot* graph, const std::list< vec4 >& values, QVector< double >& t, QVector< double >& x, QVector< double >& y, QVector< double >& z ) {
+		auto plot = []( QCustomPlot* graph, const std::list< vec4 >& values, QVector< double >& t, QVector< double >& x, QVector< double >& y, QVector< double >& z, bool rescale = true ) {
 			t.clear();
 			x.clear();
 			y.clear();
@@ -361,14 +366,67 @@ void MainWindow::updateData()
 			graph->graph(0)->setData( t, x );
 			graph->graph(1)->setData( t, y );
 			graph->graph(2)->setData( t, z );
-			graph->graph(0)->rescaleAxes();
-			graph->graph(1)->rescaleAxes( true );
-			graph->graph(2)->rescaleAxes( true );
+			if ( rescale ) {
+				graph->graph(0)->rescaleAxes();
+				graph->graph(1)->rescaleAxes( true );
+				graph->graph(2)->rescaleAxes( true );
+			}
 			graph->xAxis->rescale();
 			graph->replot();
 		};
+		const std::list<vec4>& gyroData = mRatesPlot ? mController->ratesHistory() : mController->gyroscopeHistory();
+		if ( mRatesPlotSpectrum ) {
+			int numSamples = std::min( gyroData.size(), 2048UL );
+			if ( numSamples > 32 ) {
+				float* input0 = (float*)fftwf_malloc( sizeof(float) * numSamples );
+				float* input1 = (float*)fftwf_malloc( sizeof(float) * numSamples );
+				float* input2 = (float*)fftwf_malloc( sizeof(float) * numSamples );
+				fftwf_complex* output0 = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( numSamples / 2 + 1 ) );
+				fftwf_complex* output1 = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( numSamples / 2 + 1 ) );
+				fftwf_complex* output2 = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( numSamples / 2 + 1 ) );
+				auto plan0 = fftwf_plan_dft_r2c_1d( numSamples, input0, output0, FFTW_ESTIMATE );
+				auto plan1 = fftwf_plan_dft_r2c_1d( numSamples, input1, output1, FFTW_ESTIMATE );
+				auto plan2 = fftwf_plan_dft_r2c_1d( numSamples, input2, output2, FFTW_ESTIMATE );
+				int32_t n = numSamples - 1;
+				double tMax = gyroData.back().w;
+				double tMin = 0.0;
+				std::vector<vec4> list;
+				for ( vec4 v : gyroData ) {
+					list.push_back(v);
+				}
+				for ( int32_t n = 0; n < numSamples; n++ ) {
+					input0[n] = list[list.size() - 1 - n].x;
+					input1[n] = list[list.size() - 1 - n].y;
+					input2[n] = list[list.size() - 1 - n].z;
+					tMin = list[list.size() - 1 - n].w;
+				}
+				float totalTime = tMax - tMin;
+				// printf( "totalTime: %f\n", totalTime );
+				fftwf_execute( plan0 );
+				fftwf_execute( plan1 );
+				fftwf_execute( plan2 );
+				std::list<vec4> out;
+				for ( uint32_t i = 0; i < numSamples / 2 + 1; i++ ) {
+					vec4 v;
+					v.x = std::abs( output0[i][0] );
+					v.y = std::abs( output1[i][0] );
+					v.z = std::abs( output2[i][0] );
+					v.w = 2 * i * list.size() / numSamples; // TODO : use IMU freq instead
+					out.push_back( v );
+				}
+				ui->rates->yAxis->setRange( 0.0f, 128.0f );
+				plot( ui->rates, out, mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ, false );
+				fftwf_free( input0 );
+				fftwf_free( input1 );
+				fftwf_free( input2 );
+				fftwf_free( output0 );
+				fftwf_free( output1 );
+				fftwf_free( output2 );
+			}
+		} else {
+			plot( ui->rates, gyroData, mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ );
+		}
 		plot( ui->rpy, mController->rpyHistory(), mDataTrpy, mDataR, mDataP, mDataY );
-		plot( ui->rates, mController->ratesHistory(), mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ );
 		plot( ui->accelerometer, mController->accelerationHistory(), mDataTaccelerometer, mDataAccelerometerX, mDataAccelerometerY, mDataAccelerometerZ );
 		plot( ui->magnetometer, mController->magnetometerHistory(), mDataTmagnetometer, mDataMagnetometerX, mDataMagnetometerY, mDataMagnetometerZ );
 		plot( ui->rates_dterm, mController->ratesDerivativeHistory(), mDataTratesdterm, mDataRatesdtermX, mDataRatesdtermY, mDataRatesdtermZ );

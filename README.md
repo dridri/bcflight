@@ -105,7 +105,7 @@ For cmake to run properly, the below dependecies should be installed first. Belo
 1. **Install dependencies**
 
   * *Qt:*
-    * `sudo apt-get install qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev`
+    * `sudo apt-get install qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev libfftw3-de`
 
   * *nasm:*
     * `sudo apt install nasm`
@@ -162,7 +162,7 @@ Currently only Raspberry Pi boards are supported, the 4'th variants are the reco
 
 1. **Install dependencies**
   * `sudo apt update`
-  * `sudo apt install git cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3 libfftw3-dev`
+  * `sudo apt install git pkg-config cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3 libfftw3-dev`
 
 2. **Build**
   * `git clone https://github.com/dridri/bcflight`

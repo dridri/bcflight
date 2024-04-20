@@ -56,6 +56,8 @@ if ( RAWWIFI_ON MATCHES 0 )
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_RAWWIFI" )
 endif()
 
+	set( OTHER_LIBS ${OTHER_LIBS} -lfftw3f )
+
 set( LUA_32 "" )
 if( CMAKE_SIZEOF_VOID_P EQUAL 4 )
 	set( LUA_32 "-m32" )

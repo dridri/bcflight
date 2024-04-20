@@ -670,13 +670,27 @@ bool Controller::RxRun()
 				rpy.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mRPYHistory.emplace_back( rpy );
-				if ( mRPYHistory.size() > 256 ) {
+				if ( mRPYHistory.size() > 2048 ) {
 					mRPYHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
 				break;
 			}
 			case GYRO : {
+				vec4 gyro;
+				gyro.x = telemetry.ReadFloat();
+				gyro.y = telemetry.ReadFloat();
+				gyro.z = telemetry.ReadFloat();
+				gyro.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
+				mGyroscopeHistory.emplace_back( gyro );
+				if ( mGyroscopeHistory.size() > 2048 ) {
+					mGyroscopeHistory.pop_front();
+				}
+				mHistoryMutex.unlock();
+				break;
+			}
+			case RATES : {
 				vec4 rates;
 				rates.x = telemetry.ReadFloat();
 				rates.y = telemetry.ReadFloat();
@@ -684,7 +698,7 @@ bool Controller::RxRun()
 				rates.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mRatesHistory.emplace_back( rates );
-				if ( mRatesHistory.size() > 256 ) {
+				if ( mRatesHistory.size() > 2048 ) {
 					mRatesHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -698,7 +712,7 @@ bool Controller::RxRun()
 				rates_dterm.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mRatesDerivativeHistory.emplace_back( rates_dterm );
-				if ( mRatesDerivativeHistory.size() > 256 ) {
+				if ( mRatesDerivativeHistory.size() > 2048 ) {
 					mRatesDerivativeHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -712,7 +726,7 @@ bool Controller::RxRun()
 				accel.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mAccelerationHistory.emplace_back( accel );
-				if ( mAccelerationHistory.size() > 256 ) {
+				if ( mAccelerationHistory.size() > 2048 ) {
 					mAccelerationHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -726,7 +740,7 @@ bool Controller::RxRun()
 				magn.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mMagnetometerHistory.emplace_back( magn );
-				if ( mMagnetometerHistory.size() > 256 ) {
+				if ( mMagnetometerHistory.size() > 4096 ) {
 					mMagnetometerHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -743,7 +757,7 @@ bool Controller::RxRun()
 				mHistoryMutex.lock();
 				mAltitude = telemetry.ReadFloat();
 				mAltitudeHistory.emplace_back( alt );
-				if ( mAltitudeHistory.size() > 256 ) {
+				if ( mAltitudeHistory.size() > 4096 ) {
 					mAltitudeHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -1611,6 +1625,15 @@ list< vec4 > Controller::ratesDerivativeHistory()
 {
 	mHistoryMutex.lock();
 	list< vec4 > ret = mRatesDerivativeHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
+list< vec4 > Controller::gyroscopeHistory()
+{
+	mHistoryMutex.lock();
+	list< vec4 > ret = mGyroscopeHistory;
 	mHistoryMutex.unlock();
 	return ret;
 }

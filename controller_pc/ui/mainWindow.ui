@@ -618,22 +618,6 @@
           </layout>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QGroupBox" name="groupBox_3">
-          <property name="title">
-           <string>Rates</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QCustomPlot" name="rates" native="true">
-             <property name="styleSheet">
-              <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
         <item row="1" column="0">
          <widget class="QGroupBox" name="groupBox_24">
           <property name="title">
@@ -642,6 +626,22 @@
           <layout class="QGridLayout" name="gridLayout_5">
            <item row="0" column="0">
             <widget class="QCustomPlot" name="accelerometer" native="true">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QGroupBox" name="groupBox_26">
+          <property name="title">
+           <string>Rates derivative</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_36">
+           <item row="0" column="0">
+            <widget class="QCustomPlot" name="rates_dterm" native="true">
              <property name="styleSheet">
               <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
              </property>
@@ -682,14 +682,63 @@
           </layout>
          </widget>
         </item>
-        <item row="2" column="1">
-         <widget class="QGroupBox" name="groupBox_26">
+        <item row="0" column="1">
+         <widget class="QGroupBox" name="groupBox_3">
           <property name="title">
-           <string>Rates derivative</string>
+           <string/>
           </property>
-          <layout class="QGridLayout" name="gridLayout_36">
+          <layout class="QGridLayout" name="gridLayout_4">
            <item row="0" column="0">
-            <widget class="QCustomPlot" name="rates_dterm" native="true">
+            <widget class="QRadioButton" name="gyroPlotButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Gyroscope</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QRadioButton" name="ratesPlotButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Rates</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <spacer name="horizontalSpacer_9">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Minimum</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="3">
+            <widget class="QCheckBox" name="gyroSpectrumButton">
+             <property name="text">
+              <string>Spectrum</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="4">
+            <widget class="QCustomPlot" name="rates" native="true">
              <property name="styleSheet">
               <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
              </property>
