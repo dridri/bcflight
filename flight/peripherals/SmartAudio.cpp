@@ -1,10 +1,15 @@
 #include "SmartAudio.h"
 #include "Debug.h"
+#include <Board.h>
+#include <pigpio.h>
 
 #define CMD_GET_SETTINGS	0x01
 #define CMD_SET_POWER		0x02
 #define CMD_SET_CHANNEL		0x03
 #define CMD_SET_FREQUENCY	0x04
+#define CMD_SET_MODE		0x05
+
+// TODO : run in separate thread
 
 
 typedef struct
@@ -14,22 +19,36 @@ typedef struct
 	uint8_t length;
 } __attribute__((packed)) SmartAudioCommand;
 
-static const std::map< std::string, std::vector<uint16_t> > vtxBandsFrequencies = {
-    { "Boscam A", { 5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725 } },
-    { "Boscam B", { 5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866 } },
-    { "Boscam E", { 5705, 5685, 5665, 5645, 5885, 5905, 5925, 5945 } },
-    { "FatShark", { 5740, 5760, 5780, 5800, 5820, 5840, 5860, 5880 } },
-    { "RaceBand", { 5658, 5695, 5732, 5769, 5806, 5843, 5880, 5917 } },
+typedef struct {
+	std::string name;
+	uint16_t frequencies[8];
+} Band;
+
+static const std::vector< Band > vtxBandsFrequencies = {
+	{ "Boscam A", { 5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725 } },
+	{ "Boscam B", { 5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866 } },
+	{ "Boscam E", { 5705, 5685, 5665, 5645, 5885, 5905, 5925, 5945 } },
+	{ "FatShark", { 5740, 5760, 5780, 5800, 5820, 5840, 5860, 5880 } },
+	{ "RaceBand", { 5658, 5695, 5732, 5769, 5806, 5843, 5880, 5917 } },
 };
 
-SmartAudio::SmartAudio( Bus* bus )
+static uint8_t crc8( const uint8_t* ptr, uint8_t len );
+
+
+SmartAudio::SmartAudio( Serial* bus, uint8_t txpin, bool frequency_cmd_supported )
 	: mBus( bus )
+	, mTXPin( txpin )
+	, mSetFrequencySupported( frequency_cmd_supported )
+	, mTXStopBits( 2 )
+	, mRXStopBits( 1 )
+	, mLastCommandTick( 0 )
 	, mVersion( 1 )
 	, mFrequency( 0 )
 	, mPower( 0 )
 	, mChannel( 0 )
 	, mBand( 0 )
 {
+	mBus->Connect();
 }
 
 
@@ -44,23 +63,69 @@ void SmartAudio::Setup()
 }
 
 
+int SmartAudio::SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_t datalen )
+{
+	uint64_t tick = Board::GetTicks();
+	uint64_t diff = tick - mLastCommandTick;
+	if ( diff < 200 * 1000 ) {
+		usleep( 200*1000 - diff );
+	}
+
+	int ret = 0;
+
+	uint8_t command[32] = { 0 };
+	command[0] = 0x00;
+	SmartAudioCommand* cmd = (SmartAudioCommand*)( command + 1 );
+	cmd->header = 0x55AA;
+	cmd->command = ( cmd_code << 1 ) + 1;
+	cmd->length = datalen;
+	memcpy( command + 1 + sizeof(SmartAudioCommand), data, datalen );
+	uint8_t crc = crc8( (uint8_t*)cmd, sizeof(SmartAudioCommand) + datalen );
+	command[ 1 + sizeof(SmartAudioCommand) + datalen ] = crc;
+
+	// Enter TX mode
+	mBus->setStopBits( 2 );
+	gpioSetMode( mTXPin, PI_ALT4 );
+
+	// Send bytes
+	ret = mBus->Write( command, 1 + sizeof(SmartAudioCommand) + datalen + 1 );
+
+	// // Leave TX mode
+	usleep( 1000 * 16 );
+	gpioSetMode( mTXPin, PI_INPUT );
+
+	// Set 1 stop-bit for data comming from VTX
+	mBus->setStopBits( 1 );
+
+	// Read self echo
+	uint8_t dummy[16] = { 0x00 };
+	uint8_t readi = 0;
+	uint16_t ret2 = 0;
+	do {
+		int r = mBus->Read( dummy + readi, 1 );
+		if ( r <= 0 ) {
+			return r;
+		}
+		ret2 += r;
+		readi++;
+	} while ( dummy[readi-1] != crc && ret2 < 16);
+
+	mLastCommandTick = Board::GetTicks();
+	return ret;
+}
+
+
 void SmartAudio::Update()
 {
-	uint8_t command[ sizeof(SmartAudioCommand) + 1 ] = { 0 };
-	SmartAudioCommand* cmd = (SmartAudioCommand*)command;
-	cmd->header = 0xAA55;
-	cmd->command = ( CMD_GET_SETTINGS << 1 ) + 1;
-	cmd->length = 0;
-	command[ sizeof(SmartAudioCommand) ] = crc8( command, sizeof(command) - 1 );
+	fDebug();
 
-	mBus->Write( command, sizeof(command) );
-
-	usleep( 1000 * 100 );
+	SendCommand( CMD_GET_SETTINGS, nullptr, 0 );
 
 	uint8_t response[ 32 ] = { 0 };
-	mBus->Read( response, sizeof(response) );
+	int sz = mBus->Read( response, sizeof(response) );
+
 	SmartAudioCommand* resp = (SmartAudioCommand*)response;
-	if ( resp->header != 0xAA55 or ( resp->command & 0b00000111 ) != CMD_GET_SETTINGS ) {
+	if ( resp->header != 0x55AA or ( resp->command & 0b00000111 ) != CMD_GET_SETTINGS ) {
 		gDebug() << "SmartAudio: invalid response (header=" << resp->header << ", command=" << resp->command << ")";
 		return;
 	}
@@ -68,38 +133,139 @@ void SmartAudio::Update()
 	mVersion = resp->command >> 3;
 	mChannel = response[ sizeof(SmartAudioCommand) ];
 	mPower = response[ sizeof(SmartAudioCommand) + 1 ];
-	// Operation mode = response[ sizeof(SmartAudioCommand) + 2 ];
+	uint8_t mode = response[ sizeof(SmartAudioCommand) + 2 ];
+	uint8_t freq_mode = mode & 0b00000001;
 	mFrequency = ( response[ sizeof(SmartAudioCommand) + 3 ] << 8 ) + response[ sizeof(SmartAudioCommand) + 4 ];
 
-	// TBD : find band from channel instead ?
-	for ( auto& band : vtxBandsFrequencies ) {
-		for ( uint8_t i = 0; i < band.second.size(); i++ ) {
-			if ( band.second[i] == mFrequency ) {
-				mBand = std::distance( vtxBandsFrequencies.begin(), vtxBandsFrequencies.find( band.first ) );
-				break;
-			}
+	mBand = mChannel / 8;
+	if ( freq_mode == 0 ) {
+		mFrequency = vtxBandsFrequencies[mBand].frequencies[mChannel % 8];
+	}
+
+	// Version 3
+	if ( resp->command == 0x11 && resp->length > 10 ) {
+		uint8_t maxPowers = ((uint8_t*)resp)[10];
+		std::vector<uint8_t> powers;
+		for ( uint8_t i = 0; i <= maxPowers && i + 11 <= resp->length + 2; i++ ) {
+			uint8_t power = ((uint8_t*)resp)[11 + i];
+			powers.push_back( power );
 		}
+		mPowerTable = powers;
+	}
+
+	gDebug() << "SmartAudio Update :";
+	gDebug() << "    version : " << (int)mVersion;
+	gDebug() << "    mode : " << (int)mode;
+	gDebug() << "    channel : " << (int)mChannel;
+	gDebug() << "    power : " << (int)mPower;
+	gDebug() << "    frequency : " << (int)mFrequency << " MHz";
+	gDebug() << "    band : " << vtxBandsFrequencies[mBand].name << "(" << mBand << ")";
+	if ( mPowerTable.size() > 0 ) {
+		char powers[128] = "";
+		for ( uint8_t i = 0; i < mPowerTable.size(); i++ ) {
+			char p[16] = "";
+			sprintf( p, "%s [%d]=%ddBm", i == 0 ? "" : ",", i, mPowerTable[i] );
+			strcat( powers, p );
+		}
+		gDebug() << "    available powers : {" << powers << " }";
 	}
 }
 
 
 void SmartAudio::setFrequency( uint16_t frequency )
 {
+	fDebug( (int)frequency );
+
+	if ( not mSetFrequencySupported ) {
+		setChannel( channelFromFrequency( frequency ) );
+		return;
+	}
+
+	uint8_t data[2] = { 0 };
+	data[0] = ( frequency >> 8 ) & 0b00111111;
+	data[1] = frequency & 0xFF;
+	SendCommand( CMD_SET_FREQUENCY, data, 2 );
+
+	uint8_t response[ 32 ] = { 0 };
+	int sz = mBus->Read( response, sizeof(response) );
+	if ( sz <= 0 ) {
+		gWarning() << "Setting frequency failed, no response from VTX";
+		return;
+	}
+
+	mFrequency = ( response[4] << 8 ) + response[5];
+	mChannel = channelFromFrequency( mFrequency );
+	mBand = mChannel / 8;
+
+	gDebug() << "VTX frequency now set to " << (int)mFrequency;
+	gDebug() << "VTX band now set to : " << vtxBandsFrequencies[mBand].name << " (" << (int)mBand << ")";
+	gDebug() << "VTX channel now set to " << (int)mChannel;
 }
 
 
 void SmartAudio::setPower( uint8_t power )
 {
+	fDebug( (int)power );
+
+	uint8_t data[1] = { power };
+	SendCommand( CMD_SET_POWER, data, 1 );
+
+	uint8_t response[ 32 ] = { 0 };
+	int sz = mBus->Read( response, sizeof(response) );
+	if ( sz <= 0 ) {
+		gWarning() << "Setting power failed, no response from VTX";
+		return;
+	}
+
+	mPower = response[5];
+
+	if ( mPower < mPowerTable.size() ) {
+		gDebug() << "VTX power now set to " << (int)mPowerTable[mPower] << " dBm";
+	}
 }
 
 
 void SmartAudio::setChannel( uint8_t channel )
 {
+	fDebug( (int)channel );
+
+	uint8_t data[1] = { channel };
+	SendCommand( CMD_SET_CHANNEL, data, 1 );
+
+	uint8_t response[ 32 ] = { 0 };
+	int sz = mBus->Read( response, sizeof(response) );
+	if ( sz <= 0 ) {
+		gWarning() << "Setting channel failed, no response from VTX";
+		return;
+	}
+
+	mChannel = response[4];
+	mBand = mChannel / 8;
+	mFrequency = vtxBandsFrequencies[mBand].frequencies[mChannel % 8];
+
+	gDebug() << "VTX channel now set to " << (int)mChannel;
+	gDebug() << "VTX band now set to : " << vtxBandsFrequencies[mBand].name << " (" << (int)mBand << ")";
+	gDebug() << "VTX frequency now set to " << (int)mFrequency;
 }
 
 
-void SmartAudio::setBand( uint8_t band )
+void SmartAudio::setMode( uint8_t mode )
 {
+	fDebug( (int)mode );
+
+	uint8_t data[1] = { mode };
+	SendCommand( CMD_SET_MODE, data, 1 );
+
+	uint8_t response[ 32 ] = { 0 };
+	int sz = mBus->Read( response, sizeof(response) );
+	if ( sz <= 0 ) {
+		gWarning() << "Setting mode failed, no response from VTX";
+		return;
+	}
+
+	mode = response[4];
+
+	gDebug() << "VTX mode now set to " << (int)mode;
 }
 
 
@@ -124,6 +290,20 @@ uint8_t SmartAudio::getChannel()
 uint8_t SmartAudio::getBand()
 {
 	return mBand;
+}
+
+
+int8_t SmartAudio::channelFromFrequency( uint16_t frequency )
+{
+	for ( int band = 0; band < 5; band++ ) {
+		for ( int freq = 0; freq < 8; freq++ ) {
+			if ( vtxBandsFrequencies[band].frequencies[freq] == frequency ) {
+				return band * 8 + freq;
+			}
+		}
+	}
+
+	return -1;
 }
 
 

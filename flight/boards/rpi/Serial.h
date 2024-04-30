@@ -30,8 +30,10 @@ using namespace std;
 LUA_CLASS class Serial : public Bus
 {
 public:
-	Serial( const string& device = "", int speed = 9600, bool singleWire = false );
+	LUA_EXPORT Serial( const string& device = "", int speed = 9600, int read_timeout = 0 );
 	~Serial();
+
+	void setStopBits( uint8_t count );
 
 	int Connect();
 	int Read( void* buf, uint32_t len );
@@ -43,9 +45,10 @@ public:
 
 private:
 	int mFD;
-	LUA_PROPERTY("single_wire") bool mSingleWire;
+	struct termios2* mOptions;
 	LUA_PROPERTY("device") std::string mDevice;
 	LUA_PROPERTY("speed") uint32_t mSpeed;
+	LUA_PROPERTY("read_timeout") int32_t mReadTimeout;
 };
 
 #endif // SERIAL_H

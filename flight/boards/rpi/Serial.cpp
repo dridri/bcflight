@@ -7,8 +7,8 @@
 #include <asm/termios.h>
 #include <map>
 #include "Debug.h"
+#include <poll.h>
 
-//#include <pigpio.h>
 
 extern "C" int ioctl (int __fd, unsigned long int __request, ...) __THROW;
 
@@ -47,64 +47,64 @@ static map< int, int > sSpeeds = {
 };
 
 
-Serial::Serial( const string& device, int speed, bool singleWire )
+Serial::Serial( const string& device, int speed, int read_timeout )
 	: Bus()
 	, mFD( -1 )
-	, mSingleWire( singleWire )
+	, mOptions( nullptr )
 	, mDevice( device )
 	, mSpeed( speed )
+	, mReadTimeout( read_timeout )
 {
 }
 
 
 Serial::~Serial()
 {
+	delete mOptions;
 }
 
 
 int Serial::Connect()
 {
-	mFD = open( mDevice.c_str(), O_RDWR | O_NOCTTY/* | O_NDELAY*/ );
+
+	mFD = open( mDevice.c_str(), O_RDWR | O_NOCTTY );
 	if ( mFD < 0 ) {
 		gError() << "Err0 : " << strerror(errno);
 		return -1;
 	}
 
-	struct termios2 options;
+	mOptions = new struct termios2;
+	ioctl( mFD, TCGETS2, mOptions );
 
-	ioctl( mFD, TCGETS2, &options );
-	
-	// Set baud rate
-	options.c_cflag &= ~CBAUD;
-	options.c_cflag |= B115200; // Example baud rate: 115200
+	// Set stop bits to 1
+	mOptions->c_cflag &= ~CSTOPB;
+
+	// Set parity options
+	mOptions->c_cflag &= ~PARENB; // Disable parity
+	mOptions->c_cflag &= ~PARODD; // Even parity
+
+	mOptions->c_cflag |= CRTSCTS;
 
 	// Set data bits
-	options.c_cflag &= ~CSIZE;
-	options.c_cflag |= CS8; // 8 data bits
-
-	// Disable parity
-	options.c_cflag &= ~PARENB;
-
-	// Set stop bits
-	options.c_cflag &= ~CSTOPB; // 1 stop bit
-
-	// Disable hardware flow control
-	options.c_cflag &= ~CRTSCTS;
+	mOptions->c_cflag &= ~CSIZE;
+	mOptions->c_cflag |= CS8; // 8 data bits
 
 
-    // Enable binary mode
-    options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR);
-    options.c_oflag &= ~OPOST;
-    options.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-    options.c_cc[VMIN] = 1; // 25
-    options.c_cc[VTIME] = 0;
+	// Enable binary mode
+	mOptions->c_iflag = 0;
+	mOptions->c_oflag &= ~OPOST;
+	mOptions->c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+	mOptions->c_cc[VMIN] = 6;
+	mOptions->c_cc[VTIME] = 0;
 
-    options.c_cflag &= ~CBAUD;
-    options.c_cflag |= BOTHER;
 
-	options.c_ispeed = mSpeed;
-	options.c_ospeed = mSpeed;
-	int ret = ioctl( mFD, TCSETS2, &options );
+	mOptions->c_cflag &= ~CBAUD;
+	mOptions->c_cflag |= BOTHER;
+
+	mOptions->c_ispeed = mSpeed;
+	mOptions->c_ospeed = mSpeed;
+
+	int ret = ioctl( mFD, TCSETS2, mOptions );
 	if ( ret < 0 ) {
 		gError() << "Err1 : " << errno << ", " << strerror(errno);
 		return -1;
@@ -120,6 +120,28 @@ std::string Serial::toString()
 }
 
 
+void Serial::setStopBits( uint8_t count )
+{
+	if ( not mOptions ) {
+		return;
+	}
+
+	ioctl( mFD, TCGETS2, mOptions );
+
+	if ( count == 2 ) {
+		mOptions->c_cflag |= CSTOPB;
+	} else if ( count == 1 ) {
+		mOptions->c_cflag &= ~CSTOPB;
+	} else {
+		gWarning() << "Unhandled stop bits count (" << count << ")";
+	}
+
+	int ret = ioctl( mFD, TCSETS2, mOptions );
+	if ( ret < 0 ) {
+		gError() << "Err1 : " << errno << ", " << strerror(errno);
+	}
+}
+
 
 int Serial::Read( uint8_t reg, void* buf, uint32_t len )
 {
@@ -129,6 +151,16 @@ int Serial::Read( uint8_t reg, void* buf, uint32_t len )
 
 int Serial::Read( void* buf, uint32_t len )
 {
+	if ( mReadTimeout > 0 ) {
+		struct pollfd pfd[1];
+		pfd[0].fd = mFD;
+		pfd[0].events = POLLIN;
+		int ret = poll( pfd, 1, mReadTimeout );
+		if ( ret <= 0 ) {
+			return ret;
+		}
+	}
+
 	int ret = read( mFD, buf, len );
 	if ( ret < 0 && errno != EAGAIN ) {
 		gDebug() << errno << ", " << strerror(errno);
@@ -142,18 +174,6 @@ int Serial::Write( const void* buf, uint32_t len )
 	int ret = write( mFD, buf, len );
 	if ( ret < 0 ) {
 		gDebug() << errno << ", " << strerror(errno);
-	}
-	if ( mSingleWire ) {
-		usleep( 1000 );
-		void* dummy = new uint8_t[ len ];
-		ret = read( mFD, dummy, len );
-		delete[] dummy;
-		if ( ret < 0 ) {
-			gDebug() << "Single-wire echo-read failed: " << errno << ", " << strerror(errno);
-		}
-		if ( ret != len ) {
-			gDebug() << "Single-wire echo-read failed: " << ret << " != " << len;
-		}
 	}
 	return ret;
 }
