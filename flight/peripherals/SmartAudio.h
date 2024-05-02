@@ -7,21 +7,27 @@
 LUA_CLASS class SmartAudio
 {
 public:
-	LUA_EXPORT SmartAudio( Serial* bus, uint8_t txpin, bool frequency_cmd_supported = false );
+	SmartAudio( Serial* bus, uint8_t txpin, bool frequency_cmd_supported = false );
+	LUA_EXPORT SmartAudio();
 	~SmartAudio();
 
-	void Setup();
-	void Update();
+	void setStopBits( uint8_t tx, uint8_t rx );
 
-	void setFrequency( uint16_t frequency );
-	void setPower( uint8_t power );
-	void setChannel( uint8_t channel );
-	void setMode( uint8_t mode );
+	LUA_EXPORT void Connect();
+	LUA_EXPORT void Update();
 
-	uint16_t getFrequency();
-	uint8_t getPower();
-	uint8_t getChannel();
-	uint8_t getBand();
+	LUA_EXPORT void setFrequency( uint16_t frequency );
+	LUA_EXPORT void setPower( uint8_t power );
+	LUA_EXPORT void setChannel( uint8_t channel );
+	LUA_EXPORT void setMode( uint8_t mode );
+
+	LUA_EXPORT int getFrequency() const;
+	LUA_EXPORT int getPower() const;
+	LUA_EXPORT int getPowerDbm() const;
+	LUA_EXPORT int getChannel() const;
+	LUA_EXPORT int getBand() const;
+	LUA_EXPORT std::string getBandName() const;
+	LUA_EXPORT std::vector<int32_t> getPowerTable() const;
 
 private:
 	LUA_PROPERTY("bus") Serial* mBus;
@@ -35,7 +41,7 @@ private:
 	uint8_t mPower;
 	uint8_t mChannel;
 	uint8_t mBand;
-	std::vector<uint8_t> mPowerTable;
+	std::vector<int32_t> mPowerTable;
 
 	int SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_t datalen );
 	int8_t channelFromFrequency( uint16_t freq );

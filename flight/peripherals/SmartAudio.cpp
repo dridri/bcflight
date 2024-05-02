@@ -48,7 +48,12 @@ SmartAudio::SmartAudio( Serial* bus, uint8_t txpin, bool frequency_cmd_supported
 	, mChannel( 0 )
 	, mBand( 0 )
 {
-	mBus->Connect();
+}
+
+
+SmartAudio::SmartAudio()
+	: SmartAudio( nullptr, 0, false )
+{
 }
 
 
@@ -57,8 +62,16 @@ SmartAudio::~SmartAudio()
 }
 
 
-void SmartAudio::Setup()
+void SmartAudio::setStopBits( uint8_t tx, uint8_t rx )
 {
+	mTXStopBits = tx;
+	mRXStopBits = rx;
+}
+
+
+void SmartAudio::Connect()
+{
+	mBus->Connect();
 	Update();
 }
 
@@ -84,7 +97,7 @@ int SmartAudio::SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_
 	command[ 1 + sizeof(SmartAudioCommand) + datalen ] = crc;
 
 	// Enter TX mode
-	mBus->setStopBits( 2 );
+	mBus->setStopBits( mTXStopBits );
 	gpioSetMode( mTXPin, PI_ALT4 );
 
 	// Send bytes
@@ -93,9 +106,7 @@ int SmartAudio::SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_
 	// // Leave TX mode
 	usleep( 1000 * 16 );
 	gpioSetMode( mTXPin, PI_INPUT );
-
-	// Set 1 stop-bit for data comming from VTX
-	mBus->setStopBits( 1 );
+	mBus->setStopBits( mRXStopBits );
 
 	// Read self echo
 	uint8_t dummy[16] = { 0x00 };
@@ -145,7 +156,7 @@ void SmartAudio::Update()
 	// Version 3
 	if ( resp->command == 0x11 && resp->length > 10 ) {
 		uint8_t maxPowers = ((uint8_t*)resp)[10];
-		std::vector<uint8_t> powers;
+		std::vector<int32_t> powers;
 		for ( uint8_t i = 0; i <= maxPowers && i + 11 <= resp->length + 2; i++ ) {
 			uint8_t power = ((uint8_t*)resp)[11 + i];
 			powers.push_back( power );
@@ -269,27 +280,48 @@ void SmartAudio::setMode( uint8_t mode )
 }
 
 
-uint16_t SmartAudio::getFrequency()
+int SmartAudio::getFrequency() const
 {
 	return mFrequency;
 }
 
 
-uint8_t SmartAudio::getPower()
+int SmartAudio::getPower() const
 {
 	return mPower;
 }
 
 
-uint8_t SmartAudio::getChannel()
+int SmartAudio::getPowerDbm() const
+{
+	if ( mPower < mPowerTable.size() ) {
+		return (int)mPowerTable[mPower];
+	}
+	return -1;
+}
+
+
+int SmartAudio::getChannel() const
 {
 	return mChannel;
 }
 
 
-uint8_t SmartAudio::getBand()
+int SmartAudio::getBand() const
 {
 	return mBand;
+}
+
+
+std::string SmartAudio::getBandName() const
+{
+	return std::string( vtxBandsFrequencies[mBand].name );
+}
+
+
+std::vector<int> SmartAudio::getPowerTable() const
+{
+	return mPowerTable;
 }
 
 
