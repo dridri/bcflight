@@ -282,6 +282,11 @@ void Board::Reset()
 }
 
 
+void Board::setDiskFull()
+{
+}
+
+
 extern "C" uint32_t _mem_usage()
 {
 	return 0; // TODO

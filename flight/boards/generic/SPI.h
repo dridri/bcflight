@@ -32,6 +32,7 @@ public:
 	~SPI();
 	const string& device() const;
 
+	int Connect();
 	int Transfer( void* tx, void* rx, uint32_t len );
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );

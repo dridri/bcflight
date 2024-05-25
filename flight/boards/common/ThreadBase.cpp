@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include "ThreadBase.h"
+#include "Thread.h"
 #include "Board.h"
 #include "Debug.h"
 

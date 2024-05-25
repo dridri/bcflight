@@ -33,6 +33,7 @@ public:
 	~I2C();
 	const int address() const;
 
+	int Connect();
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );
 	int Read( uint8_t reg, void* buf, uint32_t len );

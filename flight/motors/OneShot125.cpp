@@ -64,6 +64,12 @@ OneShot125::OneShot125( uint32_t pin, int us_min, int us_max, PWM* pwm )
 }
 
 
+OneShot125::OneShot125( const LuaValue& pin )
+	: OneShot125( pin.toInteger(), 125, 250-8, nullptr )
+{
+}
+
+
 OneShot125::~OneShot125()
 {
 }
@@ -71,6 +77,7 @@ OneShot125::~OneShot125()
 
 void OneShot125::setSpeedRaw( float speed, bool force_hw_update )
 {
+	fDebug( speed, force_hw_update );
 	if ( isnan( speed ) or isinf( speed ) ) {
 		return;
 	}
@@ -92,7 +99,8 @@ void OneShot125::setSpeedRaw( float speed, bool force_hw_update )
 
 void OneShot125::Disarm()
 {
-	mPWM->SetPWMus( 100 * mScale );
+	// mPWM->SetPWMus( 100 * mScale );
+	mPWM->SetPWMus( 0 );
 	mPWM->Update();
 }
 

@@ -1,9 +1,8 @@
-#if ( defined( BOARD_rpi ) )
-
 #include "LinuxGPS.h"
 #include "Debug.h"
 #include <cmath>
 
+#ifdef BUILD_LinuxGPS
 
 LinuxGPS::LinuxGPS()
 	: GPS()
@@ -88,5 +87,49 @@ bool LinuxGPS::Stats( uint32_t* satSeen, uint32_t* satUsed )
 	return false;
 }
 
+#else
 
-#endif // BOARD_rpi
+
+LinuxGPS::LinuxGPS(): GPS()
+{
+	fDebug();
+}
+
+
+LinuxGPS::~LinuxGPS()
+{
+	fDebug();
+}
+
+
+void LinuxGPS::Calibrate( float dt, bool last_pass )
+{
+	(void)dt;
+	(void)last_pass;
+}
+
+
+time_t LinuxGPS::getTime()
+{
+	return 0;
+}
+
+
+bool LinuxGPS::Read( float* latitude, float* longitude, float* altitude, float* speed )
+{
+	(void)latitude;
+	(void)longitude;
+	(void)altitude;
+	(void)speed;
+	return false;
+}
+
+
+bool LinuxGPS::Stats( uint32_t* satSeen, uint32_t* satUsed )
+{
+	(void)satSeen;
+	(void)satUsed;
+	return false;
+}
+
+#endif

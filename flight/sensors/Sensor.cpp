@@ -175,13 +175,13 @@ LuaValue Sensor::swapInfos() const
 	return ret;
 }
 
-/*
+
 void Sensor::AddDevice( Sensor* sensor )
 {
 	mDevices.push_back( sensor );
 	UpdateDevices();
 }
-*/
+
 /*
 void Sensor::RegisterDevice( int I2Caddr, const string& name, Config* config, const string& object )
 {

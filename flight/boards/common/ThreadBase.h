@@ -19,6 +19,7 @@
 #ifndef THREADBASE_H
 #define THREADBASE_H
 
+#include <stdint.h>
 #include <string>
 #include <list>
 #include <pthread.h>

@@ -760,12 +760,12 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 		if ( timedout ) {
 			if ( mLedPin ) {
 				GPIO::Write( mLedPin, 1 );
-				if ( mDiversityLedPin ) {
+				if ( mDiversityLedPin >= 0 ) {
 					GPIO::Write( mDiversityLedPin, 1 );
 				}
 				usleep( 500 );
 				GPIO::Write( mLedPin, 0 );
-				if ( mDiversityLedPin ) {
+				if ( mDiversityLedPin >= 0 ) {
 					GPIO::Write( mDiversityLedPin, 0 );
 				}
 			}

@@ -276,8 +276,8 @@ if ( "${CMAKE_SYSTEM_NAME}" MATCHES "Linux" )
 	include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 	set( LIBS ${LIBS} luajit_static )
 elseif( "${CMAKE_SYSTEM_NAME}" MATCHES "Generic" )
-	add_definitions( -DLUA_32BITS )
-	set( LUA_CFLAGS "${CMAKE_C_FLAGS} -DLUA_32BITS" )
+	# add_definitions( -DLUA_32BITS )
+	# set( LUA_CFLAGS "${CMAKE_C_FLAGS} -DLUA_32BITS" )
 	add_custom_target( liblua_src COMMAND make -C ${CMAKE_SOURCE_DIR}/../external/liblua liblua.a CC=${CMAKE_C_COMPILER} STRIP=${CROSS}strip XCFLAGS=-DLUAJIT_USE_SYSMALLOC CFLAGS=${LUA_CFLAGS} )
 	add_custom_target( liblua DEPENDS liblua_src COMMAND cp ${CMAKE_SOURCE_DIR}/../external/liblua/liblua.a ${CMAKE_BINARY_DIR}/liblua.a )
 	add_dependencies( flight_unstripped liblua )
@@ -308,5 +308,20 @@ endif()
 
 message( STATUS "LIBS : ${LIBS} ${BOARD_LIBS}" )
 target_link_libraries( flight_unstripped -L./ controllerbase luacore libdebug ${LIBS} ${BOARD_LIBS} )
+
+
+if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL CMAKE_SYSTEM_PROCESSOR)
+	include(FetchContent)
+	FetchContent_Declare(
+		catch2
+		GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+		GIT_TAG v3.6.0
+	)
+	FetchContent_MakeAvailable(catch2)
+	enable_testing()
+	add_subdirectory( ${CMAKE_SOURCE_DIR}/tests )
+else()
+    message(STATUS "Skipping test build as we are cross-compiling")
+endif()
 
 board_strip()

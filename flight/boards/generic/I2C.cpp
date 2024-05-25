@@ -32,6 +32,12 @@ I2C::~I2C()
 }
 
 
+int I2C::Connect()
+{
+	return 0;
+}
+
+
 std::string I2C::toString()
 {
 	stringstream ss;

@@ -3,6 +3,7 @@
 
 #include "Link.h"
 #include "Config.h"
+#include <Thread.h>
 #include <condition_variable>
 
 namespace rawwifi {

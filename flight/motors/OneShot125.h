@@ -2,6 +2,7 @@
 #define ONESHOT125_H
 
 #include <PWM.h>
+#include <Lua.h>
 #include "Motor.h"
 
 class Main;
@@ -9,7 +10,8 @@ class Main;
 LUA_CLASS class OneShot125 : public Motor
 {
 public:
-	LUA_EXPORT OneShot125( uint32_t pin, int us_min = 125, int us_max = 250-8, PWM* pwm = nullptr );
+	OneShot125( uint32_t pin, int us_min = 125, int us_max = 250-8, PWM* pwm = nullptr );
+	LUA_EXPORT OneShot125( const LuaValue& pin );
 	~OneShot125();
 
 	virtual void Disarm();

@@ -49,6 +49,8 @@ include_directories( /opt/vc/include )
 	set( BOARD_LIBS ${BOARD_LIBS} -liw -lcamera -lcamera-base -lgps )
 #endif()
 
+add_definitions( -DHAVE_LIBIW )
+
 
 if ( NOT ${camera} MATCHES OFF AND NOT "${camera}" MATCHES "0" AND ${BUILD_video} MATCHES "1" )
 	set( BOARD_LIBS ${BOARD_LIBS} -lGLESv2 -lEGL )

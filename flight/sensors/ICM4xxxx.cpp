@@ -79,15 +79,15 @@ void ICM4xxxx::InitChip()
 	// 524Hz : (39, 1536, 4)
 	// 995Hz : (63, 3968, 3)
 	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
-    mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 21 );
-    mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 440 & 0xFF );
-    mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (440 >> 8) | (6 << 4) );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 21 );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 440 & 0xFF );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (440 >> 8) | (6 << 4) );
 
 	// Fixed values for accelerometer
 	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
-    mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 21 );
-    mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 440 & 0xFF );
-    mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (440 >> 8) | (6 << 4) );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 21 );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 440 & 0xFF );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (440 >> 8) | (6 << 4) );
 
 	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
 
@@ -424,7 +424,7 @@ int ICM4xxxxGyro::Read( Vector3f* v, bool raw )
 
 	ret = mBus->Read( ICM_4xxxx_GYRO_DATA_X1 | 0x80, sgyro, sizeof(sgyro) );
 	if ( ret != sizeof(sgyro) ) {
-		gWarning() << "ICM4xxxxAccel::Read() : read " << ret << " bytes instead of " << sizeof(sgyro);
+		gWarning() << "read " << ret << " bytes instead of " << sizeof(sgyro);
 		return -1;
 	}
 	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;

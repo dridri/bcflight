@@ -18,23 +18,10 @@
 
 #include <Main.h>
 
-// #include <peripherals/SmartAudio.h>
-// #include <pigpio.h>
-
 
 int main( int ac, char** av )
 {
 	Debug::setDebugLevel( Debug::Verbose );
-	// gpioInitialise();
-	// Debug::setDebugLevel( Debug::Trace );
-	// Serial* s = new Serial( "/dev/ttyAMA1", 4800, 100 );
-	// SmartAudio* sa = new SmartAudio( s, 12 );
-	// sa->Update();
-	// sa->setPower( 0 );
-	// sa->setFrequency( 5645 );
-	// sa->setChannel( 35 );
-	// exit(0);
-
 	int ret = Main::flight_entry( ac, av );
 
 	if ( ret == 0 ) {
