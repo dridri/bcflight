@@ -27,6 +27,8 @@ public:
 		return mState;
 	}
 
+	const std::list< Filter<V>* >& filters() const { return mFilters; }
+
 protected:
 	std::list< Filter<V>* > mFilters;
 	V mState;

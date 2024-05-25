@@ -55,6 +55,10 @@ public slots:
 
 	void SimulatorMode( bool enabled );
 
+	void VTXUpdate();
+	void VTXReset();
+	void VTXSet();
+
 private:
 	void CameraUpdateLensShader( bool send = true );
 

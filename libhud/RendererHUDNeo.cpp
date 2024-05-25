@@ -309,13 +309,6 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 1.0f, fps_str, Vector4f( 0.5f + 0.5f * fps_red, 1.0f - fps_red * 0.25f, 0.5f - fps_red * 0.5f, 1.0f ), 0.8f );
 		}
 
-// 		if ( std::string( videostats->whitebalance ) != mWhiteBalance ) {
-// 			mWhiteBalance = std::string( videostats->whitebalance );
-// 			mWhiteBalanceTick = Thread::GetSeconds();
-// 		}
-// 		if ( Thread::GetSeconds() - mWhiteBalanceTick < 1.0f ) {
-// 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 3, mWhiteBalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, TextAlignment::CENTER );
-// 		}
 		FontMeasureString( videostats->whitebalance, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 3.0f, videostats->whitebalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
 		FontMeasureString( videostats->exposure, &w, &h );
@@ -341,6 +334,29 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		}
 		RenderQuadTexture( mIconPhoto->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.07, mWidth * 0.04f, mWidth * 0.035f, false, false, { photo_burn, photo_burn, photo_burn, photo_alpha } );
 */
+		if ( videostats->vtxFrequency > 0 ) {
+			std::string text = std::to_string(videostats->vtxFrequency) + "MHz";
+			FontMeasureString( text, &w, &h );
+			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 5.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		}
+		if ( videostats->vtxPowerDbm >= 0 ) {
+			std::string text = std::to_string(videostats->vtxPowerDbm) + "dBm";
+			FontMeasureString( text, &w, &h );
+			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 6.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		}
+		if ( videostats->vtxChannel > 0 ) {
+			std::string text = "";
+			if ( strlen(videostats->vtxBand) > 0 ) {
+				if ( videostats->vtxBand[0] == 'B' ) {
+					text += std::string(&videostats->vtxBand[7], 1);
+				} else {
+					text += std::string(&videostats->vtxBand[0], 1);
+				}
+			}
+			text += std::to_string(videostats->vtxChannel % 8 + 1);
+			FontMeasureString( text, &w, &h );
+			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 7.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		}
 	}
 
 	// Latency

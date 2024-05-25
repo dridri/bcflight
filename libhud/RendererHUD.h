@@ -34,9 +34,14 @@ typedef struct VideoStats {
 		, height(h)
 		, fps(f)
 		, photo_id(p)
+		, vtxPower( -1 )
+		, vtxPowerDbm( -1 )
+		, vtxFrequency( 0 )
+		, vtxChannel( 0 )
 		{
 			strncpy( whitebalance, wb.c_str(), 32 );
 			strncpy( exposure, e.c_str(), 32 );
+			memset( vtxBand, 0, sizeof(vtxBand) );
 		}
 	int width;
 	int height;
@@ -44,6 +49,11 @@ typedef struct VideoStats {
 	uint32_t photo_id;
 	char whitebalance[32];
 	char exposure[32];
+	int8_t vtxPower;
+	int8_t vtxPowerDbm;
+	uint16_t vtxFrequency;
+	uint8_t vtxChannel;
+	char vtxBand[16];
 } VideoStats;
 
 typedef struct LinkStats {

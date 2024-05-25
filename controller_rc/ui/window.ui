@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>480</width>
+    <width>595</width>
     <height>372</height>
    </rect>
   </property>
@@ -71,8 +71,8 @@
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="data.qrc">
-           <normaloff>data/icon_pid.png</normaloff>:data/icon_pid.png</iconset>
+          <iconset>
+           <normaloff>data/icon_pid.png</normaloff>data/icon_pid.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -94,7 +94,7 @@
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="data.qrc">
+          <iconset>
            <normaloff>data/icon_network.png</normaloff>data/icon_network.png</iconset>
          </property>
          <property name="iconSize">
@@ -117,7 +117,7 @@
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="data.qrc">
+          <iconset>
            <normaloff>data/icon_camera.png</normaloff>data/icon_camera.png</iconset>
          </property>
          <property name="iconSize">
@@ -140,7 +140,7 @@
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="data.qrc">
+          <iconset>
            <normaloff>data/icon_settings.png</normaloff>data/icon_settings.png</iconset>
          </property>
          <property name="iconSize">

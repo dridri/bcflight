@@ -32,6 +32,9 @@
 #include <Stabilizer.h>
 #include <Frame.h>
 #include "video/Camera.h"
+#include "peripherals/SmartAudio.h"
+#include <DynamicNotchFilter.h>
+#include <FilterChain.h>
 
 inline uint16_t ntohs( uint16_t x ) {
 	return ( ( x & 0xff ) << 8 ) | ( x >> 8 );
@@ -344,9 +347,16 @@ bool Controller::run()
 	};
 
 	if ( not mConnected ) {
+		// mSendMutex.lock();
+		// Packet connect;
+		// connect.WriteU8( CONNECT );
+		// mLink->Write( &connect );
+		// mSendMutex.unlock();
+		// printf( "sent CONNECT\n" );
 		for ( int32_t i = 0; i < readret; i++ ) {
 			uint8_t part1 = 0;
 			if ( command.ReadU8( &part1 ) == sizeof(uint8_t) ) {
+				// if ( part1 == CONNECT ) {
 				if ( part1 == PING ) {
 					gDebug() << "Controller connected !";
 					mConnected = true;
@@ -354,7 +364,7 @@ bool Controller::run()
 				}
 			}
 		}
-		usleep( 1000 * 100 );
+		usleep( 1000 * 10 );
 		return true;
 	}
 
@@ -375,13 +385,16 @@ bool Controller::run()
 
 		if ( ( cmd & ACK_ID ) == ACK_ID ) {
 			uint16_t id = cmd & ~ACK_ID;
+			gDebug() << "Received ACK with ID " << id;
 			if ( id == mRXAckID ) {
 				acknowledged = true;
 			} else {
 				acknowledged = false;
 			}
 			mRXAckID = id;
-			continue;
+			response.WriteU16( cmd );
+			do_response = true;
+			cmd = ACK_ID;
 		}
 
 		if ( not mConnected ) {
@@ -399,6 +412,9 @@ bool Controller::run()
 
 		switch ( cmd )
 		{
+			case ACK_ID: {
+				break;
+			}
 			case PING : {
 				uint16_t ticks = 0;
 				if ( command.ReadU16( &ticks ) == sizeof(uint16_t) ) {
@@ -485,6 +501,7 @@ bool Controller::run()
 				do_response = true;
 				break;
 			}
+#ifdef BUILD_video
 			case GET_SENSORS_INFOS : {
 				string res = Sensor::infosAll().serialize();
 				response.WriteString( res );
@@ -497,6 +514,7 @@ bool Controller::run()
 				do_response = true;
 				break;
 			}
+#endif
 			case GET_CONFIG_FILE : {
 				string conf = mMain->config()->ReadFile();
 				response.WriteU32( crc32( (uint8_t*)conf.c_str(), conf.length() ) );
@@ -1235,6 +1253,55 @@ bool Controller::run()
 				break;
 			}
 
+			case VTX_GET_SETTINGS : {
+				SmartAudio* vtx = mMain->config()->Object<SmartAudio>( "vtx" );
+				gDebug() << "VTX_GET_SETTINGS, vtx : " << vtx;
+				if ( vtx ) {
+					response.WriteU8( uint8_t(vtx->getChannel()) );
+					response.WriteU16( uint16_t(vtx->getFrequency()) );
+					response.WriteU8( uint8_t(vtx->getPower()) );
+					response.WriteU8( uint8_t(vtx->getPowerDbm()) );
+					response.WriteU8( vtx->getPowerTable().size() );
+					for ( auto v : vtx->getPowerTable() ) {
+						response.WriteU8( v );
+					}
+				} else {
+					response.WriteU8( 0xFF );
+					response.WriteU16( 0xFFFF );
+					response.WriteU8( 0xFF );
+					response.WriteU8( 0xFF );
+					response.WriteU8( 0 );
+				}
+				do_response = true;
+				break;
+			}
+			case VTX_SET_POWER : {
+				SmartAudio* vtx = mMain->config()->Object<SmartAudio>( "vtx" );
+				if ( vtx ) {
+					vtx->setPower( command.ReadU8() );
+					response.WriteU8( uint8_t(vtx->getPower()) );
+					response.WriteU8( uint8_t(vtx->getPowerDbm()) );
+				} else {
+					response.WriteU8( 0xFF );
+					response.WriteU8( 0xFF );
+				}
+				do_response = true;
+				break;
+			}
+			case VTX_SET_CHANNEL : {
+				SmartAudio* vtx = mMain->config()->Object<SmartAudio>( "vtx" );
+				if ( vtx ) {
+					vtx->setChannel( command.ReadU8() );
+					response.WriteU8( uint8_t(vtx->getChannel()) );
+					response.WriteU16( uint16_t(vtx->getFrequency()) );
+				} else {
+					response.WriteU8( 0xFF );
+					response.WriteU16( 0xFFFF );
+				}
+				do_response = true;
+				break;
+			}
+
 			default: {
 				printf( "Controller::run() WARNING : Unknown command 0x%08X\n", cmd );
 				break;
@@ -1363,6 +1430,28 @@ bool Controller::TelemetryRun()
 			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().x );
 			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().y );
 			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().z );
+
+			Filter<Vector3f>* ratesFilter = mMain->imu()->ratesFilters();
+			if ( ratesFilter ) {
+				DynamicNotchFilter<Vector3f>* dnf = nullptr;
+				dnf = dynamic_cast<typeof(dnf)>(ratesFilter);
+				if ( dnf == nullptr ) {
+					FilterChain<Vector3f>* chain = dynamic_cast<FilterChain<Vector3f>*>( ratesFilter );
+					if ( chain ) {
+						for ( auto f : chain->filters() ) {
+							if (( dnf = dynamic_cast<typeof(dnf)>(f) )) {
+								break;
+							}
+						}
+					}
+				}
+				if ( dnf ) {
+					const std::vector<Vector3f> data = dnf->dftOutput<float, 3>();
+					telemetry.WriteU16( RATE_DNF_DFT );
+					telemetry.WriteU16( data.size() * sizeof(Vector3f) );
+					telemetry.Write( reinterpret_cast<const uint8_t*>(data.data()), data.size() * sizeof(Vector3f) );
+				}
+			}
 		}
 	}
 

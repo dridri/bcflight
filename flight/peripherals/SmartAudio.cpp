@@ -1,7 +1,7 @@
 #include "SmartAudio.h"
 #include "Debug.h"
 #include <Board.h>
-#include <pigpio.h>
+#include <GPIO.h>
 
 #define CMD_GET_SETTINGS	0x01
 #define CMD_SET_POWER		0x02
@@ -98,14 +98,14 @@ int SmartAudio::SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_
 
 	// Enter TX mode
 	mBus->setStopBits( mTXStopBits );
-	gpioSetMode( mTXPin, PI_ALT4 );
+	GPIO::setMode( mTXPin, GPIO::Alt4 );
 
 	// Send bytes
 	ret = mBus->Write( command, 1 + sizeof(SmartAudioCommand) + datalen + 1 );
 
 	// // Leave TX mode
 	usleep( 1000 * 16 );
-	gpioSetMode( mTXPin, PI_INPUT );
+	GPIO::setMode( mTXPin, GPIO::Input );
 	mBus->setStopBits( mRXStopBits );
 
 	// Read self echo
@@ -228,7 +228,7 @@ void SmartAudio::setPower( uint8_t power )
 		return;
 	}
 
-	mPower = response[5];
+	mPower = response[4];
 
 	if ( mPower < mPowerTable.size() ) {
 		gDebug() << "VTX power now set to " << (int)mPowerTable[mPower] << " dBm";

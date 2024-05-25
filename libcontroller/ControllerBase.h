@@ -97,6 +97,7 @@ public:
 		PING = SHORT_COMMAND | 0x1,
 		TELEMETRY = SHORT_COMMAND | 0x2,
 		CONTROLS = SHORT_COMMAND | 0x3,
+		CONNECT = SHORT_COMMAND | 0x4,
 
 		// Special
 		ACK_ID = 0x0600,
@@ -137,6 +138,7 @@ public:
 		CURRENT_ACCELERATION = 0x1B,
 		GYRO_DTERM = 0x1C,
 		RATES = 0x1D,
+		RATE_DNF_DFT = 0x1E,
 		SENSORS_DATA = 0x20,
 		PID_OUTPUT = 0x21,
 		OUTER_PID_OUTPUT = 0x22,
@@ -215,6 +217,11 @@ public:
 
 		// User datas - 0x1xxx
 		GET_USERNAME = 0x1001,
+
+		// VTX (SmartAudio)
+		VTX_GET_SETTINGS = 0x2001,
+		VTX_SET_POWER = 0x2002,
+		VTX_SET_CHANNEL = 0x2003,
 
 		// Errors - 0x7xxx
 		// Hardware errors - 0x71xx

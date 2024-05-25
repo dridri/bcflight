@@ -96,6 +96,9 @@ MainWindow::MainWindow( Controller* controller )
 	uiPageNetwork = new Ui::PageNetwork;
 	mPageNetwork = new QWidget();
 	uiPageNetwork->setupUi( mPageNetwork );
+	connect( uiPageNetwork->vtxReset, &QPushButton::clicked, this, &MainWindow::VTXReset );
+	connect( uiPageNetwork->vtxSet, &QPushButton::clicked, this, &MainWindow::VTXSet );
+/*
 #ifdef NO_RAWWIFI
 	uiPageNetwork->btnRawWifi->setVisible( false );
 #else
@@ -106,7 +109,7 @@ MainWindow::MainWindow( Controller* controller )
 	if ( static_cast<Socket*>(mController->link()) != nullptr ) {
 		uiPageNetwork->btnSocket->setChecked( true );
 	}
-
+*/
 	uiPageSettings = new Ui::PageSettings;
 	mPageSettings = new QWidget();
 	uiPageSettings->setupUi( mPageSettings );
@@ -225,6 +228,9 @@ void MainWindow::Update()
 			uiPageCalibrate->center->setText( QString( "Center : %1").arg( mCalibrationValues[idx].center ) );
 			uiPageCalibrate->max->setText( QString( "Max : %1").arg( mCalibrationValues[idx].max ) );
 		}
+	} else if ( ui->btnNetwork->isChecked() ) {
+		uiPageNetwork->vtxFrequency->setText( QString::fromStdString( std::to_string(mController->vtxFrequency()) + " MHz" ) );
+		uiPageNetwork->vtxPowerDbm->setText( QString::fromStdString( std::to_string(mController->vtxPowerDbm()) + " dBm" ) );
 	}
 }
 
@@ -288,6 +294,7 @@ void MainWindow::Network()
 	ui->centralLayout->removeWidget( mPageCamera );
 	ui->centralLayout->removeWidget( mPageSettings );
 	ui->centralLayout->addWidget( mPageNetwork );
+	VTXUpdate();
 }
 
 
@@ -576,6 +583,35 @@ void MainWindow::CameraUpdateLensShader( bool send )
 
 	if ( send ) {
 		mController->setCameraLensShader( mCameraLensShader.r, mCameraLensShader.g, mCameraLensShader.b );
+	}
+}
+
+
+void MainWindow::VTXUpdate()
+{
+	mController->VTXGetSettings();
+	uiPageNetwork->vtxChannelSpin->setValue( mController->vtxChannel() );
+	uiPageNetwork->vtxPowerSpin->setValue( mController->vtxPower() );
+	uiPageNetwork->vtxFrequency->setText( QString::fromStdString( std::to_string(mController->vtxFrequency()) + " MHz" ) );
+	uiPageNetwork->vtxPowerDbm->setText( QString::fromStdString( std::to_string(mController->vtxPowerDbm()) + " dBm" ) );
+}
+
+
+void MainWindow::VTXReset()
+{
+	VTXUpdate();
+}
+
+
+void MainWindow::VTXSet()
+{
+	if ( uiPageNetwork->vtxChannelSpin->value() != mController->vtxChannel() ) {
+		mController->VTXSetChannel( uiPageNetwork->vtxChannelSpin->value() );
+		uiPageNetwork->vtxFrequency->setText( QString::fromStdString( std::to_string(mController->vtxFrequency()) + " MHz" ) );
+	}
+	if ( uiPageNetwork->vtxPowerSpin->value() != mController->vtxPower() ) {
+		mController->VTXSetPower( uiPageNetwork->vtxPowerSpin->value() );
+		uiPageNetwork->vtxPowerDbm->setText( QString::fromStdString( std::to_string(mController->vtxPowerDbm()) + " dBm" ) );
 	}
 }
 

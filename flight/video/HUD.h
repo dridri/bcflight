@@ -9,6 +9,7 @@
 #include <map>
 
 class GLContext;
+class SmartAudio;
 
 LUA_CLASS class HUD : public Thread
 {
@@ -66,6 +67,7 @@ private:
 	std::map< uintptr_t, Image > mImages;
 	std::mutex mImagesMutex;
 	bool mReady;
+	SmartAudio* mVTX;
 };
 
 #else // SYSTEM_NAME_Linux

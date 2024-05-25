@@ -111,6 +111,10 @@ map< ControllerBase::Cmd, string > ControllerBase::mCommandsNames = {
 	{ ControllerBase::VIDEO_LOCK_WHITE_BALANCE, "Lock video white balance" },
 	// User datas
 	{ ControllerBase::GET_USERNAME, "Get username" },
+	// VTX
+	{ ControllerBase::VTX_GET_SETTINGS, "VTX get settings" },
+	{ ControllerBase::VTX_SET_POWER, "VTX set power" },
+	{ ControllerBase::VTX_SET_CHANNEL, "VTX set channel" },
 	// Testing
 	{ ControllerBase::MOTOR_TEST, "Motor test" },
 	{ ControllerBase::MOTORS_BEEP, "Motors beep" },

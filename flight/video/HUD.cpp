@@ -10,6 +10,7 @@
 #include <Link.h>
 #include <Config.h>
 #include <Sensor.h>
+#include <peripherals/SmartAudio.h>
 
 
 HUD::HUD()
@@ -31,6 +32,7 @@ HUD::HUD()
 	, mStereo( false )
 	, mStereoStrength( 0.004f )
 	, mReady( false )
+	, mVTX( nullptr )
 {
 
 	mGLContext = GLContext::instance();
@@ -48,6 +50,7 @@ bool HUD::run()
 	if ( not mReady ) {
 		mReady = true;
 		setFrequency( mHUDFramerate );
+		mVTX = Main::instance()->config()->Object<SmartAudio>( "vtx" );
 
 		mGLContext->runOnGLThread( [this]() {
 			Config* config = Main::instance()->config();
@@ -99,6 +102,7 @@ bool HUD::run()
 
 	DroneStats dronestats;
 	LinkStats linkStats;
+	VideoStats videoStats;
 
 	dronestats.username = Main::instance()->username();
 	dronestats.messages = Board::messages();
@@ -135,22 +139,27 @@ bool HUD::run()
 		linkStats.source = 0;
 	}
 
-	mDroneStats = dronestats;
-	mLinkStats = linkStats;
-
 	if ( camera ) {
-		mVideoStats = VideoStats(
-			(int)camera->width(),
-			(int)camera->height(),
-			(int)camera->framerate(),
-			0,
-			camera->whiteBalance()
-		);
+		videoStats.width = (int)camera->width();
+		videoStats.height = (int)camera->height();
+		videoStats.fps = (int)camera->framerate();
+		strncpy( videoStats.whitebalance, camera->whiteBalance().c_str(), sizeof(videoStats.whitebalance) );
 		// strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
 		// strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
 		// video_stats.photo_id = camera->getLastPictureID();
 	}
+	if ( mVTX ) {
+		videoStats.vtxPower = (int8_t)mVTX->getPower();
+		videoStats.vtxPowerDbm = mVTX->getPowerDbm();
+		videoStats.vtxFrequency = mVTX->getFrequency();
+		videoStats.vtxChannel = mVTX->getChannel();
+		strncpy( videoStats.vtxBand, mVTX->getBandName().c_str(), sizeof(videoStats.vtxBand) );
+	}
 
+
+	mDroneStats = dronestats;
+	mLinkStats = linkStats;
+	memcpy( &mVideoStats, &videoStats, sizeof(VideoStats) );
 
 	return true;
 }

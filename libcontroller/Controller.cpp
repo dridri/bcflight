@@ -52,6 +52,7 @@ Controller::Controller( Link* link, bool spectate )
 	, mNightMode( false )
 	, mCameraMissing( false )
 	, mUpdateFrequency( 100 )
+	, mDroneConnected( false )
 	, mSpectate( spectate )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
@@ -166,6 +167,10 @@ bool Controller::run()
 		return true;
 	}
 
+	// if ( not mDroneConnected ) {
+	// 	return true;
+	// }
+
 	if ( mSpectate ) {
 		mXferMutex.lock();
 		if ( mTxFrame.data().size() > 0 ) {
@@ -276,8 +281,8 @@ bool Controller::run()
 		f_roll *= 1.0f / ( 1.0f - 0.01f );
 		mControls.roll = (int16_t)( max( -511, min( 511, (int32_t)( f_roll * 511.0f ) ) ) );
 	}
-	gTrace() << "Controls : " << f_thrust << ", " << f_yaw << ", " << f_pitch << ", " << f_roll << "\n";
-	gTrace() << "Controls : " << mControls.thrust << ", " << mControls.yaw << ", " << mControls.pitch << ", " << mControls.roll << "\n\n";
+	// gTrace() << "Controls : " << f_thrust << ", " << f_yaw << ", " << f_pitch << ", " << f_roll << "\n";
+	// gTrace() << "Controls : " << mControls.thrust << ", " << mControls.yaw << ", " << mControls.pitch << ", " << mControls.roll << "\n\n";
 	mControls.arm = arm;
 	mTxFrame.WriteU8( CONTROLS );
 	mTxFrame.Write( (uint8_t*)&mControls, sizeof(mControls) );
@@ -294,15 +299,18 @@ bool Controller::run()
 
 		if ( not mRxThread->running() ) {
 			mRxThread->Start();
+			usleep( 1000 * 1000 );
 			mXferMutex.lock();
+			// mTxFrame.WriteU8( CONNECT );
 			mTxFrame.WriteU16( ROLL_PID_FACTORS );
 			mTxFrame.WriteU16( PITCH_PID_FACTORS );
 			mTxFrame.WriteU16( YAW_PID_FACTORS );
 			mTxFrame.WriteU16( OUTER_PID_FACTORS );
 			mTxFrame.WriteU16( HORIZON_OFFSET );
+			mTxFrame.WriteU16( VTX_GET_SETTINGS );
 			mXferMutex.unlock();
 		}
-		if ( mUsername == "" ) {
+		if ( mUsername.length() == 0 ) {
 			mXferMutex.lock();
 			mTxFrame.WriteU16( GET_USERNAME );
 			mXferMutex.unlock();
@@ -380,6 +388,7 @@ bool Controller::RxRun()
 		acknowledged = false;
 		if ( ( cmd & ACK_ID ) == ACK_ID ) {
 			uint16_t id = cmd & ~ACK_ID;
+			gDebug() << "Received ACK with ID " << id;
 			if ( id == mRXAckID ) {
 				acknowledged = true;
 			}
@@ -391,6 +400,23 @@ bool Controller::RxRun()
 			case UNKNOWN : {
 				break;
 			}
+			// case CONNECT : {
+			// 	printf( "received CONNECT\n" );
+			// 	mDroneConnected = true;
+			// 	if ( not mSpectate ) {
+			// 		mXferMutex.lock();
+			// 		mTxFrame.WriteU8( CONNECT );
+			// 		mTxFrame.WriteU16( ROLL_PID_FACTORS );
+			// 		mTxFrame.WriteU16( PITCH_PID_FACTORS );
+			// 		mTxFrame.WriteU16( YAW_PID_FACTORS );
+			// 		mTxFrame.WriteU16( OUTER_PID_FACTORS );
+			// 		mTxFrame.WriteU16( HORIZON_OFFSET );
+			// 		mTxFrame.WriteU16( VTX_GET_SETTINGS );
+			// 			printf( "\n\n\nVTX_GET_SETTINGS sent\n" );
+			// 		mXferMutex.unlock();
+			// 	}
+			// 	break;
+			// }
 			case PING : {
 				uint32_t ret = telemetry.ReadU16();
 				uint32_t reported_ping = telemetry.ReadU16();
@@ -763,6 +789,24 @@ bool Controller::RxRun()
 				mHistoryMutex.unlock();
 				break;
 			}
+			case RATE_DNF_DFT : {
+				uint16_t size = telemetry.ReadU16();
+				vec4* data = new vec4[size / sizeof(vec4)];
+				telemetry.Read( reinterpret_cast<uint8_t*>(data), size );
+				mHistoryMutex.lock();
+				mDnfDft.clear();
+				for ( uint16_t i = 0; i < size / sizeof(vec4); i++ ) {
+					vec4 v = data[i];
+					v.w = i;
+					// v.w = i * 4000 / 512;
+					// v.w = i * 4000 / 512;
+					// v.w = 2 * i * 4000 / 512;
+					mDnfDft.push_back( v );
+				}
+				mHistoryMutex.unlock();
+				delete[] data;
+				break;
+			}
 			case SET_MODE : {
 				mMode = (Mode)telemetry.ReadU32();
 				break;
@@ -830,6 +874,33 @@ bool Controller::RxRun()
 
 			case GET_USERNAME : {
 				mUsername = telemetry.ReadString();
+				break;
+			}
+
+			case VTX_GET_SETTINGS : {
+				mVTXChannel = int8_t(telemetry.ReadU8());
+				mVTXFrequency = int16_t(telemetry.ReadU16());
+				mVTXPower = int8_t(telemetry.ReadU8());
+				mVTXPowerDbm = int8_t(telemetry.ReadU8());
+				printf( "\n\n\nVTX_GET_SETTINGS : %d\n", mVTXChannel );
+				uint8_t table_count = telemetry.ReadU8();
+				std::vector<int32_t> powerTable;
+				if ( table_count > 0 ) {
+					for ( uint8_t i = 0; i < table_count; i++ ) {
+						powerTable.push_back( telemetry.ReadU8() );
+					}
+					mVTXPowerTable = powerTable;
+				}
+				break;
+			}
+			case VTX_SET_POWER : {
+				mVTXPower = int8_t(telemetry.ReadU8());
+				mVTXPowerDbm = int8_t(telemetry.ReadU8());
+				break;
+			}
+			case VTX_SET_CHANNEL : {
+				mVTXChannel = int8_t(telemetry.ReadU8());
+				mVTXFrequency = int16_t(telemetry.ReadU16());
 				break;
 			}
 
@@ -1376,18 +1447,18 @@ string Controller::VideoLockWhiteBalance()
 {
 	mVideoWhiteBalance = "";
 
-	// mXferMutex.lock();
+	mXferMutex.lock();
 	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
 // 	mXferMutex.unlock();
 
 	uint32_t retry = 0;
 	do {
-		mXferMutex.lock();
+		// mXferMutex.lock();
 		mTxFrame.WriteU16( ACK_ID | ack );
 		mTxFrame.WriteU16( VIDEO_LOCK_WHITE_BALANCE );
 		mLink->Write( &mTxFrame );
 		mTxFrame = Packet();
-		mXferMutex.unlock();
+		// mXferMutex.unlock();
 		usleep( 125 * 1000 );
 		gDebug() << "lock " << retry << " ('" << mVideoWhiteBalance << "')";
 		retry++;
@@ -1571,6 +1642,80 @@ void Controller::setNightMode( const bool& night )
 }
 
 
+void Controller::VTXGetSettings()
+{
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+	uint32_t retry = 0;
+	mXferMutex.lock();
+	do {
+		for ( uint8_t i = 0; i < 2; i++ ) {
+			mTxFrame.WriteU16( VTX_GET_SETTINGS );
+			mLink->Write( &mTxFrame );
+			usleep( 25 * 1000 );
+			mTxFrame = Packet();
+		}
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 25 * 1000 );
+		gDebug() << "lock " << retry << " (VTX get settings)";
+		printf( "ack : %d , %d\n", mTXAckID, mRXAckID );
+		retry++;
+	} while ( retry < 4 and mRXAckID != mTXAckID );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VTXSetPower( uint8_t power )
+{
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+	uint32_t retry = 0;
+	mXferMutex.lock();
+	do {
+		for ( uint8_t i = 0; i < 1; i++ ) {
+			mTxFrame.WriteU16( VTX_SET_POWER );
+			mTxFrame.WriteU8( power );
+			mLink->Write( &mTxFrame );
+			usleep( 25 * 1000 );
+			mTxFrame = Packet();
+		}
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 25 * 1000 );
+		gDebug() << "lock " << retry << " (VTX power " << power << ")";
+		printf( "ack : %d , %d\n", mTXAckID, mRXAckID );
+		retry++;
+	} while ( retry < 4 and mRXAckID != mTXAckID );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VTXSetChannel( uint8_t channel )
+{
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+	uint32_t retry = 0;
+	mXferMutex.lock();
+	do {
+		for ( uint8_t i = 0; i < 1; i++ ) {
+			mTxFrame.WriteU16( VTX_SET_CHANNEL );
+			mTxFrame.WriteU8( channel );
+			mLink->Write( &mTxFrame );
+			usleep( 25 * 1000 );
+			mTxFrame = Packet();
+		}
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 25 * 1000 );
+		gDebug() << "lock " << retry << " (VTX channel " << channel << ")";
+		printf( "ack : %d , %d\n", mTXAckID, mRXAckID );
+		retry++;
+	} while ( retry < 4 and mRXAckID != mTXAckID );
+	mXferMutex.unlock();
+}
+
+
 vector< string > Controller::recordingsList()
 {
 	mRecordingsList = "";
@@ -1670,6 +1815,15 @@ list< vec2 > Controller::altitudeHistory()
 {
 	mHistoryMutex.lock();
 	list< vec2 > ret = mAltitudeHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
+list< vec4 > Controller::dnfDftHistory()
+{
+	mHistoryMutex.lock();
+	list< vec4 > ret = mDnfDft;
 	mHistoryMutex.unlock();
 	return ret;
 }

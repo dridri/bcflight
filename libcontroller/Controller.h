@@ -110,6 +110,10 @@ public:
 	void getCameraLensShader( CameraLensShaderColor* r, CameraLensShaderColor* g, CameraLensShaderColor* b );
 	void setCameraLensShader( const CameraLensShaderColor& r, const CameraLensShaderColor& g, const CameraLensShaderColor& b );
 
+	void VTXGetSettings();
+	void VTXSetPower( uint8_t power );
+	void VTXSetChannel( uint8_t channel );
+
 	DECL_RO_VAR( uint32_t, Ping, ping );
 	DECL_RO_VAR( bool, Calibrated, calibrated );
 	DECL_RO_VAR( bool, Calibrating, calibrating );
@@ -136,6 +140,11 @@ public:
 	DECL_RW_VAR( bool, NightMode, nightMode );
 	DECL_RO_VAR( uint32_t, StabilizerFrequency, stabilizerFrequency );
 	DECL_RO_VAR( vector<float>, MotorsSpeed, motorsSpeed );
+	DECL_RO_VAR( int32_t, VTXChannel, vtxChannel );
+	DECL_RO_VAR( int32_t, VTXFrequency, vtxFrequency );
+	DECL_RO_VAR( int32_t, VTXPower, vtxPower );
+	DECL_RO_VAR( int32_t, VTXPowerDbm, vtxPowerDbm );
+	DECL_RO_VAR( vector<int32_t>, VTXPowerTable, vtxPowerTable );
 
 	DECL_RO_VAR( string, Username, username );
 
@@ -154,6 +163,7 @@ public:
 	list< vec4 > magnetometerHistory();
 	list< vec3 > outerPidHistory();
 	list< vec2 > altitudeHistory();
+	list< vec4 > dnfDftHistory();
 
 	float localBatteryVoltage() const;
 	virtual uint16_t rawThrust( float dt ) { return 0; }
@@ -177,6 +187,8 @@ protected:
 	uint32_t crc32( const uint8_t* buf, uint32_t len );
 
 	uint32_t mUpdateFrequency;
+
+	bool mDroneConnected;
 	bool mSpectate;
 	Packet mTxFrame;
 	mutex mXferMutex;
@@ -221,6 +233,7 @@ protected:
 	list< vec4 > mMagnetometerHistory;
 	list< vec3 > mOuterPIDHistory;
 	list< vec2 > mAltitudeHistory;
+	list< vec4 > mDnfDft;
 	mutex mHistoryMutex;
 
 	float mLocalBatteryVoltage;
