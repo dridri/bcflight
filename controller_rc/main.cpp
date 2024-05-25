@@ -111,7 +111,8 @@ int main( int ac, char** av )
 		}
 	} else if ( config->string( "controller.link.link_type" ) == "SX127x" ) {
 		SX127x::Config conf;
-		conf.device = config->string( "controller.link.device", "spidev1.1" );
+		memset( &conf, 0, sizeof(SX127x::Config) );
+		strncpy( conf.device, config->string( "controller.link.device", "spidev1.1" ).c_str(), sizeof(conf.device)-1 );
 		conf.resetPin = config->integer( "controller.link.resetpin", -1 );
 		conf.txPin = config->integer( "controller.link.txpin", -1 );
 		conf.rxPin = config->integer( "controller.link.rxpin", -1 );

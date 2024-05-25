@@ -19,7 +19,7 @@ public:
 	} Modem;
 
 	typedef struct {
-		std::string device;
+		char device[64];
 		int32_t resetPin;
 		int32_t txPin;
 		int32_t rxPin;

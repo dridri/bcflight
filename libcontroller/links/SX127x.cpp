@@ -637,6 +637,7 @@ int SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 			break;
 		}
 		if ( timeout > 0 and TICKS - started_waiting_at > (uint32_t)timeout ) {
+			gDebug() << "timed out : " << (TICKS - started_waiting_at) << " > " << timeout;
 			timedout = true;
 			break;
 		}
@@ -772,17 +773,17 @@ uint32_t SX127x::fullReadSpeed()
 int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 {
 	Header* header = (Header*)buf;
+	HeaderMini* small_header = (HeaderMini*)buf;
 	uint8_t* data = buf + sizeof(Header);
 	int final_size = 0;
 
-	if ( buflen < sizeof(Header) ) {
+	if ( buflen < sizeof(Header) && ( buflen < sizeof(HeaderMini) && header->small_packet ) ) {
 		return -1;
 	}
 
 	uint32_t datalen = buflen - sizeof(Header);
 
 	if ( header->small_packet ) {
-		HeaderMini* small_header = (HeaderMini*)buf;
 		data = buf + sizeof(HeaderMini);
 		datalen = buflen - sizeof(HeaderMini);
 		if ( crc8( data, datalen ) != small_header->crc ) {
