@@ -53,6 +53,8 @@ MainWindow::MainWindow()
 	, mStreamLink( nullptr )
 	, mFirmwareUpdateThread( nullptr )
 	, motorSpeedLayout( nullptr )
+	, mRatesPlot( false )
+	, mDnfPlot( false )
 	, mRatesPlotSpectrum( false )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
@@ -146,8 +148,9 @@ MainWindow::MainWindow()
 	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
 	connect( ui->motorsBeepStart, &QPushButton::pressed, [this]() { MotorsBeep(true); });
 	connect( ui->motorsBeepStop, &QPushButton::pressed, [this]() { MotorsBeep(false); });
-	connect( ui->gyroPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = false; });
-	connect( ui->ratesPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = true; });
+	connect( ui->gyroPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = false; mDnfPlot = false; });
+	connect( ui->ratesPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = true; mDnfPlot = false; });
+	connect( ui->dnfPlotButton, &QPushButton::pressed, [this]() { mDnfPlot = true; mRatesPlot = false; });
 	connect( ui->gyroSpectrumButton, &QCheckBox::stateChanged, [this](int state) { mRatesPlotSpectrum = ( state == Qt::Checked ); });
 
 	ui->statusbar->showMessage( "Disconnected" );
@@ -374,9 +377,9 @@ void MainWindow::updateData()
 			graph->xAxis->rescale();
 			graph->replot();
 		};
-		const std::list<vec4>& gyroData = mRatesPlot ? mController->ratesHistory() : mController->gyroscopeHistory();
-		if ( mRatesPlotSpectrum ) {
-			int numSamples = std::min( gyroData.size(), 2048UL );
+		const std::list<vec4>& gyroData = mDnfPlot ? mController->dnfDftHistory() : (mRatesPlot ? mController->ratesHistory() : mController->gyroscopeHistory());
+		if ( mRatesPlotSpectrum && !mDnfPlot ) {
+			int numSamples = std::min( gyroData.size(), 512UL );
 			if ( numSamples > 32 ) {
 				float* input0 = (float*)fftwf_malloc( sizeof(float) * numSamples );
 				float* input1 = (float*)fftwf_malloc( sizeof(float) * numSamples );
@@ -411,7 +414,8 @@ void MainWindow::updateData()
 					v.x = std::abs( output0[i][0] );
 					v.y = std::abs( output1[i][0] );
 					v.z = std::abs( output2[i][0] );
-					v.w = 2 * i * list.size() / numSamples; // TODO : use IMU freq instead
+					v.w = i;
+					// v.w = 2 * i * list.size() / numSamples; // TODO : use IMU freq instead
 					out.push_back( v );
 				}
 				ui->rates->yAxis->setRange( 0.0f, 128.0f );
@@ -424,7 +428,10 @@ void MainWindow::updateData()
 				fftwf_free( output2 );
 			}
 		} else {
-			plot( ui->rates, gyroData, mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ );
+			if ( mDnfPlot ) {
+				ui->rates->yAxis->setRange( 0.0f, 128.0f );
+			}
+			plot( ui->rates, gyroData, mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ, mDnfPlot == false );
 		}
 		plot( ui->rpy, mController->rpyHistory(), mDataTrpy, mDataR, mDataP, mDataY );
 		plot( ui->accelerometer, mController->accelerationHistory(), mDataTaccelerometer, mDataAccelerometerX, mDataAccelerometerY, mDataAccelerometerZ );

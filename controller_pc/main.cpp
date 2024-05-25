@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <RawWifi.h>
 #include <Socket.h>
+#include <../libdebug/Debug.h>
 #include "ControllerPC.h"
 
 #include "MainWindow.h"
@@ -41,6 +42,8 @@ int main( int ac, char** av )
 	WSADATA WSAData;
 	WSAStartup( MAKEWORD(2,0), &WSAData );
 #endif
+
+	Debug::setDebugLevel( Debug::Verbose );
 
 	QApplication app( ac, av );
 	qInstallMessageHandler( msgHandler );

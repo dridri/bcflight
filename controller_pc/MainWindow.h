@@ -119,6 +119,7 @@ private:
 	QVBoxLayout *motorSpeedLayout;
 	QList<QProgressBar*> motorSpeedProgress;
 	bool mRatesPlot;
+	bool mDnfPlot;
 	bool mRatesPlotSpectrum;
 
 	QElapsedTimer mTicks;

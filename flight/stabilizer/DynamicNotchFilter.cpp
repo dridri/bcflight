@@ -1,3 +1,4 @@
+#include <cassert>
 #include <Main.h>
 #include <IMU.h>
 #include "DynamicNotchFilter.h"
@@ -7,13 +8,17 @@
 
 template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_t n )
 	: Filter<V>()
+	, mMinFreq( 100 )
+	, mMaxFreq( 600 )
 	, mN( n )
 	, mState( V() )
+	, mFixedDt( 0.0f )
 	, mInputIndex( 0 )
 	, mAnalysisThread( new HookThread<_DynamicNotchFilterBase<V>>( "dnf", this, &_DynamicNotchFilterBase<V>::analysisRun ) )
 {
 	fDebug( (int)n );
 	uint32_t nSamples = 1000000 / Main::instance()->config()->Integer( "stabilizer.loop_time", 2000 );
+	mFixedDt = 1.0f / nSamples;
 	mNumSamples = std::min( nSamples, 512U );
 	mSampleResolution = nSamples / mNumSamples;
 	mDFTs.reserve( n );
@@ -25,9 +30,9 @@ template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_
 		mPeakFilters.push_back( std::vector<PeakFilter>() );
 		mPeakFilters[i].reserve( DYNAMIC_NOTCH_COUNT );
 		for ( uint8_t p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
-			// mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
 			mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
 		}
+		mDFTs[i].magnitude.reserve( mNumSamples / 2 + 1 );
 	}
 	Start();
 }
@@ -42,7 +47,8 @@ template<> DynamicNotchFilter<float>::DynamicNotchFilter()
 
 template<typename V> void _DynamicNotchFilterBase<V>::Start()
 {
-	mAnalysisThread->setFrequency( 100 );
+	uint32_t main_freq = 1000000 / Main::instance()->config()->Integer( "stabilizer.loop_time", 2000 );
+	mAnalysisThread->setFrequency( main_freq / 12 );
 	mAnalysisThread->Start();
 }
 
@@ -56,7 +62,9 @@ template<> DynamicNotchFilter<Vector<float, 4>>::DynamicNotchFilter() : _Dynamic
 template<> void DynamicNotchFilter<float>::pushSample( const float& sample )
 {
 	std::lock_guard<std::mutex> lock( mInputMutex );
+
 	mDFTs[0].input[mInputIndex] = sample;
+
 	mInputIndex = ( mInputIndex + 1 ) % mNumSamples;
 }
 
@@ -64,28 +72,35 @@ template<> void DynamicNotchFilter<float>::pushSample( const float& sample )
 template<> void DynamicNotchFilter<Vector3f>::pushSample( const Vector3f& sample )
 {
 	std::lock_guard<std::mutex> lock( mInputMutex );
+
 	for ( uint8_t i = 0; i < 3; i++ ) {
 		mDFTs[i].input[mInputIndex] = sample.ptr[i];
 	}
+
 	mInputIndex = ( mInputIndex + 1 ) % mNumSamples;
 }
 
 
 template<typename V> V DynamicNotchFilter<V>::filter( const V& input, float dt )
 {
+	(void)dt;
 	return input;
 }
 
 
 template<> float DynamicNotchFilter<float>::filter( const float& input, float dt )
 {
+	(void)dt;
+	pushSample( input );
+
 	float result = input;
 	for ( int p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
 		const PeakFilter& peakFilter = mPeakFilters[0][p];
-		if ( peakFilter.centerFrequency <= 0.0f ) {
+		if ( peakFilter.filter->centerFrequency() <= 0.0f ) {
 			continue;
 		}
-		result = peakFilter.filter->filter( result, dt );
+		// result = peakFilter.filter->filter( result, dt ); // BiquadFilter tends to infinity with variable dt
+		result = peakFilter.filter->filter( result, mFixedDt );
 	}
 	return result;
 }
@@ -93,6 +108,8 @@ template<> float DynamicNotchFilter<float>::filter( const float& input, float dt
 
 template<> Vector3f DynamicNotchFilter<Vector3f>::filter( const Vector3f& input, float dt )
 {
+	assert(mN == 3);
+	(void)dt;
 	pushSample( input );
 
 	Vector3f result = Vector3f( input.x, input.y, input.z );
@@ -100,10 +117,11 @@ template<> Vector3f DynamicNotchFilter<Vector3f>::filter( const Vector3f& input,
 	for ( uint8_t i = 0; i < 3; i++ ) {
 		for ( int p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
 			PeakFilter& peakFilter = mPeakFilters[i][p];
-			if ( peakFilter.centerFrequency <= 0.0f ) {
+			if ( peakFilter.filter->centerFrequency() <= 0.0f ) {
 				continue;
 			}
-			result.ptr[i] = peakFilter.filter->filter( result.ptr[i], dt );
+			// result.ptr[i] = peakFilter.filter->filter( result.ptr[i], dt ); // BiquadFilter tends to infinity with variable dt
+			result.ptr[i] = peakFilter.filter->filter( result.ptr[i], mFixedDt );
 		}
 	}
 
@@ -117,10 +135,12 @@ template<typename V> V _DynamicNotchFilterBase<V>::state()
 }
 
 
-template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
+template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotchFilterBase<V>::analysisRun()
 {
 	// printf( "\n" );
 	const float dT = 1.0f / float(mAnalysisThread->frequency());
+	const uint32_t binMin = mMinFreq / ( mSampleResolution * 2 );
+	const uint32_t binMax = std::min( mMaxFreq / ( mSampleResolution * 2 ), mNumSamples / 2 + 1 );
 
 	// Copy input samples to aligned FFTW3 buffer
 	mInputMutex.lock();
@@ -132,21 +152,18 @@ template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
 	mInputMutex.unlock();
 
 	// Apply Hann window
-	for ( uint8_t i = 0; i < mN; i++ ) {
-		for ( uint32_t n = 0; n < mNumSamples; n++ ) {
-			float window = 0.5f * ( 1.0f - std::cos(2.0f * float(M_PI) * n / (mNumSamples - 1)) );
+	for ( uint32_t n = 0; n < mNumSamples; n++ ) {
+		float window = 0.5f * ( 1.0f - std::cos(2.0f * float(M_PI) * n / (mNumSamples - 1)) );
+		#pragma GCC unroll 4
+		for ( uint8_t i = 0; i < mN; i++ ) {
 			mDFTs[i].inputBuffer[n] *= window;
 		}
 	}
 
 	// Execute FFT
+	#pragma GCC unroll 4
 	for ( uint8_t i = 0; i < mN; i++ ) {
 		fftwf_execute( mDFTs[i].plan );
-	}
-
-	std::vector<float>* dfts = new std::vector<float>[mN];
-	for ( uint8_t i = 0; i < mN; i++ ) {
-		dfts[i].reserve( mNumSamples / 2 + 1 );
 	}
 
 	// Extract DFT magnitude components and initialize noise floor
@@ -154,9 +171,11 @@ template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
 	memset( noise, 0, sizeof(float) * mN );
 	for ( uint8_t i = 0; i < mN; i++ ) {
 		for ( uint32_t j = 0; j < mNumSamples / 2 + 1; j++ ) {
-			// dfts[i][j] = std::sqrt( mDFTs[i].output[j][0] * mDFTs[i].output[j][0] + mDFTs[i].output[j][1] * mDFTs[i].output[j][1] );
-			dfts[i][j] = std::abs( mDFTs[i].output[j][0] );
-			noise[i] += dfts[i][j];
+			// mDFTs[i].magnitude[j] = std::sqrt( mDFTs[i].output[j][0] * mDFTs[i].output[j][0] + mDFTs[i].output[j][1] * mDFTs[i].output[j][1] );
+			mDFTs[i].magnitude[j] = std::abs( mDFTs[i].output[j][0] );
+			if ( j >= binMin && j<= binMax ) {
+				noise[i] += mDFTs[i].magnitude[j];
+			}
 		}
 	}
 
@@ -167,22 +186,23 @@ template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
 	for ( uint8_t i = 0; i < mN; i++ ) {
 		peaks[i].reserve( DYNAMIC_NOTCH_COUNT );
 		memset( peaks[i].data(), 0, sizeof(Peak) * DYNAMIC_NOTCH_COUNT );
-		for ( uint32_t j = peakDetectionSurround; j < mNumSamples / 2 + 1 - peakDetectionSurround; j++ ) {
-			float val = dfts[i][j];
+		for ( uint32_t j = binMin + peakDetectionSurround; j < binMax - peakDetectionSurround; j++ ) {
+			float val = mDFTs[i].magnitude[j];
 		
 			bool above = true;
 			// float localMean = 0.0f;
 			for ( int k = -peakDetectionSurround; k <= peakDetectionSurround; k++ ) {
-				// localMean += dfts[i][j + k];
-				if ( val < dfts[i][j + k] ) {
+				// localMean += mDFTs[i].magnitude[j + k];
+				if ( val < mDFTs[i].magnitude[j + k] ) {
 					above = false;
 					break;
 				}
 			}
 			// localMean /= 2 * peakDetectionSurround + 1;
-			if ( /*val > localMean &&*/ above ) {
+			if ( /*val > localMean &&*/ std::abs(val) > 0.0f && above ) {
 				for ( uint8_t k = 0; k < maxPeaks; k++ ) {
 					if ( val > peaks[i][k].magnitude ) {
+						// if(i==1)printf( "found peak at % 4d (% 4d Hz) magnitude=%4.4f\n", j, j * mSampleResolution * 2, val );
 						for ( uint8_t l = maxPeaks - 1; l > k; l-- ) {
 							peaks[i][l].frequency = peaks[i][l - 1].frequency;
 							peaks[i][l].magnitude = peaks[i][l - 1].magnitude;
@@ -220,7 +240,7 @@ template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
 	// Approximate noise floor
 	for ( uint8_t i = 0; i < mN; i++ ) {
 		noiseFloor[i] = noise[i];
-		const std::vector<float>& dft = dfts[i];
+		const std::vector<float>& dft = mDFTs[i].magnitude;
 		const std::vector<Peak>& axisPeaks = peaks[i];
 		for (int p = 0; p < maxPeaks; p++) {
 			if (axisPeaks[p].dftIndex == 0) {
@@ -236,19 +256,12 @@ template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
 		noiseFloor[i] /= ( mNumSamples / 2 ) - peaksCount[i] + 1;
 		// noiseFloor[i] *= 2.0f;
 	}
-/*
-	printf( "noise floor : %f → %f\n", noise[0], noiseFloor[0] );
-	char ts[1024] = "";
-	for ( int p = 0; p < peaksCount[0]; p++ ) {
-		char s[16] = "";
-		sprintf( s, "%d(%.2f)\t", int(peaks[0][p].frequency * float(mNumSamples * mSampleResolution) * 2.0f), peaks[0][p].magnitude );
-		strcat( ts, s );
-	}
-	printf( "peaks: %s\n", ts );
-*/
+
+	// Vector4i peaksI;
+
 	//  Process peaks
 	for ( uint8_t i = 0; i < mN; i++ ) {
-		// const std::vector<float>& dft = dfts[i];
+		// const std::vector<float>& dft = mDFTs[i].magnitude;
 		const std::vector<Peak>& axisPeaks = peaks[i];
 		for ( int p = 0; p < peaksCount[i]; p++ ) {
 			if ( axisPeaks[p].dftIndex == 0 || axisPeaks[p].magnitude <= noiseFloor[i] ) {
@@ -269,59 +282,32 @@ template<typename V> bool _DynamicNotchFilterBase<V>::analysisRun()
 					minDistance = distance;
 				}
 			}
+			20/512*512*(4000/512)*2 = 312
 			*/
 			if ( peakFilter == nullptr ) {
 				continue;
 			}
-			float cutoff = std::clamp( axisPeaks[p].magnitude / noiseFloor[i], 1.0f, 10.0f );
-			float gain = 2.0f * float(M_PI) * 4.0f * cutoff * dT;
-			gain = 0.5f * ( gain / ( gain + 1.0f ) );
-			float centerFrequency = axisPeaks[p].frequency * float(mNumSamples * mSampleResolution) * 2.0f;
+			float smoothCutoff = 4.0f * std::clamp( axisPeaks[p].magnitude / noiseFloor[i], 1.0f, 10.0f );
+			// float gain = 2.0f * float(M_PI) * smoothCutoff * dT;
+			// gain = 0.5f * ( gain / ( gain + 1.0f ) );
+			float centerFrequency = axisPeaks[p].frequency * float(mNumSamples * mSampleResolution); // * 2.0f;
 			// printf( "%.2f → %.2f\n", peakFilter->centerFrequency, centerFrequency );
-			peakFilter->centerFrequency += gain * ( centerFrequency - peakFilter->centerFrequency );
-			peakFilter->filter->setCenterFrequency( peakFilter->centerFrequency );
+			// peakFilter->centerFrequency += gain * ( centerFrequency - peakFilter->centerFrequency );
+			peakFilter->filter->setCenterFrequency( centerFrequency, 0.1f * smoothCutoff * dT );
+			// if ( i == 2 ) {
+			// 	peaksI[p] = int(peakFilter->filter->centerFrequency());
+			// }
 		}
 	}
-/*
-	{
-		char speaks[1024] = "";
-		sprintf( speaks, "[%2.6f] ", noiseFloor[0] );
-		for ( int p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
-			char s[16] = "";
-			sprintf( s, "%4d, ", int(mPeakFilters[0][p].centerFrequency) );
-			strcat( speaks, s );
-		}
-		gDebug() << "Peaks X : " << speaks;
-	}
-*/
-	/*
-	{
-		char speaks[1024] = "";
-		sprintf( speaks, "[%.6f] ", noiseFloor[1] );
-		for ( int p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
-			char s[16] = "";
-			sprintf( s, "%.2f, ", mPeakFilters[1][p].centerFrequency );
-			strcat( speaks, s );
-		}
-		gDebug() << "Peaks Y : " << speaks;
-	}
-	{
-		char speaks[1024] = "";
-		sprintf( speaks, "[%.6f] ", noiseFloor[2] );
-		for ( int p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
-			char s[16] = "";
-			sprintf( s, "%.2f, ", mPeakFilters[2][p].centerFrequency );
-			strcat( speaks, s );
-		}
-		gDebug() << "Peaks Z : " << speaks;
-	}
-	*/
+
+	// char dbgPeaks[64];
+	// sprintf( dbgPeaks, "{ % 4d, % 4d, % 4d, % 4d } [ %2.2f ]", peaksI.x, peaksI.y, peaksI.z, peaksI.w, noiseFloor[2] );
+	// gDebug() + "peaks : " + std::string(dbgPeaks);
 
 	delete[] noiseFloor;
 	delete[] peaksCount;
 	delete[] peaks;
 	delete[] noise;
-	delete[] dfts;
 	return true;
 }
 

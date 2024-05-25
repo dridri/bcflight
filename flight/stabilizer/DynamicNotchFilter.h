@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include "Lua.h"
 #include "Filter.h"
 #include "Debug.h"
@@ -21,12 +22,27 @@ public:
 	virtual V state();
 	void Start();
 
+	template<typename T, uint8_t N> std::vector<Vector<T, N>> dftOutput() {
+		assert(N == mN);
+		std::vector<Vector<T, N>> ret;
+		ret.reserve( mNumSamples / 2 + 1 );
+		for ( uint32_t j = 0; j < mNumSamples / 2 + 1; j++ ) {
+			ret.push_back(Vector<T,N>());
+			#pragma GCC unroll 4
+			for ( uint8_t i = 0; i < N; i++ ) {
+				ret[j][i] = mDFTs[i].magnitude[j];
+			}
+		}
+		return ret;
+	}
+
 protected:
 	typedef struct DFT {
 		float* input;
 		float* inputBuffer;
 		fftwf_complex* output;
 		fftwf_plan plan;
+		std::vector<float> magnitude;
 	} DFT;
 	typedef struct Peak {
 		uint32_t dftIndex;
@@ -34,12 +50,15 @@ protected:
 		float magnitude;
 	} Peak;
 	typedef struct PeakFilter {
-		float centerFrequency;
+		// float centerFrequency;
 		BiquadFilter<float>* filter;
 	} PeakFilter;
 
+	uint32_t mMinFreq;
+	uint32_t mMaxFreq;
 	uint8_t mN;
 	V mState;
+	float mFixedDt;
 	uint32_t mNumSamples;
 	uint32_t mSampleResolution;
 	uint32_t mInputIndex;
@@ -59,23 +78,9 @@ public:
 	~DynamicNotchFilter() {}
 
 	void pushSample( const V& sample );
-	// template<typename T, uint8_t N> void pushSample( const Vector<T, N>& sample );
 
 	virtual V filter( const V& input, float dt );
 };
-
-/*
-template<typename T, template <typename, uint8_t> class Vector, uint8_t N> class DynamicNotchFilter<Vector<T, N>> : public _DynamicNotchFilterBase<Vector<T, N>>
-{
-public:
-	DynamicNotchFilter() : _DynamicNotchFilterBase<Vector<T,N>>( N ) {}
-	~DynamicNotchFilter() {}
-	void pushSample( const Vector<T, N>& sample );
-	virtual Vector<T, N> filter( const Vector<T, N>& input, float dt );
-protected:
-	void _pushSample( const Vector<T, N>& sample );
-};
-*/
 
 
 // LUA_CLASS class DynamicNotchFilter_1 : public DynamicNotchFilter<float>
@@ -94,4 +99,7 @@ LUA_CLASS class DynamicNotchFilter_3 : public DynamicNotchFilter<Vector<float, 3
 {
 public:
 	LUA_EXPORT DynamicNotchFilter_3();
+
+	LUA_PROPERTY("min_frequency") void setMinFrequency( uint32_t f ) { mMinFreq = f; }
+	LUA_PROPERTY("max_frequency") void setMaxFrequency( uint32_t f ) { mMaxFreq = f; }
 };
