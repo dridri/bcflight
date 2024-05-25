@@ -158,6 +158,7 @@ Main::Main()
 	mLPS = 0;
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
 	mStabilizerThread->setFrequency( 100 );
+	mTicks = mBoard->GetTicks();
 	mStabilizerThread->Start();
 	mStabilizerThread->setPriority( 99, -1, true );
 #endif // BUILD_stabilizer
@@ -200,7 +201,10 @@ bool Main::StabilizerThreadRun()
 	}
 
 	mIMU->Loop( tick, dt );
-	if ( mIMU->state() == IMU::Off ) {
+	if ( mIMU->state() == IMU::Running ) {
+		mStabilizer->Update( mIMU, dt );
+// 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
+	} else if ( mIMU->state() == IMU::Off ) {
 		// Nothing to do
 	} else if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
 		mStabilizerThread->setFrequency( 1000000 / mLoopTime );
@@ -208,9 +212,6 @@ bool Main::StabilizerThreadRun()
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
 		mStabilizerThread->setFrequency( 1000000 / mLoopTime );
-	} else {
-		mStabilizer->Update( mIMU, mController, dt );
-// 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
 	}
 
 	mLPSCounter++;

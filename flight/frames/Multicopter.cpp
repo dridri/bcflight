@@ -145,7 +145,6 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust )
 			overall_min = expected_min;
 		}
 
-		float stab_shift = 0;
 		float stab_multiplier = 1.0f;
 		if ( overall_max > expected_max ) {
 			stab_multiplier = ( expected_max ) / ( std::max(1.0f, overall_max) - std::min(0.0f, overall_min) );

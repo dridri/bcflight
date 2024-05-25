@@ -68,6 +68,8 @@ public:
 	const uint32_t gpsSatellitesSeen() const;
 	const uint32_t gpsSatellitesUsed() const;
 
+	Filter<Vector3f>* ratesFilters() const { return mRatesFilter; }
+
 	LUA_EXPORT void Recalibrate();
 	void RecalibrateAll();
 	void ResetRPY();

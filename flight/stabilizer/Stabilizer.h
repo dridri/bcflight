@@ -73,7 +73,7 @@ public:
 	virtual void CalibrateESCs();
 	virtual void MotorTest(uint32_t id);
 	virtual void Reset( const float& yaw );
-	virtual void Update( IMU* imu, Controller* ctrl, float dt );
+	virtual void Update( IMU* imu, float dt );
 
 	Frame* frame() const;
 	void setFrame( Frame* frame );

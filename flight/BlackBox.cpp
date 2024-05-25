@@ -86,6 +86,76 @@ void BlackBox::Enqueue( const string& data, const string& value )
 }
 
 
+#define CHECK_ENABLED() \
+	if ( this == nullptr or not Thread::running() ) { \
+		return; \
+	}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 1>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f\"", v.x );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 2>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f\"", v.x, v.y );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 3>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", v.x, v.y, v.z );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 4>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", v.x, v.y, v.z, v.w );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 1>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d\"", v.x );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 2>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d,%d\"", v.x, v.y );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 3>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d,%d,%d\"", v.x, v.y, v.z );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 4>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d,%d,%d,%d\"", v.x, v.y, v.z, v.w );
+}
+
+
 void BlackBox::Enqueue( const string* data, const string* values, int n )
 {
 	if ( this == nullptr or not Thread::running() ) {

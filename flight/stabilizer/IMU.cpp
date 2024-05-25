@@ -205,16 +205,7 @@ void IMU::registerConsumer( const std::function<void(uint64_t, const Vector3f&, 
 void IMU::Loop( uint64_t tick, float dt )
 {
 	// fDebug( dt, mState );
-	if ( mState == Off ) {
-		// Just update GPS
-		UpdateGPS();
-		// Nothing more to do
-	} else if ( mState == Calibrating or mState == CalibratingAll ) {
-		Calibrate( dt, ( mState == CalibratingAll ) );
-	} else if ( mState == CalibrationDone ) {
-		mState = Running;
-		mMain->blackbox()->Enqueue( "IMU:state", "Running" );
-	} else if ( mState == Running ) {
+	if ( mState == Running ) {
 		UpdateSensors( tick, ( mMain->stabilizer()->mode() == Stabilizer::Rate ) );
 		UpdateAttitude( dt );
 		if ( mPositionUpdate ) {
@@ -227,6 +218,15 @@ void IMU::Loop( uint64_t tick, float dt )
 #endif
 			UpdatePosition( dt );
 		}
+	} else if ( mState == Off ) {
+		// Just update GPS
+		UpdateGPS();
+		// Nothing more to do
+	} else if ( mState == Calibrating or mState == CalibratingAll ) {
+		Calibrate( dt, ( mState == CalibratingAll ) );
+	} else if ( mState == CalibrationDone ) {
+		mState = Running;
+		mMain->blackbox()->Enqueue( "IMU:state", "Running" );
 	}
 }
 
@@ -358,8 +358,8 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 	Vector2f total_proxi;
 	Vector3f total_lat_lon;
 	Vector3f vtmp;
-	float ftmp;
-	char stmp[64];
+	// float ftmp;
+	// char stmp[64];
 
 	for ( Gyroscope* dev : mGyroscopes ) {
 		vtmp.x = vtmp.y = vtmp.z = 0.0f;
@@ -373,8 +373,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 		mGyroscope = total_gyro.xyz() / total_gyro.w;
 	}
 
-	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) )
-	{
+	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) ) {
 		for ( Accelerometer* dev : mAccelerometers ) {
 			vtmp.x = vtmp.y = vtmp.z = 0.0f;
 			dev->Read( &vtmp );
@@ -470,15 +469,12 @@ void IMU::UpdateGPS()
 	mGPSSatellitesSeen = total_seen;
 	mGPSSatellitesUsed = total_used;
 
-	sprintf( stmp, "\"%.7f,%.7f,%.2f,%.4f\"", mGPSLocation.x, mGPSLocation.y, mGPSAltitude, mGPSSpeed );
-	mMain->blackbox()->Enqueue( "IMU:gps", stmp );
+	mMain->blackbox()->Enqueue( "IMU:gps", Vector4f( mGPSLocation.x, mGPSLocation.y, mGPSAltitude, mGPSSpeed ) );
 }
 
 
 void IMU::UpdateAttitude( float dt )
 {
-	char stmp[64];
-
 	// Process rates
 	Vector3f rate = mGyroscope;
 	if ( mRatesFilter ) {
@@ -520,15 +516,9 @@ void IMU::UpdateAttitude( float dt )
 	mRPY = rpy;
 
 	if ( mMain->blackbox() ) {
-		char tmp[5][128] = { "", "", "", "", "" };
-		sprintf( tmp[0], "\"%.6f,%.6f,%.6f\"", mGyroscope.x, mGyroscope.y, mGyroscope.z );
-		sprintf( tmp[1], "\"%.6f,%.6f,%.6f\"", mAcceleration.x, mAcceleration.y, mAcceleration.z );
-		sprintf( tmp[2], "\"%.6f,%.6f,%.6f\"", mRate.x, mRate.y, mRate.z );
-		sprintf( tmp[3], "\"%.6f,%.6f,%.6f\"", mAccelerationSmoothed.x, mAccelerationSmoothed.y, mAccelerationSmoothed.z );
-		sprintf( tmp[4], "\"%.6f,%.6f,%.6f\"", mRPY.x, mRPY.y, mRPY.z );
-		const char* keys[5] = { "IMU:gyroscope", "IMU:accelerometer", "IMU:rate", "IMU:acceleration", "IMU:rpy" };
-		const char* arr[5] = { tmp[0], tmp[1], tmp[2], tmp[3], tmp[4] };
-		mMain->blackbox()->Enqueue( keys, arr, 5 );
+		const std::string keys[5] = { "IMU:gyroscope", "IMU:accelerometer", "IMU:rate", "IMU:acceleration", "IMU:rpy" };
+		const Vector3f values[5] = { mGyroscope, mAcceleration, mRate, mAccelerationSmoothed, mRPY };
+		mMain->blackbox()->Enqueue( keys, values, 5 );
 	}
 }
 

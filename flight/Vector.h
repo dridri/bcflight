@@ -76,7 +76,11 @@
 template <typename T, int n> class Vector
 {
 public:
-	Vector( T x = 0, T y = 0, T z = 0, T w = 0 ) : x( x ), y( y ), z( z ), w( w ) {}
+	Vector() : x(0), y(0), z(0), w(0) {}
+	Vector( T x ) : x(x), y(x), z(x), w(x) {}
+	Vector( T x, T y ) : x(x), y(y), z(x), w(y) {}
+	Vector( T x, T y, T z ) : x(x), y(y), z(z), w(0) {}
+	Vector( T x, T y, T z, T w ) : x(x), y(y), z(z), w(w) {}
 	Vector( const Vector<T,1>& v, T a = 0, T b = 0, T c = 0 ) : x(v.x), y(a), z(b), w(c) {}
 	Vector( T a, const Vector<T,1>& v, T b = 0, T c = 0 ) : x(a), y(v.x), z(b), w(c) {}
 	Vector( T a, T b, const Vector<T,1>& v, T c = 0 ) : x(a), y(b), z(v.x), w(c) {}
@@ -106,6 +110,10 @@ public:
 	VECTOR_INLINE Vector<T,2> xy() const { return Vector<T,2>( x, y ); }
 	VECTOR_INLINE Vector<T,2> xz() const { return Vector<T,2>( x, z ); }
 	VECTOR_INLINE Vector<T,2> yz() const { return Vector<T,2>( y, z ); }
+
+	constexpr int size() const {
+		return n;
+	}
 
 
 	Vector<T,n>& operator=( const Vector< T, n >& other )
@@ -333,5 +341,9 @@ typedef Vector<float, 4> Vector4f;
 typedef Vector<double, 2> Vector2d;
 typedef Vector<double, 3> Vector3d;
 typedef Vector<double, 4> Vector4d;
+
+
+template<typename T> struct is_vector : std::false_type {};
+template<typename T, int n> struct is_vector<Vector<T, n>> : std::true_type {};
 
 #endif // VECTOR_H
