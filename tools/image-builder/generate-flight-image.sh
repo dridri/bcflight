@@ -241,13 +241,14 @@ dtoverlay=pi3-disable-bt
 dtoverlay=vc4-fkms-v3d
 
 ## DShot
-#dpi_output_format=0x1C17
+#dpi_output_format=0x7017
 #dpi_group=2
 #dpi_mode=87
-#dpi_timings=512 0 40 80 40 1 0 0 1 0 0 0 0 10000 0 9309309 6
+#dpi_timings=32 0 0 0 0 16 0 0 16 0 0 0 0 10000 0 10227272 6
 #enable_dpi_lcd=1
 #display_default_lcd=0
 #dtoverlay=dpi4,gpio_pin0=4,gpio_pin1=5,gpio_pin2=6,gpio_pin3=7 # Change pins accordingly to config.lua
+
 
 ## HDMI output (use HDMI0 plug if DSHot DPI hack is used (because HDMI1 and DPI seem to share their pixel clock))
 framebuffer_width=1920

@@ -32,11 +32,12 @@ map< int, GPIO::ISR* > GPIO::mThreads;
 
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
-	if ( mode == Output ) {
-		gpioSetMode( pin, PI_OUTPUT );
-	} else {
-		gpioSetMode( pin, PI_INPUT );
-	}
+	gpioSetMode( pin, mode );
+	// if ( mode == Output ) {
+	// 	gpioSetMode( pin, PI_OUTPUT );
+	// } else {
+	// 	gpioSetMode( pin, PI_INPUT );
+	// }
 }
 
 

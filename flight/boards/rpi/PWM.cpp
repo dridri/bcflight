@@ -370,6 +370,7 @@ PWM::~PWM()
 
 void PWM::SetPWMus( uint32_t width )
 {
+	fDebug( width );
 	if ( not mChannel ) {
 		return;
 	}
@@ -790,6 +791,7 @@ PWM::PWMChannel::~PWMChannel()
 
 void PWM::PWMChannel::SetPWMValue( uint32_t pin, uint32_t width )
 {
+	fDebug( pin, width );
 	uint8_t chan = 0;
 
 	if ( pin == 13 or pin == 19 or pin == 41 or pin == 45 ) {
