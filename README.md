@@ -40,7 +40,7 @@ The flight service is disabled by default, this helps to easily setup the flight
 
 | File                             | Based on                               | DShot support                                        | Analog video output                                  |
 |----------------------------------|----------------------------------------|------------------------------------------------------|------------------------------------------------------|
-| [2023-07-18-raspbian-bcflight.img](https://bcflight.drich.fr/files/2023-07-18-raspbian-bcflight.img) | 2023-05-03-raspios-bullseye-armhf-lite | <p align="center">❌¹</p> | <p align="center">❌¹</p> |
+| [2023-07-18-raspbian-bcflight.img](https://bcflight.drich.fr/files/2023-07-18-raspbian-bcflight.img) | 2023-05-03-raspios-bullseye-armhf-lite | <p align="center">✅¹</p> | <p align="center">✅¹</p> |
 
 ¹ DShot and composite output can be enabled by changing /boot/config.txt and /var/flight/config.lua settings.
 
