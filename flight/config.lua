@@ -188,7 +188,7 @@ if has_camera and board.type == "rpi" then
 		brightness = 0.125,
 		contrast = 1.25,
 		saturation = 1.25,
-		iso = 0
+		iso = 0,
 		hdr = true
 	}
 	camera = LinuxCamera {
