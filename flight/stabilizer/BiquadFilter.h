@@ -85,7 +85,7 @@ public:
 			}
 		} else {
 			gError() << "Unhandled state type";
-			throw new std::runtime_error("Unhandled state type");
+			return input;
 		}
 		if ( !isfinite ) {
 			gError() << "Numerical instability detected. Resetting state.";
@@ -94,7 +94,7 @@ public:
 			x2 = V();
 			y1 = V();
 			y2 = V();
-			throw new std::runtime_error("Numerical instability detected");
+			return input;
 		}
 
 		x2 = x1;
