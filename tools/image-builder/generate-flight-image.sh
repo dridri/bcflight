@@ -175,6 +175,9 @@ WorkingDirectory=/var/flight
 ExecStart=/var/flight/flight > /var/flight/flight.log
 IgnoreSIGPIPE=true
 KillMode=process
+Restart=always
+StartLimitBurst=3
+StartLimitIntervalSec=30
 
 [Install]
 WantedBy=multi-user.target
