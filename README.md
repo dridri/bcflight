@@ -25,6 +25,7 @@ Open-source Linux-based Raspberry drone and ground controller.
 
 ## Pre-built binaries
 [![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight)](https://ci.drich.fr/job/BCFlight/)
+[![Tests Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight-tests&subject=tests)](https://ci.drich.fr/job/BCFlight-tests/)
 
 Pre-built 32-bits binaries for Raspberry Pi 4 can be found here : [https://ci.drich.fr/](https://ci.drich.fr/)
 
