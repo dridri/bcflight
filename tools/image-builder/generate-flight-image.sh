@@ -85,7 +85,7 @@ cp $(which qemu-arm-static) /tmp/raspbian/bcflight/root$(which qemu-arm-static)
 # chroot to raspbian
 chroot /tmp/raspbian/bcflight/root <<EOF_
 apt update
-apt remove --purge -y logrotate dbus dphys-swapfile fake-hwclock man-db
+apt remove --purge -y dbus dphys-swapfile fake-hwclock man-db
 apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd dnsmasq lua5.3 python3-gps python3-serial
 apt autoremove -y
 apt autoclean -y
@@ -119,7 +119,6 @@ EOF
 
 cat /tmp/raspbian/bcflight/root/etc/fstab | tail -n1 | sed 's/-02/-03/g' | sed 's/\//\/var/g' | sed 's/defaults/defaults,comment=var/g' >> /tmp/raspbian/bcflight/root/etc/fstab
 cat >> /tmp/raspbian/bcflight/root/etc/fstab <<EOF
-tmpfs      /var/log        tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs      /var/tmp        tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs      /tmp            tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs      /home/pi        tmpfs   defaults,noatime,mode=0777 0 0
@@ -247,7 +246,8 @@ dtoverlay=vc4-fkms-v3d
 #dpi_output_format=0x7017
 #dpi_group=2
 #dpi_mode=87
-#dpi_timings=32 0 0 0 0 16 0 0 16 0 0 0 0 10000 0 10227272 6
+#dpi_timings=512 0 40 80 40 1 0 0 1 0 0 0 0 10000 0 9309309 6
+##dpi_timings=32 0 0 0 0 16 0 0 16 0 0 0 0 10000 0 10227272 6
 #enable_dpi_lcd=1
 #display_default_lcd=0
 #dtoverlay=dpi4,gpio_pin0=4,gpio_pin1=5,gpio_pin2=6,gpio_pin3=7 # Change pins accordingly to config.lua
