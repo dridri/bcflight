@@ -42,7 +42,7 @@ protected:
 		float* inputBuffer;
 		fftwf_complex* output;
 		fftwf_plan plan;
-		std::vector<float> magnitude;
+		float* magnitude;
 	} DFT;
 	typedef struct Peak {
 		uint32_t dftIndex;

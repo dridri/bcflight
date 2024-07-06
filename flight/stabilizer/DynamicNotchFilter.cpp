@@ -27,12 +27,12 @@ template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_
 		mDFTs[i].inputBuffer = (float*)fftwf_malloc( sizeof(float) * mNumSamples );
 		mDFTs[i].output = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( mNumSamples / 2 + 1 ) );
 		mDFTs[i].plan = fftwf_plan_dft_r2c_1d( mNumSamples, mDFTs[i].inputBuffer, mDFTs[i].output, FFTW_ESTIMATE );
+		mDFTs[i].magnitude = (float*)fftwf_malloc( sizeof(float) * ( mNumSamples / 2 + 1 ) );
 		mPeakFilters.push_back( std::vector<PeakFilter>() );
 		mPeakFilters[i].reserve( DYNAMIC_NOTCH_COUNT );
 		for ( uint8_t p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
 			mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
 		}
-		mDFTs[i].magnitude.reserve( mNumSamples / 2 + 1 );
 	}
 	Start();
 }
@@ -240,7 +240,7 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 	// Approximate noise floor
 	for ( uint8_t i = 0; i < mN; i++ ) {
 		noiseFloor[i] = noise[i];
-		const std::vector<float>& dft = mDFTs[i].magnitude;
+		float* dft = mDFTs[i].magnitude;
 		const std::vector<Peak>& axisPeaks = peaks[i];
 		for (int p = 0; p < maxPeaks; p++) {
 			if (axisPeaks[p].dftIndex == 0) {
