@@ -295,6 +295,9 @@ uint16_t ControllerClient::Joystick::ReadRaw( float dt )
 		return 0;
 	}
 	uint32_t raw = mADC->Read( mADCChannel, dt );
+	if ( raw == 0 ) {
+		return 0;
+	}
 	if ( mInverse ) {
 		raw = 4096 - raw;
 	}
@@ -310,7 +313,7 @@ float ControllerClient::Joystick::Read( float dt )
 {
 	uint16_t raw = ReadRaw( dt );
 	if ( raw == 0 ) {
-		return -10.0f;
+		return std::numeric_limits<float>::quiet_NaN();
 	}
 
 	if ( mThrustMode ) {
