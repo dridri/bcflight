@@ -86,6 +86,11 @@ Main::Main()
 	, mCameraType( "" )
 {
 	mInstance = this;
+#ifdef SYSTEM_NAME_Linux
+	if ( std::getenv("INVOCATION_ID") != nullptr ) {
+		Debug::setColors( false );
+	}
+#endif
 #ifdef BUILD_sensors
 	#ifdef BOARD_generic
 		#pragma message "Adding noisy fake accelerometer and gyroscope"
