@@ -4,7 +4,7 @@ set -xe
 
 BASEDIR=$PWD
 
-apt install bc fdisk binfmt-support qemu-user-static wget
+apt install $AUTO_Y bc fdisk binfmt-support qemu-user-static wget
 update-binfmts --import
 
 
