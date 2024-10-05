@@ -78,6 +78,7 @@ protected:
 	EGLConfig mEGLConfig;
 	EGLContext mEGLContext;
 	EGLSurface mEGLSurface;
+	uint64_t mSyncLastTick;
 };
 
 #endif // GLCONTEXT_H

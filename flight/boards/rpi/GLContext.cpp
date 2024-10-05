@@ -5,6 +5,7 @@
 // #include <vc_dispmanx_types.h>
 #include <bcm_host.h>
 #include <fcntl.h>
+#include "Board.h"
 
 #define OPTIMUM_WIDTH 840
 #define OPTIMUM_HEIGHT 480
@@ -27,6 +28,7 @@ GLContext::GLContext()
 	, mWidth( 0 )
 	, mHeight( 0 )
 	, mPreviousBo( nullptr )
+	, mSyncLastTick( 0 )
 {
 	Start();
 }
@@ -276,9 +278,7 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 
 void GLContext::SwapBuffers()
 {
-	glFlush();
 	glFinish();
-	usleep( 1000 * 1000 * 1 / 40 );
 	eglSwapBuffers( mEGLDisplay, mEGLSurface );
 
 	struct gbm_bo* bo = gbm_surface_lock_front_buffer( mGbmSurface );
@@ -301,6 +301,7 @@ void GLContext::SwapBuffers()
 		gbm_surface_release_buffer( mGbmSurface, mPreviousBo );
 	}
 	mPreviousBo = bo;
+	mSyncLastTick = Board::WaitTick( 1000000L / 30, mSyncLastTick );
 }
 
 
