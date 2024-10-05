@@ -65,6 +65,7 @@ decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 HookThread<Board>* Board::mStatsThread = nullptr;
 uint32_t Board::mCPUTemp = 0;
 uint32_t Board::mCPULoad = 0;
+uint32_t Board::mMemoryUsage = 0;
 bool Board::mDiskFull = false;
 vector< string > Board::mBoardMessages;
 map< string, bool > Board::mDefectivePeripherals;
@@ -612,6 +613,36 @@ bool Board::StatsThreadRun()
 	mLastWorkJiffies = work_jiffies;
 	mLastTotalJiffies = total_jiffies;
 
+
+	std::ifstream meminfo( "/proc/meminfo" );
+	std::string line;
+	uint64_t totalMem = 0;
+	uint64_t freeMem = 0;
+	uint64_t buffers = 0;
+	uint64_t cached = 0;
+
+	while ( std::getline( meminfo, line ) ) {
+		std::istringstream iss(line);
+		std::string key;
+		uint64_t value;
+		std::string unit;
+		iss >> key >> value >> unit;
+		if (key == "MemTotal:") {
+			totalMem = value;
+		} else if (key == "MemFree:") {
+			freeMem = value;
+		} else if (key == "Buffers:") {
+			buffers = value;
+		} else if (key == "Cached:") {
+			cached = value;
+		}
+		if ( totalMem > 0 and freeMem > 0 and buffers > 0 and cached > 0 ) {
+			break;
+		}
+	}
+
+	mMemoryUsage = ( totalMem - freeMem - buffers - cached ) * 100 / totalMem;
+
 	return true;
 }
 
@@ -625,6 +656,12 @@ uint32_t Board::CPULoad()
 uint32_t Board::CPUTemp()
 {
 	return mCPUTemp;
+}
+
+
+uint32_t Board::MemoryUsage()
+{
+	return mMemoryUsage;
 }
 
 

@@ -107,6 +107,8 @@ bool HUD::run()
 	dronestats.username = Main::instance()->username();
 	dronestats.messages = Board::messages();
 	dronestats.blackBoxId = Main::instance()->blackbox()->id();
+	dronestats.cpuUsage = Board::CPULoad();
+	dronestats.memUsage = Board::MemoryUsage();
 	if ( controller and stabilizer ) {
 		dronestats.armed = stabilizer->armed();
 		dronestats.mode = (DroneMode)stabilizer->mode();

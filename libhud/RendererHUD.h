@@ -84,6 +84,8 @@ typedef struct DroneStats {
 		, mode(DroneMode::Rate)
 		, ping(0)
 		, blackBoxId(0)
+		, cpuUsage(0)
+		, memUsage(0)
 		, thrust(0)
 		, acceleration(0)
 		, rpy(Vector3f())
@@ -96,6 +98,9 @@ typedef struct DroneStats {
 	DroneMode mode;
 	uint32_t ping;
 	uint32_t blackBoxId;
+	// CPU
+	uint32_t cpuUsage;
+	uint32_t memUsage;
 	// Attitude
 	float thrust;
 	float acceleration;

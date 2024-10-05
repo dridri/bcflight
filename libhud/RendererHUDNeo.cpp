@@ -228,9 +228,19 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		}
 	}
 
-	// Blackbox
+	// Blackbox and stats
 	if ( dronestats ) {
 		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "BB " + std::to_string(dronestats->blackBoxId), Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
+		bottom_left_text_idx++;
+		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "CPU " + std::to_string(dronestats->cpuUsage) + "%", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
+		bottom_left_text_idx++;
+		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "MEM " + std::to_string(dronestats->memUsage) + "%", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
+		bottom_left_text_idx++;
+		if ( dronestats->memUsage > 75 ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f + mFontHeight, "High memory usage", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
+		} else if ( dronestats->cpuUsage > 75 ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f + mFontHeight, "High CPU usage", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
+		}
 	}
 
 	// Static elements
