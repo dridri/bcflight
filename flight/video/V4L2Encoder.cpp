@@ -257,8 +257,8 @@ void V4L2Encoder::SetupH264()
 
 void V4L2Encoder::SetupMJPEG()
 {
-	v4l2_control ctrl = {};
 	{
+		v4l2_control ctrl = {};
 		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
 		ctrl.value = mBitrate;
 		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
@@ -294,6 +294,10 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 		usleep( 10 * 1000 );
 	}
 
+	if ( ( not mRecorder or not mRecorder->recording() ) and ( not mLink or not mLink->isConnected() ) ) {
+		return;
+	}
+	
 	int index;
 
 	{
