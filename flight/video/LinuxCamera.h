@@ -104,6 +104,7 @@ protected:
 	libcamera::FrameBufferAllocator* mAllocator;
 	libcamera::ControlList mAllControls;
 
+	std::map<libcamera::FrameBuffer*, uint8_t* > mPlaneBuffers;
 	std::map<libcamera::FrameBuffer*, DRMFrameBuffer*> mPreviewFrameBuffers;
 	DRMSurface* mPreviewSurface;
 	bool mPreviewSurfaceSet;

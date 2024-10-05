@@ -6,6 +6,7 @@
 #include "LiveOutput.h"
 #include "Debug.h"
 #include <thread>
+#include <sys/mman.h>
 
 std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
 
@@ -316,11 +317,22 @@ void LinuxCamera::Start()
 		}
 		const std::vector<std::unique_ptr<libcamera::FrameBuffer>>& buffers = mAllocator->buffers(cfg.stream());
 		gDebug() << "Allocated " << buffers.size() << " buffers for stream " << cfg.toString();
-
+		for ( uint32_t i = 0; i < buffers.size(); i++ ) {
+			const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
+			size_t sz = 0;
+			for ( auto plane : buffer->planes() ) {
+				sz += plane.length;
+			}
+			uint8_t* ptr = static_cast<uint8_t*>( mmap( nullptr, sz, PROT_READ | PROT_WRITE, MAP_SHARED, buffer->planes()[0].fd.get(), 0 ) );
+			if ( !ptr ) {
+				gError() << "Failed to mmap buffer for stream " << cfg.toString();
+			}
+			gDebug() << "mmap buffer for stream " << cfg.toString() << " : " << ptr;
+			mPlaneBuffers[buffer.get()] = ptr;
+		}
 		if ( mLivePreview and &cfg == mPreviewStreamConfiguration ) {
 			for ( uint32_t i = 0; i < buffers.size(); i++ ) {
 				const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
-				printf("FD : %d\n", buffer->planes()[0].fd.get());
 				mPreviewFrameBuffers[buffer.get()] = new DRMFrameBuffer( mPreviewStreamConfiguration->size.width, mPreviewStreamConfiguration->size.height, stride64(mPreviewStreamConfiguration->size.width), DRM_FORMAT_YUV420, 0, buffer->planes()[0].fd.get() );
 			}
 		}
@@ -432,7 +444,7 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 						for ( auto plane : buffer->planes() ) {
 							sz += plane.length;
 						}
-						mLiveEncoder->EnqueueBuffer( sz, nullptr, timestamp_ns / 1000, buffer->planes()[0].fd.get() );
+						mLiveEncoder->EnqueueBuffer( sz, mPlaneBuffers[buffer], timestamp_ns / 1000, buffer->planes()[0].fd.get() );
 					}
 				}
 				if ( mVideoStreamConfiguration and stream == mVideoStreamConfiguration->stream() ) {
@@ -443,7 +455,7 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 						for ( auto plane : buffer->planes() ) {
 							sz += plane.length;
 						}
-						mVideoEncoder->EnqueueBuffer( sz, nullptr, timestamp_ns / 1000, buffer->planes()[0].fd.get() );
+						mVideoEncoder->EnqueueBuffer( sz, mPlaneBuffers[buffer], timestamp_ns / 1000, buffer->planes()[0].fd.get() );
 					}
 				}
 				mControlListQueueMutex.lock();
