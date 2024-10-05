@@ -178,9 +178,15 @@ Main::Main()
 	mReady = true;
 
 	usleep( 1 * 1000 * 1000 );
-	mConsole = new Console( mConfig );
-	mConsole->Start();
-	mConsole->setPriority( 2 );
+#ifdef SYSTEM_NAME_Linux
+	if ( std::getenv("INVOCATION_ID") == nullptr ) {
+#endif
+		mConsole = new Console( mConfig );
+		mConsole->Start();
+		mConsole->setPriority( 2 );
+#ifdef SYSTEM_NAME_Linux
+	}
+#endif
 
 	Thread::setMainPriority( 1 );
 }
