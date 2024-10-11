@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include "ThreadBase.h"
+#include "Thread.h"
 #include "Board.h"
 #include "Debug.h"
 
@@ -40,6 +41,7 @@ ThreadBase::ThreadBase( const string& name )
 	, mSetPriority( 0 )
 	, mAffinity( -1 )
 	, mSetAffinity( -1 )
+	, mPriorityFifo( false )
 	, mFrequency( 0 )
 	, mFrequencyTick( 0 )
 {
@@ -129,6 +131,12 @@ bool ThreadBase::running() const
 }
 
 
+bool ThreadBase::stopped() const
+{
+	return mStopped;
+}
+
+
 uint32_t ThreadBase::frequency() const
 {
 	return mFrequency;
@@ -142,14 +150,13 @@ void ThreadBase::setMainPriority( int p )
 }
 
 
-void ThreadBase::setPriority( int p, int affinity )
+void ThreadBase::setPriority( int p, int affinity, bool priorityFifo )
 {
 	mSetPriority = p;
-#ifdef sysconf
-	if ( affinity >= 0 and affinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
+	if ( affinity >= 0 ) {
 		mSetAffinity = affinity;
+		mPriorityFifo = priorityFifo;
 	}
-#endif
 }
 
 

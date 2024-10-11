@@ -30,7 +30,7 @@ public:
 	~MCP320x();
 
 	void setSmoothFactor( uint8_t channel, float f );
-	uint16_t Read( uint8_t channel );
+	uint16_t Read( uint8_t channel, float dt = 0.0f );
 
 private:
 	SPI* mSPI;

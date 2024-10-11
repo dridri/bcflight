@@ -51,6 +51,7 @@ else()
 	add_definitions( -DSTD=std )
 endif()
 
+include_directories( ${CMAKE_SOURCE_DIR}/../libdebug )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
 include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )
 if ( ${rawwifi} MATCHES "1" OR ${rawwifi} MATCHES "yes" OR ${rawwifi} MATCHES "true" )
@@ -60,6 +61,7 @@ if ( ${rawwifi} MATCHES "1" OR ${rawwifi} MATCHES "yes" OR ${rawwifi} MATCHES "t
 endif()
 include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
+add_subdirectory( ${CMAKE_SOURCE_DIR}/../libdebug libdebug )
 
 add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip "-m32" )
 add_custom_target( ui_headers COMMAND
@@ -71,7 +73,7 @@ add_custom_target( ui_headers COMMAND
 	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/settings.ui > ${CMAKE_BINARY_DIR}/ui_settings.h
 )
 
-add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/rc_data.cpp COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
+# add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/rc_data.cpp COMMAND ${RCC} ${CMAKE_SOURCE_DIR}/ui/data.qrc > ${CMAKE_BINARY_DIR}/rc_data.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/MainWindow.moc.cpp COMMAND ${MOC} ${CMAKE_SOURCE_DIR}/ui/MainWindow.h > ${CMAKE_BINARY_DIR}/MainWindow.moc.cpp WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 
 file( GLOB_RECURSE BOARD_SOURCES boards/${board}/*.cpp boards/${board}/*.c )
@@ -93,6 +95,6 @@ add_dependencies( controller_rc libluajit_static )
 add_dependencies( controller_rc ui_headers )
 
 
-target_link_libraries( controller_rc -L./ controller libluajit_static.a -lrt -ldl ${RAWWIFI_LIBS} -lz pthread ${BOARD_LIBS} )
+target_link_libraries( controller_rc -L./ controller libdebug libluajit_static.a -lrt -ldl ${RAWWIFI_LIBS} -lz pthread ${BOARD_LIBS} )
 
 install( TARGETS controller_rc RUNTIME DESTINATION bin )

@@ -40,7 +40,7 @@ void MCP320x::setSmoothFactor( uint8_t channel, float f )
 }
 
 
-uint16_t MCP320x::Read( uint8_t channel )
+uint16_t MCP320x::Read( uint8_t channel, float dt )
 {
 	static const int nbx = 4;
 	uint32_t b[3] = { 0, 0, 0 };
@@ -85,10 +85,16 @@ uint16_t MCP320x::Read( uint8_t channel )
 	final_ret /= nbx;
 	final_ret &= 0xFFFFFFF7;
 
+	// Raw value
+	if ( dt == 0.0f ) {
+		return final_ret;
+	}
+
 	if ( mSmoothFactor.find(channel) != mSmoothFactor.end() ) {
 		float smooth = mSmoothFactor[channel];
 		if ( smooth > 0.0f and smooth < 1.0f ) {
-			mLastValue[channel] = std::max( 0.0f, mLastValue[channel] * smooth + (float)final_ret * ( 1.0f - smooth ) );
+			float s = smooth * std::max( 0.0f, std::min( 1.0f, dt * 1000.0f ) );
+			mLastValue[channel] = std::max( 0.0f, mLastValue[channel] * s + (float)final_ret * ( 1.0f - s ) );
 			if ( channel == 3 ) {
 // 				printf( "ok : %d\n", (uint16_t)mLastValue[channel] );
 			}

@@ -13,11 +13,16 @@
 
 --- User defined variables (used only inside this config file)
 pc_control = true
-full_hd = false
+has_camera = true
 
 
 --- Basic settings
 username = "drich" -- used by logger and Head-Up-Display
+
+
+--- Setup blackbox
+blackbox = BlackBox()
+blackbox.enabled = true
 
 
 --- Battery
@@ -59,17 +64,29 @@ frame = Multicopter {
 
 --- Setup stabilizer
 -- same scales as betaflight
-PID.pscale = 0.032029
-PID.iscale = 0.244381
-PID.dscale = 0.000529
+PID.pscale = 0.032029 * 0.0005
+PID.iscale = 0.244381 * 0.0005
+PID.dscale = 0.000529 * 0.0005
 stabilizer = Stabilizer {
 	loop_time = 500, -- 500 µs => 2000Hz stabilizer update
-	rate_speed = 1000, -- deg/sec
-	pid_roll = PID( 45, 70, 40 ),
-	pid_pitch = PID( 46, 70, 40 ),
+	rate_speed = 700, -- deg/sec
+	pid_roll = PID( 45, 65, 26 ),
+	pid_pitch = PID( 46, 70, 22 ),
 	pid_yaw = PID( 45, 90, 2 ),
-	horizon_angles = Vector( 20.0, 20.0 ), -- max inclination degrees
-	pid_horizon = PID( 150, 0, 0 )
+	horizon_angles = Vector( 25.0, 25.0 ), -- max inclination degrees
+	pid_horizon_roll = PID( 1000000, 0, 2000 ),
+	pid_horizon_pitch = PID( 1000000, 0, 2000 ),
+	derivative_filter = PT1_3( 20, 20, 20 ),
+	tpa = {
+		multiplier = 0.5, -- multiply by 0.5 on full throttle
+		threshold = 0.5 -- enable TPA when throttle is over 50%
+	},
+	anti_gravity = {
+		gain = 1.5, -- increase I by 1.5 when active
+		threshold = 0.35, -- 35% delta
+		decay = 10.0 -- 1/10=100ms to decay
+	}
+
 }
 
 
@@ -77,6 +94,7 @@ imu_sensor = ICM4xxxx {
 	bus = SPI( "/dev/spidev0.0", 2000000 ),
 	axis_swap = Vector( 2, -1, 3 )
 }
+imu_sensor.accelerometer_axis_swap = Vector( -1, -2, 3 )
 
 -- Setup Inertial Measurement Unit
 imu = IMU {
@@ -85,25 +103,14 @@ imu = IMU {
 	magnetometers = {},
 	altimeters = {},
 	gpses = {},
-	-- Setup filters
-	-- 'input' represents the amount of smoothing ( higher values mean better stability, but slower reactions, between interval ]0.0;+inf[ )
-	-- 'output' represents the quantity of the filtered results that is integrated over time ( between interval ]0.0;1.0[ )
 	filters = {
-		rates = {
-			input = Vector( 40, 40, 40 ),
-			output = Vector( 0.8, 0.8, 0.8 ),
-		},
-		accelerometer = {
-			input = Vector( 350, 350, 350 ),
-			output = Vector( 0.1, 0.1, 0.1 ),
-		},
-		attitude = {
-			input = {
-				accelerometer = Vector( 85, 85, 100 ),
-				rates = Vector( 12, 12, 12 ),
-			},
-			output = Vector( 0.45, 0.45, 0.45 ),
-		},
+		rates = PT1_3( 100, 100, 100 ),
+		accelerometer = PT1_3( 50, 50, 50 ),
+		attitude = MahonyAHRS( 0.5, 0.0 ),
+		position = {
+			input = Vector( 1, 1, 100 ),
+			output = Vector( 1, 1, 0.1 )
+		}
 	}
 }
 
@@ -111,10 +118,10 @@ imu = IMU {
 --- Setup controls
 controller = Controller {
 	expo = Vector(
-		4,      -- ROLL : ( exp( input * roll ) - 1 )  /  ( exp( roll ) - 1 )   => must be greater than 0
-		4,     -- PITCH : ( exp( input * pitch ) - 1 )  /  ( exp( pitch ) - 1 ) => must be greater than 0
-		3.5,     -- YAW : ( exp( input * yaw ) - 1 )  /  ( exp( yaw ) - 1 )     => must be greater than 0
-		2.25 -- THURST : log( input * ( thrust - 1 ) + 1 )  /  log( thrust )   => must be greater than 1
+		3.5,	-- ROLL : ( exp( input * roll ) - 1 )  /  ( exp( roll ) - 1 )   => must be greater than 0
+		3.5,	-- PITCH : ( exp( input * pitch ) - 1 )  /  ( exp( pitch ) - 1 ) => must be greater than 0
+		3.25,	-- YAW : ( exp( input * yaw ) - 1 )  /  ( exp( yaw ) - 1 )     => must be greater than 0
+		2.25	-- THURST : log( input * ( thrust - 1 ) + 1 )  /  log( thrust )   => must be greater than 1
 	)
 }
 
@@ -136,11 +143,11 @@ else
 		bitrate = 50000,
 		bandwidth = 50000,
 		fdev = 25000,
-		bandwidthAfc = 83300,
+		bandwidthAfc = 50000,
 		blocking = true,
 		drop = true,
 -- 		modem = "LoRa",
-		read_timeout = 500, -- drop will drop after 500ms without receiving data
+		read_timeout = 500, -- drone will drop after 500ms without receiving data
 		diversity = {
 			device = "/dev/spidev1.1",
 			resetpin = 25,
@@ -153,7 +160,7 @@ end
 
 --- Setup telemetry
 if pc_control then
-	controller.telemetry_rate = 20
+	controller.telemetry_rate = 100
 	controller.full_telemetry = true
 else
 	controller.telemetry_rate = 0
@@ -163,15 +170,14 @@ end
 --TODO from here
 
 
-if true and board.type == "rpi" then
+if has_camera and board.type == "rpi" then
 	main_recorder = RecorderAvformat {
 		base_directory = "/var/VIDEO/"
 	}
 
 	if pc_control then
-		-- UDP-Lite allows potentially damaged data payloads to be delivered
 		camera_link = Socket {
-			type = Socket.UDPLite,
+			type = Socket.UDP,
 			port = 2021,
 			broadcast = false
 		}
@@ -182,7 +188,8 @@ if true and board.type == "rpi" then
 		brightness = 0.125,
 		contrast = 1.25,
 		saturation = 1.25,
-		iso = 0
+		iso = 0,
+		hdr = true
 	}
 	camera = LinuxCamera {
 		vflip = false,
@@ -190,7 +197,7 @@ if true and board.type == "rpi" then
 		hdr = true,
 		width = 1920,
 		height = 1080,
-		framerate = 50,
+		framerate = 30,
 		sharpness = 0.5,
 		iso = camera_settings.iso,
 		brightness = camera_settings.brightness,
@@ -199,7 +206,7 @@ if true and board.type == "rpi" then
 		preview_output = LiveOutput(),
 		video_output = V4L2Encoder {
 			video_device = "/dev/video11",
-			bitrate = 16 * 1024 * 1024,
+			bitrate = 32 * 1024 * 1024,
 			width = 1920,
 			height = 1080,
 			framerate = 30,
@@ -258,9 +265,9 @@ controller:onEvent(Controller.VIDEO_NIGHT_MODE, function(night)
 	print("Night mode " .. night .. "(" .. type(night) .. ")")
 	if night == 1 then
 		camera:setSaturation( 0.5 )
-		camera:setContrast( 1.90 )
+		camera:setContrast( 2.0 )
 		camera:setBrightness( 0.5 )
-		camera:setISO( 50000 )
+		camera:setISO( 4000 )
 		hud.night = true
 	else
 		hud.night = false

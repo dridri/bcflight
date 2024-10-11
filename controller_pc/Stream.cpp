@@ -77,7 +77,7 @@ Stream::Stream( QWidget* parent )
 	SDecodingParam decParam;
 	memset( &decParam, 0, sizeof (SDecodingParam) );
 	decParam.uiTargetDqLayer = UCHAR_MAX;
-	decParam.eEcActiveIdc = ERROR_CON_SLICE_MV_COPY_CROSS_IDR;//ERROR_CON_SLICE_COPY;
+	decParam.eEcActiveIdc = ERROR_CON_SLICE_MV_COPY_CROSS_IDR_FREEZE_RES_CHANGE; //ERROR_CON_SLICE_MV_COPY_CROSS_IDR;//ERROR_CON_SLICE_COPY;
 	decParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_AVC;
 	qDebug() << "mDecoder->Initialize :" << mDecoder->Initialize( &decParam );
 }
@@ -424,7 +424,7 @@ void Stream::DecodeFrame( const uint8_t* src, size_t sliceSize )
 	memset( &bufInfo, 0, sizeof(SBufferInfo) );
 
 	DECODING_STATE ret = mDecoder->DecodeFrameNoDelay( src, (int)sliceSize, data, &bufInfo );
-// 	printf( "        DecodeFrameNoDelay returned %08X\n", ret );
+	// printf( "        DecodeFrameNoDelay returned %08X\n", ret );
 
 	if ( bufInfo.iBufferStatus == 1 ) {
 		mY.stride = bufInfo.UsrData.sSystemBuffer.iStride[0];

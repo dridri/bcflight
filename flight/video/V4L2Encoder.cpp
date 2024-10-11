@@ -26,11 +26,18 @@ static int xioctl( int fd, unsigned long ctl, void* arg )
 	return ret;
 }
 
+static const std::map< V4L2Encoder::Format, std::string > formatToString = {
+	{ V4L2Encoder::FORMAT_H264, "h264" },
+	{ V4L2Encoder::FORMAT_MJPEG, "mjpeg" }
+};
+
 
 V4L2Encoder::V4L2Encoder()
 	: VideoEncoder()
 	, mVideoDevice( "/dev/video11" )
+	, mFormat( FORMAT_H264 )
 	, mBitrate( 4 * 1024 * 1024 )
+	, mQuality( 100 )
 	, mWidth( 1280 )
 	, mHeight( 720 )
 	, mFramerate( 30 )
@@ -50,69 +57,27 @@ void V4L2Encoder::Setup()
 	mReady = true;
 	mFD = open( mVideoDevice.c_str(), O_RDWR, 0 );
 	if ( mFD < 0 ) {
-		throw std::runtime_error("failed to open V4L2 H264 encoder");
+		throw std::runtime_error("failed to open V4L2 encoder");
 	}
-	gDebug() << "Opened H264Encoder on " << mVideoDevice << " as fd " << mFD;
+	gDebug() << "Opened V4L2Encoder on " << mVideoDevice << " as fd " << mFD;
 
-	v4l2_control ctrl = {};
-	{
-		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-		ctrl.value = mBitrate;
-		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set bitrate peak");
-		}
+	if ( mInputWidth == 0 ) {
+		mInputWidth = mWidth;
+	}
+	if ( mInputHeight == 0 ) {
+		mInputHeight = mHeight;
 	}
 
-	{
-		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE;
-		ctrl.value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
-		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set bitrate mode");
-		}
-	}
-
-	{
-		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
-		ctrl.value = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
-		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set profile");
-		}
-	}
-
-	{
-		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
-		ctrl.value = V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
-		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set level");
-		}
-	}
-
-	{
-		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-		ctrl.value = 10;
-		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set intra period");
-		}
-	}
-
-	{
-		ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
-		ctrl.value = 1; // Inline headers
-		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
-			throw std::runtime_error("failed to set inline headers");
-		}
-	}
-
-	// Set the input and output formats. We know exactly what they will be.
+	gDebug() << "input resolution : " << mInputWidth << "x" << mInputHeight;
 
 	v4l2_format fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	fmt.fmt.pix_mp.width = mWidth;
-	fmt.fmt.pix_mp.height = mHeight;
+	fmt.fmt.pix_mp.width = mInputWidth;
+	fmt.fmt.pix_mp.height = mInputHeight;
 	// We assume YUV420 here, but it would be nice if we could do something
 	// like info.pixel_format.toV4L2Fourcc();
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
-	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = mWidth; // On YUV420, stride == width
+	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = mInputWidth; // On YUV420, stride == width
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 // 	fmt.fmt.pix_mp.colorspace = get_v4l2_colorspace(info.colour_space); // TOD
 	fmt.fmt.pix_mp.num_planes = 1;
@@ -120,18 +85,15 @@ void V4L2Encoder::Setup()
 		throw std::runtime_error("failed to set output format");
 	}
 
-	fmt = {};
-	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	fmt.fmt.pix_mp.width = mWidth;
-	fmt.fmt.pix_mp.height = mHeight;
-	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
-	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
-	fmt.fmt.pix_mp.num_planes = 1;
-	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
-	if ( xioctl( mFD, VIDIOC_S_FMT, &fmt ) < 0 ) {
-		throw std::runtime_error("failed to set output format");
+	switch ( mFormat ) {
+		case FORMAT_H264:
+			SetupH264();
+			break;
+		case FORMAT_MJPEG:
+			SetupMJPEG();
+			break;
+		default:
+			throw std::runtime_error("unsupported format");
 	}
 
 	struct v4l2_streamparm parm = {};
@@ -211,7 +173,7 @@ void V4L2Encoder::Setup()
 	gDebug() << "Codec streaming started";
 
 	if ( mRecorder ) {
-		mRecorderTrackId = mRecorder->AddVideoTrack( mWidth, mHeight, mFramerate, "h264" );
+		mRecorderTrackId = mRecorder->AddVideoTrack( formatToString.at(mFormat), mWidth, mHeight, mFramerate, formatToString.at(mFormat) );
 	}
 	if ( mLink and not mLink->isConnected() ) {
 		mLink->Connect();
@@ -221,8 +183,102 @@ void V4L2Encoder::Setup()
 		}
 	}
 
-// 	mOutputThread = std::thread( &V4L2Encoder::outputThread, this );
-	mPollThread = std::thread( &V4L2Encoder::pollThread, this );
+	Thread::setName( "V4L2Encoder::pollThread" );
+	Thread::Start();
+}
+
+
+void V4L2Encoder::SetupH264()
+{
+	v4l2_control ctrl = {};
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
+		ctrl.value = mBitrate;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set bitrate peak");
+		}
+	}
+
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE;
+		ctrl.value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set bitrate mode");
+		}
+	}
+
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
+		ctrl.value = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set profile");
+		}
+	}
+
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
+		ctrl.value = V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set level");
+		}
+	}
+
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
+		ctrl.value = 10;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set intra period");
+		}
+	}
+
+	{
+		ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
+		ctrl.value = 1; // Inline headers
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set inline headers");
+		}
+	}
+
+	v4l2_format fmt = {};
+	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	fmt.fmt.pix_mp.width = mWidth;
+	fmt.fmt.pix_mp.height = mHeight;
+	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
+	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
+	fmt.fmt.pix_mp.num_planes = 1;
+	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
+	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
+	if ( xioctl( mFD, VIDIOC_S_FMT, &fmt ) < 0 ) {
+		throw std::runtime_error("failed to set output format");
+	}
+}
+
+
+void V4L2Encoder::SetupMJPEG()
+{
+	{
+		v4l2_control ctrl = {};
+		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
+		ctrl.value = mBitrate;
+		if ( xioctl( mFD, VIDIOC_S_CTRL, &ctrl ) < 0 ) {
+			throw std::runtime_error("failed to set bitrate peak");
+		}
+	}
+
+	v4l2_format fmt = {};
+	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	fmt.fmt.pix_mp.width = mWidth;
+	fmt.fmt.pix_mp.height = mHeight;
+	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_MJPEG;
+	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
+	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
+	fmt.fmt.pix_mp.num_planes = 1;
+	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = mWidth * 3;
+	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 2048 << 10;
+	if ( xioctl( mFD, VIDIOC_S_FMT, &fmt ) < 0 ) {
+		throw std::runtime_error("failed to set output format");
+	}
 }
 
 int64_t tt = 0;
@@ -238,6 +294,10 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 		usleep( 10 * 1000 );
 	}
 
+	if ( ( not mRecorder or not mRecorder->recording() ) and ( not mLink or not mLink->isConnected() ) ) {
+		return;
+	}
+	
 	int index;
 
 	{
@@ -245,7 +305,9 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 		// "wrap" the DMABUF.
 		std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
 		if ( mInputBuffersAvailable.empty() ) {
-			throw std::runtime_error("no buffers available to queue codec input");
+			// throw std::runtime_error("no buffers available to queue codec input");
+			// gWarning() << "No buffers available to queue codec input, dropping frame";
+			return;
 		}
 		index = mInputBuffersAvailable.front();
 		mInputBuffersAvailable.pop();
@@ -271,20 +333,20 @@ void V4L2Encoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us, i
 }
 
 
-void V4L2Encoder::pollThread()
+bool V4L2Encoder::run()
 {
-	while ( true ) {
+	// while ( true ) {
 		pollfd p = { mFD, POLLIN, 0 };
-		int ret = poll(&p, 1, 200);
+		int ret = poll( &p, 1, 10 );
 		{
 			std::lock_guard<std::mutex> lock(mInputBuffersAvailableMutex);
 			if ( mInputBuffersAvailable.size() == NUM_OUTPUT_BUFFERS ) {
-				break;
+				return true;
 			}
 		}
 		if ( ret < 0 ) {
 			if ( errno == EINTR ) {
-				continue;
+				return true;
 			}
 			throw std::runtime_error("unexpected errno " + std::to_string(errno) + " from poll");
 		}
@@ -318,7 +380,7 @@ void V4L2Encoder::pollThread()
 				// encode process.
 				int64_t timestamp_us = (buf.timestamp.tv_sec * (int64_t)1000000) + buf.timestamp.tv_usec;
 				if ( mRecorder and (int32_t)mRecorderTrackId != -1 ) {
-					mRecorder->WriteSample( mRecorderTrackId, timestamp_us, mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused );
+					mRecorder->WriteSample( mRecorderTrackId, timestamp_us, mOutputBuffers[buf.index].mem, buf.m.planes[0].bytesused, buf.flags & V4L2_BUF_FLAG_KEYFRAME );
 				}
 				if ( mLink and mLink->isConnected() ) {
 					if ( dynamic_cast<Socket*>(mLink) ) {
@@ -345,5 +407,7 @@ void V4L2Encoder::pollThread()
 				}
 			}
 		}
-	}
+	// }
+
+	return true;
 }

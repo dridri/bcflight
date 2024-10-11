@@ -29,8 +29,9 @@
 		__overlay__ {
 			dpi4_pins: dpi4_pins {
 				brcm,pins = <4 5 6 7>;
-				brcm,function = <6>; /* alt2 */
-				brcm,pull = <0>; /* no pull */
+				// brcm,function = <6>; /* alt2 */
+				brcm,function = <0>; /* alt2 */
+				brcm,pull = <2>; /* no pull */
 			};
 		};
 	};

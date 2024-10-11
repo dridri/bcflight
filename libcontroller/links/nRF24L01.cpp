@@ -28,7 +28,7 @@
 #include "nRF24L01.h"
 #include <Thread.h>
 
-#define CONTINUE -2
+#define NRF_CONTINUE -2
 
 nRF24L01::nRF24L01( const std::string& device, uint8_t cspin, uint8_t cepin, int8_t irqpin, uint8_t channel, uint32_t input_port, uint32_t output_port, bool drop_invalid_packets )
 	: Link()
@@ -288,7 +288,7 @@ int nRF24L01::Receive( void* pRet, uint32_t len )
 	uint32_t datalen = header->packet_size;
 
 	if ( header->block_id == mRxBlock.block_id and mRxBlock.received ) {
-		return CONTINUE;
+		return NRF_CONTINUE;
 	}
 
 	if ( header->block_id != mRxBlock.block_id ) {
@@ -332,7 +332,7 @@ int nRF24L01::Receive( void* pRet, uint32_t len )
 		}
 		if ( mDropBroken and valid == false ) {
 			mPerfInvalidBlocks++;
-			return CONTINUE;
+			return NRF_CONTINUE;
 		}
 		mRxBlock.received = true;
 		mPerfValidBlocks++;

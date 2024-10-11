@@ -20,9 +20,10 @@
 #define IMU_H
 
 #include <Main.h>
-#include <Thread.h>
 #include <Vector.h>
 #include <EKF.h>
+#include <Filter.h>
+#include "SensorFusion.h"
 #include <list>
 #include <functional>
 
@@ -48,14 +49,6 @@ public:
 	LUA_EXPORT IMU();
 	virtual ~IMU();
 
-	LUA_EXPORT void setRateOnly( bool enabled );
-	LUA_PROPERTY("filters.rates.input") void setRatesFilterInput( const Vector3f& v );
-	LUA_PROPERTY("filters.rates.output") void setRatesFilterOutput( const Vector3f& v );
-	LUA_PROPERTY("filters.accelerometer.input") void setAccelerometerFilterInput( const Vector3f& v );
-	LUA_PROPERTY("filters.accelerometer.output") void setAccelerometerFilterOutput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.input.rates") void setAttitudeFilterRatesInput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.input.accelerometer") void setAttitudeFilterAccelerometerInput( const Vector3f& v );
-	LUA_PROPERTY("filters.attitude.output") void setAttitudeFilterOutput( const Vector3f& v );
 	LUA_PROPERTY("filters.position.input") void setPositionFilterInput( const Vector3f& v );
 	LUA_PROPERTY("filters.position.output") void setPositionFilterOutput( const Vector3f& v );
 
@@ -70,6 +63,12 @@ public:
 	const Vector3f velocity() const;
 	const Vector3f position() const;
 	const float altitude() const;
+	const Vector3f gpsLocation() const;
+	const float gpsSpeed() const;
+	const uint32_t gpsSatellitesSeen() const;
+	const uint32_t gpsSatellitesUsed() const;
+
+	Filter<Vector3f>* ratesFilters() const { return mRatesFilter; }
 
 	LUA_EXPORT void Recalibrate();
 	void RecalibrateAll();
@@ -80,17 +79,14 @@ public:
 	void registerConsumer( const std::function<void(uint64_t, const Vector3f&, const Vector3f&)>& f );
 
 protected:
-	bool SensorsThreadRun();
 	void Calibrate( float dt, bool all = false );
 	void UpdateSensors( uint64_t tick, bool gyro_only = false );
 	void UpdateAttitude( float dt );
 	void UpdateVelocity( float dt );
 	void UpdatePosition( float dt );
+	void UpdateGPS();
 
 	Main* mMain;
-	HookThread<IMU>* mSensorsThread;
-	uint64_t mSensorsThreadTick;
-	uint64_t mSensorsThreadTickRate;
 	uint32_t mSensorsUpdateSlow;
 	bool mPositionUpdate;
 #ifdef SYSTEM_NAME_Linux
@@ -101,20 +97,27 @@ protected:
 	LUA_PROPERTY("accelerometers") std::list<Accelerometer*> mAccelerometers;
 	LUA_PROPERTY("magnetometers") std::list<Magnetometer*> mMagnetometers;
 	LUA_PROPERTY("altimeters") std::list<Altimeter*> mAltimeters;
-	LUA_PROPERTY("GPSes") std::list<GPS*> mGPSes;
+	LUA_PROPERTY("gps") std::list<GPS*> mGPSes;
+
+	LUA_PROPERTY("filters.rates") Filter<Vector3f>* mRatesFilter;
+	LUA_PROPERTY("filters.accelerometer") Filter<Vector3f>* mAccelerometerFilter;
 
 	// Running states
 	State mState;
 	Vector3f mAcceleration;
 	Vector3f mGyroscope;
 	Vector3f mMagnetometer;
-	Vector2f mLattitudeLongitude;
-	float mAltitude;
+	Vector2f mGPSLocation;
+	float mGPSSpeed;
+	float mGPSAltitude;
+	uint32_t mGPSSatellitesSeen;
+	uint32_t mGPSSatellitesUsed;
 	float mAltitudeOffset;
 	float mProximity;
 	Vector3f mRPY;
 	Vector3f mdRPY;
 	Vector3f mRate;
+	Vector3f mAccelerationSmoothed;
 	Vector3f mRPYOffset;
 	Vector4f mAccelerometerOffset;
 
@@ -125,9 +128,10 @@ protected:
 	Vector4f mdRPYAccum;
 	Vector3f mGravity;
 
-	EKF mRates;
-	EKF mAccelerationSmoother;
-	EKF mAttitude;
+	// EKF mRates;
+	// EKF mAccelerationSmoother;
+	// EKF mAttitude;
+	LUA_PROPERTY("filters.attitude") SensorFusion<Vector3f>* mAttitude;
 	EKF mPosition;
 	EKF mVelocity;
 	Vector4f mLastAccelAttitude;

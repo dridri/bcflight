@@ -34,40 +34,29 @@ Stabilizer::Stabilizer()
 	, mRateRollPID( PID<float>() )
 	, mRatePitchPID( PID<float>() )
 	, mRateYawPID( PID<float>() )
-	, mHorizonPID( PID<Vector3f>() )
+	, mRollHorizonPID( PID<float>() )
+	, mPitchHorizonPID( PID<float>() )
 	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
+	, mDerivativeFilter( nullptr )
+	, mTPAMultiplier( 1.0f )
+	, mTPAThreshold( 1.0f )
+	, mAntiGravityGain( 1.0f )
+	, mAntiGravityThreshold( 0.0f )
+	, mAntiGravityDecay( 10.0f )
+	, mAntigravityThrustAccum( 0.0f )
 	, mArmed( false )
-	, mLockState( 0 )
 	, mFilteredRPYDerivative( Vector3f() )
+	, mLockState( 0 )
 	, mHorizonMultiplier( Vector3f( 15.0f, 15.0f, 1.0f ) )
 	, mHorizonOffset( Vector3f() )
 	, mHorizonMaxRate( Vector3f( 300.0f, 300.0f, 300.0f ) )
 {
 	fDebug(this);
-/*
-	mRateRollPID.setP( Board::LoadRegisterFloat( "PID:Roll:P", main->config()->Number( "stabilizer.pid_roll.p" ) ) );
-	mRateRollPID.setI( Board::LoadRegisterFloat( "PID:Roll:I", main->config()->Number( "stabilizer.pid_roll.i" ) ) );
-	mRateRollPID.setD( Board::LoadRegisterFloat( "PID:Roll:D", main->config()->Number( "stabilizer.pid_roll.d" ) ) );
-	mRatePitchPID.setP( Board::LoadRegisterFloat( "PID:Pitch:P", main->config()->Number( "stabilizer.pid_pitch.p" ) ) );
-	mRatePitchPID.setI( Board::LoadRegisterFloat( "PID:Pitch:I", main->config()->Number( "stabilizer.pid_pitch.i" ) ) );
-	mRatePitchPID.setD( Board::LoadRegisterFloat( "PID:Pitch:D", main->config()->Number( "stabilizer.pid_pitch.d" ) ) );
-	mRateYawPID.setP( Board::LoadRegisterFloat( "PID:Yaw:P", main->config()->Number( "stabilizer.pid_yaw.p" ) ) );
-	mRateYawPID.setI( Board::LoadRegisterFloat( "PID:Yaw:I", main->config()->Number( "stabilizer.pid_yaw.i" ) ) );
-	mRateYawPID.setD( Board::LoadRegisterFloat( "PID:Yaw:D", main->config()->Number( "stabilizer.pid_yaw.d" ) ) );
-
-	mHorizonPID.setP( Board::LoadRegisterFloat( "PID:Outerloop:P", main->config()->Number( "stabilizer.pid_horizon.p" ) ) );
-	mHorizonPID.setI( Board::LoadRegisterFloat( "PID:Outerloop:I", main->config()->Number( "stabilizer.pid_horizon.i" ) ) );
-	mHorizonPID.setD( Board::LoadRegisterFloat( "PID:Outerloop:D", main->config()->Number( "stabilizer.pid_horizon.d" ) ) );
-*/
 
 	mAltitudePID.setP( 0.001 );
 	mAltitudePID.setI( 0.010 );
 	mAltitudePID.setDeadBand( 0.05f );
-
-	mDerivativeFilter = new PT1<Vector3f>( Vector3f(80, 80, 80) );
-
-// 	mHorizonPID.setDeadBand( Vector3f( 0.5f, 0.5f, 0.0f ) );
 }
 
 
@@ -175,39 +164,6 @@ Vector3f Stabilizer::lastPIDOutput() const
 }
 
 
-void Stabilizer::setOuterP( float p )
-{
-	mHorizonPID.setP( p );
-	Board::SaveRegister( "PID:Outerloop:P", to_string( p ) );
-}
-
-
-void Stabilizer::setOuterI( float i )
-{
-	mHorizonPID.setI( i );
-	Board::SaveRegister( "PID:Outerloop:I", to_string( i ) );
-}
-
-
-void Stabilizer::setOuterD( float d )
-{
-	mHorizonPID.setD( d );
-	Board::SaveRegister( "PID:Outerloop:D", to_string( d ) );
-}
-
-
-Vector3f Stabilizer::getOuterPID() const
-{
-	return mHorizonPID.getPID();
-}
-
-
-Vector3f Stabilizer::lastOuterPIDOutput() const
-{
-	return mHorizonPID.state();
-}
-
-
 void Stabilizer::setHorizonOffset( const Vector3f& v )
 {
 	mHorizonOffset = v;
@@ -285,7 +241,8 @@ void Stabilizer::Reset( const float& yaw )
 	mRateRollPID.Reset();
 	mRatePitchPID.Reset();
 	mRateYawPID.Reset();
-	mHorizonPID.Reset();
+	mRollHorizonPID.Reset();
+	mPitchHorizonPID.Reset();
 	mRPY.x = 0.0f;
 	mRPY.y = 0.0f;
 	mRPY.z = 0.0f;
@@ -313,11 +270,12 @@ void Stabilizer::setYaw( float value )
 
 void Stabilizer::setThrust( float value )
 {
+	mPreviousThrust = mThrust;
 	mThrust = value;
 }
 
 
-void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
+void Stabilizer::Update( IMU* imu, float dt )
 {
 	Vector3f rate_control = Vector3f();
 
@@ -328,7 +286,11 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 
 	Vector3f rates = imu->rate();
 
-	mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
+	if ( mDerivativeFilter ) {
+		mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
+	} else {
+		mFilteredRPYDerivative = rates;
+	}
 
 	if ( not mArmed ) {
 		return;
@@ -340,24 +302,59 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		return;
 	}
 
+	Vector3f rollPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
+	Vector3f pitchPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
+	Vector3f yawPIDMultiplier = Vector3f( 1.0f, 1.0f, 1.0f );
+
+	// Throttle PID Attenuation (TPA) : reduce PID gains when throttle is high
+	// y=min( 1, 1 − ( (x−t) / (1−t) ) * m )
+	// See https://www.desmos.com/calculator/wi8qeuzct6
+	if ( mTPAThreshold > 0.0f and mTPAThreshold < 1.0f ) {
+		float tpa = ( ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) ) * mTPAMultiplier;
+		Vector3f tpaPID = Vector3f(
+			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
+			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
+			1.0f - std::max( 0.0f, std::min( 1.0f, tpa ) )
+		);
+		rollPIDMultiplier = rollPIDMultiplier * tpaPID;
+		pitchPIDMultiplier = pitchPIDMultiplier * tpaPID;
+		yawPIDMultiplier = yawPIDMultiplier * tpaPID;
+	}
+
+	// Anti-gravity
+	if ( mAntiGravityThreshold > 0.0f ) {
+		float delta = std::abs( mThrust - mPreviousThrust ) / dt;
+		mAntigravityThrustAccum = std::min( 1.0f, mAntigravityThrustAccum * ( 1.0f - dt * mAntiGravityDecay ) + delta * dt );
+		float ag = 1.0f + (mAntiGravityGain - 1.0f) * std::max(0.0f, std::min( 1.0f, ( mAntigravityThrustAccum - mAntiGravityThreshold ) / (1.0f - mAntiGravityThreshold) ) );
+		rollPIDMultiplier.y *= ag;
+		pitchPIDMultiplier.y *= ag;
+		yawPIDMultiplier.y *= ag;
+		if ( ag > 1.0f ) {
+			gTrace() << "AG: " << ag << " | " << mAntigravityThrustAccum << " | " << delta;
+		}
+	}
+
 	switch ( mMode ) {
-		case Rate : {
-			rate_control = mRPY * mRateFactor;
+		case Stabilize : {
+			Vector3f drone_state = imu->RPY();
+			Vector3f control_angles = mRPY;
+			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
+			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
+			// TODO : when user-input is 0, set control_angles by using imu->velocity().xy to compensate position drifting, if enabled
+			mRollHorizonPID.Process( control_angles.x, drone_state.x, dt );
+			mPitchHorizonPID.Process( control_angles.y, drone_state.y, dt );
+			rate_control.x = mRollHorizonPID.state();
+			rate_control.y = mPitchHorizonPID.state();
+			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
+			rate_control.y = max( -mHorizonMaxRate.y, min( mHorizonMaxRate.y, rate_control.y ) );
+			rate_control.z = mRPY.z * mRateFactor; // TEST : Bypass heading for now
 			break;
 		}
 		case ReturnToHome :
 		case Follow :
-		case Stabilize :
+		case Rate :
 		default : {
-			Vector3f control_angles = mRPY;
-			control_angles.x = mHorizonMultiplier.x * min( max( control_angles.x, -1.0f ), 1.0f ) + mHorizonOffset.x;
-			control_angles.y = mHorizonMultiplier.y * min( max( control_angles.y, -1.0f ), 1.0f ) + mHorizonOffset.y;
-			// TODO : when user-input is 0, set control_angles by using imu->velocity() to compensate position drifting, if enabled
-			mHorizonPID.Process( control_angles, imu->RPY(), dt );
-			rate_control = mHorizonPID.state();
-			rate_control.x = max( -mHorizonMaxRate.x, min( mHorizonMaxRate.x, rate_control.x ) );
-			rate_control.y = max( -mHorizonMaxRate.y, min( mHorizonMaxRate.y, rate_control.y ) );
-			rate_control.z = control_angles.z * mRateFactor; // TEST : Bypass heading for now
+			rate_control = mRPY * mRateFactor;
 			break;
 		}
 	}
@@ -365,11 +362,15 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 	float deltaR = rate_control.x - rates.x;
 	float deltaP = rate_control.y - rates.y;
 	float deltaY = rate_control.z - rates.z;
-	mRateRollPID.Process( deltaR, deltaR, rate_control.x - mFilteredRPYDerivative.x, dt );
-	mRatePitchPID.Process( deltaP, deltaP, rate_control.y - mFilteredRPYDerivative.y, dt );
-	mRateYawPID.Process( deltaY, deltaY, rate_control.z - mFilteredRPYDerivative.z, dt );
+	float deltaRd = rate_control.x - mFilteredRPYDerivative.x;
+	float deltaPd = rate_control.y - mFilteredRPYDerivative.y;
+	float deltaYd = rate_control.z - mFilteredRPYDerivative.z;
+	mRateRollPID.Process( deltaR, deltaR, deltaRd, dt, rollPIDMultiplier );
+	mRatePitchPID.Process( deltaP, deltaP, deltaPd, dt, pitchPIDMultiplier );
+	mRateYawPID.Process( deltaY, deltaY, deltaYd, dt, yawPIDMultiplier );
 
 	float thrust = mThrust;
+/*
 	if ( mAltitudeHold ) {
 		thrust = thrust * 2.0f - 1.0f;
 		if ( abs( thrust ) < 0.1f ) {
@@ -384,16 +385,14 @@ void Stabilizer::Update( IMU* imu, Controller* ctrl, float dt )
 		mAltitudePID.Process( mAltitudeControl, imu->altitude(), dt );
 		thrust = mAltitudePID.state();
 	}
-
-	Vector3f ratePID( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
-/*
-	char stmp[64];
-	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", ratePID.x, ratePID.y, ratePID.z );
-	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", stmp );
 */
+	Vector3f ratePID( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
+
+	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", ratePID );
+
 	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
 		gDebug() << "stab error";
-		Reset( mHorizonPID.state().z );
+		Reset( imu->RPY().z );
 	}
 }
 

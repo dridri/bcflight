@@ -23,6 +23,14 @@
 #include "SPI.h"
 
 
+static const map< uint8_t, string > known = {
+	{ 0x42, "ICM-42605" }
+};
+
+static const map< uint8_t, bool > hasMagnetometer = {
+	{ 0x42, false }
+};
+
 
 ICM4xxxx::ICM4xxxx()
 	: Sensor()
@@ -37,9 +45,6 @@ ICM4xxxx::ICM4xxxx()
 
 void ICM4xxxx::InitChip()
 {
-	const map< uint8_t, string > known = {
-		{ 0x42, "ICM-42605" }
-	};
 
 	uint8_t read_reg = 0;
 	if ( dynamic_cast<SPI*>(mBus) != nullptr ) {
@@ -66,15 +71,44 @@ void ICM4xxxx::InitChip()
 	mBus->Write8( ICM_4xxxx_DEVICE_CONFIG, 0b00000001 );
 	usleep( 1000 * 10 );
 
-// 	mBus->Write8( ICM_4xxxx_INTF_CONFIG0, 0b00000011 );
+	// Disable all sensors while configuring
+	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00000000 );
+
+	// Can be tweaked to :
+ 	// 249Hz : (21, 440, 6)
+	// 524Hz : (39, 1536, 4)
+	// 995Hz : (63, 3968, 3)
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 21 );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 440 & 0xFF );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (440 >> 8) | (6 << 4) );
+
+	// Fixed values for accelerometer
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 21 );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 440 & 0xFF );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (440 >> 8) | (6 << 4) );
+
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
+
+	// Accel & Gyro LPF : Low-latency
+	mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 14 << 4 ) | 14 );
+	// mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 7 << 4 ) | 7 );
+
+
+	// mBus->Write8( ICM_4xxxx_INTF_CONFIG0, 0b00000011 );
 	mBus->Write8( ICM_4xxxx_INTF_CONFIG0, 0b00110000 );
+	// uint8_t config1 = 0;
+	// mBus->Read8( ICM_4xxxx_INTF_CONFIG1, &config1 );
+    // config1 &= ~0xC0; // AFSR mask
+    // config1 |= 0x40; // AFSR disable
+	// mBus->Write8( ICM_4xxxx_INTF_CONFIG1, config1 );
 	mBus->Write8( ICM_4xxxx_INTF_CONFIG6, 0b01010011 );
 	mBus->Write8( ICM_4xxxx_DRIVE_CONFIG, 0b00000101 );
-
 	mBus->Write8( ICM_4xxxx_FIFO_CONFIG, 0b00000000 );
-
 	mBus->Write8( ICM_4xxxx_INT_CONFIG0, 0b00011011 );
 	mBus->Write8( ICM_4xxxx_INT_CONFIG1, 0b01100000 );
+
 	// Disable all interrupts
 	mBus->Write8( ICM_4xxxx_INT_SOURCE0, 0b00001000 );
 	mBus->Write8( ICM_4xxxx_INT_SOURCE1, 0b00000000 );
@@ -88,62 +122,29 @@ void ICM4xxxx::InitChip()
 	// Enable all sensors in low-noise mode + never go idle
 	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00011111 );
 
-	// Gyro range at +/-2000°/s @ 100Hz ODR
-// 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00001000 );
-	// Gyro range at +/-2000°/s @ 1kHz ODR
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000110 );
-	// Gyro range at +/-2000°/s @ 4kHz ODR
-	// mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, 0b00000100 );
-// WTF	mBus->Write8( ICM_4xxxx_GYRO_CONFIG1, 0b00010110 );
-	// Accel range at +/-16g @ 1kHz ODR
-// 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, 0b00000110 );
-	// Accel range at +/-16g @ 1kHz ODR
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, 0b00000110 );
-	// Accel & Gyro LPF : BW=ODR/40
-	mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 7 << 4 ) | 7 );
-/*
-	// Set sample_rate divider
-// 	const uint32_t rate = 1000000 / config->Integer( "stabilizer.loop_time", 2000 );
-// 	mBus->Write8( ICM_4xxxx_SMPRT_DIV, 8000 / min(8000U, rate) - 1 );
-	if ( config && config->Boolean( "gyroscopes.ICM4xxxx.DLPF", true ) ) { // Enable DLPF
-		if ( mpu9250 or icm20608 ) {
-			// No ext sync, DLPF at 98Hz for the gyro
-			mBus->Write8( ICM_4xxxx_DEFINE, 0b00000010 );
-		} else {
-			// ICM4xxxx : No ext sync, DLPF at 94Hz for the accel and 98Hz for the gyro: 0b00000010) (~200Hz: 0b00000001)
-			mBus->Write8( ICM_4xxxx_DEFINE, 0b00000010 );
+	uint32_t loopTime = Main::instance()->config()->Integer( "stabilizer.loop_time", 2000 );
+	uint32_t loopRate = 1000000 / loopTime;
+	const std::list< std::tuple< uint32_t, uint8_t > > rates = {
+		{   25, 0b00001010 },
+		{   50, 0b00001001 },
+		{  100, 0b00001000 },
+		{  200, 0b00000111 },
+		{  500, 0b00001111 },
+		{ 1000, 0b00000110 },
+		{ 2000, 0b00000101 },
+		{ 4000, 0b00000100 },
+		{ 8000, 0b00000011 },
+	};
+	uint8_t rate = 0b00000000;
+	for ( auto r : rates ) {
+		if ( loopRate <= std::get<0>(r) ) {
+			rate = std::get<1>(r);
+			break;
 		}
-// 		// 1 kHz sampling rate: 0b00000000
-// 		mBus->Write8( ICM_4xxxx_SMPRT_DIV, 0b00000000 );
-	} else {
-		// No ext sync, no DLPF
-		mBus->Write8( ICM_4xxxx_DEFINE, 0b00000000 );
-// 		if ( ( mpu9250 or icm20608 ) and rate > 8000 ) {
-// 			mBus->Write8( ICM_4xxxx_GYRO_CONFIG, 0b00011011 );
-// 		}
 	}
-	if ( config && ( mpu9250 or icm20608 ) and config->Boolean( "accelerometers.ICM4xxxx.DLPF", true ) ) { // Enable DLPF
-		// DLPF at 99Hz for the accel
-		mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_2, 0b00000010 );
-	}
-	// Bypass mode enabled: 0b00000010
-	mBus->Write8( ICM_4xxxx_INT_PIN_CFG, 0b00000010 );
-	// No FIFO and no I2C slaves: 0b00000000
-	if ( dynamic_cast<SPI*>(bus) != nullptr ) {
-		mBus->Write8( ICM_4xxxx_USER_CTRL, 0b00010000 ); // Force SPI mode
-	} else {
-		mBus->Write8( ICM_4xxxx_USER_CTRL, 0b00000000 );
-	}
-*/
-
-	// TODO : use config ('use_dmp')
-	// TODO : see https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/ICM4xxxx/ICM4xxxx_6Axis_MotionApps20.h
-	if ( false ) {
-// 		ICM4xxxx* mpu = new ICM4xxxx( bus );
-// 		delete mpu;
-// 		exit(0);
-	}
-// 	delete i2c;
+	gDebug() << "Setting ICM4xxxx rate to " << loopRate << "Hz (" << (int)rate << ")";
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG0, rate );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG0, rate );
 
 	mChipReady = true;
 }
@@ -190,7 +191,7 @@ ICM4xxxxMag* ICM4xxxx::magnetometer()
 	if ( !mChipReady ) {
 		InitChip();
 	}
-	if ( !mMagnetometer ) {
+	if ( !mMagnetometer and hasMagnetometer.at( mWhoAmI ) ) {
 		mMagnetometer = new ICM4xxxxMag( mBus, mName );
 		if ( mSwapMode == SwapModeAxis ) {
 			mMagnetometer->setAxisSwap(mAxisSwap);
@@ -200,6 +201,24 @@ ICM4xxxxMag* ICM4xxxx::magnetometer()
 		}
 	}
 	return mMagnetometer;
+}
+
+
+void ICM4xxxx::setGyroscopeAxisSwap( const Vector4i& swap )
+{
+	gyroscope()->setAxisSwap( swap );
+}
+
+
+void ICM4xxxx::setAccelerometerAxisSwap( const Vector4i& swap )
+{
+	accelerometer()->setAxisSwap( swap );
+}
+
+
+void ICM4xxxx::setMagnetometerAxisSwap( const Vector4i& swap )
+{
+	magnetometer()->setAxisSwap( swap );
 }
 
 
@@ -376,7 +395,7 @@ void ICM4xxxxAccel::Read( Vector3f* v, bool raw )
 	int16_t curr[3] = { 0 };
 	uint8_t saccel[6] = { 0 };
 
-	mBus->Read( ICM_4xxxx_ACCEL_DATA_X1 | 0x80, saccel, sizeof(saccel) );
+	int r = mBus->Read( ICM_4xxxx_ACCEL_DATA_X1 | 0x80, saccel, sizeof(saccel) );
 
 	curr[0] = (int16_t)( saccel[0] << 8 | saccel[1] );
 	curr[1] = (int16_t)( saccel[2] << 8 | saccel[3] );
@@ -403,9 +422,9 @@ int ICM4xxxxGyro::Read( Vector3f* v, bool raw )
 	uint8_t sgyro[6] = { 0 };
 	int ret = 0;
 
-	if ( ( ret = mBus->Read( ICM_4xxxx_GYRO_DATA_X1 | 0x80, sgyro, sizeof(sgyro) ) ) != sizeof(sgyro) ) {
-		printf( "err : %d (%d, %s)\n", ret, errno, strerror(errno) );
-		gDebug() << "ret -1";
+	ret = mBus->Read( ICM_4xxxx_GYRO_DATA_X1 | 0x80, sgyro, sizeof(sgyro) );
+	if ( ret != sizeof(sgyro) ) {
+		gWarning() << "read " << ret << " bytes instead of " << sizeof(sgyro);
 		return -1;
 	}
 	v->x = (float)( (int16_t)( sgyro[0] << 8 | sgyro[1] ) ) * 0.061037018952f;
@@ -520,6 +539,7 @@ LuaValue ICM4xxxxGyro::infos()
 	LuaValue ret;
 
 	ret["bus"] = mBus->infos();
+	// TODO : read from chip
 	ret["precision"] = "16 bits";
 	ret["scale"] = "2000°/s";
 	ret["sample_rate"] = "1kHz";
@@ -534,6 +554,7 @@ LuaValue ICM4xxxxAccel::infos()
 	LuaValue ret;
 
 	ret["bus"] = mBus->infos();
+	// TODO : read from chip
 	ret["precision"] = "16 bits";
 	ret["scale"] = "16g";
 	ret["sample_rate"] = "1kHz";

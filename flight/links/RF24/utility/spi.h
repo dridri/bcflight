@@ -10,8 +10,9 @@
 #ifndef _SPI_H_INCLUDED
 #define _SPI_H_INCLUDED
 
-#include <string>
+#include <stdint.h>
 #include <stdio.h>
+#include <string>
 
 using namespace STD;
 

@@ -4,7 +4,7 @@ set -xe
 
 BASEDIR=$PWD
 
-apt install kpartx qemu binfmt-support qemu-user-static wget
+apt install $AUTO_Y bc fdisk binfmt-support qemu-user-static wget
 update-binfmts --import
 
 
@@ -46,19 +46,24 @@ p
 w
 EOF
 
-LOOP=$(kpartx -v -a *-lite.img | head -n1 | cut -d' ' -f3 | rev | cut -d'p' -f2- | rev)
-fsck.ext4 /dev/mapper/${LOOP}p2
-resize2fs /dev/mapper/${LOOP}p2
-mkfs.ext4 /dev/mapper/${LOOP}p3
-mount -o rw /dev/mapper/${LOOP}p2 /tmp/raspbian/bcflight/root
-mount -o rw /dev/mapper/${LOOP}p1 /tmp/raspbian/bcflight/root/boot
+# LOOP=/dev/mapper/loop8
+LOOP=$1
+if [ -z "$LOOP" ]; then
+	LOOP=$(losetup -f)
+fi
+losetup -P ${LOOP} *-lite.img
+fsck.ext4 -y ${LOOP}p2
+resize2fs ${LOOP}p2
+mkfs.ext4 ${LOOP}p3
+mount -o rw ${LOOP}p2 /tmp/raspbian/bcflight/root
+mount -o rw ${LOOP}p1 /tmp/raspbian/bcflight/root/boot
 
 mkdir /tmp/raspbian/bcflight/root/var2
-mount -o rw /dev/mapper/${LOOP}p3 /tmp/raspbian/bcflight/root/var2
+mount -o rw ${LOOP}p3 /tmp/raspbian/bcflight/root/var2
 cp -a /tmp/raspbian/bcflight/root/var/* /tmp/raspbian/bcflight/root/var2/
 umount /tmp/raspbian/bcflight/root/var2
 rm -rf /tmp/raspbian/bcflight/root/var/* /tmp/raspbian/bcflight/root/var2
-mount -o rw /dev/mapper/${LOOP}p3 /tmp/raspbian/bcflight/root/var
+mount -o rw ${LOOP}p3 /tmp/raspbian/bcflight/root/var
 mkdir -p /tmp/raspbian/bcflight/root/var/flight
 mkdir -p /tmp/raspbian/bcflight/root/var/BLACKBOX
 mkdir -p /tmp/raspbian/bcflight/root/var/PHOTO
@@ -74,14 +79,14 @@ mount --bind /dev/pts /tmp/raspbian/bcflight/root/dev/pts
 sed -i 's/^/#CHROOT /g' /tmp/raspbian/bcflight/root/etc/ld.so.preload
 
 # copy qemu binary
-cp $(which qemu-arm) /tmp/raspbian/bcflight/root$(which qemu-arm)
-systemctl restart systemd-binfmt.service
+cp $(which qemu-arm-static) /tmp/raspbian/bcflight/root$(which qemu-arm-static)
+#systemctl restart systemd-binfmt.service
 
 # chroot to raspbian
 chroot /tmp/raspbian/bcflight/root <<EOF_
 apt update
-apt remove --purge -y logrotate dbus dphys-swapfile fake-hwclock wpasupplicant man-db
-apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd lua5.3
+apt remove --purge -y dbus dphys-swapfile fake-hwclock man-db
+apt install -y i2c-tools spi-tools libpigpio1 libshine3 wget kmscube libcamera-apps libcamera0 libavformat58 libavutil56 libavcodec58 libgps28 gpsd hostapd dnsmasq lua5.3 python3-gps python3-serial
 apt autoremove -y
 apt autoclean -y
 apt clean -y
@@ -114,7 +119,6 @@ EOF
 
 cat /tmp/raspbian/bcflight/root/etc/fstab | tail -n1 | sed 's/-02/-03/g' | sed 's/\//\/var/g' | sed 's/defaults/defaults,comment=var/g' >> /tmp/raspbian/bcflight/root/etc/fstab
 cat >> /tmp/raspbian/bcflight/root/etc/fstab <<EOF
-tmpfs      /var/log        tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs      /var/tmp        tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs      /tmp            tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs      /home/pi        tmpfs   defaults,noatime,mode=0777 0 0
@@ -125,6 +129,42 @@ sed -i 's/#AddressFamily/AddressFamily/g' /tmp/raspbian/bcflight/root/etc/ssh/ss
 sed -i 's/#ListenAddress/ListenAddress/g' /tmp/raspbian/bcflight/root/etc/ssh/sshd_config
 sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' /tmp/raspbian/bcflight/root/etc/ssh/sshd_config
 
+sed -i 's/ExecStart=/ExecStartPre=ubxtool -S 115200 -f \/dev\/ttyAMA0\nExecStart=/g' /tmp/raspbian/bcflight/root/lib/systemd/system/gpsd.service
+sed -i -r -z 's/\n\[Install\]/ExecStartPost=bash -c "sleep 1 \&\& ubxtool -p CFG-RATE,100"\n\n[Install]/g' /tmp/raspbian/bcflight/root/lib/systemd/system/gpsd.service
+sed -i 's/DEVICES=""/DEVICES="\/dev\/ttyAMA0"/g' /tmp/raspbian/bcflight/root/etc/default/gpsd
+sed -i 's/GPSD_OPTIONS=""/GPSD_OPTIONS="-n -G -s 115200"/g' /tmp/raspbian/bcflight/root/etc/default/gpsd
+
+cat > /tmp/raspbian/bcflight/root/etc/network/interfaces <<EOF
+source /etc/network/interfaces.d/*
+
+auto wlan0
+iface wlan0 inet static
+	address 192.168.32.1
+	netmask 255.255.255.0
+	wireless-power off
+EOF
+
+cat > /tmp/raspbian/bcflight/root/etc/dnsmasq.conf <<EOF
+interface=wlan0
+dhcp-range=192.168.32.50,192.168.32.150,12h
+EOF
+
+cat > /tmp/raspbian/bcflight/root/etc/hostapd/hostapd.conf <<EOF
+interface=wlan0
+driver=nl80211
+ssid=drone
+hw_mode=g
+channel=6
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0 #
+wpa=2
+wpa_passphrase=12345678
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+EOF
+
 cat > /tmp/raspbian/bcflight/root/lib/systemd/system/flight.service <<EOF
 [Unit]
 Description=Beyond-Chaos Flight Controller
@@ -134,6 +174,9 @@ WorkingDirectory=/var/flight
 ExecStart=/var/flight/flight > /var/flight/flight.log
 IgnoreSIGPIPE=true
 KillMode=process
+Restart=always
+StartLimitBurst=3
+StartLimitIntervalSec=30
 
 [Install]
 WantedBy=multi-user.target
@@ -152,6 +195,9 @@ systemctl disable userconfig
 systemctl disable fake-hwclock
 /lib/systemd/systemd-sysv-install disable resize2fs_once
 
+systemctl enable hostapd
+systemctl enable dnsmasq
+
 echo i2c-dev >> /etc/modules
 EOF_
 
@@ -162,6 +208,7 @@ echo "#!/bin/bash
 $(grep -B1000 debug_quirks2 /tmp/raspbian/bcflight/root/usr/lib/raspberrypi-sys-mods/firstboot_bak)
 mount / -o remount,rw
 sed -i 's|quiet|consoleblank=0 noswap ro nosplash fastboot vc4.fkms_max_refresh_rate=50000|g' /boot/cmdline.txt
+sed -i 's|console=serial0,115200 ||g' /boot/cmdline.txt
 sed -i -r '1 ! s/([vfatex4]+\s*defaults)(,r[ow])?(,?)/\1,ro\3/g' /etc/fstab
 sed -i '1 ! s/defaults,ro,comment=var/defaults,rw/g' /etc/fstab
 mount / -o remount,ro
@@ -196,13 +243,15 @@ dtoverlay=pi3-disable-bt
 dtoverlay=vc4-fkms-v3d
 
 ## DShot
-#dpi_output_format=0x1C17
+#dpi_output_format=0x7017
 #dpi_group=2
 #dpi_mode=87
 #dpi_timings=512 0 40 80 40 1 0 0 1 0 0 0 0 10000 0 9309309 6
+##dpi_timings=32 0 0 0 0 16 0 0 16 0 0 0 0 10000 0 10227272 6
 #enable_dpi_lcd=1
 #display_default_lcd=0
 #dtoverlay=dpi4,gpio_pin0=4,gpio_pin1=5,gpio_pin2=6,gpio_pin3=7 # Change pins accordingly to config.lua
+
 
 ## HDMI output (use HDMI0 plug if DSHot DPI hack is used (because HDMI1 and DPI seem to share their pixel clock))
 framebuffer_width=1920
@@ -225,16 +274,22 @@ EOF
 
 wget --no-check-certificate https://datasheets.raspberrypi.com/cmio/dt-blob-cam1.bin -O /tmp/raspbian/bcflight/root/boot/dt-blob.bin
 
-if test -f "$BASEDIR/../../flight/extras/dpi4.dtbo"; then
-	cp "$BASEDIR/../../flight/extras/dpi4.dtbo" /tmp/raspbian/bcflight/root/boot/overlays/dpi4.dtbo
+if test -f "$BASEDIR/../../flight/extras/rpi/dpi4.dtbo"; then
+	cp "$BASEDIR/../../flight/extras/rpi/dpi4.dtbo" /tmp/raspbian/bcflight/root/boot/overlays/dpi4.dtbo
 fi
 
 if test -f "$BASEDIR/../../flight/build/flight"; then
 	cp "$BASEDIR/../../flight/build/flight" /tmp/raspbian/bcflight/root/var/flight/flight
 fi
+
 if test -f "$BASEDIR/../../flight/build/flight_unstripped"; then
 	cp "$BASEDIR/../../flight/build/flight_unstripped" /tmp/raspbian/bcflight/root/var/flight/flight_unstripped
 fi
+
+if test -d "$BASEDIR/../../libhud/data"; then
+	cp -r "$BASEDIR/../../libhud/data" /tmp/raspbian/bcflight/root/var/flight/data
+fi
+
 cp $BASEDIR/basic-config.lua /tmp/raspbian/bcflight/root/var/flight/config.lua
 
 
@@ -247,11 +302,9 @@ chroot /tmp/raspbian/bcflight/root
 sed -i 's/^#CHROOT //g' /tmp/raspbian/bcflight/root/etc/ld.so.preload
 
 # unmount everything
-umount /tmp/raspbian/bcflight/root/{dev/pts,dev,sys,proc,boot,var,}
-kpartx -dv /dev/$LOOP
-if ls /dev/mapper/${LOOP}* 1> /dev/null 2>&1; then
-	dmsetup remove /dev/mapper/${LOOP}*
-fi
+umount -l /tmp/raspbian/bcflight/root/{dev/pts,dev,sys,proc,boot,var,} || true
+umount -l /tmp/raspbian/bcflight/root || true
+losetup -d ${LOOP} 2>/dev/null || true
 
 OUTFILE=$(date +"%Y-%m-%d")-raspbian-bcflight.img
 mv *-lite.img $BASEDIR/$OUTFILE

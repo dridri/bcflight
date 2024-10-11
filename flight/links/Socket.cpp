@@ -30,7 +30,9 @@
 #include <arpa/inet.h>
 #include <unistd.h> /* close */
 #include <netdb.h> /* gethostbyname */
+#ifdef HAVE_LIBIW
 #include <iwlib.h>
+#endif
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket(s) close(s)
@@ -58,6 +60,7 @@ Socket::Socket( uint16_t port, Socket::PortType type, bool broadcast, uint32_t t
 	, mChannel( 0 )
 {
 	fDebug( port, type, broadcast, timeout );
+#ifdef HAVE_LIBIW
 	iwstats stats;
 	wireless_config info;
 	iwrange range;
@@ -71,6 +74,7 @@ Socket::Socket( uint16_t port, Socket::PortType type, bool broadcast, uint32_t t
 	}
 
 	iw_sockets_close( iwSocket );
+#endif
 }
 
 
@@ -98,6 +102,7 @@ int32_t Socket::Channel()
 
 int32_t Socket::RxQuality()
 {
+#ifdef HAVE_LIBIW
 	// TODO : use "iw dev wlan0 station dump" instead
 	iwstats stats;
 
@@ -112,12 +117,16 @@ int32_t Socket::RxQuality()
 	}
 
 	iw_sockets_close( iwSocket );
+#else
+	int32_t ret = 0;
+#endif
 	return ret;
 }
 
 
 int32_t Socket::RxLevel()
 {
+#ifdef HAVE_LIBIW
 	iwstats stats;
 
 	int32_t ret = -200;
@@ -130,6 +139,9 @@ int32_t Socket::RxLevel()
 	}
 
 	iw_sockets_close( iwSocket );
+#else
+	int32_t ret = 0;
+#endif
 	return ret;
 }
 

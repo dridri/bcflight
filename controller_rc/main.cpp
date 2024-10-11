@@ -24,6 +24,7 @@
 #include "ControllerClient.h"
 #include "ui/GlobalUI.h"
 #include "Config.h"
+#include "Debug.h"
 #include <links/Socket.h>
 #include <nRF24L01.h>
 #include <SX127x.h>
@@ -63,6 +64,7 @@ void SegFaultHandler( int sig )
 
 int main( int ac, char** av )
 {
+	Debug::setDebugLevel( Debug::Verbose );
 	Controller* controller = nullptr;
 	Link* controller_link = nullptr;
 
@@ -78,6 +80,7 @@ int main( int ac, char** av )
 
 	Config* config = new Config( av[1] );
 	config->Reload();
+	Debug::setDebugLevel( static_cast<Debug::Level>( config->integer( "debug_level", 3 ) ) );
 	config->LoadSettings();
 
 	if ( config->string( "controller.link.link_type" ) == "Socket" ) {
@@ -108,7 +111,8 @@ int main( int ac, char** av )
 		}
 	} else if ( config->string( "controller.link.link_type" ) == "SX127x" ) {
 		SX127x::Config conf;
-		conf.device = config->string( "controller.link.device", "spidev1.1" );
+		memset( &conf, 0, sizeof(SX127x::Config) );
+		strncpy( conf.device, config->string( "controller.link.device", "spidev1.1" ).c_str(), sizeof(conf.device)-1 );
 		conf.resetPin = config->integer( "controller.link.resetpin", -1 );
 		conf.txPin = config->integer( "controller.link.txpin", -1 );
 		conf.rxPin = config->integer( "controller.link.rxpin", -1 );

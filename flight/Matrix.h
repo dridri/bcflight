@@ -30,6 +30,10 @@ public:
 
 	void Orthogonal( float left, float right, float bottom, float top, float zNear, float zFar );
 
+	float operator()( int x, int y ) const {
+		return m[y * mWidth + x];
+	}
+
 	float* data();
 	const float* constData() const;
 	const int width() const;

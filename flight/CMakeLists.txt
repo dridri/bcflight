@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.0 )
+cmake_minimum_required( VERSION 3.5 )
 
 include(ProcessorCount)
 ProcessorCount(NCPU)
@@ -41,6 +41,12 @@ endif()
 
 enable_language( ASM )
 project( flight )
+
+find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC REQUIRED )
+find_package( PkgConfig REQUIRED )
+pkg_search_module( FFTW REQUIRED fftw3f IMPORTED_TARGET )
+set( LIBS ${LIBS} ${FFMPEG_LIBRARIES} -lfftw3f )
+
 
 macro( DIRLIST result curdir removes )
 	file(GLOB children RELATIVE ${curdir} ${curdir}/*)
@@ -114,7 +120,7 @@ if ( ${board} MATCHES "generic" AND NOT ${TARGET_CPU_BITS} MATCHES OFF )
 	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m${TARGET_CPU_BITS}" )
 	add_definitions( -DTARGET_CPU_BITS=${TARGET_CPU_BITS} )
 endif()
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wuninitialized -std=gnu11 -fgnu89-inline" )
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wuninitialized -std=gnu11 -fgnu89-inline" )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wuninitialized -std=gnu++17 -Wno-pmf-conversions -Wno-unused-result -Wno-unused -Wno-address-of-packed-member -Wno-nonnull-compare" )
 set( CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -Wall -std=gnu11" )
 set( CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -Wall -std=gnu11" )
@@ -149,7 +155,7 @@ include_directories( audio )
 
 if ( "${rawwifi}" MATCHES 1 )
 	SET( RAWWIFI_ON ${rawwifi} CACHE INTERNAL "RAWWIFI_ON" )
-	include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
+	include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi++ )
 	set( LIBS ${LIBS} rawwifi ${NLGENL_LIBRARY} ${NLROUTE_LIBRARY} ${NL_LIBRARY} )
 endif()
 # 	add_subdirectory( ${CMAKE_SOURCE_DIR}/../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )
@@ -185,24 +191,20 @@ file( GLOB HEADERS ${CMAKE_SOURCE_DIR}/*.h ${CMAKE_SOURCE_DIR}/../libcontroller/
 list( APPEND HEADERS ${BOARD_HEADERS_AUTO} )
 
 set( SOURCES
+BlackBox.cpp
 	Main.cpp
 	Config.cpp
 	Console.cpp
 	Matrix.cpp
+	Quaternion.cpp
 	${CMAKE_BINARY_DIR}/lua_init.cpp )
 
 if ( ${BUILD_controller} MATCHES 1 )
 	list( APPEND SOURCES Controller.cpp )
 endif()
-# if ( ${BUILD_blackbox} MATCHES 1 )
-	list( APPEND SOURCES BlackBox.cpp )
-# endif()
 if ( ${BUILD_power} MATCHES 1 )
 	list( APPEND SOURCES PowerThread.cpp )
 endif()
-# if ( ${FLIGHT_SLAVE} MATCHES 1 )
-	list( APPEND SOURCES Slave.cpp )
-# endif()
 
 list( APPEND SOURCES ${BOARD_SOURCES} )
 list( APPEND SOURCES ${BOARD_SOURCES_AUTO} )
@@ -269,13 +271,13 @@ if ( "${CMAKE_SYSTEM_NAME}" MATCHES "Linux" )
 	else()
 		set( LUA_HOST_CC_OPTIONS "" )
 	endif()
-	add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} "${CMAKE_C_FLAGS}" )
+	add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} "${CMAKE_C_FLAGS} -Wno-misleading-indentation" )
 	add_dependencies( flight_unstripped libluajit_static )
 	include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 	set( LIBS ${LIBS} luajit_static )
 elseif( "${CMAKE_SYSTEM_NAME}" MATCHES "Generic" )
-	add_definitions( -DLUA_32BITS )
-	set( LUA_CFLAGS "${CMAKE_C_FLAGS} -DLUA_32BITS" )
+	# add_definitions( -DLUA_32BITS )
+	# set( LUA_CFLAGS "${CMAKE_C_FLAGS} -DLUA_32BITS" )
 	add_custom_target( liblua_src COMMAND make -C ${CMAKE_SOURCE_DIR}/../external/liblua liblua.a CC=${CMAKE_C_COMPILER} STRIP=${CROSS}strip XCFLAGS=-DLUAJIT_USE_SYSMALLOC CFLAGS=${LUA_CFLAGS} )
 	add_custom_target( liblua DEPENDS liblua_src COMMAND cp ${CMAKE_SOURCE_DIR}/../external/liblua/liblua.a ${CMAKE_BINARY_DIR}/liblua.a )
 	add_dependencies( flight_unstripped liblua )
@@ -306,5 +308,20 @@ endif()
 
 message( STATUS "LIBS : ${LIBS} ${BOARD_LIBS}" )
 target_link_libraries( flight_unstripped -L./ controllerbase luacore libdebug ${LIBS} ${BOARD_LIBS} )
+
+
+if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL CMAKE_SYSTEM_PROCESSOR)
+	include(FetchContent)
+	FetchContent_Declare(
+		catch2
+		GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+		GIT_TAG v3.6.0
+	)
+	FetchContent_MakeAvailable(catch2)
+	enable_testing()
+	add_subdirectory( ${CMAKE_SOURCE_DIR}/tests )
+else()
+    message(STATUS "Skipping test build as we are cross-compiling")
+endif()
 
 board_strip()

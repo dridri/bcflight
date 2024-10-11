@@ -30,6 +30,7 @@ public:
 
 	virtual time_t getTime() = 0;
 	virtual bool Read( float* latitude, float* longitude, float* altitude, float* speed ) = 0;
+	virtual bool Stats( uint32_t* satSeen, uint32_t* satUsed ) { return false; }
 };
 
 #endif // GPS_H

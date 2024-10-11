@@ -32,6 +32,9 @@
 #include <Stabilizer.h>
 #include <Frame.h>
 #include "video/Camera.h"
+#include "peripherals/SmartAudio.h"
+#include <DynamicNotchFilter.h>
+#include <FilterChain.h>
 
 inline uint16_t ntohs( uint16_t x ) {
 	return ( ( x & 0xff ) << 8 ) | ( x >> 8 );
@@ -59,6 +62,9 @@ Controller::Controller()
 	mExpo.y = 4;
 	mExpo.z = 3;
 	mExpo.w = 2;
+	mThrustExpo = Vector2f();
+	mThrustExpo.x = 0.0f;
+	mThrustExpo.y = 0.0f;
 }
 
 
@@ -159,7 +165,7 @@ void Controller::SendDebug( const string& s )
 }
 
 
-void Controller::setRoll( float value, bool raw )
+float Controller::setRoll( float value, bool raw )
 {
 	if ( not raw ) {
 		if ( value >= 0.0f ) {
@@ -170,10 +176,11 @@ void Controller::setRoll( float value, bool raw )
 	}
 // 	mRPY.x = value;
 	mMain->stabilizer()->setRoll( value );
+	return value;
 }
 
 
-void Controller::setPitch( float value, bool raw )
+float Controller::setPitch( float value, bool raw )
 {
 	if ( not raw ) {
 		if ( value >= 0.0f ) {
@@ -184,12 +191,13 @@ void Controller::setPitch( float value, bool raw )
 	}
 // 	mRPY.y = value;
 	mMain->stabilizer()->setPitch( value );
+	return value;
 }
 
 
-void Controller::setYaw( float value, bool raw )
+float Controller::setYaw( float value, bool raw )
 {
-	if ( abs( value ) < 0.05f ) {
+	if ( abs( value ) < 0.01f ) {
 		value = 0.0f;
 	}
 	if ( not raw ) {
@@ -201,17 +209,20 @@ void Controller::setYaw( float value, bool raw )
 	}
 // 	mRPY.z = value;
 	mMain->stabilizer()->setYaw( value );
+	return value;
 }
 
 
-void Controller::setThrust( float value, bool raw )
+float Controller::setThrust( float value, bool raw )
 {
-	if ( abs( value ) < 0.05f ) {
+	if ( abs( value ) < 0.01f ) {
 		value = 0.0f;
 	}
 //	if ( not mMain->stabilizer()->altitudeHold() ) {
 	if ( not raw ) {
-		value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
+		// value = log( value * ( mExpo.z - 1.0f ) + 1.0f ) / log( mExpo.z );
+		// value = pow( value, mThrustExpo.x ) * ( 1.0f - value ) * -mThrustExpo.y + value;
+		value = value * mThrustExpo.x * ( 1.0f - value ) + pow( value, mThrustExpo.y );
 		if ( value < 0.0f or isnan( value ) or ( isinf( value ) and value < 0.0f ) ) {
 			value = 0.0f;
 		}
@@ -222,6 +233,7 @@ void Controller::setThrust( float value, bool raw )
 	}
 		mMain->stabilizer()->setThrust( value );
 //	}
+	return value;
 }
 
 
@@ -335,9 +347,16 @@ bool Controller::run()
 	};
 
 	if ( not mConnected ) {
+		// mSendMutex.lock();
+		// Packet connect;
+		// connect.WriteU8( CONNECT );
+		// mLink->Write( &connect );
+		// mSendMutex.unlock();
+		// printf( "sent CONNECT\n" );
 		for ( int32_t i = 0; i < readret; i++ ) {
 			uint8_t part1 = 0;
 			if ( command.ReadU8( &part1 ) == sizeof(uint8_t) ) {
+				// if ( part1 == CONNECT ) {
 				if ( part1 == PING ) {
 					gDebug() << "Controller connected !";
 					mConnected = true;
@@ -345,7 +364,7 @@ bool Controller::run()
 				}
 			}
 		}
-		usleep( 1000 * 100 );
+		usleep( 1000 * 10 );
 		return true;
 	}
 
@@ -354,7 +373,7 @@ bool Controller::run()
 	bool acknowledged = false;
 	while ( ReadCmd( &command, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-			// gDebug() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
+			gTrace() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 		bool do_response = false;
 		Packet response;
@@ -366,13 +385,16 @@ bool Controller::run()
 
 		if ( ( cmd & ACK_ID ) == ACK_ID ) {
 			uint16_t id = cmd & ~ACK_ID;
+			gDebug() << "Received ACK with ID " << id;
 			if ( id == mRXAckID ) {
 				acknowledged = true;
 			} else {
 				acknowledged = false;
 			}
 			mRXAckID = id;
-			continue;
+			response.WriteU16( cmd );
+			do_response = true;
+			cmd = ACK_ID;
 		}
 
 		if ( not mConnected ) {
@@ -390,6 +412,9 @@ bool Controller::run()
 
 		switch ( cmd )
 		{
+			case ACK_ID: {
+				break;
+			}
 			case PING : {
 				uint16_t ticks = 0;
 				if ( command.ReadU16( &ticks ) == sizeof(uint16_t) ) {
@@ -398,42 +423,44 @@ bool Controller::run()
 					mPing = last;
 					response.WriteU16( last ); // Copy-back reported ping
 					// mMain->blackbox()->Enqueue( "Controller:ping", to_string(mPing) + "ms" );
-
-					// Send status
-					uint32_t status = 0;
-					if ( mMain->stabilizer()->armed() ) {
-						status |= STATUS_ARMED;
-					}
-					if ( mMain->imu()->state() == IMU::Running ) {
-						status |= STATUS_CALIBRATED;
-					} else if ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
-						status |= STATUS_CALIBRATING;
-					}
-/*
-					if ( mMain->camera() ) {
-						if ( mMain->camera()->nightMode() ) {
-							status |= STATUS_NIGHTMODE;
-						}
-					}
-*/
-					response.WriteU8( STATUS );
-					response.WriteU32( status );
-
-					// Send telemetry
-					Telemetry telemetry;
-					telemetry.battery_voltage = (uint16_t)( mMain->powerThread()->VBat() * 100.0f );
-					telemetry.total_current = (uint16_t)( mMain->powerThread()->CurrentTotal() * 1000.0f );
-					telemetry.current_draw = (uint8_t)( mMain->powerThread()->CurrentDraw() * 10.0f );
-					telemetry.battery_level = (uint8_t)( mMain->powerThread()->BatteryLevel() * 100.0f );
-					telemetry.cpu_load = Board::CPULoad();
-					telemetry.cpu_temp = Board::CPUTemp();
-					telemetry.rx_quality = mLink->RxQuality();
-					telemetry.rx_level = mLink->RxLevel();
-					response.WriteU8( TELEMETRY );
-					response.Write( (uint8_t*)&telemetry, sizeof(telemetry) );
-
 					do_response = true;
 				}
+				break;
+			}
+			case TELEMETRY: {
+				// Send telemetry
+				Telemetry telemetry;
+				telemetry.battery_voltage = (uint16_t)( mMain->powerThread()->VBat() * 100.0f );
+				telemetry.total_current = (uint16_t)( mMain->powerThread()->CurrentTotal() * 1000.0f );
+				telemetry.current_draw = (uint8_t)( mMain->powerThread()->CurrentDraw() * 10.0f );
+				telemetry.battery_level = (uint8_t)( mMain->powerThread()->BatteryLevel() * 100.0f );
+				telemetry.cpu_load = Board::CPULoad();
+				telemetry.cpu_temp = Board::CPUTemp();
+				telemetry.rx_quality = mLink->RxQuality();
+				telemetry.rx_level = mLink->RxLevel();
+				response.Write( (uint8_t*)&telemetry, sizeof(telemetry) );
+
+				// Send status
+				uint32_t status = 0;
+				if ( mMain->stabilizer()->armed() ) {
+					status |= STATUS_ARMED;
+				}
+				if ( mMain->imu()->state() == IMU::Running ) {
+					status |= STATUS_CALIBRATED;
+				} else if ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
+					status |= STATUS_CALIBRATING;
+				}
+
+				// if ( mMain->camera() ) {
+				// 	if ( mMain->camera()->nightMode() ) {
+				// 		status |= STATUS_NIGHTMODE;
+				// 	}
+				// }
+
+				response.WriteU8( STATUS );
+				response.WriteU32( status );
+
+				do_response = true;
 				break;
 			}
 			case CONTROLS : {
@@ -453,12 +480,17 @@ bool Controller::run()
 						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 					}
 					if ( mMain->stabilizer()->armed() ) {
-						setThrust( ((float)controls.thrust) / 127.0f );
-						setRoll( ((float)controls.roll) / 128.0f );
-						setPitch( ((float)controls.pitch) / 128.0f );
-						setYaw( ((float)controls.yaw) / 128.0f );
-// 						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", mThrust, mRPY.x, mRPY.y, mRPY.z );
-// 						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
+						float thrust = ((float)controls.thrust) / 511.0f;
+						float roll = ((float)controls.roll) / 511.0f;
+						float pitch = ((float)controls.pitch) / 511.0f;
+						float yaw = ((float)controls.yaw) / 511.0f;
+						gTrace() << "Controls : " << thrust << ", " << roll << ", " << pitch << ", " << yaw;
+						thrust = setThrust( thrust );
+						roll = setRoll( roll );
+						pitch = setPitch( pitch );
+						yaw = setYaw( yaw );
+						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", thrust, roll, pitch, yaw );
+						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
 					}
 				}
 				break;
@@ -469,6 +501,7 @@ bool Controller::run()
 				do_response = true;
 				break;
 			}
+#ifdef BUILD_video
 			case GET_SENSORS_INFOS : {
 				string res = Sensor::infosAll().serialize();
 				response.WriteString( res );
@@ -481,6 +514,7 @@ bool Controller::run()
 				do_response = true;
 				break;
 			}
+#endif
 			case GET_CONFIG_FILE : {
 				string conf = mMain->config()->ReadFile();
 				response.WriteU32( crc32( (uint8_t*)conf.c_str(), conf.length() ) );
@@ -602,11 +636,19 @@ bool Controller::run()
 				break;
 			}
 			case MOTOR_TEST : {
-				// test motors
 				uint32_t id = command.ReadU32();
 				if ( not mMain->stabilizer()->armed() ) {
 					mMain->stabilizer()->MotorTest(id);
 				}
+				break;
+			}
+			case MOTORS_BEEP : {
+				bool enabled = command.ReadU16() != 0;
+				gDebug() << "MOTORS_BEEP : " << enabled;
+				if ( not mMain->frame()->armed() ) {
+					mMain->frame()->MotorsBeep( enabled );
+				}
+				break;
 			}
 			case SET_TIMESTAMP : {
 				uint32_t timestamp = 0;
@@ -721,11 +763,9 @@ bool Controller::run()
 					setRoll( 0.0f, true );
 					setPitch( 0.0f, true );
 					if ( mode == (uint32_t)Stabilizer::Rate ) {
-						mMain->imu()->setRateOnly( true );
 						setYaw( 0.0f, true );
 						mMain->blackbox()->Enqueue( "Controller:mode", "Rate" );
 					} else if ( mode == (uint32_t)Stabilizer::Stabilize ) {
-						mMain->imu()->setRateOnly( false );
 						mMain->imu()->ResetRPY();
 						setYaw( mMain->imu()->RPY().z, true );
 						mMain->blackbox()->Enqueue( "Controller:mode", "Stabilize" );
@@ -874,7 +914,7 @@ bool Controller::run()
 				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
-				mMain->stabilizer()->setOuterP( value );
+				// mMain->stabilizer()->setOuterP( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
@@ -884,7 +924,7 @@ bool Controller::run()
 				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
-				mMain->stabilizer()->setOuterI( value );
+				// mMain->stabilizer()->setOuterI( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
@@ -894,24 +934,30 @@ bool Controller::run()
 				if ( command.ReadFloat( &value ) == 0 or abs(value) > 50.0f ) {
 					break;
 				}
-				mMain->stabilizer()->setOuterD( value );
+				// mMain->stabilizer()->setOuterD( value );
 				response.WriteFloat( value );
 				do_response = true;
 				break;
 			}
 			case OUTER_PID_FACTORS : {
-				Vector3f pid = mMain->stabilizer()->getOuterPID();
-				response.WriteFloat( pid.x );
-				response.WriteFloat( pid.y );
-				response.WriteFloat( pid.z );
+				// Vector3f pid = mMain->stabilizer()->getOuterPID();
+				// response.WriteFloat( pid.x );
+				// response.WriteFloat( pid.y );
+				// response.WriteFloat( pid.z );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
 				do_response = true;
 				break;
 			}
 			case OUTER_PID_OUTPUT : {
-				Vector3f pid = mMain->stabilizer()->lastOuterPIDOutput();
-				response.WriteFloat( pid.x );
-				response.WriteFloat( pid.y );
-				response.WriteFloat( pid.z );
+				// Vector3f pid = mMain->stabilizer()->lastOuterPIDOutput();
+				// response.WriteFloat( pid.x );
+				// response.WriteFloat( pid.y );
+				// response.WriteFloat( pid.z );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
+				response.WriteFloat( 0.0f );
 				do_response = true;
 				break;
 			}
@@ -958,37 +1004,11 @@ bool Controller::run()
 				break;
 			}
 			case VIDEO_START_RECORD : {
-				/*
-				uint32_t count = 0;
-				for ( const auto& recorder : Recorder::recorders() ) {
-					try {
-						recorder->Start();
-						count++;
-					} catch ( const std::exception& e ) {
-					}
-				}
-				if ( count > 0 ) {
-					gDebug() << "Recording started";
-				}
-				*/
 				response.WriteU32( 1 );
 				do_response = true;
 				break;
 			}
 			case VIDEO_STOP_RECORD : {
-				/*
-				uint32_t count = 0;
-				for ( const auto& recorder : Recorder::recorders() ) {
-					try {
-						recorder->Stop();
-						count++;
-					} catch ( const std::exception& e ) {
-					}
-				}
-				if ( count > 0 ) {
-					gDebug() << "Recording stopped";
-				}
-				*/
 				response.WriteU32( 0 );
 				do_response = true;
 				break;
@@ -1004,48 +1024,48 @@ bool Controller::run()
 			case VIDEO_BRIGHTNESS_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera brightness to " << cam->brightness() + 1;
-					cam->setBrightness( cam->brightness() + 1 );
+					gDebug() << "Setting camera brightness to " << cam->brightness() + 0.05f;
+					cam->setBrightness( cam->brightness() + 0.05f );
 				}
 				break;
 			}
 			case VIDEO_BRIGHTNESS_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera brightness to " << cam->brightness() - 1;
-					cam->setBrightness( cam->brightness() - 1 );
+					gDebug() << "Setting camera brightness to " << cam->brightness() - 0.05f;
+					cam->setBrightness( cam->brightness() - 0.05f );
 				}
 				break;
 			}
 			case VIDEO_CONTRAST_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera contrast to " << cam->contrast() + 1;
-					cam->setContrast( cam->contrast() + 1 );
+					gDebug() << "Setting camera contrast to " << cam->contrast() + 0.05f;
+					cam->setContrast( cam->contrast() + 0.05f );
 				}
 				break;
 			}
 			case VIDEO_CONTRAST_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera contrast to " << cam->contrast() - 1;
-					cam->setContrast( cam->contrast() - 1 );
+					gDebug() << "Setting camera contrast to " << cam->contrast() - 0.05f;
+					cam->setContrast( cam->contrast() - 0.05f );
 				}
 				break;
 			}
 			case VIDEO_SATURATION_INCR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera saturation to " << cam->saturation() + 1;
-					cam->setSaturation( cam->saturation() + 1 );
+					gDebug() << "Setting camera saturation to " << cam->saturation() + 0.05f;
+					cam->setSaturation( cam->saturation() + 0.05f );
 				}
 				break;
 			}
 			case VIDEO_SATURATION_DECR : {
 				Camera* cam = mMain->camera();
 				if ( cam ) {
-					gDebug() << "Setting camera saturation to " << cam->saturation() - 1;
-					cam->setSaturation( cam->saturation() - 1 );
+					gDebug() << "Setting camera saturation to " << cam->saturation() - 0.05f;
+					cam->setSaturation( cam->saturation() - 0.05f );
 				}
 				break;
 			}
@@ -1233,6 +1253,55 @@ bool Controller::run()
 				break;
 			}
 
+			case VTX_GET_SETTINGS : {
+				SmartAudio* vtx = mMain->config()->Object<SmartAudio>( "vtx" );
+				gDebug() << "VTX_GET_SETTINGS, vtx : " << vtx;
+				if ( vtx ) {
+					response.WriteU8( uint8_t(vtx->getChannel()) );
+					response.WriteU16( uint16_t(vtx->getFrequency()) );
+					response.WriteU8( uint8_t(vtx->getPower()) );
+					response.WriteU8( uint8_t(vtx->getPowerDbm()) );
+					response.WriteU8( vtx->getPowerTable().size() );
+					for ( auto v : vtx->getPowerTable() ) {
+						response.WriteU8( v );
+					}
+				} else {
+					response.WriteU8( 0xFF );
+					response.WriteU16( 0xFFFF );
+					response.WriteU8( 0xFF );
+					response.WriteU8( 0xFF );
+					response.WriteU8( 0 );
+				}
+				do_response = true;
+				break;
+			}
+			case VTX_SET_POWER : {
+				SmartAudio* vtx = mMain->config()->Object<SmartAudio>( "vtx" );
+				if ( vtx ) {
+					vtx->setPower( command.ReadU8() );
+					response.WriteU8( uint8_t(vtx->getPower()) );
+					response.WriteU8( uint8_t(vtx->getPowerDbm()) );
+				} else {
+					response.WriteU8( 0xFF );
+					response.WriteU8( 0xFF );
+				}
+				do_response = true;
+				break;
+			}
+			case VTX_SET_CHANNEL : {
+				SmartAudio* vtx = mMain->config()->Object<SmartAudio>( "vtx" );
+				if ( vtx ) {
+					vtx->setChannel( command.ReadU8() );
+					response.WriteU8( uint8_t(vtx->getChannel()) );
+					response.WriteU16( uint16_t(vtx->getFrequency()) );
+				} else {
+					response.WriteU8( 0xFF );
+					response.WriteU16( 0xFFFF );
+				}
+				do_response = true;
+				break;
+			}
+
 			default: {
 				printf( "Controller::run() WARNING : Unknown command 0x%08X\n", cmd );
 				break;
@@ -1248,7 +1317,6 @@ bool Controller::run()
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.lock();
 #endif
-// 			gDebug() << "Responding with " << response.data().size() << " bytes";
 			mLink->Write( &response );
 #ifdef SYSTEM_NAME_Linux
 			mSendMutex.unlock();
@@ -1338,10 +1406,15 @@ bool Controller::TelemetryRun()
 			telemetry.WriteU16( ALTITUDE );
 			telemetry.WriteFloat( mMain->imu()->altitude() );
 
-			telemetry.WriteU16( GYRO );
+			telemetry.WriteU16( RATES );
 			telemetry.WriteFloat( mMain->imu()->rate().x );
 			telemetry.WriteFloat( mMain->imu()->rate().y );
 			telemetry.WriteFloat( mMain->imu()->rate().z );
+
+			telemetry.WriteU16( GYRO );
+			telemetry.WriteFloat( mMain->imu()->gyroscope().x );
+			telemetry.WriteFloat( mMain->imu()->gyroscope().y );
+			telemetry.WriteFloat( mMain->imu()->gyroscope().z );
 
 			telemetry.WriteU16( ACCEL );
 			telemetry.WriteFloat( mMain->imu()->acceleration().x );
@@ -1357,6 +1430,28 @@ bool Controller::TelemetryRun()
 			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().x );
 			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().y );
 			telemetry.WriteFloat( mMain->stabilizer()->filteredRPYDerivative().z );
+
+			Filter<Vector3f>* ratesFilter = mMain->imu()->ratesFilters();
+			if ( ratesFilter ) {
+				DynamicNotchFilter<Vector3f>* dnf = nullptr;
+				dnf = dynamic_cast<typeof(dnf)>(ratesFilter);
+				if ( dnf == nullptr ) {
+					FilterChain<Vector3f>* chain = dynamic_cast<FilterChain<Vector3f>*>( ratesFilter );
+					if ( chain ) {
+						for ( auto f : chain->filters() ) {
+							if (( dnf = dynamic_cast<typeof(dnf)>(f) )) {
+								break;
+							}
+						}
+					}
+				}
+				if ( dnf ) {
+					const std::vector<Vector3f> data = dnf->dftOutput<float, 3>();
+					telemetry.WriteU16( RATE_DNF_DFT );
+					telemetry.WriteU16( data.size() * sizeof(Vector3f) );
+					telemetry.Write( reinterpret_cast<const uint8_t*>(data.data()), data.size() * sizeof(Vector3f) );
+				}
+			}
 		}
 	}
 

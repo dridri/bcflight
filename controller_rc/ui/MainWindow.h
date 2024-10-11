@@ -3,7 +3,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QtCore/QTimer>
-#include <Controller.h>
+#include <ControllerClient.h>
 
 namespace Ui {
 	class MainWindow;
@@ -32,6 +32,7 @@ public slots:
 	void Settings();
 	void CalibrateGyro();
 	void CalibrateIMU();
+	void MotorsBeep();
 	void ResetBattery();
 	void CalibrationReset();
 	void CalibrationApply();
@@ -54,10 +55,14 @@ public slots:
 
 	void SimulatorMode( bool enabled );
 
+	void VTXUpdate();
+	void VTXReset();
+	void VTXSet();
+
 private:
 	void CameraUpdateLensShader( bool send = true );
 
-	Controller* mController;
+	ControllerClient* mController;
 	QTimer* mUpdateTimer;
 	Ui::MainWindow* ui;
 	Ui::PageMain* uiPageMain;

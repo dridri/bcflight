@@ -38,6 +38,7 @@ AlsaMic::AlsaMic()
 	, mRecordSyncCounter( 0 )
 	, mRecordStream( nullptr )
 {
+	fDebug();
 }
 
 
@@ -48,98 +49,99 @@ AlsaMic::~AlsaMic()
 
 void AlsaMic::Setup()
 {
+	fDebug( mDevice );
 	int err = 0;
 	snd_pcm_hw_params_t* hw_params;
 
 	if ( ( err = snd_pcm_open( &mPCM, mDevice.c_str(), SND_PCM_STREAM_CAPTURE, 0 ) ) < 0 ) {
-		fprintf( stderr, "cannot open audio device %s (%s)\n", mDevice.c_str(), snd_strerror( err ) );
+		gError() << "cannot open audio device " << mDevice.c_str() << " (" << snd_strerror( err ) << ")";
 		Board::defectivePeripherals()["Microphone"] = true;
 		return;
 	}
-	fprintf( stdout, "audio interface opened\n");
+	gTrace() << "audio interface opened";
 
 	if ( ( err = snd_pcm_hw_params_malloc( &hw_params ) ) < 0 ) {
-		fprintf( stderr, "cannot allocate hardware parameter structure (%s)\n", snd_strerror( err ) );
+		gError() << "cannot allocate hardware parameter structure (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params allocated\n");
+	gTrace() << "hw_params allocated";
 
 	if ( ( err = snd_pcm_hw_params_any( mPCM, hw_params ) ) < 0 ) {
-		fprintf( stderr, "cannot initialize hardware parameter structure (%s)\n", snd_strerror( err ) );
+		gError() << "cannot initialize hardware parameter structure (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params initialized\n");
+	gTrace() << "hw_params initialized";
 
 	if ( ( err = snd_pcm_hw_params_set_access( mPCM, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED ) ) < 0 ) {
-		fprintf( stderr, "cannot set access type (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set access type (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params access set\n");
+	gTrace() << "hw_params access set";
 
 	if ( ( err = snd_pcm_hw_params_set_format( mPCM, hw_params, SND_PCM_FORMAT_S16_LE ) ) < 0 ) {
-		fprintf( stderr, "cannot set sample format (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set sample format (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params format set\n");
+	gTrace() << "hw_params format set";
 
 	if ( ( err = snd_pcm_hw_params_set_rate_near( mPCM, hw_params, &mRate, 0 ) ) < 0 ) {
-		fprintf( stderr, "cannot set sample rate (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set sample rate (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params rate set to %d\n", mRate);
+	gTrace() << "hw_params rate set to " << mRate;
 
 	if ( ( err = snd_pcm_hw_params_set_channels( mPCM, hw_params, mChannels ) ) < 0 ) {
-		fprintf( stderr, "cannot set channel count (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set channel count (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params channels set to %d\n", mChannels);
+	gTrace() << "hw_params channels set to " << mChannels;
 /*
 	snd_pcm_uframes_t framesize = 1024;
 	if ( ( err = snd_pcm_hw_params_set_period_size_near( mPCM, hw_params, &framesize, 0 ) ) < 0 ) {
-		fprintf( stderr, "cannot set frame size (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set frame size (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params frame size set to %u\n", framesize);
+	gTrace() << "hw_params frame size set to %u\n", framesize);
 
 	if ( ( err = snd_pcm_hw_params_set_periods( mPCM, hw_params, 1, 1 ) ) < 0 ) {
-		fprintf( stderr, "cannot set periods (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set periods (" << snd_strerror( err ) << ")";
 // 		return;
 	}
-	fprintf( stdout, "hw_params periods set to 1\n");
+	gTrace() << "hw_params periods set to 1";
 
 	snd_pcm_uframes_t bufsize = 1024;
 	if ( ( err = snd_pcm_hw_params_set_buffer_size_near( mPCM, hw_params, &bufsize ) ) < 0 ) {
-		fprintf( stderr, "cannot set buffer size (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set buffer size (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params buffer size set to %u\n", bufsize);
+	gTrace() << "hw_params buffer size set to %u\n", bufsize);
 */
 	if ( ( err = snd_pcm_hw_params( mPCM, hw_params ) ) < 0 ) {
-		fprintf( stderr, "cannot set parameters (%s)\n", snd_strerror( err ) );
+		gError() << "cannot set parameters (" << snd_strerror( err ) << ")";
 		return;
 	}
-	fprintf( stdout, "hw_params set\n" );
+	gTrace() << "hw_params set";
 
 	snd_pcm_hw_params_free( hw_params );
-	fprintf( stdout, "hw_params freed\n" );
+	gTrace() << "hw_params freed";
 		
 	if ( ( err = snd_pcm_prepare ( mPCM ) ) < 0 ) {
-		fprintf( stderr, "cannot prepare audio interface for use (%s)\n", snd_strerror( err ) );
+		gError() << "cannot prepare audio interface for use (" << snd_strerror( err ) << ")";
 		return;
 	}
 
-	fprintf( stdout, "Audio interface prepared\n" );
+	gDebug() << "Audio interface prepared";
 
 	shine_set_config_mpeg_defaults( &mShineConfig.mpeg );
 	mShineConfig.wave.channels = ( ( mChannels == 2 ) ? PCM_STEREO : PCM_MONO );
 	mShineConfig.wave.samplerate = mRate;
 	mShineConfig.mpeg.mode = ( ( mChannels == 2 ) ? STEREO : MONO );
-	mShineConfig.mpeg.bitr = 128;
+	mShineConfig.mpeg.bitr = 320;
 	mShine = shine_initialise( &mShineConfig );
-	printf ("shine_samples_per_pass : %d\n", shine_samples_per_pass( mShine ) );
+	gTrace() << "shine_samples_per_pass : " << shine_samples_per_pass( mShine );
 
 	if ( mRecorder ) {
-		mRecorderTrackId = mRecorder->AddAudioTrack( mChannels, mRate, "mp3" );
+		mRecorderTrackId = mRecorder->AddAudioTrack( "wav", mChannels, mRate, "mp3" );
 	}
 
 	mLiveThread = new HookThread<AlsaMic>( "microphone", this, &AlsaMic::LiveThreadRun );
@@ -182,6 +184,10 @@ bool AlsaMic::LiveThreadRun()
 
 int AlsaMic::RecordWrite( char* data, int datalen )
 {
+	mRecorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen * 2 );
+	return datalen;
+
+	fTrace( (void*)data, datalen );
 	int baselen = datalen;
 	datalen = 0;
 	data = (char*)shine_encode_buffer_interleaved( mShine, (int16_t*)data, &datalen );

@@ -459,6 +459,7 @@ void Lua::Reload()
 
 vector<lua_Debug> Lua::trace()
 {
+	const std::lock_guard<std::mutex> lock(mMutex);
 	vector<lua_Debug> ret;
 
 	lua_Debug entry;
@@ -553,12 +554,13 @@ int32_t Lua::do_file( const string& filename_, const string& path_tip )
 
 int32_t Lua::do_string( const string& str )
 {
-	mMutex.lock();
+	const std::lock_guard<std::mutex> lock(mMutex);
+
 	lua_getglobal( mLuaState, "call_error" );
 	luaL_loadstring( mLuaState, str.c_str() );
 	mLastCallName = "";
 	int32_t ret = lua_pcall( mLuaState, 0, 0, -2 );
-	mMutex.unlock();
+
 	return ret;
 }
 
@@ -595,7 +597,6 @@ LuaValue Lua::value( lua_State* L, int index )
 				lua_rawgeti( L, index, i );
 				if ( not lua_isfunction( L, -1 ) ) {
 					LuaValue v = value( L, -1 );
-					printf("on valuz %d %d\n", lua_type( L, -1 ), v.type());
 					table[i] = v;
 				}
 				lua_pop( L, 1 );
@@ -635,16 +636,24 @@ LuaValue Lua::value( lua_State* L, int index )
 
 LuaValue Lua::value( const string& name )
 {
+	const std::lock_guard<std::mutex> lock(mMutex);
+
+	int top = lua_gettop( mLuaState );
 	if ( LocateValue( name ) < 0 ) {
 		// std::cout << "Lua variable \"" << name << "\" not found\n";
+		lua_settop( mLuaState, top );
 		return LuaValue();
 	}
-	return value( mLuaState, -1 );
+	LuaValue ret = value( mLuaState, -1 );
+	lua_settop( mLuaState, top );
+	return ret;
 }
 
 
 LuaValue Lua::value( int index, lua_State* L )
 {
+	const std::lock_guard<std::mutex> lock(mMutex);
+
 	if ( not L ) {
 		L = mLuaState;
 	}
@@ -691,6 +700,8 @@ std::vector<string> Lua::valueKeys( lua_State* L, int index )
 
 std::vector<string> Lua::valueKeys( const string& name )
 {
+	const std::lock_guard<std::mutex> lock(mMutex);
+
 	if ( LocateValue( name ) < 0 ) {
 		// std::cout << "Lua variable \"" << name << "\" not found\n";
 		return std::vector<string>();
@@ -731,6 +742,8 @@ int32_t _lua_bridge_raw( lua_State* L )
 
 int32_t Lua::RegisterFunction( const string& name, const function<LuaValue(const vector<LuaValue>&)>& func )
 {
+	const std::lock_guard<std::mutex> lock(mMutex);
+
 	new (lua_newuserdata( mLuaState, sizeof(function<LuaValue(const vector<LuaValue>&)>) ) ) function<LuaValue(const vector<LuaValue>&)> (func);
 	lua_pushcclosure( mLuaState, &_lua_bridge, 1 );
 	lua_setglobal( mLuaState, name.c_str() );
@@ -741,6 +754,8 @@ int32_t Lua::RegisterFunction( const string& name, const function<LuaValue(const
 
 int32_t Lua::RegisterMember( const string& object, const string& name, const function<LuaValue(const vector<LuaValue>&)>& func )
 {
+	const std::lock_guard<std::mutex> lock(mMutex);
+
 	if ( LocateValue( object ) < 0 ) {
 		return -1;
 	}
@@ -755,7 +770,8 @@ int32_t Lua::RegisterMember( const string& object, const string& name, const fun
 
 LuaValue Lua::CallFunction( const string& func, const vector<LuaValue>& args )
 {
-	mMutex.lock();
+	const std::lock_guard<std::mutex> lock(mMutex);
+
 	int nArgs = args.size();
 	char* funcname = strdup( func.c_str() );
 
@@ -803,7 +819,6 @@ LuaValue Lua::CallFunction( const string& func, const vector<LuaValue>& args )
 	int found = LocateValue( func );
 	if ( found < 0 ) {
 		std::cout << "WARNING : " << "Lua function not found : " << func;
-		mMutex.unlock();
 		return LuaValue();
 	}
 
@@ -836,15 +851,14 @@ LuaValue Lua::CallFunction( const string& func, const vector<LuaValue>& args )
 	}
 
 // 	lua_pop( mLuaState, -1 );
-	mMutex.unlock();
 	return value_ret;
 }
 
-mutex mut;
 
 LuaValue Lua::CallFunction( int32_t registry_index, const vector<LuaValue>& args )
 {
 	mMutex.lock();
+	int top = lua_gettop( mLuaState );
 	mLastError = "";
 	lua_getglobal( mLuaState, "call_error" );
 	int lua_top_base = lua_gettop( mLuaState );
@@ -886,6 +900,7 @@ LuaValue Lua::CallFunction( int32_t registry_index, const vector<LuaValue>& args
 	}
 
 // 	lua_pop( mLuaState, -1 );
+	lua_settop( mLuaState, top );
 	mMutex.unlock();
 	return value_ret;
 }
@@ -900,6 +915,7 @@ int Lua::LocateValue( const string& _name )
 	if ( strchr( name, '.' ) == nullptr and strchr( name, ':' ) == nullptr and strchr( name, '[' ) == nullptr ) {
 		lua_getglobal( mLuaState, name );
 		if ( lua_type( mLuaState, -1 ) == LUA_TNIL ) {
+			lua_settop( mLuaState, top );
 			return -1;
 		}
 	} else {
@@ -931,6 +947,7 @@ int Lua::LocateValue( const string& _name )
 					}
 				}
 				if ( lua_type( mLuaState, -1 ) == LUA_TNIL ) {
+					lua_settop( mLuaState, top );
 					return -1;
 				}
 				memset( tmp, 0, sizeof( tmp ) );
@@ -945,6 +962,7 @@ int Lua::LocateValue( const string& _name )
 		if ( tmp[0] != 0 ) {
 			lua_getfield( mLuaState, -1, tmp );
 			if ( lua_type( mLuaState, -1 ) == LUA_TNIL ) {
+				lua_settop( mLuaState, top );
 				return -1;
 			}
 		}

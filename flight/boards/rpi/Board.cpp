@@ -32,9 +32,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <execinfo.h>
-#if ( BUILD_RAWWIFI == 1 )
-#include "rawwifi.h"
-#endif
 
 extern "C" {
 #include <interface/vmcs_host/vc_vchi_gencmd.h>
@@ -68,6 +65,7 @@ decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 HookThread<Board>* Board::mStatsThread = nullptr;
 uint32_t Board::mCPUTemp = 0;
 uint32_t Board::mCPULoad = 0;
+uint32_t Board::mMemoryUsage = 0;
 bool Board::mDiskFull = false;
 vector< string > Board::mBoardMessages;
 map< string, bool > Board::mDefectivePeripherals;
@@ -615,6 +613,36 @@ bool Board::StatsThreadRun()
 	mLastWorkJiffies = work_jiffies;
 	mLastTotalJiffies = total_jiffies;
 
+
+	std::ifstream meminfo( "/proc/meminfo" );
+	std::string line;
+	uint64_t totalMem = 0;
+	uint64_t freeMem = 0;
+	uint64_t buffers = 0;
+	uint64_t cached = 0;
+
+	while ( std::getline( meminfo, line ) ) {
+		std::istringstream iss(line);
+		std::string key;
+		uint64_t value;
+		std::string unit;
+		iss >> key >> value >> unit;
+		if (key == "MemTotal:") {
+			totalMem = value;
+		} else if (key == "MemFree:") {
+			freeMem = value;
+		} else if (key == "Buffers:") {
+			buffers = value;
+		} else if (key == "Cached:") {
+			cached = value;
+		}
+		if ( totalMem > 0 and freeMem > 0 and buffers > 0 and cached > 0 ) {
+			break;
+		}
+	}
+
+	mMemoryUsage = ( totalMem - freeMem - buffers - cached ) * 100 / totalMem;
+
 	return true;
 }
 
@@ -628,6 +656,12 @@ uint32_t Board::CPULoad()
 uint32_t Board::CPUTemp()
 {
 	return mCPUTemp;
+}
+
+
+uint32_t Board::MemoryUsage()
+{
+	return mMemoryUsage;
 }
 
 
@@ -679,12 +713,12 @@ static void cmd( const char* fmt, ... )
 }
 
 
+/*
 #if ( BUILD_RAWWIFI == 1 )
 typedef struct tun_args {
 	int fd;
 	rawwifi_t* rwifi;
 } tun_args;
-
 
 static void* thread_rx( void* argp )
 {
@@ -720,10 +754,11 @@ static void* thread_tx( void* argp )
 	return NULL;
 }
 #endif
-
+*/
 
 void Board::EnableTunDevice()
 {
+	/*
 	if ( true ) { // TODO : detect if rawwifi is currently in use
 #if ( BUILD_RAWWIFI == 1 )
 		int port = 128; // TODO : Dynamically find unused ports
@@ -753,6 +788,7 @@ void Board::EnableTunDevice()
 	} else {
 		// TODO
 	}
+	*/
 }
 
 

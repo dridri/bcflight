@@ -51,12 +51,6 @@ public:
 	Vector3f getYawPID() const;
 	virtual Vector3f lastPIDOutput() const;
 
-	virtual void setOuterP( float p );
-	virtual void setOuterI( float i );
-	virtual void setOuterD( float d );
-	Vector3f getOuterPID() const;
-	virtual Vector3f lastOuterPIDOutput() const;
-
 	virtual void setHorizonOffset( const Vector3f& v );
 	virtual Vector3f horizonOffset() const;
 
@@ -79,7 +73,7 @@ public:
 	virtual void CalibrateESCs();
 	virtual void MotorTest(uint32_t id);
 	virtual void Reset( const float& yaw );
-	virtual void Update( IMU* imu, Controller* ctrl, float dt );
+	virtual void Update( IMU* imu, float dt );
 
 	Frame* frame() const;
 	void setFrame( Frame* frame );
@@ -94,17 +88,25 @@ protected:
 	LUA_PROPERTY("pid_roll") PID<float> mRateRollPID;
 	LUA_PROPERTY("pid_pitch") PID<float> mRatePitchPID;
 	LUA_PROPERTY("pid_yaw") PID<float> mRateYawPID;
-	LUA_PROPERTY("pid_horizon") PID<Vector3f> mHorizonPID;
+	LUA_PROPERTY("pid_horizon_roll") PID<float> mRollHorizonPID;
+	LUA_PROPERTY("pid_horizon_pitch") PID<float> mPitchHorizonPID;
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
-	Filter<Vector3f>* mDerivativeFilter;
+	LUA_PROPERTY("derivative_filter") Filter<Vector3f>* mDerivativeFilter;
+
+	LUA_PROPERTY("tpa.multiplier") float mTPAMultiplier;
+	LUA_PROPERTY("tpa.threshold") float mTPAThreshold;
+	LUA_PROPERTY("anti_gravity.gain") float mAntiGravityGain;
+	LUA_PROPERTY("anti_gravity.threshold") float mAntiGravityThreshold;
+	LUA_PROPERTY("anti_gravity.decay") float mAntiGravityDecay;
+	float mAntigravityThrustAccum;
 
 	bool mArmed;
 	Vector4f mExpo;
 	Vector3f mRPY;
 	Vector3f mFilteredRPYDerivative;
 	float mThrust;
-	float mThrustAccum;
+	float mPreviousThrust;
 
 	int mLockState;
 	LUA_PROPERTY("horizon_angles") Vector3f mHorizonMultiplier;

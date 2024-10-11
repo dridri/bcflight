@@ -16,6 +16,7 @@ std::string Debug::mLog = std::string();
 std::mutex Debug::mLogMutex;
 std::ofstream Debug::mLogFile;
 Debug::Level Debug::mDebugLevel = Debug::Warning;
+bool Debug::mColors = true;
 
 void Debug::log( int level, const std::string& s ) {
 #ifdef ANDROID
@@ -37,3 +38,8 @@ void Debug::log( int level, const std::string& s ) {
 		mLogFile.flush();
 	}
 }
+
+
+
+
+

@@ -76,7 +76,11 @@
 template <typename T, int n> class Vector
 {
 public:
-	Vector( T x = 0, T y = 0, T z = 0, T w = 0 ) : x( x ), y( y ), z( z ), w( w ) {}
+	Vector() : x(0), y(0), z(0), w(0) {}
+	Vector( T x ) : x(x), y(x), z(x), w(x) {}
+	Vector( T x, T y ) : x(x), y(y), z(x), w(y) {}
+	Vector( T x, T y, T z ) : x(x), y(y), z(z), w(0) {}
+	Vector( T x, T y, T z, T w ) : x(x), y(y), z(z), w(w) {}
 	Vector( const Vector<T,1>& v, T a = 0, T b = 0, T c = 0 ) : x(v.x), y(a), z(b), w(c) {}
 	Vector( T a, const Vector<T,1>& v, T b = 0, T c = 0 ) : x(a), y(v.x), z(b), w(c) {}
 	Vector( T a, T b, const Vector<T,1>& v, T c = 0 ) : x(a), y(b), z(v.x), w(c) {}
@@ -107,6 +111,10 @@ public:
 	VECTOR_INLINE Vector<T,2> xz() const { return Vector<T,2>( x, z ); }
 	VECTOR_INLINE Vector<T,2> yz() const { return Vector<T,2>( y, z ); }
 
+	constexpr int size() const {
+		return n;
+	}
+
 
 	Vector<T,n>& operator=( const Vector< T, n >& other )
 	{
@@ -130,6 +138,18 @@ public:
 			T il = 1 / l;
 			VEC_IM( this-> , this-> , * , il );
 		}
+	}
+
+	Vector<T,n> normalized() {
+		Vector<T,n> ret;
+		T add = 0;
+		VEC_ADD( add, this-> , * , this-> );
+		T l = sqrt( add );
+		if ( l > 0.00001f ) {
+			T il = 1 / l;
+			VEC_IM( ret. , this-> , * , il );
+		}
+		return ret;
 	}
 
 	T length() const {
@@ -163,6 +183,10 @@ public:
 
 	VECTOR_INLINE void operator/=( T v ) {
 		VEC_IM( this-> , this-> , / , v );
+	}
+
+	VECTOR_INLINE void operator/=( const Vector<T,n>& v ) {
+		VEC_OP( this-> , this-> , / , v. );
 	}
 
 
@@ -204,13 +228,13 @@ public:
 		return ret;
 	}
 
-	VECTOR_INLINE T operator*( const Vector<T,n>& v ) const {
+	VECTOR_INLINE T operator&( const Vector<T,n>& v ) const {
 		T ret = 0;
 		VEC_ADD( ret, this-> , * , v. );
 		return ret;
 	}
 
-	VECTOR_INLINE Vector<T,n> operator&( const Vector<T,n>& v ) const {
+	VECTOR_INLINE Vector<T,n> operator*( const Vector<T,n>& v ) const {
 		Vector<T,n> ret;
 		VEC_OP( ret., this-> , * , v. );
 		return ret;
@@ -228,6 +252,18 @@ public:
 		return ret;
 	}
 
+    friend std::ostream& operator<<(std::ostream& os, const Vector<T, n>& v) {
+		os << "[";
+		for ( int i = 0; i < n; i++ ) {
+			os << v.ptr[i];
+			if ( i < n - 1 ) {
+				os << ", ";
+			}
+		}
+		os << "]";
+		return os;
+	}
+
 public:
 	union {
 		struct {
@@ -236,10 +272,9 @@ public:
 			T z;
 			T w;
 		};
-		T ptr[4];
+		T ptr[std::max(n, 4)];
 	};
 };
-
 
 template <typename T, int n> Vector<T, n> operator*( T im, const Vector<T, n>& v ) {
 	Vector<T, n> ret;
@@ -277,6 +312,24 @@ template <typename T, int n> bool operator!=( const Vector<T, n>& v1, const Vect
 }
 
 
+namespace std {
+	template <typename T, int n> Vector<T, n> cos( const Vector<T, n>& v ) {
+		Vector<T, n> ret;
+		for ( int i = 0; i < n; i++ ) {
+			ret.ptr[i] = std::cos( v.ptr[i] );
+		}
+		return ret;
+	}
+	template <typename T, int n> Vector<T, n> sin( const Vector<T, n>& v ) {
+		Vector<T, n> ret;
+		for ( int i = 0; i < n; i++ ) {
+			ret.ptr[i] = std::sin( v.ptr[i] );
+		}
+		return ret;
+	}
+};
+
+
 typedef Vector<int, 2> Vector2i;
 typedef Vector<int, 3> Vector3i;
 typedef Vector<int, 4> Vector4i;
@@ -288,5 +341,9 @@ typedef Vector<float, 4> Vector4f;
 typedef Vector<double, 2> Vector2d;
 typedef Vector<double, 3> Vector3d;
 typedef Vector<double, 4> Vector4d;
+
+
+template<typename T> struct is_vector : std::false_type {};
+template<typename T, int n> struct is_vector<Vector<T, n>> : std::true_type {};
 
 #endif // VECTOR_H

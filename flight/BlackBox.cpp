@@ -40,8 +40,7 @@ BlackBox::BlackBox()
 	}
 
 	setFrequency( 100 );
-// 	Start();
-	Stop();
+	Start();
 }
 
 
@@ -50,11 +49,21 @@ BlackBox::~BlackBox()
 }
 
 
+void BlackBox::Start( bool enabled )
+{
+	if ( enabled and not Thread::running() ) {
+		Thread::Start();
+	} else {
+		Thread::Stop();
+	}
+}
+
+
 const uint32_t BlackBox::id() const
 {
-// 	if ( this == nullptr ) {
+	if ( this == nullptr or not Thread::running() ) {
 		return 0;
-// 	}
+	}
 
 	return mID;
 }
@@ -62,9 +71,9 @@ const uint32_t BlackBox::id() const
 
 void BlackBox::Enqueue( const string& data, const string& value )
 {
-// 	if ( this == nullptr ) {
+	if ( this == nullptr or not Thread::running() ) {
 		return;
-// 	}
+	}
 
 #ifdef SYSTEM_NAME_Linux
 	uint64_t time = Board::GetTicks();
@@ -77,10 +86,119 @@ void BlackBox::Enqueue( const string& data, const string& value )
 }
 
 
+#define CHECK_ENABLED() \
+	if ( this == nullptr or not Thread::running() ) { \
+		return; \
+	}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 1>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f\"", v.x );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 2>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f\"", v.x, v.y );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 3>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", v.x, v.y, v.z );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<float, 4>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", v.x, v.y, v.z, v.w );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 1>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d\"", v.x );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 2>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d,%d\"", v.x, v.y );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 3>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d,%d,%d\"", v.x, v.y, v.z );
+}
+
+
+template<> void BlackBox::Enqueue( const string& data, const Vector<int, 4>& v )
+{
+	CHECK_ENABLED();
+	char stmp[64];
+	sprintf( stmp, "\"%d,%d,%d,%d\"", v.x, v.y, v.z, v.w );
+}
+
+
+void BlackBox::Enqueue( const string* data, const string* values, int n )
+{
+	if ( this == nullptr or not Thread::running() ) {
+		return;
+	}
+
+#ifdef SYSTEM_NAME_Linux
+	uint64_t time = Board::GetTicks();
+
+	mQueueMutex.lock();
+	for ( int i = 0; i < n; i++ ) {
+		string str = to_string(time) + "," + data[i] + "," + values[i];
+		mQueue.emplace_back( str );
+	}
+	mQueueMutex.unlock();
+#endif
+}
+
+
+void BlackBox::Enqueue( const char* data[], const char* values[], int n )
+{
+	if ( this == nullptr or not Thread::running() ) {
+		return;
+	}
+
+#ifdef SYSTEM_NAME_Linux
+	uint64_t time = Board::GetTicks();
+	char str[2048] = "";
+
+	mQueueMutex.lock();
+	for ( int i = 0; i < n; i++ ) {
+		sprintf( str, "%llu,%s,%s", time, data[i], values[i] );
+		mQueue.emplace_back( string(str) );
+	}
+	mQueueMutex.unlock();
+#endif
+}
+
+
 bool BlackBox::run()
 {
-	exit(0);
-	return false;
+	// exit(0);
+	// return false;
 #ifdef SYSTEM_NAME_Linux
 	string data;
 

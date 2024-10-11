@@ -55,10 +55,23 @@ bool Console::run()
 	string* prompt = &history.back();
 
 	printf("\33[2K\rflight> "); fflush(stdout);
-	while ( true ) {
+	while ( true and not Thread::stopped() ) {
+		fd_set selectset;
+		struct timeval timeout = { 0, 100000 };
+		FD_ZERO( &selectset );
+		FD_SET( 0, &selectset );
+		int waitRet = select( 1, &selectset, nullptr, nullptr, &timeout );
+		if( waitRet <= 0 ) {
+			continue;
+		}
 		char buf[256];
 		memset( buf, 0, 256 );
 		int32_t res = read( 0, buf, 255 );
+		if (res <= 0) {
+			// This happens when flight is started as a service
+			Thread::Stop();
+			return false;
+		}
 		buf[res] = 0;
 		// printf("line: %d %02x %02X %02X %02X %02X %02X\n", res, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
 		if ( buf[0] == 0x0a ) {
@@ -69,11 +82,11 @@ bool Console::run()
 			while ( start > 0 and luavar((*prompt)[start - 1]) ) {
 				start--;
 			}
-			while ( end < prompt->length() and alnum((*prompt)[end]) ) {
+			while ( end < (int32_t)prompt->length() and alnum((*prompt)[end]) ) {
 				end++;
 			}
-			if ( start >= 0 and end <= prompt->length() ) {
-				printf( "start, end : %d, %d\n", start, end );
+			if ( start >= 0 and end <= (int32_t)prompt->length() ) {
+				// printf( "start, end : %d, %d\n", start, end );
 				string query = "_G." + prompt->substr( start, end - start );
 				string leftquery = query.substr( 0, query.rfind( "." ) );
 				string rightquery = query.substr( query.rfind( "." ) + 1 );
@@ -195,4 +208,6 @@ bool Console::run()
 	}
 
 	mConfig->Execute( *prompt, true );
+
+	return true;
 }

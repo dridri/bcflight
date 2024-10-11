@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <Motor.h>
 #include <Vector.h>
+#include <Thread.h>
 
 class IMU;
 class Controller;
@@ -39,25 +40,31 @@ public:
 
 	vector< Motor* >* motors();
 
-	virtual void Arm() = 0;
+	virtual void Arm();
 	virtual void Disarm() = 0;
 	virtual void WarmUp() = 0;
-	virtual bool Stabilize( const Vector3f& pid_output, const float& thrust ) = 0;
+	virtual bool Stabilize( const Vector3f& pid_output, float thrust ) = 0;
+
 	void CalibrateESCs();
-	void MotorTest(uint32_t id);
+	void MotorTest( uint32_t id );
+	void MotorsBeep( bool enabled );
 
 	bool armed() const;
 	bool airMode() const;
 
-	static Frame* Instanciate( const string& name, Config* config );
 	static void RegisterFrame( const string& name, function< Frame* ( Config* ) > instanciate );
 	static const map< string, function< Frame* ( Config* ) > > knownFrames() { return mKnownFrames; }
 
 protected:
-
 	LUA_PROPERTY("motors") vector< Motor* > mMotors;
 	bool mArmed;
 	bool mAirMode;
+	bool mMotorsBeep;
+	uint8_t mMotorBeepMode;
+
+	HookThread< Frame >* mMotorsBeepThread;
+
+	bool MotorsBeepRun();
 
 private:
 	static map< string, function< Frame* ( Config* ) > > mKnownFrames;

@@ -1,9 +1,10 @@
 #ifndef LINUXGPS_H
+
 #define LINUXGPS_H
 
-#if ( defined( BOARD_rpi ) )
-
+#ifdef BUILD_LinuxGPS
 #include <gps.h>
+#endif
 #include "GPS.h"
 #include "Lua.h"
 
@@ -16,13 +17,13 @@ public:
 	virtual void Calibrate( float dt, bool last_pass );
 	virtual time_t getTime();
 	virtual bool Read( float* latitude, float* longitude, float* altitude, float* speed );
+	virtual bool Stats( uint32_t* satSeen, uint32_t* satUsed );
 
 protected:
+#ifdef BUILD_LinuxGPS
 	struct gps_data_t* mGpsData;
+#endif
 };
 
-
-
-#endif // BOARD_rpi
 
 #endif // LINUXGPS_H

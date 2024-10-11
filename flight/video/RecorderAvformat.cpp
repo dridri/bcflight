@@ -38,6 +38,7 @@ static std::string averr( int err )
 
 void RecorderAvformat::WriteSample( PendingSample* sample )
 {
+	// fTrace( sample->track->type, sample->track->stream->id, sample->record_time_us, sample->buflen, sample->keyframe );
 	AVPacket* pkt = av_packet_alloc();
 	av_packet_from_data( pkt, sample->buf, sample->buflen );
 	pkt->stream_index = sample->track->stream->id;
@@ -45,7 +46,6 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 	pkt->pts = sample->record_time_us;
 	pkt->pos = -1LL;
 	pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
-	av_packet_rescale_ts( pkt, (AVRational){ 1, 1000000 }, sample->track->stream->time_base );
 	if ( sample->track->type == TrackTypeVideo ) {
 		pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
 		if ( not mMuxerReady and sample->track->stream->codecpar->extradata == nullptr ) {
@@ -53,22 +53,38 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 			sample->track->stream->codecpar->extradata_size = 50;
 			// memcpy( sample->track->stream->codecpar->extradata, sample->buf, 50 );
 			memcpy( sample->track->stream->codecpar->extradata, mVideoHeader.data(), 50 );
-			bool all_ready = true;
-			for ( auto track : mTracks ) {
-				all_ready &= ( track->stream->codecpar->extradata != nullptr );
-			}
-			if ( all_ready ) {
-				int ret = avformat_write_header( mOutputContext, nullptr );
-				if (ret < 0) {
-					fprintf(stderr, "Error occurred when opening output file: %s\n", averr(ret).c_str());
-					return;
-				} else {
-					gDebug() << "Avformat muxer ready";
-					mMuxerReady = true;
-				}
-			}
 		}
 	}
+	if ( sample->track->type == TrackTypeAudio ) {
+		pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
+		if ( not mMuxerReady and sample->track->stream->codecpar->extradata == nullptr ) {
+			sample->track->stream->codecpar->extradata = (uint8_t*)malloc( 0 );
+			// sample->track->stream->codecpar->extradata_size = 15;
+			// memcpy( sample->track->stream->codecpar->extradata, mAudioHeader.data(), 15 );
+		}
+	}
+	if ( not mMuxerReady ) {
+		bool all_ready = true;
+		for ( auto track : mTracks ) {
+			all_ready &= ( track->stream->codecpar->extradata != nullptr );
+		}
+		if ( all_ready ) {
+			int ret = avformat_write_header( mOutputContext, nullptr );
+			if (ret < 0) {
+				fprintf(stderr, "Error occurred when opening output file: %s\n", averr(ret).c_str());
+				return;
+			} else {
+				gDebug() << "Avformat muxer ready";
+				mMuxerReady = true;
+				Main::instance()->blackbox()->Enqueue( "Recorder:start", mRecordFilename );
+			}
+		} else {
+			av_packet_free(&pkt);
+			return;
+		}
+	}
+	av_packet_rescale_ts( pkt, (AVRational){ 1, 1000000 }, sample->track->stream->time_base );
+	gTrace() << "rescaled ts : " << pkt->pts << " " << pkt->dts << " " << pkt->duration << " " << sample->track->stream->time_base.num << "/" << sample->track->stream->time_base.den;
 	int errwrite = av_interleaved_write_frame( mOutputContext, pkt );
 	// avio_flush( mOutputContext->pb );
 	// sync();
@@ -144,6 +160,7 @@ void RecorderAvformat::Start()
 
 	char filename[256];
 	sprintf( filename, (mBaseDirectory + "/record_%010u.mkv").c_str(), mRecordId );
+	mRecordFilename = std::string( filename );
 
 	avformat_alloc_output_context2( &mOutputContext, nullptr, nullptr, filename );
 	if ( !mOutputContext ) {
@@ -159,12 +176,15 @@ void RecorderAvformat::Start()
 			track->stream = avformat_new_stream( mOutputContext, nullptr );
 			track->stream->id = mOutputContext->nb_streams - 1;
 			track->stream->time_base = (AVRational){ 1, 1000000 };
+			// track->stream->r_frame_rate = (AVRational){ 30, 1 };
 			track->stream->start_time = 0;
-			track->stream->codecpar->codec_id = AV_CODEC_ID_MP3;
+			track->stream->codecpar->codec_id = std::string(track->format) == "mp3" ? AV_CODEC_ID_MP3 : AV_CODEC_ID_PCM_S16LE;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
 			track->stream->codecpar->channels = track->channels;
 			track->stream->codecpar->sample_rate = track->sample_rate;
-			track->stream->codecpar->bit_rate = 128 * 1024;
+			if ( std::string(track->format) == "mp3" ) {
+				track->stream->codecpar->bit_rate = 320 * 1024;
+			}
 			track->stream->codecpar->codec_tag = 0;
 			track->stream->codecpar->format = AV_SAMPLE_FMT_S16;
 			track->stream->codecpar->extradata = nullptr;
@@ -175,13 +195,13 @@ void RecorderAvformat::Start()
 			// track->stream->avg_frame_rate = (AVRational){ 30, 1 };
 			track->stream->r_frame_rate = (AVRational){ 30, 1 };
 			track->stream->start_time = 0;
-			track->stream->codecpar->codec_id = AV_CODEC_ID_H264;
+			track->stream->codecpar->codec_id = std::string(track->format) == "h264" ? AV_CODEC_ID_H264 : AV_CODEC_ID_MJPEG;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 			track->stream->codecpar->width = track->width;
 			track->stream->codecpar->height = track->height;
 			track->stream->codecpar->bit_rate = 0;
 			track->stream->codecpar->codec_tag = 0;
-			track->stream->codecpar->format = AV_PIX_FMT_YUV420P;
+			track->stream->codecpar->format = std::string(track->format) == "h264" ? AV_PIX_FMT_YUV420P : AV_PIX_FMT_RGB24;
 			track->stream->codecpar->extradata = nullptr;
 		}
 	}
@@ -201,6 +221,7 @@ void RecorderAvformat::Start()
 		return;
 	}
 */
+	gTrace() << "A";
 	mOutputFile = fopen( filename, "wb+" );
 	if ( !mOutputFile ) {
 		gError() << "Could not open " << filename << " : " << strerror(errno);
@@ -209,10 +230,12 @@ void RecorderAvformat::Start()
 		mActiveMutex.unlock();
 		return;
 	}
+	gTrace() << "B";
 
 	mOutputContext->pb = avio_alloc_context( mOutputBuffer, sizeof(mOutputBuffer), 1, this, nullptr, []( void* thiz, uint8_t* buf, int sz ) {
 		return (int)fwrite( buf, 1, sz, static_cast<RecorderAvformat*>(thiz)->mOutputFile );
 	}, nullptr );
+	gTrace() << "C";
 	if ( !mOutputContext->pb ) {
 		gError() << "Could not allocate AVFormat output context";
 		mActiveMutex.lock();
@@ -221,6 +244,7 @@ void RecorderAvformat::Start()
 		return;
 	}
 
+	gTrace() << "D";
 	sprintf( filename, (mBaseDirectory + "/record_%010u.gcsv").c_str(), mRecordId );
 	mGyroFile = fopen( filename, "wb+" );
 	if ( mGyroFile ) {
@@ -245,6 +269,7 @@ void RecorderAvformat::Start()
 		fprintf( mGyroFile, "0,0.000000,0.000000,0.000000\n" );
 	}
 
+	gTrace() << "E";
 	if ( not mConsumerRegistered ) {
 		mConsumerRegistered = true;
 		Main::instance()->imu()->registerConsumer( [this](uint64_t t, const Vector3f& g, const Vector3f& a) {
@@ -252,7 +277,11 @@ void RecorderAvformat::Start()
 			WriteGyro( t, g, a );
 		});
 	}
+	gTrace() << "F";
 
+	mMuxerReady = false;
+	mRecordStartTick = 0;
+	mRecordStartSystemTick = 0;
 	Thread::Start();
 }
 
@@ -260,6 +289,8 @@ void RecorderAvformat::Start()
 void RecorderAvformat::Stop()
 {
 	if ( not recording() or not mActive ) {
+		mWriteMutex.unlock();
+		mGyroMutex.unlock();
 		return;
 	}
 
@@ -267,6 +298,7 @@ void RecorderAvformat::Stop()
 	Thread::Stop();
 	Thread::Join();
 
+	gTrace() << "A";
 	mWriteMutex.lock();
 	while ( mPendingSamples.size() > 0 ) {
 		PendingSample* sample = mPendingSamples.front();
@@ -277,6 +309,8 @@ void RecorderAvformat::Stop()
 		mWriteMutex.lock();
 	}
 	mWriteMutex.unlock();
+	gTrace() << "B";
+	Main::instance()->blackbox()->Enqueue( "Recorder:stop", mRecordFilename );
 
 	av_write_trailer( mOutputContext );
 	avio_flush( mOutputContext->pb );
@@ -319,12 +353,13 @@ bool RecorderAvformat::recording()
 }
 
 
-uint32_t RecorderAvformat::AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const std::string& extension )
+uint32_t RecorderAvformat::AddVideoTrack( const std::string& format, uint32_t width, uint32_t height, uint32_t average_fps, const std::string& extension )
 {
 	Track* track = (Track*)malloc( sizeof(Track) );
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeVideo;
+	strcpy( track->format, format.c_str() );
 	track->width = width;
 	track->height = height;
 	track->average_fps = average_fps;
@@ -336,12 +371,13 @@ uint32_t RecorderAvformat::AddVideoTrack( uint32_t width, uint32_t height, uint3
 }
 
 
-uint32_t RecorderAvformat::AddAudioTrack( uint32_t channels, uint32_t sample_rate, const std::string& extension )
+uint32_t RecorderAvformat::AddAudioTrack( const std::string& format, uint32_t channels, uint32_t sample_rate, const std::string& extension )
 {
 	Track* track = (Track*)malloc( sizeof(Track) );
 	memset( track, 0, sizeof(Track) );
 
 	track->type = TrackTypeAudio;
+	strcpy( track->format, format.c_str() );
 	track->channels = channels;
 	track->sample_rate = sample_rate;
 
@@ -354,19 +390,24 @@ uint32_t RecorderAvformat::AddAudioTrack( uint32_t channels, uint32_t sample_rat
 
 void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe )
 {
-	// fDebug( track_id, record_time_us, buf, buflen );
+	// fTrace( track_id, record_time_us, buf, buflen, keyframe );
 
-	if ( mVideoHeader.size() == 0 ) {
+	Track* track = mTracks.at(track_id);
+	if ( not track ) {
+		return;
+	}
+
+	if ( mVideoHeader.size() == 0 and track->type == TrackTypeVideo ) {
 		mVideoHeader.insert( mVideoHeader.end(), (uint8_t*)buf, (uint8_t*)buf + std::min( buflen, 50U ) );
+	}
+	if ( mAudioHeader.size() == 0 and track->type == TrackTypeAudio ) {
+		mAudioHeader.insert( mAudioHeader.end(), (uint8_t*)buf, (uint8_t*)buf + std::min( buflen, 15U ) );
 	}
 
 	if ( not recording() or mStopWrite ) {
 		return;
 	}
-	Track* track = mTracks.at(track_id);
-	if ( not track ) {
-		return;
-	}
+
 	if ( mRecordStartTick == 0 ) {
 		if ( track->type == TrackTypeVideo ) {
 			mRecordStartTick = record_time_us;
@@ -377,9 +418,16 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 		}
 	}
 
+	if ( track->type == TrackTypeVideo ) {
+		record_time_us -= mRecordStartTick;
+	}
+	if ( track->type == TrackTypeAudio ) {
+		record_time_us -= mRecordStartSystemTick;
+	}
+
 	PendingSample* sample = new PendingSample;
 	sample->track = track;
-	sample->record_time_us = record_time_us - mRecordStartTick;
+	sample->record_time_us = record_time_us;
 	sample->buf = new uint8_t[buflen];
 	sample->buflen = buflen;
 	sample->keyframe = keyframe;
@@ -393,7 +441,7 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 
 void RecorderAvformat::WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel )
 {
-	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or mRecordStartSystemTick == 0 or not Thread::running() or mStopWrite ) {
+	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or mRecordStartSystemTick == 0 or not recording() or mStopWrite ) {
 		return;
 	}
 

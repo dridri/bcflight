@@ -2,8 +2,8 @@ Open-source Linux-based Raspberry drone and ground controller.
 
 ## Features
  * Supports Raspberry Pi 1/2/3/4/zero boards
- * Low CPU (<10% on Raspberry Pi 4) and RAM (~100MB) usage
- * Sensors and stabilizer loop-time up to 8kHz (on rPi4)
+ * Mid CPU (~25% at 4KHz update rate on Raspberry Pi 4) and low RAM (~100MB) usage
+ * Sensors and stabilizer update rate up to 8kHz (on rPi4)
  * Up to 8 motors with customizable configuration matrix
  * DShot (150 & 300), OneShot125 and standard PWM motor protocols
  * Supports SPI and I²C [sensors](#supported-sensors)
@@ -14,9 +14,25 @@ Open-source Linux-based Raspberry drone and ground controller.
  * ~100ms video latency over Ethernet / WiFi / RawWifi
  * Live camera view over HDMI / Composite output with On-Screen Display (showing telemetry, battery status, fly speed, acceleration...)
  * Supports multiple cameras recording in MKV file format (for a total max throughput of ~120 MPix/s without overclock)
- * Supports [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
+ * Produces [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
+
+
+[preview.webm](https://github.com/dridri/bcflight/assets/220731/773a024a-642d-4f69-babe-427d3c5535c6)
+
+[https://www.youtube.com/@drichfpv/videos](https://www.youtube.com/@drichfpv/videos)
+
+
+
+## Pre-built binaries
+[![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight)](https://ci.drich.fr/job/BCFlight/)
+[![Tests Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight-tests&subject=tests)](https://ci.drich.fr/job/BCFlight-tests/)
+
+Pre-built 32-bits binaries for Raspberry Pi 4 can be found here : [https://ci.drich.fr/](https://ci.drich.fr/)
 
 ## Pre-built images
+[![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight-CM4-Images)](https://ci.drich.fr/job/BCFlight-CM4-Images/)
+
+
 These images are generated using the [tools/image-builder/generate-flight-image.sh](./tools/image-builder/generate-flight-image.sh) script. The root filesystem is set to read-only on boot to prevent data corruption, this can be changed by running `rw` command in terminal.
 
 Root SSH is enabled by default with password `bcflight`. The `flight` binary sits in the /var/flight folder.
@@ -25,7 +41,7 @@ The flight service is disabled by default, this helps to easily setup the flight
 
 | File                             | Based on                               | DShot support                                        | Analog video output                                  |
 |----------------------------------|----------------------------------------|------------------------------------------------------|------------------------------------------------------|
-| [2023-07-18-raspbian-bcflight.img](https://bcflight.drich.fr/files/2023-07-18-raspbian-bcflight.img) | 2023-05-03-raspios-bullseye-armhf-lite | <p align="center">❌¹</p> | <p align="center">❌¹</p> |
+| [2023-07-18-raspbian-bcflight.img](https://bcflight.drich.fr/files/2023-07-18-raspbian-bcflight.img) | 2023-05-03-raspios-bullseye-armhf-lite | <p align="center">✅¹</p> | <p align="center">✅¹</p> |
 
 ¹ DShot and composite output can be enabled by changing /boot/config.txt and /var/flight/config.lua settings.
 
@@ -75,13 +91,13 @@ This carrier board has the following features :
  * dual RFM95W radio sockets with seperate status LEDs and external antennas plugs
  * optional S-BUS input (with TTL inverter)
  * ICM-42605 high-precision IMU
- * BMP280 barometer / altimeter
+ * BMP581 barometer / altimeter
  * dual camera CSI connectors
  * exposed IO pads :
    * 8 PWM / OneShot125 / DSHOT outputs
    * ADC channels 1-2-3
    * I2C (for additionnal sensors and peripheral drivers)
-   * UART (external GPS)
+   * UART (for external GPS)
    * USB
    * Video composite output (can be directly connected to any FPV drone VTX)
 
@@ -89,7 +105,7 @@ This carrier board has the following features :
 For cmake to run properly, the below dependecies should be installed first. Below commands are working for: ***Distro***: Ubuntu 22.04.2 LTS (Jammy Jellyfish), ***Kernel***: 5.15.0-69-lowlatency x86_64, ***bits***: 64, ***Desktop***: Xfce 4.16.0 
 1. **Install dependencies**
 
-  * `sudo apt-get install nasm qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev`
+  * `sudo apt-get install nasm qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev libfftw3-dev`
 
   * *QScintilla:*
     * `sudo apt install libqscintilla2-qt5-dev`
@@ -143,7 +159,7 @@ Currently only Raspberry Pi boards are supported, the 4'th variants are the reco
 
 1. **Install dependencies**
   * `sudo apt update`
-  * `sudo apt install git cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3`
+  * `sudo apt install git pkg-config cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3 libfftw3-dev`
 
 2. **Build**
   * `git clone https://github.com/dridri/bcflight`

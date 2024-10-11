@@ -1,95 +1,54 @@
-/*
- * BCFlight
- * Copyright (C) 2016 Adrien Aubry (drich)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-**/
+#ifndef RAWWIFI_LINK_H
+#define RAWWIFI_LINK_H
 
-#ifndef RAWWIFI_H
-#define RAWWIFI_H
-#include <mutex>
 #include "Link.h"
+#include "Config.h"
+#include <Thread.h>
+#include <condition_variable>
 
-class Main;
+namespace rawwifi {
+	class RawWifi;
+	class WifiInterface;
+};
 
-#if ( BUILD_RAWWIFI == 1 )
-
-#include <list>
-#include "../../librawwifi/rawwifi.h"
-
-class RawWifi : public Link
+LUA_CLASS class RawWifi : public Link, protected Thread
 {
 public:
-	RawWifi( const string& device, int16_t out_port, int16_t in_port = -1, int read_timeout_ms = -1, bool blocking = true, bool drop_invalid_packets = false );
-	~RawWifi();
+	LUA_EXPORT RawWifi();
+	virtual ~RawWifi();
 
-	int Connect();
+	virtual int Connect();
+	virtual int setBlocking( bool blocking );
+	virtual void setRetriesCount( int retries );
+	virtual int retriesCount() const;
+	virtual int32_t Channel();
+	virtual int32_t Frequency();
+	virtual int32_t RxQuality();
+	virtual int32_t RxLevel();
 
-	void SetChannel( int chan );
-	void SetTxPower( int dBm );
-	int setBlocking( bool blocking );
-	void setCECMode( const string& mode );
-	void setBlockRecoverMode( const string& mode );
-	void setRetriesCount( int retries );
-	void setMaxBlockSize( int max );
-	void setTXFlags( RAWWIFI_BLOCK_FLAGS flags );
+	virtual SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
+	virtual SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
 
-	int32_t Channel();
-	int32_t Frequency();
-	int32_t RxQuality();
-	int32_t RxLevel();
-	uint32_t TXHeadersSize();
-	RAWWIFI_BLOCK_FLAGS TXFlags();
-	int retriesCount() const { return mRetries; }
-	virtual uint32_t fullReadSpeed();
+	virtual SyncReturn WriteAck( const void* buf, uint32_t len ) { return Write( buf, len, false, -1 ); }
 
-	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
-	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
-
-	static int flight_register( Main* main );
+	virtual string name() const { return "RawWifi"; }
+	virtual LuaValue infos() const { return LuaValue(); }
 
 protected:
-	static void Initialize( const string& device, uint32_t channel, uint32_t txpower );
-	static Link* Instanciate( Config* config, const string& lua_object );
+	LUA_PROPERTY("device") std::string mDevice;
+	LUA_PROPERTY("output_port") uint8_t mOutputPort;
+	LUA_PROPERTY("input_port") uint8_t mInputPort;
+	LUA_PROPERTY("channel") uint32_t mChannel;
+	LUA_PROPERTY("blocking") bool mBlocking;
 
-	rawwifi_t* mRawWifi;
-	string mDevice;
-	int mReadTimeout;
-	int mMaxBlockSize;
-	int mChannel;
-	int mTxPower;
-	int16_t mOutputPort;
-	int16_t mInputPort;
-	bool mBlocking;
-	bool mDrop;
-	uint32_t mRetries;
-	RAWWIFI_BLOCK_FLAGS mSendFlags;
+	rawwifi::RawWifi* mRawWifi;
+	rawwifi::WifiInterface* mWifiInterface;
 
-	static mutex mInitializingMutex;
-	static bool mInitializing;
-	static list<string> mInitialized;
-	static map<string, list<int16_t> > mUsedPorts;
+	std::list< std::vector<uint8_t> > mPacketsQueue;
+	std::mutex mPacketsQueueMutex;
+	std::condition_variable mPacketsQueueCond;
+
+	virtual bool run();
 };
 
-
-#else
-
-class RawWifi {
-public:
-	static int flight_register( Main* main ) { return 0; }
-};
-
-#endif // ( BUILD_RAWWIFI == 1 )
-
-#endif // RAWWIFI_H
+#endif // RAWWIFI_LINK_H

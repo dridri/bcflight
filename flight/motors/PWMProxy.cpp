@@ -73,8 +73,8 @@ PWMProxy::PWMProxy( uint32_t channel, int us_min, int us_max, int us_start, int 
 		testBus->Write( { 0x28, 0b00000000, 0, 0, 0, 0, 0, 0, 0 } );
 		usleep( 1000 * 1000 );
 
-		printf( "Send minval and maxval (%lu, %lu, n=%lu)\n", us_start, us_length, ( us_max - us_start ) * 65535 / us_length );
-		testBus->Write<uint32_t>( 0x30, { us_start, us_length } );
+		printf( "Send minval and maxval (%u, %u, n=%u)\n", us_start, us_length, ( us_max - us_start ) * 65535 / us_length );
+		testBus->Write<uint32_t>( 0x30, { (uint32_t)us_start, (uint32_t)us_length } );
 		usleep( 1000 * 1000 * 2 );
 
 		printf( "Send REG_DEVICE_CONFIG\n" );

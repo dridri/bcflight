@@ -1,3 +1,11 @@
+test
+*.img
+
+legacy
+
+.vscode
+*.wiki
+
 # Compiled Object files
 *.slo
 *.lo
@@ -26,11 +34,31 @@
 *.out
 *.app
 
+# KiCAD
+*-cache.lib
+*-rescue.dcm
+*-rescue.lib
+*.kicad_prl
+*.net
+*.pretty
+*.sch
+*.sch-bak
+fp-info-cache
+fp-lib-table
+sym-lib-table
+gerber*
+electronics/Libraries
+electronics/cm4_drone/cm4_drone-backups
+
 # Other
 *.kdev4
 build
+build-*
 *~
 shield.txt
+external/liblua
+external/libmp4v2
+flight/gdb_*
 
 # local files
 blackbox_*
@@ -40,4 +68,3 @@ external/openh264*/*
 external/*.gz
 external/*.zip
 # Old artifacts
-controller_rpi

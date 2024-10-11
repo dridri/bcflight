@@ -19,6 +19,7 @@
 #ifndef THREADBASE_H
 #define THREADBASE_H
 
+#include <stdint.h>
 #include <string>
 #include <list>
 #include <pthread.h>
@@ -38,13 +39,14 @@ public:
 
 	void Start();
 	void Pause();
-	void Stop();
+	virtual void Stop();
 	void Join();
 	bool running() const;
+	bool stopped() const;
 	uint32_t frequency() const;
 
 	void setFrequency( uint32_t hz );
-	void setPriority( int p, int affinity = -1 );
+	void setPriority( int p, int affinity = -1, bool priorityFifo = false );
 	const string& name() const;
 
 	virtual void Recover() = 0;
@@ -67,6 +69,7 @@ protected:
 	int mSetPriority;
 	int mAffinity;
 	int mSetAffinity;
+	bool mPriorityFifo;
 	uint32_t mFrequency;
 	uint64_t mFrequencyTick;
 

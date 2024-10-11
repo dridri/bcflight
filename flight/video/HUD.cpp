@@ -9,6 +9,8 @@
 #include <IMU.h>
 #include <Link.h>
 #include <Config.h>
+#include <Sensor.h>
+#include <peripherals/SmartAudio.h>
 
 
 HUD::HUD()
@@ -30,6 +32,7 @@ HUD::HUD()
 	, mStereo( false )
 	, mStereoStrength( 0.004f )
 	, mReady( false )
+	, mVTX( nullptr )
 {
 
 	mGLContext = GLContext::instance();
@@ -47,6 +50,7 @@ bool HUD::run()
 	if ( not mReady ) {
 		mReady = true;
 		setFrequency( mHUDFramerate );
+		mVTX = Main::instance()->config()->Object<SmartAudio>( "vtx" );
 
 		mGLContext->runOnGLThread( [this]() {
 			Config* config = Main::instance()->config();
@@ -75,7 +79,7 @@ bool HUD::run()
 				uint32_t ms = time % 1000;
 				char txt[256];
 				sprintf( txt, "%02d:%02d:%03d", minuts, seconds, ms );
-				mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, true );
+				mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, RendererHUD::TextAlignment::CENTER );
 			}
 		});
 	}
@@ -96,14 +100,15 @@ bool HUD::run()
 		mRendererHUD->setNightMode( mNightMode );
 	}
 
-	glClear( GL_COLOR_BUFFER_BIT );
-
 	DroneStats dronestats;
 	LinkStats linkStats;
+	VideoStats videoStats;
 
 	dronestats.username = Main::instance()->username();
 	dronestats.messages = Board::messages();
 	dronestats.blackBoxId = Main::instance()->blackbox()->id();
+	dronestats.cpuUsage = Board::CPULoad();
+	dronestats.memUsage = Board::MemoryUsage();
 	if ( controller and stabilizer ) {
 		dronestats.armed = stabilizer->armed();
 		dronestats.mode = (DroneMode)stabilizer->mode();
@@ -111,9 +116,17 @@ bool HUD::run()
 		dronestats.thrust = stabilizer->thrust();
 	}
 	if ( imu ) {
-		mAccelerationAccum = ( mAccelerationAccum * 0.95f + imu->acceleration().length() * 0.05f );
+		mAccelerationAccum = ( mAccelerationAccum * 0.995f + imu->acceleration().length() * 0.005f );
 		dronestats.acceleration = mAccelerationAccum;
 		dronestats.rpy = imu->RPY();
+		if ( Sensor::GPSes().size() > 0 ) {
+			dronestats.gpsLocation = imu->gpsLocation();
+			dronestats.gpsSpeed = imu->gpsSpeed();
+			dronestats.gpsSatellitesSeen = imu->gpsSatellitesSeen();
+			dronestats.gpsSatellitesUsed = imu->gpsSatellitesUsed();
+		} else {
+			dronestats.gpsSpeed = NAN;
+		}
 	}
 	if ( powerThread ) {
 		dronestats.batteryLevel = powerThread->BatteryLevel();
@@ -128,16 +141,27 @@ bool HUD::run()
 		linkStats.source = 0;
 	}
 
-	mDroneStats = dronestats;
-	mLinkStats = linkStats;
-
 	if ( camera ) {
-		mVideoStats = VideoStats( (int)camera->width(), (int)camera->height(), (int)camera->framerate() );
+		videoStats.width = (int)camera->width();
+		videoStats.height = (int)camera->height();
+		videoStats.fps = (int)camera->framerate();
+		strncpy( videoStats.whitebalance, camera->whiteBalance().c_str(), sizeof(videoStats.whitebalance) );
 		// strncpy( video_stats.whitebalance, camera->whiteBalance().c_str(), 32 );
 		// strncpy( video_stats.exposure, camera->exposureMode().c_str(), 32 );
 		// video_stats.photo_id = camera->getLastPictureID();
 	}
+	if ( mVTX ) {
+		videoStats.vtxPower = (int8_t)mVTX->getPower();
+		videoStats.vtxPowerDbm = mVTX->getPowerDbm();
+		videoStats.vtxFrequency = mVTX->getFrequency();
+		videoStats.vtxChannel = mVTX->getChannel();
+		strncpy( videoStats.vtxBand, mVTX->getBandName().c_str(), sizeof(videoStats.vtxBand) );
+	}
 
+
+	mDroneStats = dronestats;
+	mLinkStats = linkStats;
+	memcpy( &mVideoStats, &videoStats, sizeof(VideoStats) );
 
 	return true;
 }
@@ -174,6 +198,16 @@ void HUD::HideImage( const uintptr_t img )
 }
 
 
+void HUD::AddLayer( const std::function<void()>& func )
+{
+	mGLContext->addLayer( func );
+}
+
+
+void HUD::PrintText( int32_t x, int32_t y, const std::string& text, uint32_t color, TextAlignment halign, TextAlignment valign )
+{
+	mRendererHUD->RenderText( x, y, text, color, 0.75f, (RendererHUD::TextAlignment)halign, (RendererHUD::TextAlignment)valign );
+}
 
 
 #endif // ( BUILD_HUD == 1 )

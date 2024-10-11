@@ -14,8 +14,8 @@ public:
 	virtual void Stop();
 	virtual bool recording();
 
-	virtual uint32_t AddVideoTrack( uint32_t width, uint32_t height, uint32_t average_fps, const string& extension );
-	virtual uint32_t AddAudioTrack( uint32_t channels, uint32_t sample_rate, const string& extension );
+	virtual uint32_t AddVideoTrack( const std::string& format, uint32_t width, uint32_t height, uint32_t average_fps, const string& extension );
+	virtual uint32_t AddAudioTrack( const std::string& format, uint32_t channels, uint32_t sample_rate, const string& extension );
 	virtual void WriteSample( uint32_t track_id, uint64_t record_time_us, void* buf, uint32_t buflen, bool keyframe = false );
 	virtual void WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel = Vector3f() );
 
@@ -25,6 +25,7 @@ protected:
 	typedef struct {
 		uint32_t id;
 		TrackType type;
+		char format[32];
 		char filename[256];
 		FILE* file;
 		char extension[8];

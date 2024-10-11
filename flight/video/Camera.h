@@ -62,7 +62,7 @@ public:
 	virtual void setSaturation( float value ) = 0;
 	virtual void setISO( int32_t value ) = 0;
 	virtual void setShutterSpeed( uint32_t value ) = 0;
-	virtual void setNightMode( bool night_mode ) = 0;
+	// virtual void setNightMode( bool night_mode ) = 0;
 	virtual string switchWhiteBalance() = 0;
 	virtual string lockWhiteBalance() = 0;
 	virtual string switchExposureMode() = 0;

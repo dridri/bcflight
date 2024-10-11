@@ -22,6 +22,7 @@
 #include "Thread.h"
 #include "Board.h"
 #include "Debug.h"
+#include "PID.h"
 
 
 Thread::Thread( const string& name )
@@ -34,6 +35,14 @@ Thread::Thread( const string& name )
 
 Thread::~Thread()
 {
+}
+
+void Thread::setName( const string& name )
+{
+	mName = name;
+	if ( mSpawned and mThread != 0 ) {
+		pthread_setname_np( mThread, mName.substr( 0, 15 ).c_str() );
+	}
 }
 
 
@@ -111,21 +120,23 @@ void Thread::ThreadEntry()
 			mIsRunning = true;
 			if ( mSetPriority != mPriority ) {
 				mPriority = mSetPriority;
+				int algorithm = mPriorityFifo ? SCHED_FIFO : SCHED_RR;
 				struct sched_param sched;
 				memset( &sched, 0, sizeof(sched) );
-				if ( mPriority > sched_get_priority_max( SCHED_RR ) ) {
-					sched.sched_priority = sched_get_priority_max( SCHED_RR );
+				if ( mPriority > sched_get_priority_max( algorithm ) ) {
+					sched.sched_priority = sched_get_priority_max( algorithm );
 				} else {
 					sched.sched_priority = mPriority;
 				}
-				sched_setscheduler( 0, SCHED_RR, &sched );
+				sched_setscheduler( 0, algorithm, &sched );
 			}
-			if ( mSetAffinity >= 0 and mSetAffinity != mAffinity ) {
+			if ( mSetAffinity >= 0 and mSetAffinity != mAffinity and mSetAffinity < sysconf(_SC_NPROCESSORS_ONLN) ) {
+				gDebug() << "Setting affinity to " << mSetAffinity << " for thread " << mName;
 				mAffinity = mSetAffinity;
 				cpu_set_t cpuset;
 				CPU_ZERO( &cpuset );
 				CPU_SET( mAffinity, &cpuset );
-				pthread_setaffinity_np( pthread_self(), sizeof(cpu_set_t), &cpuset );
+				sched_setaffinity( 0, sizeof(cpu_set_t), &cpuset );
 			}
 		}
 		if ( mFrequency > 0 ) {
@@ -137,6 +148,7 @@ void Thread::ThreadEntry()
 	mIsRunning = false;
 	mFinished = true;
 	mSpawned = false;
+	pthread_exit( nullptr );
 }
 
 

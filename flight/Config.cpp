@@ -112,7 +112,7 @@ void Config::WriteFile( const string& content )
 string Config::String( const string& name, const string& def )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::String ) {
@@ -129,7 +129,7 @@ string Config::String( const string& name, const string& def )
 int Config::Integer( const string& name, int def )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::Integer ) {
@@ -146,7 +146,7 @@ int Config::Integer( const string& name, int def )
 float Config::Number( const string& name, float def )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::Number and v.type() != LuaValue::Integer ) {
@@ -163,7 +163,7 @@ float Config::Number( const string& name, float def )
 bool Config::Boolean( const string& name, bool def )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::Boolean ) {
@@ -180,7 +180,7 @@ bool Config::Boolean( const string& name, bool def )
 void* Config::Object( const string& name, void* def )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::UserData ) {
@@ -197,7 +197,7 @@ void* Config::Object( const string& name, void* def )
 vector<int> Config::IntegerArray( const string& name )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::Table ) {
@@ -221,7 +221,7 @@ vector<int> Config::IntegerArray( const string& name )
 int Config::ArrayLength( const string& name )
 {
 	Debug dbg(Debug::Verbose);
-	dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
 	LuaValue v = mLua->value( name );
 	if ( v.type() != LuaValue::Table ) {
@@ -287,8 +287,16 @@ void Config::Reload()
 {
 	gDebug() << "Reload 1 : " << _mem_usage();
 
+	LUAdostring( "Debug = {}" );
+	LUAdostring( "Debug.ERROR = " + to_string((int)Debug::Error) );
+	LUAdostring( "Debug.WARNING = " + to_string((int)Debug::Warning) );
+	LUAdostring( "Debug.INFO = " + to_string((int)Debug::Info) );
+	LUAdostring( "Debug.VERBOSE = " + to_string((int)Debug::Verbose) );
+	LUAdostring( "Debug.TRACE = " + to_string((int)Debug::Trace) );
+
 	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
 	LUAdostring( "PID = setmetatable( {}, { __call = function ( self, p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
+	LUAdostring( "PT1 = PT1_3" );
 
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "system = { loop_time = 2000 }" );

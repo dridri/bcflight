@@ -1,5 +1,9 @@
 #!/usr/bin/lua
 
+local log = function( ... )
+	-- io.stderr:write( ... )
+end
+
 function serialize( array, keep_functions )
 	if keep_functions == nil then
 		keep_functions = array or false
@@ -94,6 +98,7 @@ end
 
 
 function parse_member(s)
+	log("parse_member : " .. s .. "\n")
 	local params = {}
 	local sig, b = s:gmatch( "(.-)%((.*)%)" )()
 	b = b:match("^%s*(.-)%s*$")
@@ -113,17 +118,31 @@ function parse_member(s)
 		func_type = func_type .. " " .. tokens[i]
 	end
 
+	local params_matches = {}
 	for param in b:gmatch("[^,]+") do
+		table.insert( params_matches, param )
+	end
+
+	local i = 1
+	while i <= #params_matches do
+		local param = params_matches[i]
+		if param:find( "<" ) ~= nil then
+			while i < #params_matches and param:find( ">" ) == nil do
+				i = i + 1
+				param = param .. "," .. params_matches[i]
+			end
+		end
 		param = param:match("^%s*(.-)%s*$")
 		if param:find( "=" ) then
 			local p, d = param:gmatch("(.*)%s*=%s*(.*)")()
 			p = p:match("^%s*(.-)%s*$")
 			local type, name = p:gmatch("(.*)%s+(.*)")()
-			table.insert( params, { type = type, name = name, default = d } )
+			table.insert( params, { type = type, name = name, default = nil --[[d]] } ) -- TODO : keep default parameters ?
 		else
-			local type, name, def = param:gmatch("(.*)%s+(.*)")()
-			table.insert( params, { type = type, name = name, default = def } )
+			local type, name = param:gmatch("(.*)%s+(.*)")()
+			table.insert( params, { type = type, name = name, default = nil } )
 		end
+		i = i + 1
 	end
 	if ( s:find("onEvent") ~= nil ) then
 -- 		os.exit()
@@ -159,9 +178,12 @@ function cast_suffix( prop, v )
 			return ".toString()"
 		end
 		if prop.type:find("::") then
-			v = classes[parent_class(prop.type)]
+			v2 = classes[parent_class(prop.type)]
+			if v2 then
+				v = v2
+			end
 		end
-		if v and v.enums and v.enums[basename(prop.type)] then
+		if v and v.enums and ( v.enums[basename(prop.type)] or v.enums[prop.type] ) then
 			return ".toInteger()"
 		end
 	end
@@ -216,7 +238,9 @@ for __, filename in ipairs(arg) do
 		local level = 0
 		local curr_class = ""
 		local curr_exported_class = ""
+		local template_class = false
 		local constructor_params = {}
+		local constructor_params_agnostic = {}
 		local properties = {}
 		local members = {}
 		local statics = {}
@@ -264,7 +288,10 @@ for __, filename in ipairs(arg) do
 			return final
 		end
 
-		function build_args( params, has_self )
+		function build_args( params, has_self, with_casting )
+			if with_casting == nil then
+				with_casting = true
+			end
 			local iarg = ( has_self and 2 or 1 )
 			local final = {}
 			local upvalues = {}
@@ -288,8 +315,10 @@ for __, filename in ipairs(arg) do
 						end
 						table.insert( upvalues, "LuaValue argval" .. iarg .. " = Lua::value(L, " .. iarg .. ");" );
 						table.insert( final, "[L,argval" .. iarg .. "](" .. table.concat(subargs, ", ") .. "){ argval" .. iarg .. "(" .. table.concat(subcallargs, ", ") .. "); }" )
-					else
+					elseif with_casting then
 						table.insert( final, "(" .. param.type .. ")Lua::value(L, " .. iarg .. ")" .. cast_suffix(param, { enums = enums }) )
+					else
+						table.insert( final, "Lua::value(L, " .. iarg .. ")" .. cast_suffix(param, { enums = enums }) )
 					end
 				end
 				iarg = iarg + 1
@@ -357,6 +386,24 @@ for __, filename in ipairs(arg) do
 			return last
 		end
 
+		local insert_class = function( dest )
+			dest[curr_class] = dest[curr_class] or {
+				name = curr_class,
+				exposed = ( curr_exported_class ~= nil and #curr_exported_class > 0 ),
+				template_class = template_class,
+				properties = properties,
+				members = members,
+				statics = statics,
+				included = included,
+				parent_classes = parent_classes,
+				constructor_params = constructor_params,
+				constructor_params_agnostic = constructor_params_agnostic,
+				has_destructor = has_destructor,
+				enums = enums,
+				subclasses = subclasses
+			}
+		end
+
 		local i = 1
 		while i <= #tokens do
 			local token = tokens[i]
@@ -365,25 +412,16 @@ for __, filename in ipairs(arg) do
 -- 				level = level + 1
 			elseif token:sub( 1, 1 ) == "}" and tokens[i+1] == ";" and curr_class ~= "" then
 				if level >= 1 then
-					io.stderr:write("END OF " .. curr_class .. "(level : " .. level .. ")" .. "\n")
+					log("END OF " .. curr_class .. "(level : " .. level .. ")" .. "\n")
+					log("    curr_exported_class : " .. curr_exported_class .. "\n")
 					all_classes[curr_class] = true
 					local dest = ( level > 1 and stack[#stack].subclasses or classes )
-					dest[curr_class] = dest[curr_class] or {
-						exposed = ( curr_exported_class ~= nil and #curr_exported_class > 0 ),
-						properties = properties,
-						members = members,
-						statics = statics,
-						included = included,
-						parent_classes = parent_classes,
-						constructor_params = constructor_params,
-						has_destructor = has_destructor,
-						enums = enums,
-						subclasses = subclasses
-					}
+					insert_class( dest )
 
 					if level > 1 then
 						curr_class = stack[#stack].curr_class
 						curr_exported_class = stack[#stack].curr_exported_class
+						template_class = stack[#stack].template_class
 						properties = stack[#stack].properties
 						members = stack[#stack].members
 						statics = stack[#stack].statics
@@ -391,12 +429,14 @@ for __, filename in ipairs(arg) do
 						has_destructor = stack[#stack].has_destructor
 						included = stack[#stack].included
 						constructor_params = stack[#stack].constructor_params
+						constructor_params_agnostic = stack[#stack].constructor_params_agnostic
 						subclasses = stack[#stack].subclasses
 						enums = stack[#stack].enums
 						table.remove( stack, #stack )
 					else
 						curr_class = ""
 						curr_exported_class = ""
+						template_class = false
 						properties = {}
 						members = {}
 						statics = {}
@@ -404,6 +444,7 @@ for __, filename in ipairs(arg) do
 						has_destructor = false
 						included = false
 						constructor_params = {}
+						constructor_params_agnostic = {}
 						enums = {}
 						subclasses = {}
 					end
@@ -411,17 +452,52 @@ for __, filename in ipairs(arg) do
 				level = level - 1
 			end
 
+			local is_lua_class = function( toks, i )
+				-- Forward declaration, possible LUA class
+				if toks[i] == "class" and toks[i + 2] ~= ";" then
+					return true, toks[i + 1]
+				end
+				-- Not a LUA class
+				if toks[i] ~= "LUA_CLASS" then
+					return false
+				end
+				if toks[i + 1] == "typedef" then
+					local parent = toks[i + 2]
+					if parent:find("<") then
+						parent = parent:match("(.*)<")
+					end
+					return true, toks[i + 3], false, parent
+				end
+				local is_template = toks[i + 1]:sub(1, 8) == "template"
+				-- Advance to the class name
+				while i <= #toks and toks[i] ~= "{" and toks[i] ~= ":" do
+					if toks[i] == ";" then
+						return false
+					end
+					i = i + 1
+				end
+				-- "class" token should be followed by a name
+				return toks[i - 2] == "class", toks[i - 1], is_template
+			end
+
+			local tok_is_lua_class, tok_classname, is_template, template_typedef = is_lua_class(tokens, i)
+			tok_classname = tok_classname or "<unknown>"
+
 		-- 	print(token)
 			if token == "#define" then
 				local_definitions[tokens[i + 1]] = tokens[i + 2]
-			elseif (token == "LUA_CLASS" and tokens[i + 1] == "class") or (token == "class" and tokens[i + 2] ~= ";") then
+			elseif tok_is_lua_class then
+				log("ON LUA CLASS " .. tok_classname .. "\n")
 				local isExposed = (token == "LUA_CLASS")
+				log("  isExposed : " .. (isExposed and "true" or "false") .. "\n")
 				if level > 0 then
 					table.insert( stack, {
 						level = level,
 						curr_class = curr_class,
 						curr_exported_class = curr_exported_class,
+						template_class = template_class,
 						constructor_params = constructor_params,
+						constructor_params_agnostic = constructor_params_agnostic,
 						properties = properties,
 						members = members,
 						statics = statics,
@@ -431,8 +507,9 @@ for __, filename in ipairs(arg) do
 						enums = enums,
 						subclasses = subclasses or {}
 					})
-					curr_class = curr_class .. "::" .. tokens[i + (isExposed and 2 or 1)]
+					curr_class = curr_class .. "::" .. tok_classname
 					curr_exported_class = (isExposed and curr_class or "" )
+					template_class = is_template
 					properties = {}
 					members = {}
 					statics = {}
@@ -440,11 +517,13 @@ for __, filename in ipairs(arg) do
 					has_destructor = false
 					included = false
 					constructor_params = {}
+					constructor_params_agnostic = {}
 					enums = {}
 					subclasses = {}
 				else
-					curr_class = tokens[i + (isExposed and 2 or 1)]
+					curr_class = tok_classname
 					curr_exported_class = (isExposed and curr_class or "" )
+					template_class = is_template
 				end
 				if not included and isExposed then
 					table.insert( includes, "#include \"" .. filename .. "\"" )
@@ -465,19 +544,61 @@ for __, filename in ipairs(arg) do
 						table.insert( parent_classes, parent )
 					end
 				end
+				if template_typedef ~= nil then
+					table.insert( parent_classes, template_typedef )
+					all_classes[curr_class] = true
+					local dest = ( level > 1 and stack[#stack].subclasses or classes )
+					-- local template_parent = ( level > 1 and stack[#stack].subclasses or classes )[template_typedef]
+					local template_parent = classes[template_typedef]
+					log("  → template_parent = " .. template_parent.name .. "\n")
+					log("  → template_parent = " .. #template_parent.constructor_params_agnostic.. "\n")
+					constructor_params = template_parent.constructor_params_agnostic
+					insert_class( dest )
+					i = i - 1
+				end
+			elseif token == "namespace" then
+				is_block = true
+				while i <= #tokens and tokens[i] ~= "{" do
+					if tokens[i] == ";" then
+						is_block = false
+						break
+					end
+					i = i + 1
+				end
+				if is_block then
+					while i <= #tokens and tokens[i] ~= "}" do
+						i = i + 1
+					end
+				end
 			elseif token == "class" then
-				io.stderr:write("ON NON-LUA CLASS " .. tokens[i+1] .. "\n")
+				log("ON NON-LUA CLASS " .. tokens[i+1] .. "\n")
 				curr_class = tokens[i + 1]
 			elseif token == "typedef" and tokens[i + 1] == "enum" then
-				io.stderr:write("ON ENUM  ")
+				log("ON ENUM  ")
 				while i <= #tokens and tokens[i] ~= "}" do
 					i = i + 1
 				end
 				enums[tokens[i + 1]] = true
-				io.stderr:write(tokens[i + 1] .. " = true\n")
+				log(tokens[i + 1] .. " = true\n")
+			elseif token == basename(curr_class) and tokens[i - 1] ~= "class" and tokens[i+1] == "(" then
+				log("ON CONSTRUCTOR " .. curr_class .. "\n")
+				-- i = i + 1
+				local line = {}
+				local varname = nil
+				while i <= #tokens and tokens[i] ~= ";" and tokens[i] ~= ":" and tokens[i] ~= "{" do
+					table.insert( line, tokens[i] )
+					i = i + 1
+				end
+				line = table.concat(line, " ")
+				log("  → " .. line .. "\n")
+				local func, func_type, params, modifiers = parse_member(line)
+				log("  → constructor = " .. (func or "") .. "\n")
+				-- constructor_params = build_args( params, true, true )
+				constructor_params_agnostic = build_args( params, true, false )
+				log("  → constructor_params_agnostic = " .. table.concat( constructor_params_agnostic, ", " ) .. "\n")
 			elseif token == "LUA_EXPORT" then
 				if tokens[i + 1] == "typedef" and tokens[i + 2] == "enum" then
-					io.stderr:write("ON ENUM  ")
+					log("ON ENUM  ")
 					local enum_string = {}
 					while i <= #tokens and tokens[i] ~= "}" do
 						table.insert( enum_string, tokens[i] )
@@ -491,17 +612,27 @@ for __, filename in ipairs(arg) do
 					local prev = 0
 					local subG = {}
 					for k, v in pairs(local_definitions) do
-						local caps = ( type(v) == "string" and "'" or "" )
+						local caps = ""
+						if type(v) == "string" then
+							if v:sub(1, 1) >= "0" and v:sub(1, 1) <= "9" then
+								caps = ""
+								if v:sub(2, 2) == "b" then
+									v = "" .. tonumber(v:sub(3), 2)
+								end
+							else
+								caps = "'"
+							end
+						end
 						table.insert( subG, "_G['" .. k .. "'] = " .. caps .. v .. caps )
 					end
 					for i, line in ipairs(lines) do
 						if not line:find("{") and not line:find("}") then
-							io.stderr:write("    " .. line .. "\n")
+							log("    " .. line .. "\n")
 							local name, value = line:match("^%s*([a-zA-Z0-9_]*)%s*=*%s*(.*)")
-							io.stderr:write("    " .. (name or "" ) .. " = \"" .. (value or "" ) .. "\"\n")
+							log("    " .. (name or "" ) .. " = \"" .. (value or "" ) .. "\"\n")
 							local f, err = load(table.concat(subG, ";") .."; return " .. value)
 							value = f()
-							io.stderr:write("    → " .. (name or "" ) .. " = " .. (value or "" ) .. "\n")
+							log("    → " .. (name or "" ) .. " = " .. (value or "" ) .. "\n")
 							if value == nil or ( type(value) == "string" and #value == 0 ) then
 								value = prev
 							end
@@ -510,19 +641,28 @@ for __, filename in ipairs(arg) do
 						end
 					end
 					enums[tokens[i + 1]] = enum
-					io.stderr:write(tokens[i + 1] .. " = true\n")
+					log(tokens[i + 1] .. " = true\n")
 -- 					os.exit()
 				else
 					i = i + 1
 					local line = {}
-					while i <= #tokens and tokens[i] ~= ";" do
+					local varname = nil
+					while i <= #tokens and tokens[i] ~= ";" and tokens[i] ~= ":" and tokens[i] ~= "{" do
 						table.insert( line, tokens[i] )
 						i = i + 1
 					end
+					i = i - 1
 					line = table.concat(line, " ")
+					if line:sub(1, 1) == "(" then
+						varname, line = line:match("%(%s*\"(.-)\"%s*%)%s*(.+)")
+					end
+					log("  → " .. line .. "\n")
 					local func, func_type, params, modifiers = parse_member(line)
+					log("  → func = " .. (func or "") .. "\n")
 					if func == basename(curr_class) then
+						log("  → constructor\n")
 						constructor_params = build_args( params, true )
+						constructor_params_agnostic = build_args( params, true, false )
 						if #constructor_params > 0 then
 	-- 						constructor_params = ", " .. constructor_params
 						end
@@ -567,7 +707,7 @@ for __, filename in ipairs(arg) do
 					end
 				end
 			elseif token == "LUA_PROPERTY" and curr_class and #curr_class > 0 then
-				io.stderr:write("ON LUA_PROPERTY with " .. curr_class .. "\n")
+				log("ON LUA_PROPERTY with " .. curr_class .. "\n")
 				i = i + 1
 				local line = {}
 				while tokens[i] ~= ";" do
@@ -575,22 +715,22 @@ for __, filename in ipairs(arg) do
 					i = i + 1
 				end
 				line = table.concat(line, " ")
-				io.stderr:write("LINE : " .. line .. "\n")
+				log("LINE : " .. line .. "\n")
 				local luaname, type, name = "", "", ""
-						io.stderr:write("LLL\n")
-						io.stderr:write(line)
-						io.stderr:write("\n")
+						log("LLL\n")
+						log(line)
+						log("\n")
 				local prop_matcher = "%(%s*\"([a-zA-Z0-9_%.]+)\"%s*,*%s*\"*([a-zA-Z0-9_%s%%,]*)\"*%s*%)"
 				if line:match(prop_matcher .. "%s+([virtual]*%s*void%s*[^%*])") then
-					io.stderr:write("\t→ mode 1\n")
+					log("\t→ mode 1\n")
 					luaname, explicit_args, funcname, params = line:gmatch(prop_matcher .. "%s+[virtual]*%s*void%s+([a-zA-Z0-9_]+)%s*%((.*)%)")()
-					io.stderr:write("\t→ " .. luaname .. "\n")
-					io.stderr:write("\t→ " .. explicit_args .. "\n")
-					io.stderr:write("\t→ " .. funcname .. "\n")
+					log("\t→ " .. luaname .. "\n")
+					log("\t→ " .. explicit_args .. "\n")
+					log("\t→ " .. funcname .. "\n")
 					local start = math.min(line:find("static") or 999999, line:find("virtual") or 999999, line:find("void") or 999999)
 					local _, _, params = parse_member(line:sub(start))
 					type = params[1].type:gsub("&", "")
-					io.stderr:write("\t→ " .. type .. "\n")
+					log("\t→ " .. type .. "\n")
 					local tables = {}
 					for t in luaname:gmatch("([^%.]+)") do
 						table.insert( tables, t )
@@ -605,7 +745,7 @@ for __, filename in ipairs(arg) do
 -- 						os.exit()
 					end
 				elseif line:match(prop_matcher .. "%s+[a-zA-Z0-9_%*<>:%s]+%s+[a-zA-Z0-9_]+%s*%(%s*[void]*%)") or line:match("%(%s*%)%s+[a-zA-Z0-9_%*<>:%s]+%s+[a-zA-Z0-9_]+%s*%(%s*[void]*%)") then
-					io.stderr:write("\t→ mode 2\n")
+					log("\t→ mode 2\n")
 					luaname, explicit_args, type, funcname = line:gmatch("%(%s*\"*([a-zA-Z0-9_%.]*)\"*%s*,*%s*\"*([a-zA-Z0-9_%s%%,]*)\"*%s*%)%s+([a-zA-Z0-9_%*<>:%s]+)%s+([a-zA-Z0-9_]+)%s*%(%s*[void]*%)")()
 					if luaname == nil or #luaname == 0 then
 						luaname = funcname
@@ -619,14 +759,14 @@ for __, filename in ipairs(arg) do
 						parent[tables[i]] = parent[tables[i]] or {}
 						parent = parent[tables[i]]
 					end
-					io.stderr:write("\t→ " .. luaname .. "\n")
+					log("\t→ " .. luaname .. "\n")
 					table.insert( parent, { __isprop = true, __isgetter = true, luaname = tables[#tables], type = type, funcname = funcname, name = name, classname = curr_class } )
 				else
-					io.stderr:write("\t→ mode 3\n")
+					log("\t→ mode 3\n")
 					luaname, explicit_args, type, name = line:gmatch( prop_matcher .. "%s*([a-zA-Z0-9_,%*<>%(%):%s]+)%s+([a-zA-Z0-9_]+)%s*$" )()
-					io.stderr:write("\t→ " .. (luaname or "") .. "\n")
-					io.stderr:write("\t→ " .. (type or "") .. "\n")
-					io.stderr:write("\t→ " .. (name or "") .. "\n")
+					log("\t→ " .. (luaname or "") .. "\n")
+					log("\t→ " .. (type or "") .. "\n")
+					log("\t→ " .. (name or "") .. "\n")
 					table.insert( generated_templates, string.format( "struct %s_%s { typedef %s %s::*type; friend type get(%s_%s); };", namespace_string(curr_class), name, type, curr_class, namespace_string(curr_class), name ) )
 					table.insert( generated_templates, string.format( "template struct Rob<%s_%s, &%s::%s>;", namespace_string(curr_class), name, curr_class, name ) )
 					local tables = {}
@@ -638,7 +778,7 @@ for __, filename in ipairs(arg) do
 						parent[tables[i]] = parent[tables[i]] or {}
 						parent = parent[tables[i]]
 					end
-					io.stderr:write("\t→ " .. luaname .. "\n")
+					log("\t→ " .. luaname .. "\n")
 					table.insert( parent, { __isprop = true, luaname = tables[#tables], type = type, name = name, classname = curr_class } )
 				end
 			--[=[
@@ -698,16 +838,21 @@ end
 
 
 function output_class(classname, v, global)
-	io.stderr:write("[" .. (v.exposed and "1" or "0") .. "]" .. classname .. "\n")
+	log("[" .. (v.exposed and "1" or "0") .. "]" .. classname .. "\n")
 	if v.exposed then
+		if v.template_class then
+			log("Warning : template class " .. classname .. " is not supported\n")
+			log("agnostic params : " .. table.concat( v.constructor_params_agnostic, ", " ) .. "\n")
+			return
+		end
 		for _, parent in ipairs(v.parent_classes) do
-			io.stderr:write("parent '" .. parent .. "'\n")
+			log("parent '" .. parent .. "'\n")
 			if classes[parent] then
 				local concat_properties = nil
 				local concat_properties2 = function(dest, src)
 					for k, v in pairs(src) do
 						if v.__isprop then
-							io.stderr:write( "  → " .. v.luaname .. "\n" );
+							log( "  → " .. v.luaname .. "\n" );
 							table.insert( dest, v )
 						else
 							concat_properties( dest[k], v )
@@ -728,11 +873,11 @@ function output_class(classname, v, global)
 	lua_setmetatable( L, -2 );
 
 	lua_pushcclosure( L, []( lua_State* L ) {
-		%s* pObject = reinterpret_cast<%s*>( lua_newuserdata( L, sizeof(%s) ) );
+		%s* pObject = reinterpret_cast<%s*>( lua_newuserdata( L, %s ) );
 //		lua_pushvalue( L, -1 );
 //		int ref = luaL_ref( L, LUA_REGISTRYINDEX );
 
-		lua_createtable( L, 0, 0 );]], classname, classname, classname, classname ))
+		lua_createtable( L, 0, 0 );]], classname, classname, classname, v.template_class and ("_lua_" .. classname .. "_size(" .. table.concat( v.constructor_params_agnostic, ", " ) .. ")") or ("sizeof(" .. classname .. ")") ))
 				table.insert( v.statics, "\textend( L );" )
 
 		out( "\t\t\tlua_createtable( L, 0, 0 );" )
@@ -880,7 +1025,11 @@ function output_class(classname, v, global)
 		out( "\t\tlua_setmetatable( L, -2 );" )
 		out( "" )
 		out( "\t\tint top = lua_gettop( L );" )
-		out( string.format( "\t\tnew (pObject) %s( %s );", classname, table.concat( v.constructor_params, ", " ) ) )
+		if v.template_class then
+			out( string.format( "\t\t_lua_%s_instanciate( %s );", classname, table.concat( v.constructor_params_agnostic, ", " ) ) )
+		else
+			out( string.format( "\t\tnew (pObject) %s( %s );", classname, table.concat( v.constructor_params, ", " ) ) )
+		end
 		out( "\t\tlua_getfield( L, 1, \"init\" );" )
 		out( "\t\tif ( not lua_isnil( L, -1 ) ) {" )
 		out( "\t\t\tlua_pushvalue( L, -2 );" )

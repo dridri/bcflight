@@ -14,12 +14,7 @@
 #include <pthread.h>
 #include <cxxabi.h>
 #include <chrono>
-
-#ifdef TARGET_OS_IPHONE
-	#define _Debug_Color( color ) ""
-#else
-	#define _Debug_Color( color ) color
-#endif
+#include <map>
 
 class Debug
 {
@@ -28,7 +23,8 @@ public:
 		Error = 0,
 		Warning,
 		Info,
-		Verbose
+		Verbose,
+		Trace
 	} Level;
 	Debug( Level level = Verbose, bool nobreak = false ) : mLevel( level ), mNoBreak( nobreak ) {
 	}
@@ -54,19 +50,19 @@ public:
 		if ( mLevel <= mDebugLevel ) {
 			char* type = abi::__cxa_demangle(typeid(t).name(), nullptr, nullptr, nullptr);
 			char cap = 0;
-			std::string color = _Debug_Color("\x1B[0m");
+			std::string color = Debug::colored("\x1B[0m");
 			if ( strstr( type, "basic_string" ) ) {
 				cap = '\"';
-				color = _Debug_Color("\x1B[31m");
+				color = Debug::colored("\x1B[31m");
 			} else if ( !strcmp( type, "char" ) ) {
 				cap = '\'';
-				color = _Debug_Color("\x1B[31m");
+				color = Debug::colored("\x1B[31m");
 			}
 
 			std::stringstream arg_ss;
 			arg_ss << t;
 			if ( arg_ss.str()[0] >= '0' && arg_ss.str()[0] <= '9' ) {
-				color = _Debug_Color("\x1B[36m");
+				color = Debug::colored("\x1B[36m");
 			}
 
 			std::stringstream ss;
@@ -74,17 +70,22 @@ public:
 			if ( cap ) ss << cap;
 			ss << arg_ss.str();
 			if ( cap ) ss << cap;
-			ss << _Debug_Color("\x1B[0m");
+			ss << Debug::colored("\x1B[0m");
 			mStream << ss.str();
 			free(type);
 		}
+		return *this;
+	}
+
+	Debug& operator<<(std::ostream& (*manip)(std::ostream&)) {
+		(*manip)(mStream);
 		return *this;
 	}
 /*
 	template<typename T> Debug& operator<<( uint32_t t )
 	{
 		if ( mLevel <= mDebugLevel ) {
-			mStream << _Debug_Color("\x1B[36m") << t << _Debug_Color("\x1B[0m");
+			mStream << Debug::colored("\x1B[36m") << t << Debug::colored("\x1B[0m");
 		}
 		return *this;
 	}
@@ -92,7 +93,7 @@ public:
 	template<typename T> Debug& operator<<( uint64_t t )
 	{
 		if ( mLevel <= mDebugLevel ) {
-			mStream << _Debug_Color("\x1B[36m") << t << _Debug_Color("\x1B[0m");
+			mStream << Debug::colored("\x1B[36m") << t << Debug::colored("\x1B[0m");
 		}
 		return *this;
 	}
@@ -100,7 +101,7 @@ public:
 	template<typename T> Debug& operator<<( const char t )
 	{
 		if ( mLevel <= mDebugLevel ) {
-			mStream << "'" << _Debug_Color("\x1B[31m") << t << _Debug_Color("\x1B[0m") << "'";
+			mStream << "'" << Debug::colored("\x1B[31m") << t << Debug::colored("\x1B[0m") << "'";
 		}
 		return *this;
 	}
@@ -108,7 +109,7 @@ public:
 	template<typename T> Debug& operator<<( const std::string& t )
 	{
 		if ( mLevel <= mDebugLevel ) {
-			mStream << "\"" << _Debug_Color("\x1B[31m") << t << _Debug_Color("\x1B[0m") << "\"";
+			mStream << "\"" << Debug::colored("\x1B[31m") << t << Debug::colored("\x1B[0m") << "\"";
 		}
 		return *this;
 	}
@@ -116,20 +117,89 @@ public:
 	template<typename T> Debug& operator<<( const char* t )
 	{
 		if ( mLevel <= mDebugLevel ) {
-			mStream << "\"" << _Debug_Color("\x1B[31m") << t << _Debug_Color("\x1B[0m") << "\"";
+			mStream << "\"" << Debug::colored("\x1B[31m") << t << Debug::colored("\x1B[0m") << "\"";
 		}
 		return *this;
 	}
 */
-	template<typename... Args> void fDebug_top( const Args&... args );
-	template<typename... Args> void fDebug_top2( const char* end, const Args&... args );
+	#pragma GCC system_header // HACK Disable unused-function warnings
+	template<typename... Args> void fDebug_top( const Args&... args ) {
+		if ( sizeof...(args) == 0 ) {
+			operator+( ")" );
+		} else {
+			operator+( " " );
+			fDebug_base( ")", true, args... );
+		}
+	}
+
+	#pragma GCC system_header // HACK Disable unused-function warnings
+	template<typename... Args> void fDebug_top2( const char* end, const Args&... args ) {
+		if ( sizeof...(args) == 0 ) {
+			operator+( end );
+		} else {
+			operator+( " " );
+			fDebug_base( end, true, args... );
+		}
+	}
+
+	#pragma GCC system_header // HACK Disable unused-function warnings
+	void fDebug_base( const char* end, bool f ) {
+		*this << " " << end;
+	}
+
+	template<typename Arg1, typename... Args> void fDebug_base( const char* end, bool first, const Arg1& arg1, const Args&... args ) {
+		char* type = abi::__cxa_demangle(typeid(arg1).name(), nullptr, nullptr, nullptr);
+		char cap = 0;
+		std::string color = Debug::colored("\x1B[0m");
+		if ( strstr( type, "char" ) ) {
+			if ( strstr( type, "*" ) || ( strstr( type, "[" ) && strstr( type, "]" ) ) || strstr( type, "string" ) ) {
+				cap = '\"';
+				color = Debug::colored("\x1B[31m");
+			} else {
+				cap = '\'';
+				color = Debug::colored("\x1B[31m");
+			}
+		}
+		free(type);
+
+		std::stringstream arg_ss;
+		arg_ss << arg1;
+		std::string arg_ss_str = arg_ss.str();
+		if ( arg_ss_str.length() > 0 && arg_ss_str[0] >= '0' && arg_ss_str[0] <= '9' ) {
+			color = Debug::colored("\x1B[36m");
+		}
+
+		if (!first ) {
+			*this << ", ";
+		}
+		std::stringstream ss;
+		ss << color;
+		if ( cap ) ss << cap;
+		ss << arg_ss_str;
+		if ( cap ) ss << cap;
+		ss << Debug::colored("\x1B[0m");
+		*this + ss.str();
+		fDebug_base( end, false, args... );
+	}
+
+	static const char* colored( const char* c ) {
+	#ifdef TARGET_OS_IPHONE
+	#else
+		if ( mColors ) {
+			return c;
+		}
+	#endif
+		return "";
+	}
 
 	static void StoreLog( bool st = false ) { mStoreLog = st; }
 	static const std::string& DumpLog() { return mLog; }
 	static void setDebugLevel( Level lvl ) { mDebugLevel = lvl; }
 	static void setVerbose( bool en ) { if ( en ) mDebugLevel = Verbose; }
 	static void setLogFile( const std::string& filename ) { mLogFile = std::ofstream(filename); }
-	static bool verbose() { return ( mDebugLevel == Verbose ); }
+	static void setColors( bool enabled ) { mColors = enabled; }
+	static bool verbose() { return ( mDebugLevel >= Verbose ); }
+	static bool trace() { return ( mDebugLevel >= Trace ); }
 	static pthread_t mMainThread;
 
 
@@ -154,6 +224,7 @@ private:
 	static std::string mLog;
 	static std::mutex mLogMutex;
 	static std::ofstream mLogFile;
+	static bool mColors;
 	static Level mDebugLevel;
 	std::stringstream mStream;
 	Level mLevel;
@@ -172,7 +243,7 @@ static inline std::string _dbg_className(const std::string& prettyFunction)
 		return "<none>";
 	size_t begin = prettyFunction.substr(0,colons).rfind(" ") + 1;
 	size_t end = colons - begin;
-	return _Debug_Color("\x1B[32m") + prettyFunction.substr(begin,end) + _Debug_Color("\x1B[0m");
+	return Debug::colored("\x1B[32m") + prettyFunction.substr(begin,end) + Debug::colored("\x1B[0m");
 }
 // using namespace GE;
 
@@ -187,7 +258,7 @@ static std::string self_thread() {
 #ifdef HAVE_PTHREAD_GETNAME_NP
 	pthread_getname_np( thid, name, sizeof(name) );
 #endif
-	ret << _Debug_Color("\x1B[33m");
+	ret << Debug::colored("\x1B[33m");
 	if ( Debug::mMainThread == thid ) {
 		ret << "[MainThread] ";
 	} else if ( name[0] != 0 ) {
@@ -195,9 +266,11 @@ static std::string self_thread() {
 	} else {
 		ret << "[0x" << std::hex << thid << std::dec << "] ";
 	}
-	ret << _Debug_Color("\x1B[0m");
+	ret << Debug::colored("\x1B[0m");
 	return ret.str();
 }
+
+// #define _NUMARGS(...) std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value
 
 #pragma GCC system_header // HACK Disable unused-function warnings
 static std::string _debug_date() {
@@ -224,75 +297,34 @@ static std::string _debug_date() {
 
 #define __CLASS_NAME__ _dbg_className(__PRETTY_FUNCTION__)
 // #define __CLASS_NAME__ __PRETTY_FUNCTION__
-#define __FUNCTION_NAME__ ( std::string(_Debug_Color("\x1B[94m")) + __FUNCTION__ + _Debug_Color("\x1B[0m") )
+#define __FUNCTION_NAME__ ( std::string(Debug::colored("\x1B[94m")) + __FUNCTION__ + Debug::colored("\x1B[0m") )
 
-#pragma GCC system_header // HACK Disable unused-function warnings
-static void fDebug_base( Debug& dbg, const char* end, bool f ) {
-	dbg << " " << end;
+
+static std::string _debug_level( Debug::Level level ) {
+	const static std::map< Debug::Level, std::string > levels = {
+		{ Debug::Error, std::string(Debug::colored("\x1B[1;41m")) + "ERROR" + Debug::colored("\x1B[0m") },
+		{ Debug::Warning, std::string(Debug::colored("\x1B[1;41;93m")) + "WARNING" + Debug::colored("\x1B[0m") },
+		{ Debug::Info, std::string(Debug::colored("\x1B[1;42m")) + "INFO" + Debug::colored("\x1B[0m") },
+		{ Debug::Verbose, std::string(Debug::colored("\x1B[1;100m")) + "VERBOSE" + Debug::colored("\x1B[0m") },
+		{ Debug::Trace, std::string(Debug::colored("\x1B[1;100;32m")) + "TRACE" + Debug::colored("\x1B[0m") }
+	};
+	if ( not Debug::trace() and level == Debug::Verbose ) {
+		return "";
+	}
+	if ( not Debug::verbose() and level == Debug::Info ) {
+		return "";
+	}
+	return levels.at( level ) + " ";
 }
 
-template<typename Arg1, typename... Args> static void fDebug_base( Debug& dbg, const char* end, bool first, const Arg1& arg1, const Args&... args ) {
-	char* type = abi::__cxa_demangle(typeid(arg1).name(), nullptr, nullptr, nullptr);
-	char cap = 0;
-	std::string color = _Debug_Color("\x1B[0m");
-	if ( strstr( type, "char" ) ) {
-		if ( strstr( type, "*" ) || ( strstr( type, "[" ) && strstr( type, "]" ) ) || strstr( type, "string" ) ) {
-			cap = '\"';
-			color = _Debug_Color("\x1B[31m");
-		} else {
-			cap = '\'';
-			color = _Debug_Color("\x1B[31m");
-		}
-	}
-	free(type);
 
-	std::stringstream arg_ss;
-	arg_ss << arg1;
-	std::string arg_ss_str = arg_ss.str();
-	if ( arg_ss_str.length() > 0 && arg_ss_str[0] >= '0' && arg_ss_str[0] <= '9' ) {
-		color = _Debug_Color("\x1B[36m");
-	}
-
-	if (!first ) {
-		dbg << ", ";
-	}
-	std::stringstream ss;
-	ss << color;
-	if ( cap ) ss << cap;
-	ss << arg_ss_str;
-	if ( cap ) ss << cap;
-	ss << _Debug_Color("\x1B[0m");
-	dbg + ss.str();
-	fDebug_base( dbg, end, false, args... );
-}
-
-#define _NUMARGS(...) std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value
-
-#pragma GCC system_header // HACK Disable unused-function warnings
-template<typename... Args> void Debug::fDebug_top( const Args&... args ) {
-	if ( sizeof...(args) == 0 ) {
-		operator+( ")" );
-	} else {
-		operator+( " " );
-		fDebug_base( *this, ")", true, args... );
-	}
-}
-
-#pragma GCC system_header // HACK Disable unused-function warnings
-template<typename... Args> void Debug::fDebug_top2( const char* end, const Args&... args ) {
-	if ( sizeof...(args) == 0 ) {
-		operator+( end );
-	} else {
-		operator+( " " );
-		fDebug_base( *this, end, true, args... );
-	}
-}
-
-#define gDebug() Debug(Debug::Verbose) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gInfo() Debug(Debug::Info) + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gWarning() Debug(Debug::Warning) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41;93m") + "WARNING" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define gError() Debug(Debug::Error) + _debug_date() + self_thread() + _Debug_Color("\x1B[1;41m") + "ERROR" + _Debug_Color("\x1B[0m") + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
-#define fDebug( ... ) { Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
+#define gTrace() Debug(Debug::Trace) + _debug_date() + self_thread() + _debug_level(Debug::Trace) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gDebug() Debug(Debug::Verbose) + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gInfo() Debug(Debug::Info) + _debug_date() + self_thread() + _debug_level(Debug::Info) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gWarning() Debug(Debug::Warning) + _debug_date() + self_thread() + _debug_level(Debug::Warning) + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define gError() Debug(Debug::Error) + _debug_date() + self_thread() + _debug_level(Debug::Error) + " " + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "() "
+#define fTrace( ... ) { Debug dbg(Debug::Trace);dbg + _debug_date() + self_thread() + _debug_level(Debug::Trace) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
+#define fDebug( ... ) { Debug dbg;dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top( __VA_ARGS__ ); }
 #define aDebug( name, ... ) { Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + " = { "; dbg.fDebug_top2( "}", __VA_ARGS__ ); }
 #define vDebug( name, ... ) Debug dbg;dbg + _debug_date() + self_thread() + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + " " + name + "{ "; dbg.fDebug_top2( "} ", __VA_ARGS__ ); dbg + ""
 

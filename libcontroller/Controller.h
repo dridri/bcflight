@@ -110,6 +110,10 @@ public:
 	void getCameraLensShader( CameraLensShaderColor* r, CameraLensShaderColor* g, CameraLensShaderColor* b );
 	void setCameraLensShader( const CameraLensShaderColor& r, const CameraLensShaderColor& g, const CameraLensShaderColor& b );
 
+	void VTXGetSettings();
+	void VTXSetPower( uint8_t power );
+	void VTXSetChannel( uint8_t channel );
+
 	DECL_RO_VAR( uint32_t, Ping, ping );
 	DECL_RO_VAR( bool, Calibrated, calibrated );
 	DECL_RO_VAR( bool, Calibrating, calibrating );
@@ -136,10 +140,16 @@ public:
 	DECL_RW_VAR( bool, NightMode, nightMode );
 	DECL_RO_VAR( uint32_t, StabilizerFrequency, stabilizerFrequency );
 	DECL_RO_VAR( vector<float>, MotorsSpeed, motorsSpeed );
+	DECL_RO_VAR( int32_t, VTXChannel, vtxChannel );
+	DECL_RO_VAR( int32_t, VTXFrequency, vtxFrequency );
+	DECL_RO_VAR( int32_t, VTXPower, vtxPower );
+	DECL_RO_VAR( int32_t, VTXPowerDbm, vtxPowerDbm );
+	DECL_RO_VAR( vector<int32_t>, VTXPowerTable, vtxPowerTable );
 
 	DECL_RO_VAR( string, Username, username );
 
-	void MotorTest(uint32_t id);
+	void MotorTest( uint32_t id );
+	void MotorsBeep( bool enabled );
 	
 	// Errors
 	DECL_RO_VAR( bool, CameraMissing, cameraMissing );
@@ -148,16 +158,18 @@ public:
 	list< vec4 > rpyHistory();
 	list< vec4 > ratesHistory();
 	list< vec4 > ratesDerivativeHistory();
+	list< vec4 > gyroscopeHistory();
 	list< vec4 > accelerationHistory();
 	list< vec4 > magnetometerHistory();
 	list< vec3 > outerPidHistory();
 	list< vec2 > altitudeHistory();
+	list< vec4 > dnfDftHistory();
 
 	float localBatteryVoltage() const;
-	virtual uint16_t rawThrust() { return 0; }
-	virtual uint16_t rawYaw() { return 0; }
-	virtual uint16_t rawRoll() { return 0; }
-	virtual uint16_t rawPitch() { return 0; }
+	virtual uint16_t rawThrust( float dt ) { return 0; }
+	virtual uint16_t rawYaw( float dt ) { return 0; }
+	virtual uint16_t rawRoll( float dt ) { return 0; }
+	virtual uint16_t rawPitch( float dt ) { return 0; }
 	virtual void SaveThrustCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
 	virtual void SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
 	virtual void SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max ) {}
@@ -165,16 +177,18 @@ public:
 	virtual bool SimulatorMode( bool enabled ) { return false; }
 
 protected:
-	virtual float ReadThrust() { return 0.0f; }
-	virtual float ReadRoll() { return 0.0f; }
-	virtual float ReadPitch() { return 0.0f; }
-	virtual float ReadYaw() { return 0.0f; }
+	virtual float ReadThrust( float dt ) { return 0.0f; }
+	virtual float ReadRoll( float dt ) { return 0.0f; }
+	virtual float ReadPitch( float dt ) { return 0.0f; }
+	virtual float ReadYaw( float dt ) { return 0.0f; }
 	virtual int8_t ReadSwitch( uint32_t id ) { return 0; }
 	virtual bool run();
 	bool RxRun();
 	uint32_t crc32( const uint8_t* buf, uint32_t len );
 
 	uint32_t mUpdateFrequency;
+
+	bool mDroneConnected;
 	bool mSpectate;
 	Packet mTxFrame;
 	mutex mXferMutex;
@@ -182,6 +196,7 @@ protected:
 	uint32_t mUpdateTick;
 	uint64_t mUpdateCounter;
 	uint64_t mPingTimer;
+	uint64_t mTelemetryTimer;
 	uint64_t mDataTimer;
 	uint64_t mMsCounter;
 	uint64_t mMsCounter50;
@@ -213,10 +228,12 @@ protected:
 	list< vec4 > mRPYHistory;
 	list< vec4 > mRatesHistory;
 	list< vec4 > mRatesDerivativeHistory;
+	list< vec4 > mGyroscopeHistory;
 	list< vec4 > mAccelerationHistory;
 	list< vec4 > mMagnetometerHistory;
 	list< vec3 > mOuterPIDHistory;
 	list< vec2 > mAltitudeHistory;
+	list< vec4 > mDnfDft;
 	mutex mHistoryMutex;
 
 	float mLocalBatteryVoltage;

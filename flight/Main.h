@@ -31,7 +31,6 @@ using namespace STD;
 
 class Config;
 class Console;
-class Slave;
 class IMU;
 class Stabilizer;
 class Frame;
@@ -88,8 +87,6 @@ private:
 	Config* mConfig;
 	Console* mConsole;
 	Board* mBoard;
-	Slave* mSlave;
-	vector< Slave* > mSlaves;
 	PowerThread* mPowerThread;
 	BlackBox* mBlackBox;
 	IMU* mIMU;

@@ -7,8 +7,8 @@
 #include <asm/termios.h>
 #include <map>
 #include "Debug.h"
+#include <poll.h>
 
-//#include <pigpio.h>
 
 extern "C" int ioctl (int __fd, unsigned long int __request, ...) __THROW;
 
@@ -47,81 +47,66 @@ static map< int, int > sSpeeds = {
 };
 
 
-Serial::Serial( const string& device, int speed )
+Serial::Serial( const string& device, int speed, int read_timeout )
 	: Bus()
 	, mFD( -1 )
+	, mOptions( nullptr )
 	, mDevice( device )
 	, mSpeed( speed )
+	, mReadTimeout( read_timeout )
 {
 }
 
 
 Serial::~Serial()
 {
+	delete mOptions;
 }
 
 
 int Serial::Connect()
 {
-	mFD = open( mDevice.c_str(), O_RDWR | O_NOCTTY/* | O_NDELAY*/ );
+
+	mFD = open( mDevice.c_str(), O_RDWR | O_NOCTTY );
 	if ( mFD < 0 ) {
-		gDebug() << "Err0 : " << strerror(errno);
+		gError() << "Err0 : " << strerror(errno);
 		return -1;
 	}
-/*
-	int speed_macro = B0;
-	for ( auto it = sSpeeds.begin(); it != sSpeeds.end(); it++ ) {
-		if ( speed >= (*it).first && speed < (*std::next(it, 1)).first ) {
-			speed_macro = (*it).second;
-			break;
-		}
-	}
 
-	struct termios options;
-	tcgetattr( mFD, &options );
-	options.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;
-	tcflush( mFD, TCIFLUSH );
-	tcsetattr( mFD, TCSANOW, &options );
-*/
+	mOptions = new struct termios2;
+	ioctl( mFD, TCGETS2, mOptions );
 
-	struct termios2 options;
+	// Set stop bits to 1
+	mOptions->c_cflag &= ~CSTOPB;
 
-	ioctl( mFD, TCGETS2, &options );
-	
-    options.c_cflag |= PARENB;
-    options.c_cflag |= CSTOPB;
-    options.c_cflag |= CS8;
-    options.c_cflag &= ~CRTSCTS;
-    options.c_cflag |= CREAD | CLOCAL;
+	// Set parity options
+	mOptions->c_cflag &= ~PARENB; // Disable parity
+	mOptions->c_cflag &= ~PARODD; // Even parity
 
-    options.c_lflag &= ~ICANON;
-    options.c_lflag &= ~ECHO;
-    options.c_lflag &= ~ECHOE;
-    options.c_lflag &= ~ECHONL;
-    options.c_lflag &= ~ISIG;
+	mOptions->c_cflag |= CRTSCTS;
 
-    options.c_iflag &= ~(IXON | IXOFF | IXANY);
-    options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+	// Set data bits
+	mOptions->c_cflag &= ~CSIZE;
+	mOptions->c_cflag |= CS8; // 8 data bits
 
-    options.c_oflag &= ~OPOST;
-    options.c_oflag &= ~ONLCR;
 
-    options.c_cc[VTIME] = 0;
-    options.c_cc[VMIN] = 25;
+	// Enable binary mode
+	mOptions->c_iflag = 0;
+	mOptions->c_oflag &= ~OPOST;
+	mOptions->c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+	mOptions->c_cc[VMIN] = 6;
+	mOptions->c_cc[VTIME] = 0;
 
-    options.c_cflag &= ~CBAUD;
-    options.c_cflag |= BOTHER;
 
-// 	options.c_cflag &= ~CBAUD & ~CRTSCTS;
-// 	options.c_cflag |= BOTHER | CSTOPB | CS8 | PARENB;
-	options.c_ispeed = mSpeed;
-	options.c_ospeed = mSpeed;
-	int ret = ioctl( mFD, TCSETS2, &options );
+	mOptions->c_cflag &= ~CBAUD;
+	mOptions->c_cflag |= BOTHER;
+
+	mOptions->c_ispeed = mSpeed;
+	mOptions->c_ospeed = mSpeed;
+
+	int ret = ioctl( mFD, TCSETS2, mOptions );
 	if ( ret < 0 ) {
-		gDebug() << "Err1 : " << errno << ", " << strerror(errno);
+		gError() << "Err1 : " << errno << ", " << strerror(errno);
 		return -1;
 	}
 
@@ -135,6 +120,28 @@ std::string Serial::toString()
 }
 
 
+void Serial::setStopBits( uint8_t count )
+{
+	if ( not mOptions ) {
+		return;
+	}
+
+	ioctl( mFD, TCGETS2, mOptions );
+
+	if ( count == 2 ) {
+		mOptions->c_cflag |= CSTOPB;
+	} else if ( count == 1 ) {
+		mOptions->c_cflag &= ~CSTOPB;
+	} else {
+		gWarning() << "Unhandled stop bits count (" << count << ")";
+	}
+
+	int ret = ioctl( mFD, TCSETS2, mOptions );
+	if ( ret < 0 ) {
+		gError() << "Err1 : " << errno << ", " << strerror(errno);
+	}
+}
+
 
 int Serial::Read( uint8_t reg, void* buf, uint32_t len )
 {
@@ -144,6 +151,16 @@ int Serial::Read( uint8_t reg, void* buf, uint32_t len )
 
 int Serial::Read( void* buf, uint32_t len )
 {
+	if ( mReadTimeout > 0 ) {
+		struct pollfd pfd[1];
+		pfd[0].fd = mFD;
+		pfd[0].events = POLLIN;
+		int ret = poll( pfd, 1, mReadTimeout );
+		if ( ret <= 0 ) {
+			return ret;
+		}
+	}
+
 	int ret = read( mFD, buf, len );
 	if ( ret < 0 && errno != EAGAIN ) {
 		gDebug() << errno << ", " << strerror(errno);
@@ -154,7 +171,11 @@ int Serial::Read( void* buf, uint32_t len )
 
 int Serial::Write( const void* buf, uint32_t len )
 {
-	return 0;
+	int ret = write( mFD, buf, len );
+	if ( ret < 0 ) {
+		gDebug() << errno << ", " << strerror(errno);
+	}
+	return ret;
 }
 
 

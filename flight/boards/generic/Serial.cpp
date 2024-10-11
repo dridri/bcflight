@@ -60,9 +60,21 @@ Serial::~Serial()
 }
 
 
+int Serial::Connect()
+{
+	return 0;
+}
+
+
 std::string Serial::toString()
 {
 	return mDevice;
+}
+
+
+void Serial::setStopBits( uint8_t count )
+{
+	(void)count;
 }
 
 

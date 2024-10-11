@@ -47,16 +47,19 @@ SBUS::~SBUS()
 
 int SBUS::retriesCount() const
 {
+	return 0;
 }
 
 
 int32_t SBUS::RxLevel()
 {
+	return 0;
 }
 
 
 int32_t SBUS::RxQuality()
 {
+	return 0;
 }
 
 
@@ -69,11 +72,14 @@ int SBUS::Connect()
 
 int32_t SBUS::Channel()
 {
+	return 0;
 }
 
 
 int SBUS::setBlocking( bool blocking )
 {
+	(void)blocking;
+	return 0;
 }
 
 

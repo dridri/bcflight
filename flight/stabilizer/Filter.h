@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Vector.h>
+
 template<typename V> class Filter {
 public:
 	virtual ~Filter() {}

@@ -14,6 +14,7 @@ public:
 
 	virtual void Disarm();
 	virtual void Disable();
+	virtual void Beep( uint8_t beepMode = 0 );
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update );

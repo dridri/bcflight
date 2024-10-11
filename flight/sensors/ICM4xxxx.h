@@ -94,7 +94,13 @@ public:
 	LUA_PROPERTY() ICM4xxxxMag* magnetometer();
 	void InitChip();
 
+	LUA_PROPERTY("gyroscope_axis_swap") void setGyroscopeAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("accelerometer_axis_swap") void setAccelerometerAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("magnetometer_axis_swap") void setMagnetometerAxisSwap( const Vector4i& swap );
+
 protected:
+	uint8_t mWhoAmI;
+
 	ICM4xxxx( I2C* i2c );
 	uint8_t dmpInitialize();
 	uint8_t dmpGetAccel(int32_t* data, const uint8_t* packet);
@@ -159,6 +165,7 @@ protected:
 #define ICM_4xxxx_DEVICE_CONFIG			0x11
 #define ICM_4xxxx_DRIVE_CONFIG			0x13
 #define ICM_4xxxx_INTF_CONFIG0			0x4C
+#define ICM_4xxxx_INTF_CONFIG1			0x4D
 #define ICM_4xxxx_INTF_CONFIG6			0x7C
 #define ICM_4xxxx_INT_STATUS			0x2D
 #define ICM_4xxxx_PWR_MGMT0				0x4E
@@ -179,6 +186,21 @@ protected:
 #define ICM_4xxxx_TEMP_DATA1			0x1D
 #define ICM_4xxxx_GYRO_DATA_X1			0x25
 #define ICM_4xxxx_ACCEL_DATA_X1			0x1F
+
+#define ICM_4xxxx_BANK_SEL				0x76
+#define ICM_4xxxx_BANK_SELECT0			0x00
+#define ICM_4xxxx_BANK_SELECT1			0x01
+#define ICM_4xxxx_BANK_SELECT2			0x02
+#define ICM_4xxxx_BANK_SELECT3			0x03
+#define ICM_4xxxx_BANK_SELECT4			0x04
+
+#define ICM_4xxxx_GYRO_CONFIG_STATIC3	0x0C
+#define ICM_4xxxx_GYRO_CONFIG_STATIC4	0x0D
+#define ICM_4xxxx_GYRO_CONFIG_STATIC5	0x0E
+#define ICM_4xxxx_ACCEL_CONFIG_STATIC2	0x03
+#define ICM_4xxxx_ACCEL_CONFIG_STATIC3	0x04
+#define ICM_4xxxx_ACCEL_CONFIG_STATIC4	0x05
+
 
 
 #endif // ICM4xxxx_H

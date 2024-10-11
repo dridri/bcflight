@@ -84,11 +84,13 @@ public slots:
 	void VideoPause();
 	void VideoRecord();
 	void VideoTakePicture();
+	void VideoWhiteBalanceLock();
 	void SetNightMode( int state );
 	void RecordingsRefresh();
 	void setFirmwareUpdateProgress( int val );
 	void appendDebugOutput( const QString& str );
 	void MotorTest();
+	void MotorsBeep( bool enabled );
 
 signals:
 	void firmwareUpdateProgress( int val );
@@ -114,8 +116,11 @@ private:
 	Link* mStreamLink;
 	QTimer* mUpdateTimer;
 	FirmwareUpdateThread* mFirmwareUpdateThread;
-	QVBoxLayout *motorSpeedLayout = NULL;
+	QVBoxLayout *motorSpeedLayout;
 	QList<QProgressBar*> motorSpeedProgress;
+	bool mRatesPlot;
+	bool mDnfPlot;
+	bool mRatesPlotSpectrum;
 
 	QElapsedTimer mTicks;
 	QVector< double > mDataTrpy;

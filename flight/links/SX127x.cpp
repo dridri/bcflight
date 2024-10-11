@@ -17,6 +17,8 @@
 #define XTAL_FREQ 32000000
 #define FREQ_STEP 61.03515625f
 #define PACKET_SIZE 32
+// #define MAX_BLOCK_ID 256
+#define MAX_BLOCK_ID 128
 
 // TODO : LoRa see https://github.com/chandrawi/LoRaRF-Python/blob/main/LoRaRF/SX127x.py
 
@@ -205,7 +207,7 @@ void SX127x::init()
 
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
-	mSPI = new SPI( mDevice, 2 * 1000 * 1000 ); // 7
+	mSPI = new SPI( mDevice, 5 * 1000 * 1000 ); // 7
 	mSPI->Connect();
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
@@ -232,7 +234,7 @@ void SX127x::init()
 			if ( mDiversityIrqPin < 0 ) {
 				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !";
 			} else {
-				mDiversitySpi = new SPI( mDiversityDevice, 2 * 1000 * 1000 ); // 7
+				mDiversitySpi = new SPI( mDiversityDevice, 5 * 1000 * 1000 ); // 7
 				mDiversitySpi->Connect();
 				GPIO::setMode( mDiversityResetPin, GPIO::Output );
 				GPIO::Write( mDiversityResetPin, false );
@@ -758,12 +760,12 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 		if ( timedout ) {
 			if ( mLedPin ) {
 				GPIO::Write( mLedPin, 1 );
-				if ( mDiversityLedPin ) {
+				if ( mDiversityLedPin >= 0 ) {
 					GPIO::Write( mDiversityLedPin, 1 );
 				}
 				usleep( 500 );
 				GPIO::Write( mLedPin, 0 );
-				if ( mDiversityLedPin ) {
+				if ( mDiversityLedPin >= 0 ) {
 					GPIO::Write( mDiversityLedPin, 0 );
 				}
 			}
@@ -786,6 +788,7 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 
 SyncReturn SX127x::Write( const void* data, uint32_t len, bool ack, int32_t timeout )
 {
+	fTrace( data, len, ack, timeout );
 // 	while ( mSending ) {
 // 		usleep( 10 );
 // 	}
@@ -795,18 +798,32 @@ SyncReturn SX127x::Write( const void* data, uint32_t len, bool ack, int32_t time
 	memset( buf, 0, sizeof(buf) );
 	Header* header = (Header*)buf;
 
-	header->block_id = ++mTXBlockID;
-	header->packets_count = (uint8_t)ceil( (float)len / (float)( 32 - sizeof(Header) ) );
+	mTXBlockID = ( mTXBlockID + 1 ) % MAX_BLOCK_ID;
+	header->block_id = mTXBlockID;
+
+	uint8_t packets_count = (uint8_t)std::ceil( (float)len / (float)( PACKET_SIZE - sizeof(Header) ) );
+	uint8_t header_len = sizeof(Header);
+	if ( len <= PACKET_SIZE - sizeof(Header) ) {
+		header->small_packet = 1;
+		header_len = sizeof(HeaderMini);
+		HeaderMini* small_header = (HeaderMini*)buf;
+		small_header->crc = crc8( (uint8_t*)data, len );
+		packets_count = 1;
+	} else {
+		header->packets_count = packets_count;
+	}
 
 	uint32_t offset = 0;
-	for ( uint8_t packet = 0; packet < header->packets_count; packet++ ) {
-		uint32_t plen = 32 - sizeof(Header);
+	for ( uint8_t packet = 0; packet < packets_count; packet++ ) {
+		uint32_t plen = 32 - header_len;
 		if ( offset + plen > len ) {
 			plen = len - offset;
 		}
 
-		memcpy( buf + sizeof(Header), (uint8_t*)data + offset, plen );
-		header->crc = crc8( (uint8_t*)data + offset, plen );
+		memcpy( buf + header_len, (uint8_t*)data + offset, plen );
+		if ( header->small_packet == 0 ) {
+			header->crc = crc8( (uint8_t*)data + offset, plen );
+		}
 
 // 		for ( int32_t retry = 0; retry < mRetries; retry++ )
 		{
@@ -819,35 +836,37 @@ SyncReturn SX127x::Write( const void* data, uint32_t len, bool ack, int32_t time
 			memset( rx, 0, sizeof(rx) );
 
 			if ( mModem == LoRa ) {
-				writeRegister( REG_LR_PAYLOADLENGTH, plen + sizeof(Header) );
+				writeRegister( REG_LR_PAYLOADLENGTH, plen + header_len );
 				writeRegister( REG_LR_FIFOTXBASEADDR, 0 );
 				writeRegister( REG_LR_FIFOADDRPTR, 0 );
 
 				tx[0] = REG_FIFO | 0x80;
-				memcpy( &tx[1], buf, plen + sizeof(Header) );
+				memcpy( &tx[1], buf, plen + header_len );
 			} else {
-				writeRegister( REG_FIFOTHRESH, RF_FIFOTHRESH_TXSTARTCONDITION_FIFOTHRESH | ( plen + sizeof(Header) ) );
+				writeRegister( REG_FIFOTHRESH, RF_FIFOTHRESH_TXSTARTCONDITION_FIFOTHRESH | ( plen + header_len ) );
 
 				tx[0] = REG_FIFO | 0x80;
-				tx[1] = plen + sizeof(Header);
-				memcpy( &tx[2], buf, plen + sizeof(Header) );
+				tx[1] = plen + header_len;
+				memcpy( &tx[2], buf, plen + header_len );
 			}
 
 			mSendingEnd = false;
 
-// 			printf( "Sending [%u] { %d %d %d } [%d bytes]\n", plen + sizeof(Header), header->block_id, header->packet_id, header->packets_count, plen );
+// 			printf( "Sending [%u] { %d %d %d } [%d bytes]\n", plen + header_len, header->block_id, header->packet_id, header->packets_count, plen );
 
 			mSendingEnd = true;
 			mSendTime = TICKS;
 			startTransmitting();
-			mSPI->Transfer( tx, rx, plen + sizeof(Header) + 1 + ( mModem == FSK ) );
+			mSPI->Transfer( tx, rx, plen + header_len + 1 + ( mModem == FSK ) );
 
 			while ( mModem == LoRa and mSending ) {
 				usleep( 1 );
 			}
 		}
 
-		header->packet_id++;
+		if ( header->small_packet == 0 ) {
+			header->packet_id++;
+		}
 		offset += plen;
 	}
 
@@ -869,10 +888,52 @@ uint32_t SX127x::fullReadSpeed()
 
 int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 {
+	const auto updatePerfHistory = [this]( uint8_t block_id ) {
+		int32_t deltaBlocks = 0;
+		if ( block_id >= mRxBlock.block_id ) {
+			deltaBlocks = block_id - mRxBlock.block_id;
+		} else {
+			deltaBlocks = block_id - ((int32_t)mRxBlock.block_id - MAX_BLOCK_ID);
+		}
+		mPerfMutex.lock();
+		for ( int32_t i = 0; i < deltaBlocks; i++ ) {
+			mTotalHistory.push_back( TICKS );
+			mPerfTotalBlocks++;
+		}
+		if ( deltaBlocks > 1 ) {
+			mMissedHistory.push_back( TICKS );
+			mPerfMissedBlocks++;
+		}
+		mPerfMutex.unlock();
+	};
+
 	Header* header = (Header*)buf;
 	uint8_t* data = buf + sizeof(Header);
 	int final_size = 0;
 	uint32_t datalen = buflen - sizeof(Header);
+
+	if ( header->small_packet ) {
+		HeaderMini* small_header = (HeaderMini*)buf;
+		data = buf + sizeof(HeaderMini);
+		datalen = buflen - sizeof(HeaderMini);
+		if ( crc8( data, datalen ) != small_header->crc ) {
+			return -1;
+		}
+		if ( small_header->block_id == mRxBlock.block_id and mRxBlock.received ) {
+			// gTrace() << "Block (small) " << (int)header->block_id << " already received";
+			return -1;
+		}
+		updatePerfHistory( small_header->block_id );
+		mRxBlock.block_id = small_header->block_id;
+		mRxBlock.received = true;
+		mPerfValidBlocks++;
+		mPerfMutex.lock();
+		mPerfHistory.push_back( TICKS );
+		mPerfMutex.unlock();
+		memcpy( pRet, data, datalen );
+		// gTrace() << "Received block (small) " << (int)header->block_id;
+		return datalen;
+	}
 
 	uint8_t c = crc8( data, datalen );
 	if ( c != header->crc ) {
@@ -882,26 +943,11 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 	}
 
 	if ( header->block_id == mRxBlock.block_id and mRxBlock.received ) {
-		// gDebug() << "Block " << (int)header->block_id << " already received";
+		gDebug() << "Block " << (int)header->block_id << " already received";
 		return -1;
 	}
 
-	int32_t deltaBlocks = 0;
-	if ( header->block_id >= mRxBlock.block_id ) {
-		deltaBlocks = header->block_id - mRxBlock.block_id;
-	} else {
-		deltaBlocks = header->block_id - ((int32_t)mRxBlock.block_id - 256);
-	}
-	mPerfMutex.lock();
-	for ( int32_t i = 0; i < deltaBlocks; i++ ) {
-		mTotalHistory.push_back( TICKS );
-		mPerfTotalBlocks++;
-	}
-	if ( deltaBlocks > 1 ) {
-		mMissedHistory.push_back( TICKS );
-		mPerfMissedBlocks++;
-	}
-	mPerfMutex.unlock();
+	updatePerfHistory( header->block_id );
 
 	if ( header->block_id != mRxBlock.block_id ) {
 		memset( &mRxBlock, 0, sizeof(mRxBlock) );
@@ -960,7 +1006,7 @@ int SX127x::Receive( uint8_t* buf, uint32_t buflen, void* pRet, uint32_t len )
 
 void SX127x::Interrupt( SPI* spi, int32_t ledPin )
 {
-// 	fDebug();
+	// fTrace();
 
 	int32_t rssi = 0;
 	// Take RSSI first, before the value becomes invalidated

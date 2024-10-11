@@ -343,47 +343,46 @@
            <string>Live stream</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_29">
-           <item row="0" column="6">
-            <widget class="QGroupBox" name="groupBox_23">
-             <property name="title">
-              <string>Still picture</string>
-             </property>
-             <layout class="QGridLayout" name="gridLayout_34">
-              <item row="0" column="0">
-               <widget class="QPushButton" name="take_picture">
-                <property name="text">
-                 <string>Take picture</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item row="1" column="0" colspan="8">
-            <widget class="QWidget" name="video_container" native="true">
-             <layout class="QGridLayout" name="gridLayout_25">
-              <item row="0" column="0">
-               <widget class="Stream" name="video" native="true">
-                <property name="styleSheet">
-                 <string notr="true">background-color: rgb(0, 0, 0);</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item row="0" column="7">
-            <spacer name="horizontalSpacer_5">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
+           <item row="0" column="0">
+            <widget class="QGroupBox" name="groupBox_17">
+             <property name="maximumSize">
               <size>
-               <width>40</width>
-               <height>20</height>
+               <width>96</width>
+               <height>16777215</height>
               </size>
              </property>
-            </spacer>
+             <property name="title">
+              <string>Brightness</string>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_8">
+              <item row="0" column="1">
+               <widget class="QPushButton" name="brightness_inc">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Maximum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>+</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="0">
+               <widget class="QPushButton" name="brightness_dec">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Maximum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>-</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
            </item>
            <item row="0" column="2">
             <widget class="QGroupBox" name="groupBox_19">
@@ -432,6 +431,64 @@
              </layout>
             </widget>
            </item>
+           <item row="0" column="6">
+            <widget class="QGroupBox" name="groupBox_23">
+             <property name="title">
+              <string>Still picture</string>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_34">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="take_picture">
+                <property name="text">
+                 <string>Take picture</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item row="0" column="8">
+            <spacer name="horizontalSpacer_5">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="5">
+            <widget class="QGroupBox" name="groupBox_record">
+             <property name="title">
+              <string>Record</string>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_27">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="record">
+                <property name="text">
+                 <string>Start</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="9">
+            <widget class="QWidget" name="video_container" native="true">
+             <layout class="QGridLayout" name="gridLayout_25">
+              <item row="0" column="0">
+               <widget class="Stream" name="video" native="true">
+                <property name="styleSheet">
+                 <string notr="true">background-color: rgb(0, 0, 0);</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
            <item row="0" column="4">
             <spacer name="horizontalSpacer_7">
              <property name="orientation">
@@ -448,16 +505,16 @@
              </property>
             </spacer>
            </item>
-           <item row="0" column="5">
-            <widget class="QGroupBox" name="groupBox_record">
+           <item row="0" column="3">
+            <widget class="QGroupBox" name="groupBox_21">
              <property name="title">
-              <string>Record</string>
+              <string>Night mode</string>
              </property>
-             <layout class="QGridLayout" name="gridLayout_27">
+             <layout class="QGridLayout" name="gridLayout_30">
               <item row="0" column="0">
-               <widget class="QPushButton" name="record">
+               <widget class="QCheckBox" name="night_mode">
                 <property name="text">
-                 <string>Start</string>
+                 <string>Enabled</string>
                 </property>
                </widget>
               </item>
@@ -511,57 +568,16 @@
              </layout>
             </widget>
            </item>
-           <item row="0" column="3">
-            <widget class="QGroupBox" name="groupBox_21">
+           <item row="0" column="7">
+            <widget class="QGroupBox" name="groupBox_20">
              <property name="title">
-              <string>Night mode</string>
+              <string>White balance</string>
              </property>
-             <layout class="QGridLayout" name="gridLayout_30">
+             <layout class="QGridLayout" name="gridLayout_31">
               <item row="0" column="0">
-               <widget class="QCheckBox" name="night_mode">
+               <widget class="QPushButton" name="white_balance_lock">
                 <property name="text">
-                 <string>Enabled</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item row="0" column="0">
-            <widget class="QGroupBox" name="groupBox_17">
-             <property name="maximumSize">
-              <size>
-               <width>96</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="title">
-              <string>Brightness</string>
-             </property>
-             <layout class="QGridLayout" name="gridLayout_8">
-              <item row="0" column="1">
-               <widget class="QPushButton" name="brightness_inc">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Maximum">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>+</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="0">
-               <widget class="QPushButton" name="brightness_dec">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Maximum">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>-</string>
+                 <string>Lock WB</string>
                 </property>
                </widget>
               </item>
@@ -576,6 +592,7 @@
           <zorder>video_container</zorder>
           <zorder>groupBox_21</zorder>
           <zorder>groupBox_23</zorder>
+          <zorder>groupBox_20</zorder>
          </widget>
         </item>
        </layout>
@@ -601,22 +618,6 @@
           </layout>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QGroupBox" name="groupBox_3">
-          <property name="title">
-           <string>Rates</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QCustomPlot" name="rates" native="true">
-             <property name="styleSheet">
-              <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
         <item row="1" column="0">
          <widget class="QGroupBox" name="groupBox_24">
           <property name="title">
@@ -625,6 +626,22 @@
           <layout class="QGridLayout" name="gridLayout_5">
            <item row="0" column="0">
             <widget class="QCustomPlot" name="accelerometer" native="true">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QGroupBox" name="groupBox_26">
+          <property name="title">
+           <string>Rates derivative</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_36">
+           <item row="0" column="0">
+            <widget class="QCustomPlot" name="rates_dterm" native="true">
              <property name="styleSheet">
               <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
              </property>
@@ -665,16 +682,78 @@
           </layout>
          </widget>
         </item>
-        <item row="2" column="1">
-         <widget class="QGroupBox" name="groupBox_26">
+        <item row="0" column="1">
+         <widget class="QGroupBox" name="groupBox_3">
           <property name="title">
-           <string>Rates derivative</string>
+           <string/>
           </property>
-          <layout class="QGridLayout" name="gridLayout_36">
-           <item row="0" column="0">
-            <widget class="QCustomPlot" name="rates_dterm" native="true">
+          <layout class="QGridLayout" name="gridLayout_4">
+           <item row="0" column="4">
+            <widget class="QRadioButton" name="dnfPlotButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>DNF</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="5">
+            <spacer name="horizontalSpacer_9">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Minimum</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="6">
+            <widget class="QCheckBox" name="gyroSpectrumButton">
+             <property name="text">
+              <string>Spectrum</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0" colspan="8">
+            <widget class="QCustomPlot" name="rates" native="true">
              <property name="styleSheet">
               <string notr="true">background-color: rgba( 0, 0, 0, 0 )</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QRadioButton" name="ratesPlotButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Rates</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QRadioButton" name="gyroPlotButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Gyroscope</string>
              </property>
             </widget>
            </item>
@@ -1187,7 +1266,7 @@ color: rgb(255, 255, 255);</string>
        <attribute name="title">
         <string>Test Bench</string>
        </attribute>
-       <layout class="QGridLayout" name="gridLayout_33">
+       <layout class="QGridLayout" name="gridLayout_38">
         <item row="0" column="0">
          <widget class="QGroupBox" name="groupBox_22">
           <property name="title">
@@ -1197,7 +1276,7 @@ color: rgb(255, 255, 255);</string>
            <item row="0" column="0">
             <widget class="QSpinBox" name="motorTestSpinBox"/>
            </item>
-           <item row="1" column="0">
+           <item row="0" column="1">
             <widget class="QPushButton" name="motorTestButton">
              <property name="text">
               <string>Test</string>
@@ -1207,7 +1286,56 @@ color: rgb(255, 255, 255);</string>
           </layout>
          </widget>
         </item>
-        <item row="0" column="1">
+        <item row="2" column="0" colspan="5">
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>718</width>
+            <height>578</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_27">
+          <property name="title">
+           <string>Beep Motors</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_33">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="motorsBeepStart">
+             <property name="text">
+              <string>Start</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="motorsBeepStop">
+             <property name="text">
+              <string>Stop</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="0" column="3" rowspan="2">
+         <spacer name="horizontalSpacer_8">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>502</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="4" rowspan="2">
          <widget class="QGroupBox" name="groupBox_13">
           <property name="title">
            <string>Update Firmware</string>
@@ -1249,32 +1377,6 @@ color: rgb(255, 255, 255);</string>
            </item>
           </layout>
          </widget>
-        </item>
-        <item row="0" column="2">
-         <spacer name="horizontalSpacer_8">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>502</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item row="1" column="0" colspan="3">
-         <spacer name="verticalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>718</width>
-            <height>578</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </widget>

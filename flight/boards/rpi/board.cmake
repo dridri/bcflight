@@ -12,13 +12,9 @@ set( TARGET_CPU_BITS 32 )
 
 find_package( Threads REQUIRED )
 find_package( GPS REQUIRED )
-find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC )
 
 if ( GPS_FOUND )
 	set( BOARD_LIBS ${BOARD_LIBS} ${GPS_LIBRARIES} )
-endif()
-if ( FFmpeg_FOUND )
-	set( BOARD_LIBS ${BOARD_LIBS} ${FFMPEG_LIBRARIES} )
 endif()
 
 SET( CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE" )
@@ -53,16 +49,11 @@ include_directories( /opt/vc/include )
 	set( BOARD_LIBS ${BOARD_LIBS} -liw -lcamera -lcamera-base -lgps )
 #endif()
 
+add_definitions( -DHAVE_LIBIW )
+
 
 if ( NOT ${camera} MATCHES OFF AND NOT "${camera}" MATCHES "0" AND ${BUILD_video} MATCHES "1" )
-	#set( BOARD_LIBS ${BOARD_LIBS} -lGLESv2 -lEGL -lopenmaxil )
 	set( BOARD_LIBS ${BOARD_LIBS} -lGLESv2 -lEGL )
-#	include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/include )
-#	include_directories( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++/include/MMAL++ )
-#	add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++ ${CMAKE_CURRENT_BINARY_DIR}/OpenMaxIL++ )
-#	add_subdirectory( ${CMAKE_SOURCE_DIR}/../external/OpenMaxIL++/MMAL++ ${CMAKE_CURRENT_BINARY_DIR}/MMAL++ )
-#	set( BOARD_DEPENDENCIES "OpenMaxIL++" "MMAL++" )
-#	set( BOARD_LIBS ${BOARD_LIBS} "OpenMaxIL++" "MMAL++" )
 endif()
 
 # if ( ${variant} MATCHES "4" )

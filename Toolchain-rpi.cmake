@@ -13,6 +13,8 @@ execute_process(
 )
 
 SET( CMAKE_FIND_ROOT_PATH ${ROOT_PATH} )
+set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ROOT_PATH}/arm-linux-gnueabihf/lib/arm-linux-gnueabihf")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 SET( FREETYPE_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/freetype2" )
 SET( DRM_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/libdrm" )

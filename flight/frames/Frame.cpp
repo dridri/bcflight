@@ -27,15 +27,21 @@ Frame::Frame()
 	: mMotors( vector< Motor* >() )
 	, mArmed( false )
 	, mAirMode( false )
+	, mMotorsBeep( false )
+	, mMotorBeepMode( 0 )
+	, mMotorsBeepThread( new HookThread< Frame >( "motors_beep", this, &Frame::MotorsBeepRun ) )
 {
+	mMotorsBeepThread->setFrequency( 1 );
 }
 
 
 Frame::~Frame()
 {
 }
-void Frame::MotorTest(uint32_t id) {
-	
+
+
+void Frame::MotorTest( uint32_t id )
+{
 	gDebug() << "Test motor : " << id;
 	if (mMotors.size() <= id) {
 		gDebug() << "Out of range abort";
@@ -54,6 +60,36 @@ void Frame::MotorTest(uint32_t id) {
 	m->Disarm();
 	gDebug() << "Disarm ESC";
 }
+
+
+void Frame::MotorsBeep( bool enabled )
+{
+	mMotorsBeep = enabled;
+	if ( enabled and not mMotorsBeepThread->running() ) {
+		mMotorBeepMode = 0;
+		mMotorsBeepThread->Start();
+	} else if ( not enabled and mMotorsBeepThread->running() ) {
+		mMotorsBeepThread->Stop();
+	}
+}
+
+
+bool Frame::MotorsBeepRun()
+{
+	for ( Motor* m : mMotors ) {
+		m->Beep( mMotorBeepMode );
+	}
+
+	usleep( 260 * 1000 );
+	for ( Motor* m : mMotors ) {
+		m->Disarm();
+	}
+
+	usleep( 1000 * 1000 );
+	mMotorBeepMode = ( mMotorBeepMode + 1 ) % 2;
+	return true;
+}
+
 
 void Frame::CalibrateESCs()
 {
@@ -90,6 +126,17 @@ void Frame::CalibrateESCs()
 }
 
 
+void Frame::Arm()
+{
+	if ( mMotorsBeep ) {
+		mMotorsBeepThread->Stop();
+		mMotorsBeepThread->Join();
+		mMotorsBeep = false;
+		usleep( 500 * 1000 );
+	}
+}
+
+
 bool Frame::armed() const
 {
 	return mArmed;
@@ -99,15 +146,6 @@ bool Frame::armed() const
 bool Frame::airMode() const
 {
 	return mAirMode;
-}
-
-
-Frame* Frame::Instanciate( const string& name, Config* config )
-{
-	if ( mKnownFrames.find( name ) != mKnownFrames.end() ) {
-		return mKnownFrames[ name ]( config );
-	}
-	return nullptr;
 }
 
 

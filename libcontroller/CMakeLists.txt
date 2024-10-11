@@ -1,4 +1,5 @@
-cmake_minimum_required( VERSION 3.0 )
+cmake_minimum_required( VERSION 3.5 )
+set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
 project( controller )
 
 if ( NOT RAWWIFI_ON )
@@ -29,9 +30,13 @@ if ( ${USE_MINISTD} MATCHES TRUE )
 	include_directories( ${CMAKE_SOURCE_DIR}/../libministd/include )
 endif()
 
+add_definitions( -DSTD=std )
+
+include_directories( ${CMAKE_SOURCE_DIR}/../libdebug )
+
 if ( RAWWIFI_ON MATCHES 1 )
-	add_subdirectory( ../librawwifi ${CMAKE_BINARY_DIR}/librawwifi )
-	include_directories( ../librawwifi )
+	add_subdirectory( ../librawwifi++ ${CMAKE_BINARY_DIR}/librawwifi )
+	include_directories( ../librawwifi++ )
 endif()
 
 if ( "${CMAKE_SYSTEM_NAME}" MATCHES "Linux" )

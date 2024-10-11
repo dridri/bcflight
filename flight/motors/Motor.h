@@ -42,6 +42,7 @@ public:
 	LUA_EXPORT virtual void Arm() {}
 	LUA_EXPORT virtual void Disarm() = 0;
 	LUA_EXPORT virtual void Disable() = 0;
+	LUA_EXPORT virtual void Beep( uint8_t beepMode = 0 ) {};
 
 	static Motor* Instanciate( const string& name, Config* config, const string& object );
 	static void RegisterMotor( const string& name, function< Motor* ( Config*, const string& ) > instanciate );

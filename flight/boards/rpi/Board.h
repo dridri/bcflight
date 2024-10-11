@@ -67,6 +67,7 @@ public:
 	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
+	static uint32_t MemoryUsage();
 	static uint32_t FreeDiskSpace();
 	static void setDiskFull();
 
@@ -98,6 +99,7 @@ private:
 	static HookThread<Board>* mStatsThread;
 	static uint32_t mCPULoad;
 	static uint32_t mCPUTemp;
+	static uint32_t mMemoryUsage;
 	static bool mDiskFull;
 
 	static vector< string > mBoardMessages;

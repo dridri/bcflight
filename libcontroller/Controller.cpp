@@ -27,6 +27,7 @@
 #include <iostream>
 #include "Controller.h"
 #include "links/RawWifi.h"
+#include "Debug.h"
 
 
 Controller::Controller( Link* link, bool spectate )
@@ -51,9 +52,11 @@ Controller::Controller( Link* link, bool spectate )
 	, mNightMode( false )
 	, mCameraMissing( false )
 	, mUpdateFrequency( 100 )
+	, mDroneConnected( false )
 	, mSpectate( spectate )
 	, mTickBase( Thread::GetTick() )
 	, mPingTimer( 0 )
+	, mTelemetryTimer( 0 )
 	, mDataTimer( 0 )
 	, mMsCounter( 0 )
 	, mMsCounter50( 0 )
@@ -129,7 +132,13 @@ string Controller::debugOutput()
 
 bool Controller::run()
 {
-	uint64_t ticks0 = Thread::GetTick();
+	uint32_t ticks = Thread::GetTick();
+	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
+		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
+	}
+	float dt = ((float)( Thread::GetTick() - mTicks ) ) / 1000.0f;
+	mTicks = Thread::GetTick();
+	uint64_t ticks0 = mTicks;
 
 	if ( mLockState >= 1 ) {
 		mLockState = 2;
@@ -143,25 +152,29 @@ bool Controller::run()
 	}
 
 	if ( not mLink->isConnected() ) {
-		cout << "Connecting...";
+		gDebug() << "Connecting...";
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
 			setPriority( 99, 0 );
-			cout << "Ok !\n" << flush;
+			gDebug() << "Ok !" << flush;
 // 			uint32_t uid = htonl( 0x12345678 );
 // 			mLink->Write( &uid, sizeof( uid ) );
 		} else {
-			cout << "Nope !\n" << flush;
+			gDebug() << "Nope !" << flush;
 			usleep( 1000 * 250 );
 		}
 
 		return true;
 	}
 
+	// if ( not mDroneConnected ) {
+	// 	return true;
+	// }
+
 	if ( mSpectate ) {
 		mXferMutex.lock();
 		if ( mTxFrame.data().size() > 0 ) {
-			cout << "Sending " << mTxFrame.data().size()*4 << " bytes\n";
+			gDebug() << "Sending " << mTxFrame.data().size()*4 << " bytes";
 			mLink->Write( &mTxFrame );
 		}
 		mTxFrame = Packet();
@@ -178,9 +191,9 @@ bool Controller::run()
 	for ( uint32_t i = 0; i < 12; i++ ) {
 		bool on = ReadSwitch( i );
 		if ( on and not mSwitches[i] ) {
-			cout << "Switch " << i << " on\n" << flush;
+			gDebug() << "Switch " << i << " on" << flush;
 		} else if ( not on and mSwitches[i] ) {
-			cout << "Switch " << i << " off\n" << flush;
+			gDebug() << "Switch " << i << " off" << flush;
 		}
 		mSwitches[i] = on;
 	}
@@ -202,64 +215,74 @@ bool Controller::run()
 		setMode( Rate );
 	}
 	if ( mSwitches[6] and mNightMode == false ) {
-		printf("set night mode\n");
+		gDebug() << "set night mode";
 		setNightMode( true );
 	} else if ( not mSwitches[6] and mNightMode == true ) {
 		setNightMode( false );
 	}
 
 	if ( mSwitches[10] and not mVideoRecording ) {
-		printf("start recording\n");
+		gDebug() << "start recording";
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_START_RECORD );
 		mXferMutex.unlock();
 	} else if ( not mSwitches[10] and mVideoRecording ) {
-		printf("stop recording\n");
+		gDebug() << "stop recording";
 		mXferMutex.lock();
 		mTxFrame.WriteU16( VIDEO_STOP_RECORD );
 		mXferMutex.unlock();
 	}
 
-	float f_thrust = ReadThrust();
-	float f_yaw = ReadYaw();
-	float f_pitch = ReadPitch();
-	float f_roll = ReadRoll();
+	float f_thrust = ReadThrust( dt );
+	float f_yaw = ReadYaw( dt );
+	float f_pitch = ReadPitch( dt );
+	float f_roll = ReadRoll( dt );
 	if ( f_thrust >= 0.0f and f_thrust <= 1.0f ) {
-		mControls.thrust = (int8_t)( max( 0, min( 127, (int32_t)( f_thrust * 127.0f ) ) ) );
+		if ( fabsf( f_thrust ) <= 0.01f ) {
+			f_thrust = 0.0f;
+		} else if ( f_thrust < 0.0f ) {
+			f_thrust += 0.01f;
+		} else if ( f_thrust > 0.0f ) {
+			f_thrust -= 0.01f;
+		}
+		f_thrust *= 1.0f / ( 1.0f - 0.01f );
+		mControls.thrust = (int16_t)( max( 0, min( 511, (int32_t)( f_thrust * 511.0f ) ) ) );
 	}
 	if ( f_yaw >= -1.0f and f_yaw <= 1.0f ) {
-		if ( fabsf( f_yaw ) <= 0.025f ) {
+		if ( fabsf( f_yaw ) <= 0.01f ) {
 			f_yaw = 0.0f;
 		} else if ( f_yaw < 0.0f ) {
-			f_yaw += 0.025f;
+			f_yaw += 0.01f;
 		} else if ( f_yaw > 0.0f ) {
-			f_yaw -= 0.025f;
+			f_yaw -= 0.01f;
 		}
-		f_yaw *= 1.0f / ( 1.0f - 0.025f );
-		mControls.yaw = (int8_t)( max( -127, min( 127, (int32_t)( f_yaw * 127.0f ) ) ) );
+		f_yaw *= 1.0f / ( 1.0f - 0.01f );
+		mControls.yaw = (int16_t)( max( -511, min( 511, (int32_t)( f_yaw * 511.0f ) ) ) );
 	}
 	if ( f_pitch >= -1.0f and f_pitch <= 1.0f ) {
-		if ( fabsf( f_pitch ) <= 0.025f ) {
+		if ( fabsf( f_pitch ) <= 0.01f ) {
 			f_pitch = 0.0f;
 		} else if ( f_pitch < 0.0f ) {
-			f_pitch += 0.025f;
+			f_pitch += 0.01f;
 		} else if ( f_pitch > 0.0f ) {
-			f_pitch -= 0.025f;
+			f_pitch -= 0.01f;
 		}
-		f_pitch *= 1.0f / ( 1.0f - 0.025f );
-		mControls.pitch = (int8_t)( max( -127, min( 127, (int32_t)( f_pitch * 127.0f ) ) ) );
+		f_pitch *= 1.0f / ( 1.0f - 0.01f );
+		mControls.pitch = (int16_t)( max( -511, min( 511, (int32_t)( f_pitch * 511.0f ) ) ) );
 	}
 	if ( f_roll >= -1.0f and f_roll <= 1.0f ) {
-		if ( fabsf( f_roll ) <= 0.025f ) {
+		if ( fabsf( f_roll ) <= 0.01f ) {
 			f_roll = 0.0f;
 		} else if ( f_roll < 0.0f ) {
-			f_roll += 0.025f;
+			f_roll += 0.01f;
 		} else if ( f_roll > 0.0f ) {
-			f_roll -= 0.025f;
+			f_roll -= 0.01f;
 		}
-		f_roll *= 1.0f / ( 1.0f - 0.025f );
-		mControls.roll = (int8_t)( max( -127, min( 127, (int32_t)( f_roll * 127.0f ) ) ) );
+		f_roll *= 1.0f / ( 1.0f - 0.01f );
+		mControls.roll = (int16_t)( max( -511, min( 511, (int32_t)( f_roll * 511.0f ) ) ) );
 	}
+	// gTrace() << "Controls : " << f_thrust << ", " << f_yaw << ", " << f_pitch << ", " << f_roll << "\n";
+	// gTrace() << "Controls : " << mControls.thrust << ", " << mControls.yaw << ", " << mControls.pitch << ", " << mControls.roll << "\n\n";
 	mControls.arm = arm;
 	mTxFrame.WriteU8( CONTROLS );
 	mTxFrame.Write( (uint8_t*)&mControls, sizeof(mControls) );
@@ -276,22 +299,32 @@ bool Controller::run()
 
 		if ( not mRxThread->running() ) {
 			mRxThread->Start();
+			usleep( 1000 * 1000 );
 			mXferMutex.lock();
+			// mTxFrame.WriteU8( CONNECT );
 			mTxFrame.WriteU16( ROLL_PID_FACTORS );
 			mTxFrame.WriteU16( PITCH_PID_FACTORS );
 			mTxFrame.WriteU16( YAW_PID_FACTORS );
 			mTxFrame.WriteU16( OUTER_PID_FACTORS );
 			mTxFrame.WriteU16( HORIZON_OFFSET );
+			mTxFrame.WriteU16( VTX_GET_SETTINGS );
+			mXferMutex.unlock();
+		}
+		if ( mUsername.length() == 0 ) {
+			mXferMutex.lock();
+			mTxFrame.WriteU16( GET_USERNAME );
 			mXferMutex.unlock();
 		}
 
 		mPingTimer = Thread::GetTick();
 	}
 
-	if ( mUsername == "" ) {
+	if ( Thread::GetTick() - mTelemetryTimer >= 500 ) {
+		request_ack = true;
 		mXferMutex.lock();
-		mTxFrame.WriteU16( GET_USERNAME );
+		mTxFrame.WriteU8( TELEMETRY );
 		mXferMutex.unlock();
+		mTelemetryTimer = Thread::GetTick();
 	}
 
 	mXferMutex.lock();
@@ -302,12 +335,7 @@ bool Controller::run()
 	mTxFrame = Packet();
 	mXferMutex.unlock();
 
-	uint32_t ticks = Thread::GetTick();
-	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
-		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
-	}
-	mTicks = Thread::GetTick();
-	mMsCounter += ( mTicks - ticks0 );
+	mMsCounter += ( Thread::GetTick() - ticks0 );
 	return true;
 }
 
@@ -315,12 +343,12 @@ bool Controller::run()
 bool Controller::RxRun()
 {
 	if ( mSpectate and not mLink->isConnected() ) {
-		cout << "Connecting..." << flush;
+		gDebug() << "Connecting..." << flush;
 		mConnected = ( mLink->Connect() == 0 );
 		if ( mConnected ) {
-			cout << "Ok !\n" << flush;
+			gDebug() << "Ok !" << flush;
 		} else {
-			cout << "Nope !\n" << flush;
+			gDebug() << "Nope !" << flush;
 			usleep( 1000 * 250 );
 		}
 		return true;
@@ -329,7 +357,7 @@ bool Controller::RxRun()
 	Packet telemetry;
 	int rret = 0;
 	if ( ( rret = mLink->Read( &telemetry ) ) <= 0 ) {
-		cout << "Controller Link read error : " << rret << "\n";
+		gDebug() << "Controller Link read error : " << rret;
 		usleep( 500 );
 		return true;
 	}
@@ -354,12 +382,13 @@ bool Controller::RxRun()
 	bool acknowledged = false;
 	while ( ReadCmd( &telemetry, &cmd ) > 0 ) {
 // 		if ( cmd != PING and cmd != TELEMETRY and cmd != CONTROLS and cmd != STATUS ) {
-// 			cout << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)] << "\n";
+			gTrace() << "Received command (" << hex << (int)cmd << dec << ") : " << mCommandsNames[(cmd)];
 // 		}
 
 		acknowledged = false;
 		if ( ( cmd & ACK_ID ) == ACK_ID ) {
 			uint16_t id = cmd & ~ACK_ID;
+			gDebug() << "Received ACK with ID " << id;
 			if ( id == mRXAckID ) {
 				acknowledged = true;
 			}
@@ -371,6 +400,23 @@ bool Controller::RxRun()
 			case UNKNOWN : {
 				break;
 			}
+			// case CONNECT : {
+			// 	printf( "received CONNECT\n" );
+			// 	mDroneConnected = true;
+			// 	if ( not mSpectate ) {
+			// 		mXferMutex.lock();
+			// 		mTxFrame.WriteU8( CONNECT );
+			// 		mTxFrame.WriteU16( ROLL_PID_FACTORS );
+			// 		mTxFrame.WriteU16( PITCH_PID_FACTORS );
+			// 		mTxFrame.WriteU16( YAW_PID_FACTORS );
+			// 		mTxFrame.WriteU16( OUTER_PID_FACTORS );
+			// 		mTxFrame.WriteU16( HORIZON_OFFSET );
+			// 		mTxFrame.WriteU16( VTX_GET_SETTINGS );
+			// 			printf( "\n\n\nVTX_GET_SETTINGS sent\n" );
+			// 		mXferMutex.unlock();
+			// 	}
+			// 	break;
+			// }
 			case PING : {
 				uint32_t ret = telemetry.ReadU16();
 				uint32_t reported_ping = telemetry.ReadU16();
@@ -409,7 +455,7 @@ bool Controller::RxRun()
 			case DEBUG_OUTPUT : {
 				mDebugMutex.lock();
 				string str = telemetry.ReadString();
-				cout << str << flush;
+				gDebug() << str << flush;
 				mDebug += str;
 				mDebugMutex.unlock();
 				break;
@@ -418,7 +464,7 @@ bool Controller::RxRun()
 				uint32_t value = telemetry.ReadU32();
 				if ( value == 0 ) {
 					mCalibrated = true;
-					cout << "Calibration success\n" << flush;
+					gDebug() << "Calibration success" << flush;
 				} else if ( value == 2 ) {
 					// This value is regularily sent to tell that the drone is still calibrated
 					mCalibrated = true;
@@ -426,7 +472,7 @@ bool Controller::RxRun()
 					// This value is regularily sent to tell that the drone is not calibrated
 					mCalibrated = false;
 				} else {
-					cout << "WARNING : Calibration failed !\n" << flush;
+					gDebug() << "WARNING : Calibration failed !" << flush;
 				}
 				break;
 			}
@@ -466,19 +512,19 @@ bool Controller::RxRun()
 				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
 					mConfigFile = content;
 				} else {
-					cout << "Received broken config flie, retrying...\n" << flush;
+					gDebug() << "Received broken config flie, retrying..." << flush;
 					mConfigFile = "";
 				}
 				break;
 			}
 			case SET_CONFIG_FILE : {
-				cout << "SET_CONFIG_FILE\n";
+				gDebug() << "SET_CONFIG_FILE";
 				mConfigUploadValid = ( telemetry.ReadU32() == 0 );
 				break;
 			}
 			case UPDATE_UPLOAD_DATA : {
 				bool ok = ( telemetry.ReadU32() == 1 );
-				cout << "UPDATE_UPLOAD_DATA : " << ok << "\n" << flush;
+				gDebug() << "UPDATE_UPLOAD_DATA : " << ok << "" << flush;
 				mUpdateUploadValid = ok;
 				break;
 			}
@@ -650,13 +696,27 @@ bool Controller::RxRun()
 				rpy.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mRPYHistory.emplace_back( rpy );
-				if ( mRPYHistory.size() > 256 ) {
+				if ( mRPYHistory.size() > 2048 ) {
 					mRPYHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
 				break;
 			}
 			case GYRO : {
+				vec4 gyro;
+				gyro.x = telemetry.ReadFloat();
+				gyro.y = telemetry.ReadFloat();
+				gyro.z = telemetry.ReadFloat();
+				gyro.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				mHistoryMutex.lock();
+				mGyroscopeHistory.emplace_back( gyro );
+				if ( mGyroscopeHistory.size() > 2048 ) {
+					mGyroscopeHistory.pop_front();
+				}
+				mHistoryMutex.unlock();
+				break;
+			}
+			case RATES : {
 				vec4 rates;
 				rates.x = telemetry.ReadFloat();
 				rates.y = telemetry.ReadFloat();
@@ -664,7 +724,7 @@ bool Controller::RxRun()
 				rates.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mRatesHistory.emplace_back( rates );
-				if ( mRatesHistory.size() > 256 ) {
+				if ( mRatesHistory.size() > 2048 ) {
 					mRatesHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -678,7 +738,7 @@ bool Controller::RxRun()
 				rates_dterm.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mRatesDerivativeHistory.emplace_back( rates_dterm );
-				if ( mRatesDerivativeHistory.size() > 256 ) {
+				if ( mRatesDerivativeHistory.size() > 2048 ) {
 					mRatesDerivativeHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -692,7 +752,7 @@ bool Controller::RxRun()
 				accel.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mAccelerationHistory.emplace_back( accel );
-				if ( mAccelerationHistory.size() > 256 ) {
+				if ( mAccelerationHistory.size() > 2048 ) {
 					mAccelerationHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -706,7 +766,7 @@ bool Controller::RxRun()
 				magn.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
 				mHistoryMutex.lock();
 				mMagnetometerHistory.emplace_back( magn );
-				if ( mMagnetometerHistory.size() > 256 ) {
+				if ( mMagnetometerHistory.size() > 4096 ) {
 					mMagnetometerHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
@@ -723,10 +783,28 @@ bool Controller::RxRun()
 				mHistoryMutex.lock();
 				mAltitude = telemetry.ReadFloat();
 				mAltitudeHistory.emplace_back( alt );
-				if ( mAltitudeHistory.size() > 256 ) {
+				if ( mAltitudeHistory.size() > 4096 ) {
 					mAltitudeHistory.pop_front();
 				}
 				mHistoryMutex.unlock();
+				break;
+			}
+			case RATE_DNF_DFT : {
+				uint16_t size = telemetry.ReadU16();
+				vec4* data = new vec4[size / sizeof(vec4)];
+				telemetry.Read( reinterpret_cast<uint8_t*>(data), size );
+				mHistoryMutex.lock();
+				mDnfDft.clear();
+				for ( uint16_t i = 0; i < size / sizeof(vec4); i++ ) {
+					vec4 v = data[i];
+					v.w = i;
+					// v.w = i * 4000 / 512;
+					// v.w = i * 4000 / 512;
+					// v.w = 2 * i * 4000 / 512;
+					mDnfDft.push_back( v );
+				}
+				mHistoryMutex.unlock();
+				delete[] data;
 				break;
 			}
 			case SET_MODE : {
@@ -778,7 +856,7 @@ bool Controller::RxRun()
 				uint32_t night = telemetry.ReadU32();
 				if ( night != mNightMode ) {
 					mNightMode = night;
-					cout << "Video switched to " << ( mNightMode ? "night" : "day" ) << " mode\n";
+					gDebug() << "Video switched to " << ( mNightMode ? "night" : "day" ) << " mode";
 				}
 				break;
 			}
@@ -788,7 +866,7 @@ bool Controller::RxRun()
 				if ( crc32( (uint8_t*)content.c_str(), content.length() ) == crc ) {
 					mRecordingsList = content;
 				} else {
-					cout << "Received broken recordings list, retrying...\n";
+					gDebug() << "Received broken recordings list, retrying...";
 					mRecordingsList = "broken";
 				}
 				break;
@@ -799,6 +877,33 @@ bool Controller::RxRun()
 				break;
 			}
 
+			case VTX_GET_SETTINGS : {
+				mVTXChannel = int8_t(telemetry.ReadU8());
+				mVTXFrequency = int16_t(telemetry.ReadU16());
+				mVTXPower = int8_t(telemetry.ReadU8());
+				mVTXPowerDbm = int8_t(telemetry.ReadU8());
+				printf( "\n\n\nVTX_GET_SETTINGS : %d\n", mVTXChannel );
+				uint8_t table_count = telemetry.ReadU8();
+				std::vector<int32_t> powerTable;
+				if ( table_count > 0 ) {
+					for ( uint8_t i = 0; i < table_count; i++ ) {
+						powerTable.push_back( telemetry.ReadU8() );
+					}
+					mVTXPowerTable = powerTable;
+				}
+				break;
+			}
+			case VTX_SET_POWER : {
+				mVTXPower = int8_t(telemetry.ReadU8());
+				mVTXPowerDbm = int8_t(telemetry.ReadU8());
+				break;
+			}
+			case VTX_SET_CHANNEL : {
+				mVTXChannel = int8_t(telemetry.ReadU8());
+				mVTXFrequency = int16_t(telemetry.ReadU16());
+				break;
+			}
+
 			// Errors
 			case ERROR_CAMERA_MISSING : {
 				mCameraMissing = true;
@@ -806,7 +911,7 @@ bool Controller::RxRun()
 			}
 
 			default :
-				cout << "WARNING : Received unknown command (" << (uint16_t)cmd << ") !\n" << flush;
+				gDebug() << "WARNING : Received unknown command (" << (uint16_t)cmd << ") !" << flush;
 				break;
 		}
 	}
@@ -817,7 +922,7 @@ bool Controller::RxRun()
 
 void Controller::Calibrate()
 {
-	cout << "Controller::Calibrate()\n";
+	gDebug() << "Controller::Calibrate()";
 
 	if ( !mLink || !isConnected() ) {
 		return;
@@ -845,7 +950,7 @@ void Controller::Calibrate()
 
 void Controller::CalibrateAll()
 {
-	cout << "Controller::CalibrateAll()\n";
+	gDebug() << "Controller::CalibrateAll()";
 
 	if ( !mLink || !isConnected() ) {
 		return;
@@ -991,7 +1096,7 @@ string Controller::getConfigFile()
 
 void Controller::setConfigFile( const string& content )
 {
-	cout << "setConfigFile...\n" << flush;
+	gDebug() << "setConfigFile..." << flush;
 	Packet packet( SET_CONFIG_FILE );
 	packet.WriteU32( crc32( (uint8_t*)content.c_str(), content.length() ) );
 	packet.WriteString( content );
@@ -1001,13 +1106,13 @@ void Controller::setConfigFile( const string& content )
 		mXferMutex.lock();
 // 		mTxFrame.WriteU16( SET_CONFIG_FILE );
 // 		mTxFrame.WriteString( content );
-		cout << "Sending " << packet.data().size()*4 << " bytes\n";
+		gDebug() << "Sending " << packet.data().size()*4 << " bytes";
 		mLink->Write( &packet );
 		mXferMutex.unlock();
 		usleep( 1000 * 250 );
 	};
 	mConfigFile = "";
-	cout << "setConfigFile ok\n" << flush;
+	gDebug() << "setConfigFile ok" << flush;
 }
 
 
@@ -1044,7 +1149,7 @@ void Controller::UploadUpdateData( const uint8_t* buf, uint32_t offset, uint32_t
 		mLink->Write( &packet );
 		usleep( 1000 * 50 );
 		if ( not mUpdateUploadValid ) {
-			cout << "Broken data received, retrying...\n" << flush;
+			gDebug() << "Broken data received, retrying..." << flush;
 			usleep( 1000 * 10 );
 		}
 	} while ( not mUpdateUploadValid );
@@ -1100,7 +1205,7 @@ void Controller::ReloadPIDs()
 
 void Controller::setRollPID( const vec3& v )
 {
-	cout << "setRollPID...\n" << flush;
+	gDebug() << "setRollPID..." << flush;
 	while ( mRollPID.x != v.x or mRollPID.y != v.y or mRollPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_ROLL_PID_P );
@@ -1112,13 +1217,13 @@ void Controller::setRollPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setRollPID ok\n" << flush;
+	gDebug() << "setRollPID ok" << flush;
 }
 
 
 void Controller::setPitchPID( const vec3& v )
 {
-	cout << "setPitchPID...\n" << flush;
+	gDebug() << "setPitchPID..." << flush;
 	while ( mPitchPID.x != v.x or mPitchPID.y != v.y or mPitchPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_PITCH_PID_P );
@@ -1130,13 +1235,13 @@ void Controller::setPitchPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setPitchPID ok\n" << flush;
+	gDebug() << "setPitchPID ok" << flush;
 }
 
 
 void Controller::setYawPID( const vec3& v )
 {
-	cout << "setYawPID...\n" << flush;
+	gDebug() << "setYawPID..." << flush;
 	while ( mYawPID.x != v.x or mYawPID.y != v.y or mYawPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_YAW_PID_P );
@@ -1148,13 +1253,13 @@ void Controller::setYawPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setYawPID ok\n" << flush;
+	gDebug() << "setYawPID ok" << flush;
 }
 
 
 void Controller::setOuterPID( const vec3& v )
 {
-	cout << "setOuterPID...\n" << flush;
+	gDebug() << "setOuterPID..." << flush;
 	while ( mOuterPID.x != v.x or mOuterPID.y != v.y or mOuterPID.z != v.z ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU16( SET_OUTER_PID_P );
@@ -1166,7 +1271,7 @@ void Controller::setOuterPID( const vec3& v )
 		mXferMutex.unlock();
 		usleep( 1000 * 100 );
 	}
-	cout << "setOuterPID ok\n" << flush;
+	gDebug() << "setOuterPID ok" << flush;
 }
 
 
@@ -1329,8 +1434,9 @@ string Controller::VideoWhiteBalance()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
-	} while ( mVideoWhiteBalance == "" );
+		gDebug() << "lock " << retry << " ('" << mVideoWhiteBalance << "')";
+		retry++;
+	} while ( retry < 32 and mVideoWhiteBalance == "" );
 
 	mXferMutex.unlock();
 	return mVideoWhiteBalance;
@@ -1347,15 +1453,16 @@ string Controller::VideoLockWhiteBalance()
 
 	uint32_t retry = 0;
 	do {
-// 		mXferMutex.lock();
+		// mXferMutex.lock();
 		mTxFrame.WriteU16( ACK_ID | ack );
 		mTxFrame.WriteU16( VIDEO_LOCK_WHITE_BALANCE );
 		mLink->Write( &mTxFrame );
 		mTxFrame = Packet();
-// 		mXferMutex.unlock();
+		// mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%s')\n", retry++, mVideoWhiteBalance.c_str() );
-	} while ( mVideoWhiteBalance == "" );
+		gDebug() << "lock " << retry << " ('" << mVideoWhiteBalance << "')";
+		retry++;
+	} while ( retry < 32 and mVideoWhiteBalance == "" );
 
 	mXferMutex.unlock();
 	return mVideoWhiteBalance;
@@ -1379,7 +1486,8 @@ string Controller::VideoExposureMode()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%s')\n", retry++, mVideoExposureMode.c_str() );
+		gDebug() << "lock " << retry << " ('" << mVideoExposureMode << "')";
+		retry++;
 	} while ( mVideoExposureMode == "" );
 
 	mXferMutex.unlock();
@@ -1404,7 +1512,8 @@ int32_t Controller::VideoGetIso()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%d')\n", retry++, mVideoIso );
+		gDebug() << "lock " << retry << " ('" << mVideoIso << "')";
+		retry++;
 	} while ( mVideoIso == -1 );
 
 	mXferMutex.unlock();
@@ -1429,7 +1538,8 @@ uint32_t Controller::VideoGetShutterSpeed()
 		mTxFrame = Packet();
 // 		mXferMutex.unlock();
 		usleep( 125 * 1000 );
-		printf( "lock %d ('%d')\n", retry++, mVideoShutterSpeed );
+		gDebug() << "lock " << retry << " ('" << mVideoShutterSpeed << "')";
+		retry++;
 	} while ( mVideoShutterSpeed == -1 );
 
 	mXferMutex.unlock();
@@ -1532,6 +1642,80 @@ void Controller::setNightMode( const bool& night )
 }
 
 
+void Controller::VTXGetSettings()
+{
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+	uint32_t retry = 0;
+	mXferMutex.lock();
+	do {
+		for ( uint8_t i = 0; i < 2; i++ ) {
+			mTxFrame.WriteU16( VTX_GET_SETTINGS );
+			mLink->Write( &mTxFrame );
+			usleep( 25 * 1000 );
+			mTxFrame = Packet();
+		}
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 25 * 1000 );
+		gDebug() << "lock " << retry << " (VTX get settings)";
+		printf( "ack : %d , %d\n", mTXAckID, mRXAckID );
+		retry++;
+	} while ( retry < 4 and mRXAckID != mTXAckID );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VTXSetPower( uint8_t power )
+{
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+	uint32_t retry = 0;
+	mXferMutex.lock();
+	do {
+		for ( uint8_t i = 0; i < 1; i++ ) {
+			mTxFrame.WriteU16( VTX_SET_POWER );
+			mTxFrame.WriteU8( power );
+			mLink->Write( &mTxFrame );
+			usleep( 25 * 1000 );
+			mTxFrame = Packet();
+		}
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 25 * 1000 );
+		gDebug() << "lock " << retry << " (VTX power " << power << ")";
+		printf( "ack : %d , %d\n", mTXAckID, mRXAckID );
+		retry++;
+	} while ( retry < 4 and mRXAckID != mTXAckID );
+	mXferMutex.unlock();
+}
+
+
+void Controller::VTXSetChannel( uint8_t channel )
+{
+	uint16_t ack = ( mTXAckID = ( ( mTXAckID + 1 ) % 0x7F ) );
+	uint32_t retry = 0;
+	mXferMutex.lock();
+	do {
+		for ( uint8_t i = 0; i < 1; i++ ) {
+			mTxFrame.WriteU16( VTX_SET_CHANNEL );
+			mTxFrame.WriteU8( channel );
+			mLink->Write( &mTxFrame );
+			usleep( 25 * 1000 );
+			mTxFrame = Packet();
+		}
+		mTxFrame.WriteU16( ACK_ID | ack );
+		mLink->Write( &mTxFrame );
+		mTxFrame = Packet();
+		usleep( 25 * 1000 );
+		gDebug() << "lock " << retry << " (VTX channel " << channel << ")";
+		printf( "ack : %d , %d\n", mTXAckID, mRXAckID );
+		retry++;
+	} while ( retry < 4 and mRXAckID != mTXAckID );
+	mXferMutex.unlock();
+}
+
+
 vector< string > Controller::recordingsList()
 {
 	mRecordingsList = "";
@@ -1547,7 +1731,7 @@ vector< string > Controller::recordingsList()
 		}
 	} while ( mRecordingsList == "broken" );
 
-	cout << "mRecordingsList : " << mRecordingsList << "\n";
+	gDebug() << "mRecordingsList : " << mRecordingsList;
 	vector< string > list;
 	string full = mRecordingsList;
 	while ( full.length() > 0 ) {
@@ -1591,6 +1775,15 @@ list< vec4 > Controller::ratesDerivativeHistory()
 }
 
 
+list< vec4 > Controller::gyroscopeHistory()
+{
+	mHistoryMutex.lock();
+	list< vec4 > ret = mGyroscopeHistory;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
 list< vec4 > Controller::accelerationHistory()
 {
 	mHistoryMutex.lock();
@@ -1627,6 +1820,15 @@ list< vec2 > Controller::altitudeHistory()
 }
 
 
+list< vec4 > Controller::dnfDftHistory()
+{
+	mHistoryMutex.lock();
+	list< vec4 > ret = mDnfDft;
+	mHistoryMutex.unlock();
+	return ret;
+}
+
+
 float Controller::localBatteryVoltage() const
 {
 	return mLocalBatteryVoltage;
@@ -1650,7 +1852,7 @@ uint32_t Controller::crc32( const uint8_t* buf, uint32_t len )
 	return ~crc;
 }
 
-void Controller::MotorTest(uint32_t id)
+void Controller::MotorTest( uint32_t id )
 {
 	if ( !mLink ) {
 		return;
@@ -1659,6 +1861,19 @@ void Controller::MotorTest(uint32_t id)
 	mXferMutex.lock();
 	mTxFrame.WriteU16( MOTOR_TEST );
 	mTxFrame.WriteU32( id );
+	mXferMutex.unlock();
+}
+
+
+void Controller::MotorsBeep( bool enabled )
+{
+	if ( !mLink ) {
+		return;
+	}
+
+	mXferMutex.lock();
+	mTxFrame.WriteU16( MOTORS_BEEP );
+	mTxFrame.WriteU16( enabled );
 	mXferMutex.unlock();
 }
 

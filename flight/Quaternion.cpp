@@ -19,7 +19,6 @@
 #include "Quaternion.h"
 #include "Debug.h"
 
-using namespace GE;
 
 Quaternion::Quaternion( float x, float y, float z, float w )
 	: Vector< float, 4 >( x, y, z, w )
@@ -41,7 +40,7 @@ void Quaternion::normalize()
 		z = 0.0f;
 		w = 1.0f;
 	} else {
-		float il = 1 / l;
+		float il = 1.0f / l;
 		x *= il;
 		y *= il;
 		z *= il;

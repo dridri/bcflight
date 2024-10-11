@@ -4,7 +4,7 @@ set( BOARD_LIBS -lpthread -ldl )
 
 
 set( TARGET_LINUX 1 )
-set( TARGET_CPU_BITS 32 )
+set( TARGET_CPU_BITS 64 )
 
 
 if ( ${BUILD_sensors} MATCHES 1 )

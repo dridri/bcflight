@@ -61,10 +61,10 @@ protected:
 
 	void Arm();
 	void Disarm();
-	void setRoll( float value, bool raw = false );
-	void setPitch( float value, bool raw = false );
-	void setYaw( float value, bool raw = false );
-	void setThrust( float value, bool raw = false );
+	float setRoll( float value, bool raw = false );
+	float setPitch( float value, bool raw = false );
+	float setYaw( float value, bool raw = false );
+	float setThrust( float value, bool raw = false );
 	Main* mMain;
 #ifdef SYSTEM_NAME_Linux
 	mutex mSendMutex;
@@ -73,6 +73,7 @@ protected:
 //	bool mArmed;
 	uint32_t mPing;
 	LUA_PROPERTY("expo") Vector4f mExpo;
+	LUA_PROPERTY("thrust_expo") Vector2f mThrustExpo;
 /*
 	Vector3f mRPY;
 	float mThrust;

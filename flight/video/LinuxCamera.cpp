@@ -6,6 +6,7 @@
 #include "LiveOutput.h"
 #include "Debug.h"
 #include <thread>
+#include <sys/mman.h>
 
 std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
 
@@ -90,7 +91,9 @@ LinuxCamera::LinuxCamera()
 	, mNightSaturation( 1.0f )
 	, mCurrentFramerate( 0 )
 	, mExposureTime( 0 )
+	, mAwbGains({ 0.0f, 0.0f })
 	, mNightMode( false )
+	, mCamera( nullptr )
 	, mRawStreamConfiguration( nullptr )
 	, mPreviewStreamConfiguration( nullptr )
 	, mVideoStreamConfiguration( nullptr )
@@ -153,6 +156,11 @@ LuaValue LinuxCamera::infos()
 {
 	LuaValue ret;
 
+	if ( not mCamera ) {
+		ret["Device"] = "None";
+		return ret;
+	}
+
 	ret["Device"] = mCamera->id();
 	if ( mPreviewStreamConfiguration ) {
 		ret["Viewfinder Configuration"] = mPreviewStreamConfiguration->toString();
@@ -164,8 +172,7 @@ LuaValue LinuxCamera::infos()
 		ret["Still Configuration"] = mStillStreamConfiguration->toString();
 	}
 
-	ret["Width"] = mWidth;
-	ret["Height"] = mHeight;
+	ret["Resolution"] = std::to_string(mWidth) + "x" + std::to_string(mHeight);
 	ret["Framerate"] = mFps;
 	ret["HDR"] = ( mHDR ? "on" : "off" );
 
@@ -194,7 +201,7 @@ void LinuxCamera::Start()
 	mCamera = sCameraManager->get( sCameraManager->cameras()[0]->id() );
 	mCamera->acquire();
 
-	libcamera::StreamRoles roles;
+	std::vector<libcamera::StreamRole> roles;
 	// roles.push_back( libcamera::StreamRole::Raw );
 	roles.push_back( libcamera::StreamRole::Viewfinder );
 	roles.push_back( libcamera::StreamRole::VideoRecording );
@@ -273,27 +280,19 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::Contrast, mContrast );
 	mAllControls.set( libcamera::controls::Saturation, mSaturation );
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
-	if ( mWhiteBalance == "incandescent" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIncandescent );
-	} else if ( mWhiteBalance == "tungsten" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbTungsten );
-	} else if ( mWhiteBalance == "fluorescent" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbFluorescent );
-	} else if ( mWhiteBalance == "indoor" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbIndoor );
-	} else if ( mWhiteBalance == "daylight" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbDaylight );
-	} else if ( mWhiteBalance == "cloudy" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCloudy );
-	} else if ( mWhiteBalance == "custom" ) {
-		mAllControls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCustom );
-	}
+	mAllControls.set( libcamera::controls::draft::SceneFlicker, libcamera::controls::draft::SceneFickerOff );
+	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringMatrix );
+	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
+	mAllControls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeFast );
+	setWhiteBalance( mWhiteBalance, &mAllControls );
 	if ( mExposureMode == "short" ) {
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
 	} else if ( mExposureMode == "long" ) {
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureLong );
 	} else if ( mExposureMode == "custom" ) {
 		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureCustom );
+	} else {
+		mAllControls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureNormal );
 	}
 	if ( mRawStreamConfiguration ) {
 		mControlListQueue[mRawStreamConfiguration->stream()] = libcamera::ControlList();
@@ -318,11 +317,22 @@ void LinuxCamera::Start()
 		}
 		const std::vector<std::unique_ptr<libcamera::FrameBuffer>>& buffers = mAllocator->buffers(cfg.stream());
 		gDebug() << "Allocated " << buffers.size() << " buffers for stream " << cfg.toString();
-
+		for ( uint32_t i = 0; i < buffers.size(); i++ ) {
+			const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
+			size_t sz = 0;
+			for ( auto plane : buffer->planes() ) {
+				sz += plane.length;
+			}
+			uint8_t* ptr = static_cast<uint8_t*>( mmap( nullptr, sz, PROT_READ | PROT_WRITE, MAP_SHARED, buffer->planes()[0].fd.get(), 0 ) );
+			if ( !ptr ) {
+				gError() << "Failed to mmap buffer for stream " << cfg.toString();
+			}
+			gDebug() << "mmap buffer for stream " << cfg.toString() << " : " << ptr;
+			mPlaneBuffers[buffer.get()] = ptr;
+		}
 		if ( mLivePreview and &cfg == mPreviewStreamConfiguration ) {
 			for ( uint32_t i = 0; i < buffers.size(); i++ ) {
 				const std::unique_ptr<libcamera::FrameBuffer> &buffer = buffers[i];
-				printf("FD : %d\n", buffer->planes()[0].fd.get());
 				mPreviewFrameBuffers[buffer.get()] = new DRMFrameBuffer( mPreviewStreamConfiguration->size.width, mPreviewStreamConfiguration->size.height, stride64(mPreviewStreamConfiguration->size.width), DRM_FORMAT_YUV420, 0, buffer->planes()[0].fd.get() );
 			}
 		}
@@ -339,6 +349,13 @@ void LinuxCamera::Start()
 			}
 		}
 		mRequests.push_back(std::move(request));
+	}
+
+	if ( mVideoEncoder ) {
+		mVideoEncoder->SetInputResolution( mWidth, mHeight );
+	}
+	if ( mLiveEncoder ) {
+		mLiveEncoder->SetInputResolution( mWidth, mHeight );
 	}
 
 	mCamera->requestCompleted.connect( this, &LinuxCamera::requestComplete );
@@ -400,7 +417,14 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 
 		mCurrentFramerate = 1000000L / *metadata.get( libcamera::controls::FrameDuration );
 		mExposureTime = *metadata.get( libcamera::controls::ExposureTime );
-
+		mAwbGains = *metadata.get( libcamera::controls::ColourGains );
+		mColorTemperature = *metadata.get( libcamera::controls::ColourTemperature );
+		/*
+		gDebug() << "Framerate: " << mCurrentFramerate;
+		gDebug() << "Exposure time: " << mExposureTime;
+		gDebug() << "AWB gains: " << mAwbGains[0] << ", " << mAwbGains[1];
+		gDebug() << "Color temperature: " << mColorTemperature;
+		*/
 		if ( buffers.size() > 0 ) {
 			libcamera::ControlList mergedControls;
 			for ( auto bufferPair : buffers ) {
@@ -412,6 +436,17 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 						mPreviewSurface->Show( mPreviewFrameBuffers[buffer] );
 					}
 				}
+				if ( mPreviewStreamConfiguration and stream == mPreviewStreamConfiguration->stream() ) {
+					if ( mLiveEncoder ) {
+						auto ts = metadata.get(libcamera::controls::SensorTimestamp);
+						int64_t timestamp_ns = ts ? *ts : buffer->metadata().timestamp;
+						size_t sz = 0;
+						for ( auto plane : buffer->planes() ) {
+							sz += plane.length;
+						}
+						mLiveEncoder->EnqueueBuffer( sz, mPlaneBuffers[buffer], timestamp_ns / 1000, buffer->planes()[0].fd.get() );
+					}
+				}
 				if ( mVideoStreamConfiguration and stream == mVideoStreamConfiguration->stream() ) {
 					if ( mVideoEncoder ) {
 						auto ts = metadata.get(libcamera::controls::SensorTimestamp);
@@ -420,7 +455,7 @@ void LinuxCamera::requestComplete( libcamera::Request* request )
 						for ( auto plane : buffer->planes() ) {
 							sz += plane.length;
 						}
-						mVideoEncoder->EnqueueBuffer( sz, nullptr, timestamp_ns / 1000, buffer->planes()[0].fd.get() );
+						mVideoEncoder->EnqueueBuffer( sz, mPlaneBuffers[buffer], timestamp_ns / 1000, buffer->planes()[0].fd.get() );
 					}
 				}
 				mControlListQueueMutex.lock();
@@ -533,37 +568,103 @@ void LinuxCamera::setLensShader( const Camera::LensShaderColor& r, const Camera:
 
 std::string LinuxCamera::switchExposureMode()
 {
+	return "";
+}
+
+
+bool LinuxCamera::setWhiteBalance( const std::string& mode, libcamera::ControlList* controlsList )
+{
+	static const std::map< std::string, libcamera::controls::AwbModeEnum > awbModes = {
+		{ "auto", libcamera::controls::AwbModeEnum::AwbAuto },
+		{ "incandescent", libcamera::controls::AwbModeEnum::AwbIncandescent },
+		{ "tungsten", libcamera::controls::AwbModeEnum::AwbTungsten },
+		{ "fluorescent", libcamera::controls::AwbModeEnum::AwbFluorescent },
+		{ "indoor", libcamera::controls::AwbModeEnum::AwbIndoor },
+		{ "daylight", libcamera::controls::AwbModeEnum::AwbDaylight },
+		{ "cloudy", libcamera::controls::AwbModeEnum::AwbCloudy },
+		{ "custom", libcamera::controls::AwbModeEnum::AwbCustom },
+	};
+
+
+	if ( awbModes.find( mode ) != awbModes.end() ) {
+		if ( controlsList ) {
+			(*controlsList).set( libcamera::controls::AwbMode, awbModes.at( mode ) );
+		} else {
+			libcamera::ControlList controls;
+			(controlsList ? *controlsList : controls).set( libcamera::controls::AwbMode, awbModes.at( mode ) );
+			pushControlList( controls );
+		}
+		mWhiteBalance = mode;
+		return true;
+	}
+
+	return false;
 }
 
 
 std::string LinuxCamera::switchWhiteBalance()
 {
+	static const std::map< std::string, std::string > nextMode = {
+		{ "auto", "incandescent" },
+		{ "incandescent", "fluorescent" },
+		{ "fluorescent", "daylight" },
+		{ "daylight", "cloudy" },
+		{ "cloudy", "auto" },
+		{ "custom", "auto" },
+	};
+	if ( nextMode.find( mWhiteBalance ) == nextMode.end() ) {
+		setWhiteBalance( "auto" );
+		libcamera::ControlList controls;
+		controls.set( libcamera::controls::ColourGains, libcamera::Span<const float, 2>({ 0.0f, 0.0f }) );
+		pushControlList( controls );
+		return "auto";
+	}
+	std::string newMode = nextMode.at( mWhiteBalance );
+	setWhiteBalance( newMode );
+	return newMode;
 }
 
 
 std::string LinuxCamera::lockWhiteBalance()
 {
+	libcamera::ControlList controls;
+
+	if ( mAwbGains[0] < 0.0f or mAwbGains[1] < 0.0f or mAwbGains[0] > 16.0f or mAwbGains[1] > 16.0f ) {
+		return mWhiteBalance;
+	}
+
+	auto span = libcamera::Span<const float, 2>({ mAwbGains[0], mAwbGains[1] });
+
+	controls.set( libcamera::controls::AwbMode, libcamera::controls::AwbModeEnum::AwbCustom );
+	controls.set( libcamera::controls::ColourGains, span );
+
+	pushControlList( controls );
+	char buf[64];
+	snprintf( buf, sizeof(buf), "R%.2fB%.2f", span[0], span[1] );
+	mWhiteBalance = buf;
+	return mWhiteBalance;
 }
 
 
-void LinuxCamera::setNightMode( bool night_mode )
+void LinuxCamera::updateSettings()
 {
 	libcamera::ControlList controls;
 
-	mNightMode = night_mode;
-	if ( night_mode ) {
-		controls.set( libcamera::controls::AnalogueGain, (float)mNightISO / 100.0f );
-		controls.set( libcamera::controls::Brightness, mNightBrightness );
-		controls.set( libcamera::controls::Contrast, mNightContrast );
-		controls.set( libcamera::controls::Saturation, mNightSaturation );
-//		controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeHighQuality );
+	controls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
+	controls.set( libcamera::controls::Brightness, mBrightness );
+	controls.set( libcamera::controls::Contrast, mContrast );
+	controls.set( libcamera::controls::Saturation, mSaturation );
+	setWhiteBalance( mWhiteBalance, &controls );
+	if ( mExposureMode == "short" ) {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureShort );
+	} else if ( mExposureMode == "long" ) {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureLong );
+	} else if ( mExposureMode == "custom" ) {
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureCustom );
 	} else {
-		controls.set( libcamera::controls::AnalogueGain, (float)mISO / 100.0f );
-		controls.set( libcamera::controls::Brightness, mBrightness );
-		controls.set( libcamera::controls::Contrast, mContrast );
-		controls.set( libcamera::controls::Saturation, mSaturation );
-//		controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeOff );
+		controls.set( libcamera::controls::AeExposureMode, libcamera::controls::AeExposureModeEnum::ExposureNormal );
 	}
+//	controls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeOff );
 
 	pushControlList( controls );
 }
@@ -654,16 +755,19 @@ const uint32_t LinuxCamera::framerate()
 
 const bool LinuxCamera::recording()
 {
+	return false;
 }
 
 
 const std::string LinuxCamera::exposureMode()
 {
+	return "";
 }
 
 
 const std::string LinuxCamera::whiteBalance()
 {
+	return mWhiteBalance;
 }
 
 
@@ -681,21 +785,25 @@ const uint32_t LinuxCamera::shutterSpeed()
 
 const int32_t LinuxCamera::ISO()
 {
+	return mISO;
 }
 
 
 const float LinuxCamera::saturation()
 {
+	return mSaturation;
 }
 
 
 const float LinuxCamera::contrast()
 {
+	return mContrast;
 }
 
 
 const float LinuxCamera::brightness()
 {
+	return mBrightness;
 }
 
 
@@ -716,14 +824,17 @@ void LinuxCamera::StartRecording()
 
 uint32_t LinuxCamera::getLastPictureID()
 {
+	return 0;
 }
 
 
 const std::string LinuxCamera::recordFilename()
 {
+	return "";
 }
 
 
 uint32_t* LinuxCamera::getFileSnapshot( const std::string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp )
 {
+	return nullptr;
 }

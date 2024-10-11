@@ -26,6 +26,7 @@
 #include <Qsci/qsciscintilla.h>
 #include <Qsci/qscilexerlua.h>
 #include <iostream>
+#include <fftw3.h>
 
 extern "C" {
 #include <luajit.h>
@@ -52,6 +53,9 @@ MainWindow::MainWindow()
 	, mStreamLink( nullptr )
 	, mFirmwareUpdateThread( nullptr )
 	, motorSpeedLayout( nullptr )
+	, mRatesPlot( false )
+	, mDnfPlot( false )
+	, mRatesPlotSpectrum( false )
 	, mPIDsOk( false )
 	, mPIDsReading( true )
 {
@@ -76,20 +80,20 @@ MainWindow::MainWindow()
 		if ( device != "" ) {
 			RawWifi* controllerLink = new RawWifi( device, mConfig->value( "rawwifi/controller/outport", 0 ).toInt(), mConfig->value( "rawwifi/controller/inport", 1 ).toInt() );
 			mControllerLink = controllerLink;
-			controllerLink->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
-			controllerLink->setRetriesCount( mConfig->value( "rawwifi/controller/retries", 1 ).toInt() );
-			controllerLink->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
-			controllerLink->setDropBroken( not mConfig->value( "rawwifi/controller/nodrop", false ).toBool() );
+			// controllerLink->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			// controllerLink->setRetriesCount( mConfig->value( "rawwifi/controller/retries", 1 ).toInt() );
+			// controllerLink->setCECMode( mConfig->value( "rawwifi/controller/cec", "" ).toString().toLower().toStdString() );
+			// controllerLink->setDropBroken( not mConfig->value( "rawwifi/controller/nodrop", false ).toBool() );
 			mStreamLink = new RawWifi( device, mConfig->value( "rawwifi/video/outport", 10 ).toInt(), mConfig->value( "rawwifi/video/inport", 11 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
-			static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/video/cec", "" ).toString().toLower().toStdString() );
-			static_cast<RawWifi*>(mStreamLink)->setDropBroken( not mConfig->value( "rawwifi/video/nodrop", false ).toBool() );
-			mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
-			static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/audio/cec", "" ).toString().toLower().toStdString() );
-			static_cast<RawWifi*>(mAudioLink)->setDropBroken( not mConfig->value( "rawwifi/audio/nodrop", false ).toBool() );
+			// static_cast<RawWifi*>(mStreamLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			// static_cast<RawWifi*>(mStreamLink)->setRetriesCount( mConfig->value( "rawwifi/video/retries", 1 ).toInt() );
+			// static_cast<RawWifi*>(mStreamLink)->setCECMode( mConfig->value( "rawwifi/video/cec", "" ).toString().toLower().toStdString() );
+			// static_cast<RawWifi*>(mStreamLink)->setDropBroken( not mConfig->value( "rawwifi/video/nodrop", false ).toBool() );
+			// mAudioLink = new RawWifi( device, mConfig->value( "rawwifi/audio/outport", 20 ).toInt(), mConfig->value( "rawwifi/audio/inport", 21 ).toInt() );
+			// static_cast<RawWifi*>(mAudioLink)->SetChannel( mConfig->value( "rawwifi/channel", 9 ).toInt() );
+			// static_cast<RawWifi*>(mAudioLink)->setRetriesCount( mConfig->value( "rawwifi/audio/retries", 1 ).toInt() );
+			// static_cast<RawWifi*>(mAudioLink)->setCECMode( mConfig->value( "rawwifi/audio/cec", "" ).toString().toLower().toStdString() );
+			// static_cast<RawWifi*>(mAudioLink)->setDropBroken( not mConfig->value( "rawwifi/audio/nodrop", false ).toBool() );
 		}
 #endif // NO_RAWWIFI
 	} else {
@@ -98,6 +102,8 @@ MainWindow::MainWindow()
 		mStreamLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/video/port", 2021 ).toInt(), socket_type( mConfig->value( "tcpip/video/type", "UDPLite" ).toString() ) );
 		mAudioLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/audio/port", 2022 ).toInt(), socket_type( mConfig->value( "tcpip/audio/type", "TCP" ).toString() ) );
 	}
+	uint8_t test[2048];
+	// mControllerLink->Read( test, 2048, 0 );
 	mController = new ControllerPC( mControllerLink, mConfig->value( "controller/spectate", false ).toBool() );
 
 	if ( mController ) {
@@ -136,9 +142,16 @@ MainWindow::MainWindow()
 	connect( ui->saturation_inc, SIGNAL( pressed() ), this, SLOT( VideoSaturationIncrease() ) );
 	connect( ui->record, SIGNAL( pressed() ), this, SLOT( VideoRecord() ) );
 	connect( ui->take_picture, SIGNAL( pressed() ), this, SLOT( VideoTakePicture() ) );
+	connect( ui->white_balance_lock, SIGNAL( pressed() ), this, SLOT( VideoWhiteBalanceLock() ) );
 	connect( ui->recordings_refresh, SIGNAL( pressed() ), this, SLOT( RecordingsRefresh() ) );
 	connect( ui->night_mode, SIGNAL( stateChanged(int) ), this, SLOT( SetNightMode(int) ) );
 	connect( ui->motorTestButton, SIGNAL(pressed()), this, SLOT(MotorTest()));
+	connect( ui->motorsBeepStart, &QPushButton::pressed, [this]() { MotorsBeep(true); });
+	connect( ui->motorsBeepStop, &QPushButton::pressed, [this]() { MotorsBeep(false); });
+	connect( ui->gyroPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = false; mDnfPlot = false; });
+	connect( ui->ratesPlotButton, &QPushButton::pressed, [this]() { mRatesPlot = true; mDnfPlot = false; });
+	connect( ui->dnfPlotButton, &QPushButton::pressed, [this]() { mDnfPlot = true; mRatesPlot = false; });
+	connect( ui->gyroSpectrumButton, &QCheckBox::stateChanged, [this](int state) { mRatesPlotSpectrum = ( state == Qt::Checked ); });
 
 	ui->statusbar->showMessage( "Disconnected" );
 
@@ -285,7 +298,11 @@ void MainWindow::updateData()
 		}
 	} else {
 		QString conn = mController->isConnected() ? "Connected" : "Disconnected";
-		ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s    |    Camera :%6 KB/s (%7 KB/s |%8 % |%9 dBm )    |    %10 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		if ( mStreamLink ) {
+			ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s    |    Camera :%6 KB/s (%7 KB/s |%8 % |%9 dBm )    |    %10 FPS" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ).arg( mStreamLink->readSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->fullReadSpeed() / 1024, 4, 10, QChar(' ') ).arg( mStreamLink->RxQuality(), 3, 10, QChar(' ') ).arg( mStreamLink->RxLevel(), 3, 10, QChar(' ') ).arg( ui->video->fps() ) );
+		} else {
+			ui->statusbar->showMessage( conn + QString( "    |    RX Qual : %1 % (%2 dBm )    |    TX Qual : %3 %    |    TX : %4 B/s    |    RX : %5 B/s" ).arg( mController->link()->RxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->RxLevel(), 3, 10, QChar(' ') ).arg( mController->droneRxQuality(), 3, 10, QChar(' ') ).arg( mController->link()->writeSpeed(), 4, 10, QChar(' ') ).arg( mController->link()->readSpeed(), 4, 10, QChar(' ') ) );
+		}
 
 		if ( mController->ping() < 10000 ) {
 			ui->latency->setText( QString::number( mController->ping() ) + " ms" );
@@ -329,7 +346,7 @@ void MainWindow::updateData()
 			}
 		}
 
-		auto plot = []( QCustomPlot* graph, const std::list< vec4 >& values, QVector< double >& t, QVector< double >& x, QVector< double >& y, QVector< double >& z ) {
+		auto plot = []( QCustomPlot* graph, const std::list< vec4 >& values, QVector< double >& t, QVector< double >& x, QVector< double >& y, QVector< double >& z, bool rescale = true ) {
 			t.clear();
 			x.clear();
 			y.clear();
@@ -352,14 +369,71 @@ void MainWindow::updateData()
 			graph->graph(0)->setData( t, x );
 			graph->graph(1)->setData( t, y );
 			graph->graph(2)->setData( t, z );
-			graph->graph(0)->rescaleAxes();
-			graph->graph(1)->rescaleAxes( true );
-			graph->graph(2)->rescaleAxes( true );
+			if ( rescale ) {
+				graph->graph(0)->rescaleAxes();
+				graph->graph(1)->rescaleAxes( true );
+				graph->graph(2)->rescaleAxes( true );
+			}
 			graph->xAxis->rescale();
 			graph->replot();
 		};
+		const std::list<vec4>& gyroData = mDnfPlot ? mController->dnfDftHistory() : (mRatesPlot ? mController->ratesHistory() : mController->gyroscopeHistory());
+		if ( mRatesPlotSpectrum && !mDnfPlot ) {
+			int numSamples = std::min( gyroData.size(), 512UL );
+			if ( numSamples > 32 ) {
+				float* input0 = (float*)fftwf_malloc( sizeof(float) * numSamples );
+				float* input1 = (float*)fftwf_malloc( sizeof(float) * numSamples );
+				float* input2 = (float*)fftwf_malloc( sizeof(float) * numSamples );
+				fftwf_complex* output0 = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( numSamples / 2 + 1 ) );
+				fftwf_complex* output1 = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( numSamples / 2 + 1 ) );
+				fftwf_complex* output2 = (fftwf_complex*)fftwf_malloc( sizeof(fftwf_complex) * ( numSamples / 2 + 1 ) );
+				auto plan0 = fftwf_plan_dft_r2c_1d( numSamples, input0, output0, FFTW_ESTIMATE );
+				auto plan1 = fftwf_plan_dft_r2c_1d( numSamples, input1, output1, FFTW_ESTIMATE );
+				auto plan2 = fftwf_plan_dft_r2c_1d( numSamples, input2, output2, FFTW_ESTIMATE );
+				int32_t n = numSamples - 1;
+				double tMax = gyroData.back().w;
+				double tMin = 0.0;
+				std::vector<vec4> list;
+				for ( vec4 v : gyroData ) {
+					list.push_back(v);
+				}
+				for ( int32_t n = 0; n < numSamples; n++ ) {
+					input0[n] = list[list.size() - 1 - n].x;
+					input1[n] = list[list.size() - 1 - n].y;
+					input2[n] = list[list.size() - 1 - n].z;
+					tMin = list[list.size() - 1 - n].w;
+				}
+				float totalTime = tMax - tMin;
+				// printf( "totalTime: %f\n", totalTime );
+				fftwf_execute( plan0 );
+				fftwf_execute( plan1 );
+				fftwf_execute( plan2 );
+				std::list<vec4> out;
+				for ( uint32_t i = 0; i < numSamples / 2 + 1; i++ ) {
+					vec4 v;
+					v.x = std::abs( output0[i][0] );
+					v.y = std::abs( output1[i][0] );
+					v.z = std::abs( output2[i][0] );
+					v.w = i;
+					// v.w = 2 * i * list.size() / numSamples; // TODO : use IMU freq instead
+					out.push_back( v );
+				}
+				ui->rates->yAxis->setRange( 0.0f, 128.0f );
+				plot( ui->rates, out, mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ, false );
+				fftwf_free( input0 );
+				fftwf_free( input1 );
+				fftwf_free( input2 );
+				fftwf_free( output0 );
+				fftwf_free( output1 );
+				fftwf_free( output2 );
+			}
+		} else {
+			if ( mDnfPlot ) {
+				ui->rates->yAxis->setRange( 0.0f, 128.0f );
+			}
+			plot( ui->rates, gyroData, mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ, mDnfPlot == false );
+		}
 		plot( ui->rpy, mController->rpyHistory(), mDataTrpy, mDataR, mDataP, mDataY );
-		plot( ui->rates, mController->ratesHistory(), mDataTrates, mDataRatesX, mDataRatesY, mDataRatesZ );
 		plot( ui->accelerometer, mController->accelerationHistory(), mDataTaccelerometer, mDataAccelerometerX, mDataAccelerometerY, mDataAccelerometerZ );
 		plot( ui->magnetometer, mController->magnetometerHistory(), mDataTmagnetometer, mDataMagnetometerX, mDataMagnetometerY, mDataMagnetometerZ );
 		plot( ui->rates_dterm, mController->ratesDerivativeHistory(), mDataTratesdterm, mDataRatesdtermX, mDataRatesdtermY, mDataRatesdtermZ );
@@ -773,6 +847,14 @@ void MainWindow::VideoTakePicture()
 }
 
 
+void MainWindow::VideoWhiteBalanceLock()
+{
+	if ( mController and mController->isConnected() and not mController->isSpectate() ) {
+		mController->VideoLockWhiteBalance();
+	}
+}
+
+
 void MainWindow::VideoRecord()
 {
 	if ( not mController or mController->isSpectate() ) {
@@ -851,10 +933,20 @@ void MainWindow::RecordingsRefresh()
 	ui->recordings->setHorizontalHeaderLabels( headers );
 }
 
-void MainWindow::MotorTest() {
-	int id = ui->motorTestSpinBox->value();
 
-	if ( mController and not mController->isSpectate() ) {
-		mController->MotorTest( id );
+void MainWindow::MotorTest() {
+	if ( not mController or mController->isSpectate() ) {
+		return;
 	}
+	int id = ui->motorTestSpinBox->value();
+	mController->MotorTest( id );
+}
+
+
+void MainWindow::MotorsBeep( bool enabled ) {
+	std::cout << "MotorsBeep(" << enabled << " )\n";
+	if ( not mController or mController->isSpectate() ) {
+		return;
+	}
+	mController->MotorsBeep( enabled );
 }

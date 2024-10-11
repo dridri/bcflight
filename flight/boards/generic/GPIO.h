@@ -31,6 +31,12 @@ public:
 	typedef enum {
 		Input,
 		Output,
+		Alt0,
+		Alt1,
+		Alt2,
+		Alt3,
+		Alt4,
+		Alt5,
 	} Mode;
 	typedef enum {
 		Falling,

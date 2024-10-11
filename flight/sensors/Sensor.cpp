@@ -153,6 +153,7 @@ LuaValue Sensor::swapInfos() const
 			case 4:
 				return sign + "W";
 		}
+		return string("");
 	};
 
 	if ( mSwapMode == SwapModeAxis ) {
@@ -163,9 +164,9 @@ LuaValue Sensor::swapInfos() const
 			ret["w"] = axisString( mAxisSwap[3] );
 		}
 	} else {
-		for ( uint32_t i = 0; i < mAxisMatrix.height(); ++i ) {
+		for ( uint32_t i = 0; i < (uint32_t)mAxisMatrix.height(); ++i ) {
 			ret[i] = LuaValue();
-			for ( uint32_t j = 0; j < mAxisMatrix.width(); ++j ) {
+			for ( uint32_t j = 0; j < (uint32_t)mAxisMatrix.width(); ++j ) {
 				ret[i][j] = mAxisMatrix.constData()[i * mAxisMatrix.width() + j];
 			}
 		}
@@ -174,13 +175,13 @@ LuaValue Sensor::swapInfos() const
 	return ret;
 }
 
-/*
+
 void Sensor::AddDevice( Sensor* sensor )
 {
 	mDevices.push_back( sensor );
 	UpdateDevices();
 }
-*/
+
 /*
 void Sensor::RegisterDevice( int I2Caddr, const string& name, Config* config, const string& object )
 {
@@ -436,41 +437,26 @@ void Sensor::UpdateDevices()
 LuaValue Sensor::infosAll()
 {
 	LuaValue ret;
-	ret["Gyroscopes"] = LuaValue();
-	ret["Accelerometers"] = LuaValue();
-	ret["Magnetometers"] = LuaValue();
-	ret["Altimeters"] = LuaValue();
-	ret["GPSes"] = LuaValue();
-	ret["Voltmeters"] = LuaValue();
-	ret["CurrentSensors"] = LuaValue();
 
-	for ( Gyroscope* gyro : mGyroscopes ) {
-		ret["Gyroscopes"]["[\"" + gyro->names().front() + "\"]"] = gyro->infos();
-	}
+	static const auto listSensors = [] ( const std::list< Sensor* >* sensors ) {
+		LuaValue ret = LuaValue( std::list<LuaValue>() );
+		for ( Sensor* s : *sensors ) {
+			const std::string& name = s->names().front();
+			if ( name.length() == 0 ) {
+				continue;
+			}
+			ret[s->names().front()] = s->infos();
+		}
+		return ret;
+	};
 
-	for ( Accelerometer* accel : mAccelerometers ) {
-		ret["Accelerometers"]["[\"" + accel->names().front() + "\"]"] = accel->infos();
-	}
-
-	for ( Magnetometer* magn : mMagnetometers ) {
-		ret["Magnetometers"]["[\"" + magn->names().front() + "\"]"] = magn->infos();
-	}
-
-	for ( Altimeter* alti : mAltimeters ) {
-		ret["Altimeters"]["[\"" + alti->names().front() + "\"]"] = alti->infos();
-	}
-
-	for ( GPS* gps : mGPSes ) {
-		ret["GPSes"]["[\"" + gps->names().front() + "\"]"] = gps->infos();
-	}
-
-	for ( Voltmeter* volt : mVoltmeters ) {
-		ret["Voltmeters"]["[\"" + volt->names().front() + "\"]"] = volt->infos();
-	}
-
-	for ( CurrentSensor* curr : mCurrentSensors ) {
-		ret["CurrentSensors"]["[\"" + curr->names().front() + "\"]"] = curr->infos();
-	}
+	ret["Gyroscopes"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mGyroscopes) );
+	ret["Accelerometers"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mAccelerometers) );
+	ret["Magnetometers"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mMagnetometers) );
+	ret["Altimeters"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mAltimeters) );
+	ret["GPSes"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mGPSes) );
+	ret["Voltmeters"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mVoltmeters) );
+	ret["CurrentSensors"] = listSensors( reinterpret_cast<std::list<Sensor*>*>(&mCurrentSensors) );
 
 	return ret;
 }

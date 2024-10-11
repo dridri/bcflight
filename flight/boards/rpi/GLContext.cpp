@@ -5,6 +5,7 @@
 // #include <vc_dispmanx_types.h>
 #include <bcm_host.h>
 #include <fcntl.h>
+#include "Board.h"
 
 #define OPTIMUM_WIDTH 840
 #define OPTIMUM_HEIGHT 480
@@ -27,6 +28,7 @@ GLContext::GLContext()
 	, mWidth( 0 )
 	, mHeight( 0 )
 	, mPreviousBo( nullptr )
+	, mSyncLastTick( 0 )
 {
 	Start();
 }
@@ -253,6 +255,8 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 	eglQuerySurface( mEGLDisplay, mEGLSurface, EGL_HEIGHT, (EGLint*)&mHeight );
 	eglMakeCurrent( mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext );
 
+	eglSwapInterval( mEGLDisplay, 1 );
+
 	std::cout << "OpenGL version : " << glGetString( GL_VERSION ) << "\n";
 	std::cout << "Framebuffer resolution : " << mWidth << " x " << mHeight << "\n";
 	glViewport( 0, 0, mWidth, mHeight );
@@ -274,6 +278,7 @@ int32_t GLContext::Initialize( uint32_t width, uint32_t height )
 
 void GLContext::SwapBuffers()
 {
+	glFinish();
 	eglSwapBuffers( mEGLDisplay, mEGLSurface );
 
 	struct gbm_bo* bo = gbm_surface_lock_front_buffer( mGbmSurface );
@@ -296,6 +301,7 @@ void GLContext::SwapBuffers()
 		gbm_surface_release_buffer( mGbmSurface, mPreviousBo );
 	}
 	mPreviousBo = bo;
+	mSyncLastTick = Board::WaitTick( 1000000L / 30, mSyncLastTick );
 }
 
 

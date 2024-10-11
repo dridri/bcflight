@@ -149,7 +149,7 @@ RendererHUDNeo::~RendererHUDNeo()
 void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats )
 {
 	if ( dronestats and dronestats->username != "" ) {
-		RenderText( mWidth * 0.5f, mBorderTop, dronestats->username, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, true );
+		RenderText( mWidth * 0.5f, mBorderTop, dronestats->username, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, TextAlignment::CENTER );
 	}
 
 	// Controls
@@ -159,10 +159,10 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			thrust = 0.0f;
 		}
 		float acceleration = dronestats->acceleration / 9.7f;
-		if ( dronestats->mode != DroneMode::Rate ) {
+		// if ( dronestats->mode != DroneMode::Rate ) {
 			RenderAttitude( dronestats->rpy );
-		}
-		RenderThrustAcceleration( thrust, std::min( 1.0f, acceleration / 5.0f ) );
+		// }
+		RenderThrustAcceleration( thrust, acceleration / 5.0f );
 
 		DroneMode mode = dronestats->mode;
 		Vector4f color_acro = Vector4f( 0.4f, 0.4f, 0.4f, 1.0f );
@@ -184,12 +184,12 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		Vector4f color = Vector4f( 1.0f, 1.0f, 1.0f, 1.0f );
 		std::string saccel = std::to_string( acceleration );
 		saccel = saccel.substr( 0, saccel.find( "." ) + 2 );
-		RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.575f, saccel + "g", color, 0.55f, true );
+		RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.575f, saccel + "g", color, 0.55f, TextAlignment::CENTER );
 	
 		if ( dronestats->armed ) {
-			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f, std::to_string( (int)( thrust * 100.0f ) ) + "%", color, 1.0f, true );
+			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f, std::to_string( (int)( thrust * 100.0f ) ) + "%", color, 1.0f, TextAlignment::CENTER );
 		} else {
-			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f * 0.6f, "disarmed", color, 0.6f, true );
+			RenderText( mBorderRight - mSpeedometerSize * 0.7f, mBorderBottom - mSpeedometerSize * 0.75f - mFontSize * 0.6f * 0.6f, "disarmed", color, 0.6f, TextAlignment::CENTER );
 		}
 	}
 
@@ -200,11 +200,11 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		float level = dronestats->batteryLevel;
 		RenderBattery( level );
 		if ( level <= 0.0f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery dead", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery dead", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		} else if ( level <= 0.15f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery critical", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery critical", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		} else if ( level <= 0.25f and mBlinkingViews ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery low", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f, "Battery low", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		}
 		float battery_red = 1.0f - level;
 		RenderText( mBorderLeft + 210, mBorderBottom - mFontHeight * 1, std::to_string( (int)( level * 100.0f ) ) + "%", Vector4f( 0.5f + 0.5f * battery_red, 1.0f - battery_red * 0.25f, 0.5f - battery_red * 0.5f, 1.0f ), 0.9 );
@@ -217,7 +217,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 
 		if ( localVoltage > 0.0f ) {
 			if ( localVoltage <= 11.0f and mBlinkingViews ) {
-				RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize, "Low Goggles Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+				RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize, "Low Goggles Battery", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 			}
 			battery_red = 1.0f - ( ( localVoltage - 11.0f ) / 1.6f );
 			svolt = std::to_string( localVoltage );
@@ -228,9 +228,19 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		}
 	}
 
-	// Blackbox
+	// Blackbox and stats
 	if ( dronestats ) {
 		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "BB " + std::to_string(dronestats->blackBoxId), Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
+		bottom_left_text_idx++;
+		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "CPU " + std::to_string(dronestats->cpuUsage) + "%", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
+		bottom_left_text_idx++;
+		RenderText( mBorderLeft, mBorderBottom - mFontHeight * bottom_left_text_idx, "MEM " + std::to_string(dronestats->memUsage) + "%", Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f );
+		bottom_left_text_idx++;
+		if ( dronestats->memUsage > 75 ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f + mFontHeight, "High memory usage", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
+		} else if ( dronestats->cpuUsage > 75 ) {
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f + mFontHeight, "High CPU usage", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
+		}
 	}
 
 	// Static elements
@@ -309,13 +319,6 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 1.0f, fps_str, Vector4f( 0.5f + 0.5f * fps_red, 1.0f - fps_red * 0.25f, 0.5f - fps_red * 0.5f, 1.0f ), 0.8f );
 		}
 
-// 		if ( std::string( videostats->whitebalance ) != mWhiteBalance ) {
-// 			mWhiteBalance = std::string( videostats->whitebalance );
-// 			mWhiteBalanceTick = Thread::GetSeconds();
-// 		}
-// 		if ( Thread::GetSeconds() - mWhiteBalanceTick < 1.0f ) {
-// 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 3, mWhiteBalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, true );
-// 		}
 		FontMeasureString( videostats->whitebalance, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 3.0f, videostats->whitebalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
 		FontMeasureString( videostats->exposure, &w, &h );
@@ -341,23 +344,54 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		}
 		RenderQuadTexture( mIconPhoto->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.07, mWidth * 0.04f, mWidth * 0.035f, false, false, { photo_burn, photo_burn, photo_burn, photo_alpha } );
 */
+		if ( videostats->vtxFrequency > 0 ) {
+			std::string text = std::to_string(videostats->vtxFrequency) + "MHz";
+			FontMeasureString( text, &w, &h );
+			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 5.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		}
+		if ( videostats->vtxPowerDbm >= 0 ) {
+			std::string text = std::to_string(videostats->vtxPowerDbm) + "dBm";
+			FontMeasureString( text, &w, &h );
+			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 6.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		}
+		if ( videostats->vtxChannel > 0 ) {
+			std::string text = "";
+			if ( strlen(videostats->vtxBand) > 0 ) {
+				if ( videostats->vtxBand[0] == 'B' ) {
+					text += std::string(&videostats->vtxBand[7], 1);
+				} else {
+					text += std::string(&videostats->vtxBand[0], 1);
+				}
+			}
+			text += std::to_string(videostats->vtxChannel % 8 + 1);
+			FontMeasureString( text, &w, &h );
+			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 7.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
+		}
 	}
 
 	// Latency
 	if ( dronestats ) {
 		int w = 0, h = 0;
 		float latency_red = std::min( 1.0f, ((float)dronestats->ping ) / 100.0f );
-		std::string latency_str = std::to_string( dronestats->ping ) + "ms";
+		std::string latency_str = std::to_string( dronestats->ping / 2 ) + "ms";
 		FontMeasureString( latency_str, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 2.0f, latency_str, Vector4f( 0.5f + 0.5f * latency_red, 1.0f - latency_red * 0.25f, 0.5f - latency_red * 0.5f, 1.0f ), 0.8f );
 		if ( dronestats->ping > 50 ) {
-			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, true );
+			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		}
+	}
+
+	if ( dronestats and not std::isnan( dronestats->gpsSpeed ) ) {
+		// Render dronestats->gpsSpeed as simple text, already in km/h
+		std::string speed = std::to_string((int)dronestats->gpsSpeed) + "km/h";
+		std::string sats = std::to_string((int)dronestats->gpsSatellitesUsed) + "/" + std::to_string((int)dronestats->gpsSatellitesSeen);
+		RenderText( mBorderRight, mBorderBottom - 256 - 46, speed, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
+		RenderText( mBorderRight, mBorderBottom - 256 - 6, sats, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.75f, RendererHUD::END );
 	}
 
 	int imsg = 0;
 	for ( std::string msg : dronestats->messages ) {
-		RenderText( mBorderLeft * 0.75f, mBorderTop + mFontSize * 0.75f * ( 3 + (imsg++) ), msg, Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 0.75f, false );
+		RenderText( mBorderLeft * 0.75f, mBorderTop + mFontSize * 0.75f * ( 3 + (imsg++) ), msg, Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 0.75f );
 	}
 }
 
@@ -543,7 +577,8 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 	mSmoothRPY.x = rpy.x;
 	mSmoothRPY.y = rpy.y;
 	mSmoothRPY.z = rpy.z;
-	glLineWidth( 1.0f );
+
+	glLineWidth( 2.0f );
 
 	glBindBuffer( GL_ARRAY_BUFFER, mLineVBO );
 	glVertexAttribPointer( mColorShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertexColor ), (void*)( 0 ) );
@@ -561,11 +596,45 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 	float s = std::sin( xrot );
 	float c = std::cos( xrot );
 
+	float movingBarWidth = 0.4f;
+	float staticBarWidth = (1.0f - movingBarWidth ) / 2.0f;
+	float movingBarOffset = staticBarWidth;
+
+	static FastVertexColor allLinesBuffer[2*4*64 + 16];
+	uint32_t total = 0;
+
+	// Fixed lines
+	{
+		for ( uint32_t part = 0; part < 2; part++ ) {
+			for ( uint32_t j = 0; j < 4; j++ ) {
+				float xpos = ( part * ( staticBarWidth + movingBarWidth ) ) + staticBarWidth * (float)j / (float)4;
+				float xpos1 = ( part * ( staticBarWidth + movingBarWidth ) ) + staticBarWidth * (float)(j + 1) / (float)4;
+				allLinesBuffer[part * 2 + j * 4 + 0].x = xpos * mWidth;
+				allLinesBuffer[part * 2 + j * 4 + 0].y = mHeight / 2.0f;
+				allLinesBuffer[part * 2 + j * 4 + 0].color = color;
+				allLinesBuffer[part * 2 + j * 4 + 1].x = xpos1 * mWidth;
+				allLinesBuffer[part * 2 + j * 4 + 1].y = mHeight / 2.0f;
+				allLinesBuffer[part * 2 + j * 4 + 1].color = color;
+				total += 2;
+			}
+		}
+	}
+
+	if ( std::abs(mSmoothRPY.x) > 70.0f or std::abs(mSmoothRPY.y) > 70.0f ) {
+		/*
+		::Thread::EnterCritical();
+		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor) * total, allLinesBuffer );
+		::Thread::ExitCritical();
+		DrawArrays( mColorShader, GL_LINES, 0, total );
+		 return;
+		*/
+	}
+
 	// Attitude line
 	{
-		FastVertexColor linesBuffer[16];
+		static FastVertexColor linesBuffer[8];
 		for ( uint32_t j = 0; j < sizeof(linesBuffer)/sizeof(FastVertexColor); j++ ) {
-			float xpos = (float)j / (float)(sizeof(linesBuffer)/sizeof(FastVertexColor)-1);
+			float xpos = movingBarOffset + movingBarWidth * (float)j / (float)(sizeof(linesBuffer)/sizeof(FastVertexColor)-1);
 			Vector2f p;
 			Vector2f p0 = Vector2f( ( xpos - 0.5f ) * ( mWidth ), yofs );
 			p.x = mWidth / 2.0f + p0.x * c - p0.y * s;
@@ -586,9 +655,8 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 
 	// Degres lines
 	{
-		FastVertexColor linesBuffer[2*4*64];
-		uint32_t i = 0;
-		for ( int32_t j = -5; j <= 5; j++ ) {
+		uint32_t i = total;
+		for ( int32_t j = -3; j <= 3; j++ ) {
 			if ( j == 0 ) {
 				continue;
 			}
@@ -603,43 +671,41 @@ void RendererHUDNeo::RenderAttitude( const Vector3f& rpy )
 			Vector2f p0 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * 0.15f, yofs + y ), s, c ) );
 			Vector2f p1 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * 0.225f, yofs + y ), s, c ) );
 			Vector2f p2 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * 0.225f, yofs + y + text_line ), s, c ) );
-			linesBuffer[i].x = p0.x;
-			linesBuffer[i].y = p0.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p1.x;
-			linesBuffer[i].y = p1.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p1.x;
-			linesBuffer[i].y = p1.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p2.x;
-			linesBuffer[i].y = p2.y;
-			linesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p0.x;
+			allLinesBuffer[i].y = p0.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p1.x;
+			allLinesBuffer[i].y = p1.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p1.x;
+			allLinesBuffer[i].y = p1.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p2.x;
+			allLinesBuffer[i].y = p2.y;
+			allLinesBuffer[i++].color = color;
 			Vector2f p3 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * -0.15f, yofs + y ), s, c ) );
 			Vector2f p4 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * -0.225f, yofs + y ), s, c ) );
 			Vector2f p5 = VR_Distort( Vector2f( mWidth * 0.5f, 720.0 * 0.5f ) + Rotate( Vector2f( mWidth * 0.5f * -0.225f, yofs + y + text_line ), s, c ) );
-			linesBuffer[i].x = p3.x;
-			linesBuffer[i].y = p3.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p4.x;
-			linesBuffer[i].y = p4.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p4.x;
-			linesBuffer[i].y = p4.y;
-			linesBuffer[i++].color = color;
-			linesBuffer[i].x = p5.x;
-			linesBuffer[i].y = p5.y;
-			linesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p3.x;
+			allLinesBuffer[i].y = p3.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p4.x;
+			allLinesBuffer[i].y = p4.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p4.x;
+			allLinesBuffer[i].y = p4.y;
+			allLinesBuffer[i++].color = color;
+			allLinesBuffer[i].x = p5.x;
+			allLinesBuffer[i].y = p5.y;
+			allLinesBuffer[i++].color = color;
+			total += 8;
 		}
-
-		::Thread::EnterCritical();
-// 		printf( "glBufferSubData %d / %d\n", i, 2*4*64 ); fflush(stdout);
-		glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor)*i, linesBuffer );
-// 		printf( "glBufferSubData oK\n" ); fflush(stdout);
-		::Thread::ExitCritical();
-
-		DrawArrays( mColorShader, GL_LINES, 0, i );
 	}
+
+	::Thread::EnterCritical();
+	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertexColor) * total, allLinesBuffer );
+	::Thread::ExitCritical();
+	DrawArrays( mColorShader, GL_LINES, 0, total );
 }
 
 

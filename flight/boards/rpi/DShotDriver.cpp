@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <mutex>
+#include <GPIO.h>
 #include "Board.h"
 #include "DShotDriver.h"
 #include "Debug.h"
@@ -161,8 +162,10 @@ DShotDriver::DShotDriver()
 	mDRMPitch = creq.pitch;
 	mDRMWidth = creq.width;
 	mDRMHeight = creq.height;
-	gDebug() << "DRM buffer : " << mDRMBuffer << "(" << mDRMWidth << "x" << mDRMHeight << ")";
+	gDebug() << "DRM buffer : " << mDRMBuffer << "(" << mDRMWidth << "x" << mDRMHeight << ") [" << mDRMPitch << "]";
 	memset( mDRMBuffer, 0, mDRMPitch * mDRMHeight );
+
+	atexit( []() { DShotDriver::AtExit(); });
 }
 
 
@@ -171,16 +174,38 @@ DShotDriver::~DShotDriver()
 }
 
 
+void DShotDriver::AtExit()
+{
+	if ( sInstance ) {
+		sInstance->Kill();
+	}
+}
+
+
 void DShotDriver::Kill() noexcept
 {
 	fDebug();
 	sKilled = true;
+	for ( uint8_t retry = 0; retry < 10; retry++ ) {
+		for ( auto iter = mPinValues.begin(); iter != mPinValues.end(); ++iter ) {
+			mFlatValues[iter->first] = true;
+			mPinValues[iter->first] = 0;
+		}
+		_Update();
+		usleep( 1000 );
+	}
 	memset( mDRMBuffer, 0, mDRMPitch * mDRMHeight );
 }
 
 
 void DShotDriver::setPinValue( uint32_t pin, uint16_t value, bool telemetry )
 {
+	if ( mPinValues.find(pin) == mPinValues.end() ) {
+		gDebug() << "Setting pin " << pin << " to Alt2";
+		GPIO::setMode( pin, GPIO::Alt2 );
+		GPIO::setPUD( pin, GPIO::PullDown );
+	}
+
 	value = (value << 1) | telemetry;
 	mPinValues[pin] = ( value << 4 ) | ( (value ^ (value >> 4) ^ (value >> 8)) & 0x0F );
 	mFlatValues[pin] = false;
@@ -189,10 +214,15 @@ void DShotDriver::setPinValue( uint32_t pin, uint16_t value, bool telemetry )
 
 void DShotDriver::disablePinValue( uint32_t pin )
 {
-	mFlatValues[pin] = true;
-	mPinValues[pin] = 0;
-}
+	if ( mPinValues.find(pin) == mPinValues.end() ) {
+		gDebug() << "Setting pin " << pin << " to Alt2";
+		GPIO::setMode( pin, GPIO::Alt2 );
+		GPIO::setPUD( pin, GPIO::PullDown );
+	}
 
+	mFlatValues[pin] = true;
+	mPinValues[pin] = 0xFFFFFFFF;
+}
 
 
 void DShotDriver::Update()
@@ -200,63 +230,53 @@ void DShotDriver::Update()
 	if ( sKilled ) {
 		return;
 	}
+	_Update();
+}
 
-	uint16_t valueFlat[DSHOT_MAX_OUTPUTS] = { 0 };
+
+void DShotDriver::_Update()
+{
+	// uint16_t valueFlat[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint16_t valueMap[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint16_t channelMap[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint16_t bitmaskMap[DSHOT_MAX_OUTPUTS] = { 0 };
 	uint8_t count = 0;
 
 	for ( auto iter = mPinValues.begin(); iter != mPinValues.end(); ++iter ) {
-		valueFlat[count] = mFlatValues[iter->first];
-		valueMap[count] = iter->second;
+		if ( iter->second == 0xFFFFFFFF ) {
+			continue;
+		}
+		// valueFlat[count] = mFlatValues[iter->first];
+		valueMap[count] = uint16_t(iter->second);
 		uint8_t* mapped = sDPIPinMap[sDPIMode][iter->first];
 		channelMap[count] = mapped[0];
 		bitmaskMap[count] = mapped[1];
 		count++;
 	}
 
-	constexpr uint32_t bitwidth = 32; // * 6;
-	constexpr uint32_t t0h = bitwidth * 1250 / 3333;
-	// printf( "t0h : %d\n", t0h);
+	const uint32_t bitwidth = 32; // mDRMWidth / 16;
+	const uint32_t t0h = bitwidth * 1250 / 3333;
 	uint8_t outbuf[16 * bitwidth * 3];
 	memset( outbuf, 0, 16 * bitwidth * 3 );
-	// uint8_t* outbuf = mDRMBuffer;
 	for ( uint32_t ivalue = 0; ivalue < count; ivalue++ ) {
-		// if ( not valueFlat[ivalue] ) {
-			uint16_t value = valueMap[ivalue];
-			uintptr_t map = channelMap[ivalue];
-			uintptr_t bitmask = bitmaskMap[ivalue];
-		// printf("[%d] value = %d\n", ivalue, value );
-			uint8_t* bPointer = outbuf;
-			for ( int8_t i = 15; i >= 0; i-- ) {
-				uint8_t repeat = t0h + t0h * ((value >> i) & 1);
-				uint8_t rep = repeat;
-				while ( rep-- > 0 ) {
-					*(bPointer + map) |= ( 1 << bitmask );
-					bPointer += 3;
-				}
-/*
-				while ( repeat < bitwidth ) {
-					*(bPointer + map) &= ~( 1 << bitmask );
-					bPointer += 3;
-					repeat++;
-				}
-*/
-				bPointer += 3 * (bitwidth - repeat);
+		uint16_t value = valueMap[ivalue];
+		uintptr_t map = channelMap[ivalue];
+		uintptr_t bitmask = ( 1 << bitmaskMap[ivalue] );
+		uint8_t* bPointer = outbuf;
+		for ( int8_t i = 15; i >= 0; i-- ) {
+			uint8_t repeat = t0h << ((value >> i) & 1);
+			uint8_t rep = repeat;
+			while ( rep-- > 0 ) {
+				*(bPointer + map) |= bitmask;
+				bPointer += 3;
 			}
-		// }
-	}
-	// printf( "→ took0 %llu\n", Board::GetTicks() - ticks);
-
-	// uint8_t finalBuf[3072 * 3 * 120];
-
-	for ( uint32_t y = 0; y < mDRMHeight; y++ ) {
-		memcpy( mDRMBuffer + y * mDRMPitch, outbuf, 16 * bitwidth * 3 );
+			bPointer += 3 * (bitwidth - repeat);
+		}
 	}
 
-	// memcpy( mDRMBuffer, finalBuf, sizeof(finalBuf) );
-
-	// printf( "→ took %llu\n", Board::GetTicks() - ticks);
+	memcpy( mDRMBuffer, outbuf, 16 * bitwidth * 3 );
+	// for ( uint32_t y = 0; y < mDRMHeight; y++ ) {
+		// memcpy( mDRMBuffer + y * mDRMPitch, outbuf, 16 * bitwidth * 3 );
+	// }
 }
 

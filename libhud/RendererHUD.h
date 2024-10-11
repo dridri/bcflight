@@ -22,26 +22,38 @@
 #include <GLES2/gl2.h>
 #include <vector>
 #include <string>
+#include <cstring>
 #include "Vector.h"
 #include "Matrix.h"
 
 class Controller;
 
 typedef struct VideoStats {
-	VideoStats(int w = 0, int h = 0, int f = 0)
+	VideoStats(int w = 0, int h = 0, int f = 0, uint32_t p = 0, const std::string& wb = "", const std::string& e = "")
 		: width(w)
 		, height(h)
 		, fps(f)
-		, photo_id(0)
-		, whitebalance("")
-		, exposure("")
-		{}
+		, photo_id(p)
+		, vtxPower( -1 )
+		, vtxPowerDbm( -1 )
+		, vtxFrequency( 0 )
+		, vtxChannel( 0 )
+		{
+			strncpy( whitebalance, wb.c_str(), 32 );
+			strncpy( exposure, e.c_str(), 32 );
+			memset( vtxBand, 0, sizeof(vtxBand) );
+		}
 	int width;
 	int height;
 	int fps;
 	uint32_t photo_id;
 	char whitebalance[32];
 	char exposure[32];
+	int8_t vtxPower;
+	int8_t vtxPowerDbm;
+	uint16_t vtxFrequency;
+	uint8_t vtxChannel;
+	char vtxBand[16];
 } VideoStats;
 
 typedef struct LinkStats {
@@ -72,6 +84,8 @@ typedef struct DroneStats {
 		, mode(DroneMode::Rate)
 		, ping(0)
 		, blackBoxId(0)
+		, cpuUsage(0)
+		, memUsage(0)
 		, thrust(0)
 		, acceleration(0)
 		, rpy(Vector3f())
@@ -84,10 +98,17 @@ typedef struct DroneStats {
 	DroneMode mode;
 	uint32_t ping;
 	uint32_t blackBoxId;
+	// CPU
+	uint32_t cpuUsage;
+	uint32_t memUsage;
 	// Attitude
 	float thrust;
 	float acceleration;
 	Vector3f rpy;
+	Vector3f gpsLocation;
+	float gpsSpeed;
+	uint32_t gpsSatellitesSeen;
+	uint32_t gpsSatellitesUsed;
 	// Battery
 	float batteryLevel;
 	float batteryVoltage;
@@ -100,6 +121,11 @@ typedef struct DroneStats {
 class RendererHUD
 {
 public:
+	typedef enum {
+		START = 0,
+		CENTER = 1,
+		END = 2,
+	} TextAlignment;
 	// render_region is top,bottom,left,right
 	RendererHUD( int width, int height, float ratio, uint32_t fontsize, Vector4i render_region = Vector4i( 10, 10, 20, 20 ), bool barrel_correction = true );
 	virtual ~RendererHUD();
@@ -108,8 +134,8 @@ public:
 	virtual void Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats ) = 0;
 
 	void RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror = false, bool vmirror = false, const Vector4f& color = { 1.0f, 1.0f, 1.0f, 1.0f } );
-	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, bool hcenter = false );
-	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, bool hcenter = false );
+	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START );
+	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START );
 	void RenderImage( int x, int y, int width, int height, uintptr_t img );
 	Vector2f VR_Distort( const Vector2f& coords );
 

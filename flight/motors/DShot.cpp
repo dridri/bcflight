@@ -9,6 +9,7 @@ DShot::DShot( uint32_t pin )
 	, mPin( pin )
 {
 	mDriver->disablePinValue( mPin );
+	mDriver->Update();
 }
 
 
@@ -31,6 +32,13 @@ void DShot::setSpeedRaw( float speed, bool force_hw_update )
 	if ( force_hw_update ) {
 		mDriver->Update();
 	}
+}
+
+
+void DShot::Beep( uint8_t beepMode )
+{
+	mDriver->setPinValue( mPin, 1 + beepMode % 5, true );
+	mDriver->Update();
 }
 
 

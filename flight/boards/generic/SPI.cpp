@@ -41,6 +41,13 @@ SPI::~SPI()
 }
 
 
+int SPI::Connect()
+{
+	fDebug( mDevice );
+	return 0;
+}
+
+
 std::string SPI::toString()
 {
 	return mDevice;

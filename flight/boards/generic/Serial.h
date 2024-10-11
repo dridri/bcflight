@@ -33,6 +33,9 @@ public:
 	Serial( const string& device, int speed = 9600 );
 	~Serial();
 
+	void setStopBits( uint8_t count );
+
+	int Connect();
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );
 	int Read( uint8_t reg, void* buf, uint32_t len );

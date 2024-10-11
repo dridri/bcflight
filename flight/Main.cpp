@@ -28,7 +28,6 @@
 #include "Config.h"
 #include "Console.h"
 #include "Controller.h"
-#include "Slave.h"
 #include <SPI.h>
 #include <I2C.h>
 #include <IMU.h>
@@ -44,7 +43,6 @@
 #include <fake_sensors/FakeGyroscope.h>
 #include <Servo.h>
 #include <Stabilizer.h>
-// #include <StabilizerProxy.h>
 #include <Frame.h>
 #include <Camera.h>
 #include <Microphone.h>
@@ -55,8 +53,6 @@
 #ifdef BUILD_RAWWIFI
 	#include <RawWifi.h>
 #endif
-
-// #include "peripherals/WS2812.h" // TEST
 
 Main* Main::mInstance = nullptr;
 
@@ -78,7 +74,6 @@ Main::Main()
 	: mReady( false )
 	, mLPS( 0 )
 	, mLPSCounter( 0 )
-	, mSlave( nullptr )
 	, mPowerThread( nullptr )
 	, mBlackBox( nullptr )
 	, mIMU( nullptr )
@@ -91,17 +86,17 @@ Main::Main()
 	, mCameraType( "" )
 {
 	mInstance = this;
+#ifdef SYSTEM_NAME_Linux
+	if ( std::getenv("INVOCATION_ID") != nullptr ) {
+		Debug::setColors( false );
+	}
+#endif
 #ifdef BUILD_sensors
 	#ifdef BOARD_generic
 		#pragma message "Adding noisy fake accelerometer and gyroscope"
 		Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
 		Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
 	#endif
-#endif
-
-#ifdef BUILD_blackbox
-// 	mBlackBox = new BlackBox();
-	Board::InformLoading();
 #endif
 
 	mBoard = new Board( this );
@@ -111,11 +106,9 @@ Main::Main()
 	mConfig = new Config( "config.lua", "settings.lua" );
 #elif defined( SYSTEM_NAME_Linux )
 	mConfig = new Config( "/var/flight/config.lua", "/var/flight/settings.lua" );
-#else
-// 	mConfig = new Config( "#0xADDRESS+length", "" ); // Access to config buffer at addess 0xADDRESS with length specified
-	mConfig = new Config( "", "" );
 #endif
 	mConfig->Reload();
+	Debug::setDebugLevel( static_cast<Debug::Level>( mConfig->Integer( "debug_level", 3 ) ) );
 	Board::InformLoading();
 	DetectDevices();
 	Board::InformLoading();
@@ -123,6 +116,11 @@ Main::Main()
 	Board::InformLoading();
 
 	mUsername = mConfig->String( "username" );
+
+#ifdef BUILD_blackbox
+	mBlackBox = mConfig->Object<BlackBox>( "blackbox" );
+	Board::InformLoading();
+#endif
 
 #ifdef BUILD_power
 	mPowerThread = new PowerThread( this );
@@ -149,7 +147,7 @@ Main::Main()
 		mCamera->Start();
 	}
 	if ( mMicrophone ) {
-	//	mMicrophone->Setup();
+		mMicrophone->Setup();
 	}
 	if ( mController ) {
 		mController->setPriority( 98 );
@@ -158,14 +156,16 @@ Main::Main()
 
 #ifdef BUILD_stabilizer
 	mLoopTime = mConfig->Integer( "stabilizer.loop_time", 2000 );
+	gDebug() << "Stabilizer frequency : " << ( 1000000 / mLoopTime ) << "Hz";
 	mTicks = 0;
 	mWaitTicks = 0;
 	mLPSTicks = 0;
 	mLPS = 0;
 	mStabilizerThread = new HookThread< Main >( "stabilizer", this, &Main::StabilizerThreadRun );
 	mStabilizerThread->setFrequency( 100 );
+	mTicks = mBoard->GetTicks();
 	mStabilizerThread->Start();
-	mStabilizerThread->setPriority( 99, 0 );
+	mStabilizerThread->setPriority( 99, -1, true );
 #endif // BUILD_stabilizer
 
 #ifdef SYSTEM_NAME_Linux
@@ -178,9 +178,15 @@ Main::Main()
 	mReady = true;
 
 	usleep( 1 * 1000 * 1000 );
-	mConsole = new Console( mConfig );
-	mConsole->Start();
-	mConsole->setPriority( 2 );
+#ifdef SYSTEM_NAME_Linux
+	if ( std::getenv("INVOCATION_ID") == nullptr ) {
+#endif
+		mConsole = new Console( mConfig );
+		mConsole->Start();
+		mConsole->setPriority( 2 );
+#ifdef SYSTEM_NAME_Linux
+	}
+#endif
 
 	Thread::setMainPriority( 1 );
 }
@@ -200,28 +206,28 @@ bool Main::StabilizerThreadRun()
 	mTicks = mBoard->GetTicks();
 
 	if ( abs( dt ) >= 1.0 ) {
-		gDebug() << "Critical : dt too high !! ( " << dt << " )";
+		gWarning() << "Critical : dt too high !! ( " << dt << " )";
 // 		mFrame->Disarm();
 		return true;
 	}
 
 	mIMU->Loop( tick, dt );
-	if ( mIMU->state() == IMU::Off ) {
+	if ( mIMU->state() == IMU::Running ) {
+		mStabilizer->Update( mIMU, dt );
+// 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
+	} else if ( mIMU->state() == IMU::Off ) {
 		// Nothing to do
 	} else if ( mIMU->state() == IMU::Calibrating or mIMU->state() == IMU::CalibratingAll ) {
-		mStabilizerThread->setFrequency( 1000000 / 1000 ); // Calibrate at a reasonable constant rate
+		mStabilizerThread->setFrequency( 1000000 / mLoopTime );
 		Board::InformLoading();
 	} else if ( mIMU->state() == IMU::CalibrationDone ) {
 		Board::LoadingDone();
-		mStabilizerThread->setFrequency( 1000000 / mLoopTime ); // Set frequency only when calibration is done
-	} else {
-		mStabilizer->Update( mIMU, mController, dt );
-// 		mWaitTicks = mBoard->WaitTick( mLoopTime, mWaitTicks, -150 );
+		mStabilizerThread->setFrequency( 1000000 / mLoopTime );
 	}
 
 	mLPSCounter++;
-	if ( mBoard->GetTicks() >= mLPSTicks + 1000 * 1000 ) {
-		mLPS = mLPSCounter;
+	if ( mBoard->GetTicks() >= mLPSTicks + 1000 * 1000 / 10 ) {
+		mLPS = mLPSCounter * 10;
 		mLPSCounter = 0;
 		mLPSTicks = mBoard->GetTicks();
 		mBlackBox->Enqueue( "Stabilizer:lps", to_string(mLPS) );
