@@ -26,6 +26,7 @@
 MCP320x::MCP320x( const std::string& devfile )
 	: mSPI( new SPI( devfile, 500000 ) )
 {
+	mSPI->Connect();
 }
 
 
@@ -42,7 +43,8 @@ void MCP320x::setSmoothFactor( uint8_t channel, float f )
 
 uint16_t MCP320x::Read( uint8_t channel, float dt )
 {
-	static const int nbx = 4;
+	static const int nbx = 1;
+	// static const int nbx = 4;
 	uint32_t b[3] = { 0, 0, 0 };
 	uint8_t bx[nbx][3] = { { 0 } };
 	uint8_t buf[12];
@@ -50,15 +52,15 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 	buf[0] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
 	buf[1] = ( ( channel & 0b11 ) << 6 );
 	buf[2] = 0x00;
-	buf[3] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	buf[4] = ( ( channel & 0b11 ) << 6 );
-	buf[5] = 0x00;
-	buf[6] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	buf[7] = ( ( channel & 0b11 ) << 6 );
-	buf[8] = 0x00;
-	buf[9] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	buf[10] = ( ( channel & 0b11 ) << 6 );
-	buf[11] = 0x00;
+	// buf[3] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
+	// buf[4] = ( ( channel & 0b11 ) << 6 );
+	// buf[5] = 0x00;
+	// buf[6] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
+	// buf[7] = ( ( channel & 0b11 ) << 6 );
+	// buf[8] = 0x00;
+	// buf[9] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
+	// buf[10] = ( ( channel & 0b11 ) << 6 );
+	// buf[11] = 0x00;
 
 	for ( int i = 0; i < nbx; i++ ) {
 		if ( mSPI->Transfer( buf, bx[i], 3 ) < 0 ) {
@@ -71,6 +73,8 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 	for ( int i = 0; i < nbx; i++ ) {
 		ret[i] = ( ( bx[i][1] & 0b1111 ) << 8 ) | bx[i][2];
 	}
+	final_ret = ret[0];
+/*
 	for ( int j = 0; j < nbx; j++ ) {
 		for ( int i = 0; i < nbx; i++ ) {
 			if ( i != j and std::abs( (int32_t)(ret[i] - ret[j]) ) > 250 ) {
@@ -84,7 +88,7 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 	}
 	final_ret /= nbx;
 	final_ret &= 0xFFFFFFF7;
-
+*/
 	// Raw value
 	if ( dt == 0.0f ) {
 		return final_ret;
