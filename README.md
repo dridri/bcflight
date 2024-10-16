@@ -17,7 +17,7 @@ Open-source Linux-based Raspberry drone and ground controller.
  * Produces [Gyroflow](https://github.com/gyroflow/gyroflow) GCSV output
 
 
-[preview.webm](https://github.com/dridri/bcflight/assets/220731/773a024a-642d-4f69-babe-427d3c5535c6)
+[preview.webm](https://github.com/dridri/bcflight/blob/master/misc/preview.webm?raw=true)
 
 [https://www.youtube.com/@drichfpv/videos](https://www.youtube.com/@drichfpv/videos)
 
