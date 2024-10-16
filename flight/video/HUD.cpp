@@ -10,6 +10,7 @@
 #include <Link.h>
 #include <Config.h>
 #include <Sensor.h>
+#include <Controller.h>
 #include <peripherals/SmartAudio.h>
 
 

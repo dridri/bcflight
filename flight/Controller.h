@@ -74,6 +74,10 @@ protected:
 	uint32_t mPing;
 	LUA_PROPERTY("expo") Vector4f mExpo;
 	LUA_PROPERTY("thrust_expo") Vector2f mThrustExpo;
+	LUA_PROPERTY("multipliers.thrust") float mThrustMultiplier;
+	LUA_PROPERTY("multipliers.roll") float mRollMultiplier;
+	LUA_PROPERTY("multipliers.pitch") float mPitchMultiplier;
+	LUA_PROPERTY("multipliers.yaw") float mYawMultiplier;
 /*
 	Vector3f mRPY;
 	float mThrust;

@@ -99,7 +99,7 @@ Main::Main()
 	#endif
 #endif
 
-	mBoard = new Board( this );
+	mBoard = new Board();
 	Board::InformLoading();
 
 #ifdef BOARD_generic

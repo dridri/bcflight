@@ -1,5 +1,8 @@
 cmake_minimum_required( VERSION 2.8.11 )
-set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
+set( CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../CMakeModules" )
+include( add_submodule )
+
+enable_language( C CXX ASM )
 project( controller_pc )
 
 SET( board "pc" CACHE BOOL "board" )
@@ -35,16 +38,17 @@ else()
 endif()
 
 
-include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller )
-include_directories( ${CMAKE_SOURCE_DIR}/../libcontroller/links )
-include_directories( ${CMAKE_SOURCE_DIR}/../librawwifi )
+include_directories( ${CMAKE_SOURCE_DIR}/../lib/controller )
+include_directories( ${CMAKE_SOURCE_DIR}/../lib/links )
+include_directories( ${CMAKE_SOURCE_DIR}/../lib/rawwifi )
+include_directories( ${CMAKE_SOURCE_DIR}/../lib/debug )
 include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 include_directories( ${CMAKE_SOURCE_DIR}/../external/openh264-master/codec/api/svc )
 include_directories( ${Qt5PrintSupport_INCLUDE_DIRS} ${QSCINTILLA_INCLUDE_DIR} ${QSCINTILLA_INCLUDE_DIR}/Qsci )
 include_directories( ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ui ${CMAKE_BINARY_DIR} )
 
-add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
-add_subdirectory( ${CMAKE_SOURCE_DIR}/../libdebug libdebug )
+add_submodule( controller )
+add_submodule( debug )
 if ( ${RAWWIFI_ON} MATCHES 1 )
 	set( OTHER_LIBS ${OTHER_LIBS} rawwifi )
 	if ( WIN32 OR MINGW )
@@ -56,14 +60,8 @@ if ( RAWWIFI_ON MATCHES 0 )
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_RAWWIFI" )
 endif()
 
-	set( OTHER_LIBS ${OTHER_LIBS} -lfftw3f )
+set( OTHER_LIBS ${OTHER_LIBS} -lfftw3f )
 
-set( LUA_32 "" )
-if( CMAKE_SIZEOF_VOID_P EQUAL 4 )
-	set( LUA_32 "-m32" )
-endif()
-# add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_32} )
-add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} )
 add_custom_target( libopenh264_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_openh264.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} )
 
 qt5_wrap_ui( controller_pc_UI
@@ -91,10 +89,9 @@ add_executable( controller_pc
 				)
 
 add_dependencies( controller_pc libopenh264_static )
-add_dependencies( controller_pc libluajit_static )
 add_dependencies( controller_pc controller )
-add_dependencies( controller_pc libdebug )
+add_dependencies( controller_pc debuglib )
 
-target_link_libraries( controller_pc -L./ controller libdebug -lluajit_static -ldecoder_static -lopenh264_static ${SHINE_LIBRARIES} ${MP4V2_LIBRARIES} ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
+target_link_libraries( controller_pc -L./ controller debuglib -ldecoder_static -lopenh264_static ${SHINE_LIBRARIES} ${MP4V2_LIBRARIES} ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
 
 install( TARGETS controller_pc RUNTIME DESTINATION bin )
