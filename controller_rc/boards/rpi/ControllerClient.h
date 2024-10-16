@@ -19,19 +19,20 @@
 #ifndef CONTROLLERPI_H
 #define CONTROLLERPI_H
 
-#include "../../libcontroller/Controller.h"
+#include "Controller.h"
 #include <Link.h>
 #include "../../ADCs/MCP320x.h"
-#include "../../libcontroller/Filter.h"
+#include "Filter.h"
+#include <Lua.h>
 
 namespace rpi {
 	class Socket;
 }
 
-class ControllerClient : public Controller
+LUA_CLASS class ControllerClient : public Controller
 {
 public:
-	ControllerClient( Config* config, Link* link, bool spectate = false );
+	LUA_EXPORT ControllerClient( Link* link, bool spectate = false );
 	~ControllerClient();
 
 	class Joystick {

@@ -25,7 +25,7 @@
 #include "ui/GlobalUI.h"
 #include "Config.h"
 #include "Debug.h"
-#include <links/Socket.h>
+#include <Socket.h>
 #include <nRF24L01.h>
 #include <SX127x.h>
 #ifdef BUILD_rawwifi
@@ -65,8 +65,6 @@ void SegFaultHandler( int sig )
 int main( int ac, char** av )
 {
 	Debug::setDebugLevel( Debug::Verbose );
-	Controller* controller = nullptr;
-	Link* controller_link = nullptr;
 
 	struct sigaction sa;
 	memset( &sa, 0, sizeof(sa) );
@@ -78,11 +76,13 @@ int main( int ac, char** av )
 		return -1;
 	}
 
-	Config* config = new Config( av[1] );
+	Config* config = new Config( av[1], "settings.lua" );
 	config->Reload();
-	Debug::setDebugLevel( static_cast<Debug::Level>( config->integer( "debug_level", 3 ) ) );
-	config->LoadSettings();
+	Debug::setDebugLevel( static_cast<Debug::Level>( config->Integer( "debug_level", 3 ) ) );
 
+	Controller* controller = config->Object<Controller>( "controller" );
+	controller->setUpdateFrequency( config->Integer( "controller.update_frequency", 100 ) );
+/*
 	if ( config->string( "controller.link.link_type" ) == "Socket" ) {
 		::Socket::PortType type = ::Socket::TCP;
 		if ( config->string( "controller.link.type" ) == "UDP" ) {
@@ -135,9 +135,7 @@ int main( int ac, char** av )
 		static_cast< RawWifi* >( controller_link )->SetChannel( config->integer( "controller.link.channel", 11 ) );
 #endif
 	}
-
-	controller = new ControllerClient( config, controller_link, config->boolean( "controller.spectate", false ) );
-	controller->setUpdateFrequency( config->integer( "controller.update_frequency", 100 ) );
+*/
 
 	GlobalUI* ui = new GlobalUI( config, controller );
 	ui->Start();
