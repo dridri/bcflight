@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <RawWifi.h>
 #include <Socket.h>
-#include <../libdebug/Debug.h>
+#include <Debug.h>
 #include "ControllerPC.h"
 
 #include "MainWindow.h"

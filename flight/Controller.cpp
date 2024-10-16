@@ -36,9 +36,11 @@
 #include <DynamicNotchFilter.h>
 #include <FilterChain.h>
 
+#ifndef ntohs
 inline uint16_t ntohs( uint16_t x ) {
 	return ( ( x & 0xff ) << 8 ) | ( x >> 8 );
 }
+#endif
 
 Controller::Controller()
 	: ControllerBase()
@@ -49,6 +51,10 @@ Controller::Controller()
 	, mPing( 0 )
 // 	, mRPY( Vector3f() )
 // 	, mThrust( 0.0f )
+	, mThrustMultiplier( 1.0f )
+	, mRollMultiplier( 1.0f )
+	, mPitchMultiplier( 1.0f )
+	, mYawMultiplier( 1.0f )
 	, mTicks( 0 )
 	, mTelemetryThread( new HookThread< Controller >( "telemetry", this, &Controller::TelemetryRun ) )
 	, mTelemetryTick( 0 )
@@ -175,6 +181,7 @@ float Controller::setRoll( float value, bool raw )
 		}
 	}
 // 	mRPY.x = value;
+	value *= mRollMultiplier;
 	mMain->stabilizer()->setRoll( value );
 	return value;
 }
@@ -190,6 +197,7 @@ float Controller::setPitch( float value, bool raw )
 		}
 	}
 // 	mRPY.y = value;
+	value *= mPitchMultiplier;
 	mMain->stabilizer()->setPitch( value );
 	return value;
 }
@@ -208,6 +216,7 @@ float Controller::setYaw( float value, bool raw )
 		}
 	}
 // 	mRPY.z = value;
+	value *= mYawMultiplier;
 	mMain->stabilizer()->setYaw( value );
 	return value;
 }
@@ -231,6 +240,7 @@ float Controller::setThrust( float value, bool raw )
 		}
 // 		mThrust = value;
 	}
+	value *= mThrustMultiplier;
 		mMain->stabilizer()->setThrust( value );
 //	}
 	return value;
@@ -428,7 +438,6 @@ bool Controller::run()
 				break;
 			}
 			case TELEMETRY: {
-				// Send telemetry
 				Telemetry telemetry;
 				telemetry.battery_voltage = (uint16_t)( mMain->powerThread()->VBat() * 100.0f );
 				telemetry.total_current = (uint16_t)( mMain->powerThread()->CurrentTotal() * 1000.0f );
@@ -440,7 +449,10 @@ bool Controller::run()
 				telemetry.rx_level = mLink->RxLevel();
 				response.Write( (uint8_t*)&telemetry, sizeof(telemetry) );
 
-				// Send status
+				do_response = true;
+				break;
+			}
+			case STATUS: {
 				uint32_t status = 0;
 				if ( mMain->stabilizer()->armed() ) {
 					status |= STATUS_ARMED;
@@ -450,14 +462,11 @@ bool Controller::run()
 				} else if ( mMain->imu()->state() == IMU::Calibrating or mMain->imu()->state() == IMU::CalibratingAll ) {
 					status |= STATUS_CALIBRATING;
 				}
-
 				// if ( mMain->camera() ) {
 				// 	if ( mMain->camera()->nightMode() ) {
 				// 		status |= STATUS_NIGHTMODE;
 				// 	}
 				// }
-
-				response.WriteU8( STATUS );
 				response.WriteU32( status );
 
 				do_response = true;

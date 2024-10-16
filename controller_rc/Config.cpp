@@ -16,33 +16,72 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 #include <list>
-#include <iostream>
 #include <fstream>
-#include <sstream>
+#include <algorithm>
 #include <string.h>
+#include "Debug.h"
 #include "Config.h"
 
-Config::Config( const std::string& filename )
-	: mFilename( filename )
-	, L( nullptr )
-{
-	L = luaL_newstate();
-// 	luaL_openlibs( L );
+using namespace std;
 
-	Reload();
+extern "C" void lua_init( lua_State* L );
+
+
+Config* Config::sConfig = nullptr;
+
+
+Config::Config( const string& filename, const string& settings_filename )
+	: mFilename( filename )
+	, mSettingsFilename( settings_filename )
+	, mLua( nullptr )
+{
+	if ( not sConfig ) {
+		sConfig = this;
+	}
+
+	gDebug() << LUA_RELEASE;
+	// L = luaL_newstate();
+	mLua = new Lua();
+	lua_init( mLua->state() );
+/*
+// 	luaL_openlibs( L );
+	static const luaL_Reg lualibs[] = {
+		{ "", luaopen_base },
+		{ LUA_TABLIBNAME, luaopen_table },
+		{ LUA_STRLIBNAME, luaopen_string },
+		{ LUA_MATHLIBNAME, luaopen_math },
+		{ nullptr, nullptr }
+	};
+
+	const luaL_Reg* lib = lualibs;
+	for (; lib->func; lib++ ) {
+		lua_pushcfunction( L, lib->func );
+		lua_pushstring( L, lib->name );
+		lua_call( L, 1, 0 );
+	}
+*/
 }
 
 
 Config::~Config()
 {
-	lua_close(L);
+	// lua_close(L);
+	if ( mLua ) {
+		delete mLua;
+	}
 }
 
 
-std::string Config::ReadFile()
+Lua* Config::luaState() const
 {
-	std::string ret = "";
-	std::ifstream file( mFilename );
+	return mLua;
+}
+
+
+string Config::ReadFile()
+{
+	string ret = "";
+	ifstream file( mFilename );
 
 	if ( file.is_open() ) {
 		file.seekg( 0, file.end );
@@ -60,9 +99,9 @@ std::string Config::ReadFile()
 }
 
 
-void Config::WriteFile( const std::string& content )
+void Config::WriteFile( const string& content )
 {
-	std::ofstream file( mFilename );
+	ofstream file( mFilename );
 
 	if ( file.is_open() ) {
 		file.write( content.c_str(), content.length() );
@@ -71,311 +110,270 @@ void Config::WriteFile( const std::string& content )
 }
 
 
-std::string Config::string( const std::string& name, const std::string& def )
+string Config::String( const string& name, const string& def )
 {
-	std::cout << "Config::string( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	if ( LocateValue( name ) < 0 ) {
-		std::cout << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::String ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	std::string ret = lua_tolstring( L, -1, nullptr );
-	std::cout << " => " << ret << "\n";
+	string ret = v.toString();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
-int Config::integer( const std::string& name, int def )
+int Config::Integer( const string& name, int def )
 {
-	std::cout << "Config::integer( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	if ( LocateValue( name ) < 0 ) {
-		std::cout << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Integer ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	int ret = lua_tointeger( L, -1 );
-	std::cout << " => " << ret << "\n";
+	int ret = v.toInteger();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
-float Config::number( const std::string& name, float def )
+float Config::Number( const string& name, float def )
 {
-	std::cout << "Config::number( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	if ( LocateValue( name ) < 0 ) {
-		std::cout << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Number and v.type() != LuaValue::Integer ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	float ret = lua_tonumber( L, -1 );
-	std::cout << " => " << ret << "\n";
+	float ret = v.toNumber();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
-bool Config::boolean( const std::string& name, bool def )
+bool Config::Boolean( const string& name, bool def )
 {
-	std::cout << "Config::boolean( " << name << " )";
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	if ( LocateValue( name ) < 0 ) {
-		std::cout << " => not found !\n";
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Boolean ) {
+		dbg << " => not found !";
 		return def;
 	}
 
-	bool ret = lua_toboolean( L, -1 );
-	std::cout << " => " << ret << "\n";
+	bool ret = v.toBoolean();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
-std::vector<int> Config::integerArray( const std::string& name )
+void* Config::Object( const string& name, void* def )
 {
-	std::cout << "Config::integerArray( " << name << " )";
-	if ( LocateValue( name ) < 0 ) {
-		std::cout << " => not found !\n";
-		return std::vector<int>();
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::UserData ) {
+		dbg << " => not found !";
+		return def;
 	}
 
-	std::vector<int> ret;
-	size_t len = lua_objlen( L, -1 );
-	if ( len > 0 ) {
-		for ( size_t i = 1; i <= len; i++ ) {
-			lua_rawgeti( L, -1, i );
-			int value = lua_tointeger( L, -1 );
-			ret.emplace_back( value );
-			lua_pop( L, 1 );
-		}
-	}
-	lua_pop( L, 1 );
-	std::cout << " => Ok\n";
+	void* ret = v.toUserData();
+	dbg << " => " << ret << "";
 	return ret;
 }
 
 
-int Config::LocateValue( const std::string& _name )
+vector<int> Config::IntegerArray( const string& name )
 {
-	const char* name = _name.c_str();
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
 
-	if ( strchr( name, '.' ) == nullptr ) {
-		lua_getfield( L, LUA_GLOBALSINDEX, name );
-	} else {
-		char tmp[128];
-		int i, j, k;
-		for ( i = 0, j = 0, k = 0; name[i]; i++ ) {
-			if ( name[i] == '.' ) {
-				tmp[j] = 0;
-				if ( k == 0 ) {
-					lua_getfield( L, LUA_GLOBALSINDEX, tmp );
-				} else {
-					lua_getfield( L, -1, tmp );
-				}
-				if ( lua_type( L, -1 ) == LUA_TNIL ) {
-					return -1;
-				}
-				memset( tmp, 0, sizeof( tmp ) );
-				j = 0;
-				k++;
-			} else {
-				tmp[j] = name[i];
-				j++;
-			}
-		}
-		tmp[j] = 0;
-		lua_getfield( L, -1, tmp );
-		if ( lua_type( L, -1 ) == LUA_TNIL ) {
-			return -1;
-		}
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Table ) {
+		dbg << " => not found !";
+		return vector<int>();
 	}
 
+	vector<int> ret;
+	const map< string, LuaValue >& t = v.toTable();
+	for ( std::pair< string, LuaValue > a : t ) {
+		int i = a.second.toInteger();
+		dbg << ", " << i;
+		ret.emplace_back( i );
+	}
+
+	dbg << " => Ok";
+	return ret;
+}
+
+
+int Config::ArrayLength( const string& name )
+{
+	Debug dbg(Debug::Verbose);
+	dbg + _debug_date() + self_thread() + _debug_level(Debug::Verbose) + __CLASS_NAME__ + "::" + __FUNCTION_NAME__ + "("; dbg.fDebug_top(name);
+
+	LuaValue v = mLua->value( name );
+	if ( v.type() != LuaValue::Table ) {
+		dbg << " => not found !";
+		return -1;
+	}
+
+	int ret = 0;
+	const map< string, LuaValue >& t = v.toTable();
+	for ( std::pair< string, LuaValue > a : t ) {
+		ret++;
+	}
+
+	return ret;
+}
+
+
+int Config::LocateValue( const string& _name )
+{
 	return 0;
 }
 
 
-void Config::DumpVariable( const std::string& name, int index, int indent )
+string Config::DumpVariable( const string& name, int index, int indent )
 {
-	for ( int i = 0; i < indent; i++ ) {
-		std::cout << "    ";
-	}
-	if ( name != "" ) {
-		std::cout << name << " = ";
-	}
-
-	if ( indent == 0 ) {
-		LocateValue( name );
-	}
-
-	if ( lua_isnil( L, index ) ) {
-		std::cout << "nil";
-	} else if ( lua_isnumber( L, index ) ) {
-		std::cout << lua_tonumber( L, index );
-	} else if ( lua_isboolean( L, index ) ) {
-		std::cout << ( lua_toboolean( L, index ) ? "true" : "false" );
-	} else if ( lua_isstring( L, index ) ) {
-		std::cout << "\"" << lua_tostring( L, index ) << "\"";
-	} else if ( lua_iscfunction( L, index ) ) {
-		std::cout << "C-function()";
-	} else if ( lua_isuserdata( L, index ) ) {
-		std::cout << "__userdata__";
-	} else if ( lua_istable( L, index ) ) {
-		std::cout << "{\n";
-		size_t len = lua_objlen( L, index );
-		if ( len > 0 ) {
-			for ( size_t i = 1; i <= len; i++ ) {
-				lua_rawgeti( L, index, i );
-				DumpVariable( "", -1, indent + 1 );
-				lua_pop( L, 1 );
-				std::cout << ",\n";
-			}
-		} else {
-			lua_pushnil( L );
-			while( lua_next( L, -2 ) != 0 ) {
-				std::string key = lua_tostring( L, index-1 );
-				if ( lua_isnumber( L, index - 1 ) ) {
-					key = "[" + key + "]";
-				}
-				DumpVariable( key, index, indent + 1 );
-				lua_pop( L, 1 );
-				std::cout << ",\n";
-			}
-		}
-		for ( int i = 0; i < indent; i++ ) {
-			std::cout << "    ";
-		}
-		std::cout << "}";
-	} else {
-		std::cout << "__unknown__";
-	}
-
-	if ( indent == 0 ) {
-		std::cout << "\n";
-	}
+	return name + " = " + mLua->value( name ).serialize();
 }
+
+
+void Config::Execute( const string& code, bool silent )
+{
+	if ( not silent ) {
+		fDebug( code );
+	}
+	mLua->do_string( code );
+}
+
+
+static inline string& ltrim( string& s, const char* t = " \t\n\r\f\v" )
+{
+	s.erase(0, s.find_first_not_of(t));
+	return s;
+}
+
+
+static inline string& rtrim( string& s, const char* t = " \t\n\r\f\v" )
+{
+	s.erase(s.find_last_not_of(t) + 1);
+	return s;
+}
+
+
+static inline string& trim( string& s, const char* t = " \t\n\r\f\v" )
+{
+	return ltrim(rtrim(s, t), t);
+}
+
+
+#define LUAdostring( s ) gDebug() << "dostring : " << string(s); mLua->do_string( string(s) );
 
 
 void Config::Reload()
 {
-	luaL_dostring( L, "function Vector( x, y, z, w ) return { x = x, y = y, z = z, w = w } end" );
-	luaL_dostring( L, "function Socket( params ) params.link_type = \"Socket\" ; return params end" );
-	luaL_dostring( L, "function RF24( params ) params.link_type = \"nRF24L01\" ; return params end" );
-	luaL_dostring( L, "function SX127x( params ) params.link_type = \"SX127x\" ; return params end" );
-	luaL_dostring( L, "function RawWifi( params ) params.link_type = \"RawWifi\" ; if params.device == nil then params.device = \"wlan0\" end ; if params.blocking == nil then params.blocking = true end ; if params.retries == nil then params.retries = 2 end ; return params end" );
-	luaL_dostring( L, "function Voltmeter( params ) params.sensor_type = \"Voltmeter\" ; return params end" );
-	luaL_dostring( L, "function Buzzer( params ) params.type = \"Buzzer\" ; return params end" );
-	luaL_dostring( L, "battery = {}" );
-	luaL_dostring( L, "controller = {}" );
-	luaL_dostring( L, "stream = {}" );
-	luaL_dostring( L, "touchscreen = {}" );
-	luaL_loadfile( L, mFilename.c_str() );
-	int ret = lua_pcall( L, 0, LUA_MULTRET, 0 );
+	LUAdostring( "Debug = {}" );
+	LUAdostring( "Debug.ERROR = " + std::to_string((int)Debug::Error) );
+	LUAdostring( "Debug.WARNING = " + std::to_string((int)Debug::Warning) );
+	LUAdostring( "Debug.INFO = " + std::to_string((int)Debug::Info) );
+	LUAdostring( "Debug.VERBOSE = " + std::to_string((int)Debug::Verbose) );
+	LUAdostring( "Debug.TRACE = " + std::to_string((int)Debug::Trace) );
 
-	if ( ret != 0 ) {
-		std::cout << "Lua : Error while executing file \"" << mFilename << "\" : \"" << lua_tostring( L, -1 ) << "\"\n";
-		return;
+	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
+	LUAdostring( "PID = setmetatable( {}, { __call = function ( self, p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
+	LUAdostring( "PT1 = PT1_3" );
+
+	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
+	LUAdostring( "system = { loop_time = 2000 }" );
+
+	LUAdostring( "battery = {}" );
+	LUAdostring( "stream = {}" );
+	LUAdostring( "touchscreen = {}" );
+	LUAdostring( "joysticks = { {}, {}, {}, {}, {}, {}, {}, {} }" );
+
+	LUAdostring( "print(joysticks)" );
+
+	if ( mSettingsFilename != "" ) {
+		int ret = mLua->do_file( mSettingsFilename );
+		if ( ret != 0 ) {
+			exit(0);
+		}
 	}
+
+	if ( mFilename != "" ) {
+		int ret = mLua->do_file( mFilename );
+		if ( ret != 0 ) {
+			exit(0);
+		}
+	}
+
+	if ( mSettingsFilename != "" ) {
+		int ret = mLua->do_file( mSettingsFilename );
+		if ( ret != 0 ) {
+			exit(0);
+		}
+	}
+}
+
+
+void Config::Apply()
+{
+}
+
+
+void Config::setBoolean( const string& name, const bool v )
+{
+	mSettings[name] = v;
+	LUAdostring( "_G[\"" + name + "\"]=" + mSettings[name].serialize() );
+}
+
+
+void Config::setInteger( const string& name, const int v )
+{
+	mSettings[name] = v;
+	LUAdostring( "_G[\"" + name + "\"]=" + mSettings[name].serialize() );
+}
+
+
+void Config::setNumber( const string& name, const float v )
+{
+	mSettings[name] = v;
+	LUAdostring( "_G[\"" + name + "\"]=" + mSettings[name].serialize() );
+}
+
+
+void Config::setString( const string& name, const string& v )
+{
+	mSettings[name] = v;
+	LUAdostring( "_G[\"" + name + "\"]=\"" + v + "\"" );
 }
 
 
 void Config::Save()
 {
-}
-
-
-const bool Config::setting( const std::string& name, const bool def ) const
-{
-	if ( mSettings.count( name ) > 0 ) {
-		return ( mSettings.at( name ) == "true" );
-	}
-	return def;
-}
-
-
-const int Config::setting( const std::string& name, const int def ) const
-{
-	if ( mSettings.count( name ) > 0 ) {
-		return atoi( mSettings.at( name ).c_str() );
-	}
-	return def;
-}
-
-
-const float Config::setting( const std::string& name, const float def ) const
-{
-	if ( mSettings.count( name ) > 0 ) {
-		return atof( mSettings.at( name ).c_str() );
-	}
-	return def;
-}
-
-
-const std::string& Config::setting( const std::string& name, const std::string& def ) const
-{
-	if ( mSettings.count( name ) > 0 ) {
-		return mSettings.at( name );
-	}
-	return def;
-}
-
-
-void Config::setSetting( const std::string& name, const bool v )
-{
-	mSettings[ name ] = ( v ? "true" : "false" );
-}
-
-
-void Config::setSetting( const std::string& name, const int v )
-{
-	std::stringstream ss;
-	ss << v;
-	mSettings[ name ] = ss.str();
-}
-
-
-void Config::setSetting( const std::string& name, const float v )
-{
-	std::stringstream ss;
-	ss << v;
-	mSettings[ name ] = ss.str();
-}
-
-
-void Config::setSetting( const std::string& name, const std::string& v )
-{
-	mSettings[ name ] = v;
-}
-
-
-void Config::LoadSettings( const std::string& filename )
-{
-	std::string line;
-	std::string key;
-	std::string value;
-	std::ifstream file( filename, std::ios_base::in );
+	ofstream file( mSettingsFilename );
+	string str;
 
 	if ( file.is_open() ) {
-		while ( std::getline( file, line ) ) {
-			key = line.substr( 0, line.find( "=" ) );
-			value = line.substr( line.find( "=" ) + 1 );
-			mSettings[ key ] = value;
-			std::cout << "mSettings[ " << key << " ] = '" << mSettings[ key ] << "'\n";
+		for ( pair< string, LuaValue > setting : mSettings ) {
+			str = "_G[\"" + setting.first + "\"] = " + setting.second.serialize() + "\n";
+			gDebug() << "Saving setting  : " << str;
+			file.write( str.c_str(), str.length() );
 		}
-	}
-}
-
-
-void Config::SaveSettings( const std::string& filename )
-{
-	std::stringstream ss;
-	std::ofstream file( filename, std::ios_base::out );
-
-	if ( file.is_open() ) {
-		for ( auto it : mSettings ) {
-			ss.str( "" );
-			ss << it.first << "=" << it.second << "\n";
-			std::cout << "Write : " << ss.str();
-			file.write( ss.str().c_str(), ss.str().length() );
-		}
+		file.close();
 	}
 }

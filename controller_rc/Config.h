@@ -22,51 +22,58 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <Lua.h>
 
-extern "C" {
-#include <luajit.h>
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-};
+using namespace std;
 
 class Config
 {
 public:
-	Config( const std::string& filename );
+	Config( const string& filename, const string& settings_filename = "" );
 	~Config();
 
 	void Reload();
+	void Apply();
 	void Save();
+	void Execute( const string& code, bool silent = false );
 
-	std::string string( const std::string& name, const std::string& def = "" );
-	int integer( const std::string& name, int def = 0 );
-	float number( const std::string& name, float def = 0.0f );
-	bool boolean( const std::string& name, bool def = false );
-	std::vector<int> integerArray( const std::string& name );
+	string String( const string& name, const string& def = "" );
+	int Integer( const string& name, int def = 0 );
+	float Number( const string& name, float def = 0.0f );
+	bool Boolean( const string& name, bool def = false );
+	void* Object( const string& name, void* def = nullptr );
+	template<typename T> T* Object( const string& name, void* def = nullptr ) {
+		return static_cast<T*>( Object( name, def ) );
+	}
 
-	void DumpVariable( const std::string& name, int index = -1, int indent = 0 );
+	vector<int> IntegerArray( const string& name );
 
-	const bool setting( const std::string& name, const bool def ) const;
-	const int setting( const std::string& name, const int def ) const;
-	const float setting( const std::string& name, const float def ) const;
-	const std::string& setting( const std::string& name, const std::string& def = "" ) const;
-	void setSetting( const std::string& name, const bool v );
-	void setSetting( const std::string& name, const int v );
-	void setSetting( const std::string& name, const float v );
-	void setSetting( const std::string& name, const std::string& v );
-	void LoadSettings( const std::string& filename = "settings" );
-	void SaveSettings( const std::string& filename = "settings" );
+	string DumpVariable( const string& name, int index = -1, int indent = 0 );
+	int ArrayLength( const string& name );
 
-	std::string ReadFile();
-	void WriteFile( const std::string& content );
+	void setBoolean( const string& name, const bool v );
+	void setInteger( const string& name, const int v );
+	void setNumber( const string& name, const float v );
+	void setString( const string& name, const string& v );
+
+	string ReadFile();
+	void WriteFile( const string& content );
+
+	Lua* luaState() const;
+
+	static Config* instance() { return sConfig; }
 
 protected:
-	std::string mFilename;
-	lua_State* L;
-	int LocateValue( const std::string& name );
+	int LocateValue( const string& name );
 
-	std::map< std::string, std::string > mSettings;
+	string mFilename;
+	string mSettingsFilename;
+	// lua_State* L;
+	map< string, LuaValue > mSettings;
+
+	Lua* mLua;
+
+	static Config* sConfig;
 };
 
 #endif // CONFIG_H
