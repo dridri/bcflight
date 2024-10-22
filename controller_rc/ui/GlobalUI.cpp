@@ -28,8 +28,8 @@ GlobalUI::~GlobalUI()
 bool GlobalUI::run()
 {
 	if ( mApplication == nullptr ) {
-		std::string fbdev = "linuxfb:fb=" + mConfig->string( "touchscreen.framebuffer", "/dev/fb0" );
-		std::string rotate = "QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/event0:rotate=" + std::to_string( mConfig->integer( "touchscreen.rotate", 0 ) );
+		std::string fbdev = "linuxfb:fb=" + mConfig->String( "touchscreen.framebuffer", "/dev/fb0" );
+		std::string rotate = "QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/event0:rotate=" + std::to_string( mConfig->Integer( "touchscreen.rotate", 0 ) );
 
 		std::cout << fbdev << "\n";
 		std::cout << rotate << "\n";

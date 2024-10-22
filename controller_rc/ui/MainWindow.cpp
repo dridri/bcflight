@@ -8,9 +8,9 @@
 #include "ui_camera.h"
 #include "ui_network.h"
 #include "ui_settings.h"
-#include <links/Socket.h>
+#include <Socket.h>
 #ifdef BUILD_rawwifi
-#include <links/RawWifi.h>
+#include <RawWifi.h>
 #else
 #define NO_RAWWIFI
 #endif

@@ -23,19 +23,30 @@
 #include <list>
 #include <string>
 #include <linux/spi/spidev.h>
+#include <Lua.h>
+
+using namespace std;
+
 
 class SPI
 {
 public:
-	SPI( const std::string& device, uint32_t speed_hz = 500000 );
+	LUA_EXPORT SPI( const string& device, uint32_t speed_hz = 500000 );
 	~SPI();
+	int Connect();
+	const string& device() const;
 
 	int Transfer( void* tx, void* rx, uint32_t len );
 
+	LuaValue infos();
+
 private:
+	LUA_PROPERTY("device") string mDevice;
+	uint32_t mSpeedHz;
 	int mFD;
 	int mBitsPerWord;
 	struct spi_ioc_transfer mXFer[10];
+	mutex mTransferMutex;
 };
 
 #endif
