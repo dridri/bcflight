@@ -26,19 +26,21 @@
 #include <netinet/in.h>
 #endif
 #include "Link.h"
+#include <Lua.h>
 
-class Main;
 
-class Socket : public Link
+LUA_CLASS class Socket : public Link
 {
 public:
-	typedef enum {
+	LUA_EXPORT typedef enum {
 		TCP,
 		UDP,
 		UDPLite
 	} PortType;
 
-	Socket( const std::string& host, uint16_t port, PortType type = TCP );
+	LUA_EXPORT Socket();
+	Socket( uint16_t port, Socket::PortType type = TCP, bool broadcast = false, uint32_t timeout = 0 ); // Server
+	Socket( const std::string& host, uint16_t port, PortType type = TCP ); // Client
 	virtual ~Socket();
 
 	int Connect();
@@ -49,20 +51,29 @@ public:
 	int32_t RxQuality();
 	int32_t RxLevel();
 
+	SyncReturn Read( void* buf, uint32_t len, int32_t timeout );
+	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );
+
 	virtual uint32_t fullReadSpeed() { return mReadSpeed; }
 
-protected:
-	int Read( void* buf, uint32_t len, int32_t timeout );
-	int Write( const void* buf, uint32_t len, bool ack, int32_t timeout );
+	string name() const;
+	LuaValue infos() const;
 
-	std::string mHost;
-	uint16_t mPort;
-	PortType mPortType;
+protected:
+	bool mServerMode;
+	LUA_PROPERTY("host") std::string mHost;
+	LUA_PROPERTY("port") uint16_t mPort;
+	LUA_PROPERTY("type") Socket::PortType mPortType;
+	LUA_PROPERTY("broadcast") bool mBroadcast;
+	LUA_PROPERTY("read_timeout") uint32_t mTimeout;
 	int mSocket;
 	struct sockaddr_in mSin;
+	int mClientSocket;
+	struct sockaddr_in mClientSin;
 
 	// Stats
 	int32_t mChannel;
 };
+
 
 #endif // ( BUILD_SOCKET == 1 )

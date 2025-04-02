@@ -363,7 +363,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 					text += std::string(&videostats->vtxBand[0], 1);
 				}
 			}
-			text += std::to_string(videostats->vtxChannel % 8 + 1);
+			text += std::to_string(videostats->vtxChannel % 8);
 			FontMeasureString( text, &w, &h );
 			RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 7.0f, text, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
 		}

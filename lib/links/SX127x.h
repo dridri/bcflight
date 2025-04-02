@@ -8,6 +8,7 @@
 #include "Link.h"
 
 class SPI;
+class Bus;
 
 LUA_CLASS class SX127x : public Link
 {
@@ -93,9 +94,8 @@ protected:
 	uint8_t readRegister( SPI* spi, uint8_t reg );
 	bool writeRegister( SPI* spi, uint8_t reg, uint8_t value );
 
-	SPI* mSPI;
 	bool mReady;
-	LUA_PROPERTY("device") string mDevice;
+	LUA_PROPERTY("bus") Bus* mSPI;
 	LUA_PROPERTY("resetpin") int32_t mResetPin;
 	LUA_PROPERTY("txpin") int32_t mTXPin;
 	LUA_PROPERTY("rxpin") int32_t mRXPin;
@@ -134,8 +134,7 @@ protected:
 	int32_t mPerfTotalBlocks;
 	int32_t mPerfMissedBlocks;
 
-	SPI* mDiversitySpi;
-	LUA_PROPERTY("diversity.device") string mDiversityDevice;
+	LUA_PROPERTY("diversity.bus") Bus* mDiversitySpi;
 	LUA_PROPERTY("diversity.resetpin") int32_t mDiversityResetPin;
 	LUA_PROPERTY("diversity.irqpin") int32_t mDiversityIrqPin;
 	LUA_PROPERTY("diversity.ledpin") int32_t mDiversityLedPin;

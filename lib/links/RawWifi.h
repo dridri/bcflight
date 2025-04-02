@@ -2,7 +2,6 @@
 #define RAWWIFI_LINK_H
 
 #include "Link.h"
-#include "Config.h"
 #include <Thread.h>
 #include <condition_variable>
 

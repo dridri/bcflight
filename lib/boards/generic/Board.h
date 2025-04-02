@@ -41,7 +41,7 @@ public:
 		int second;
 	} Date;
 
-	Board( Main* main );
+	Board();
 	~Board();
 
 	static string infos();

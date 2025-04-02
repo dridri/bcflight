@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
+#include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,6 +49,8 @@ typedef struct in_addr IN_ADDR;
 #endif
 #include <iostream>
 #include "Socket.h"
+#include "Debug.h"
+#include "Board.h"
 
 #ifndef IPPROTO_UDPLITE
 #define IPPROTO_UDPLITE 136
@@ -56,13 +59,26 @@ typedef struct in_addr IN_ADDR;
 #define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
 
 
-Socket::Socket( const std::string& host, uint16_t port, PortType type )
-	: mHost( host )
+Socket::Socket()
+	: Socket( 0 )
+{
+	fDebug();
+}
+
+
+Socket::Socket( uint16_t port, Socket::PortType type, bool broadcast, uint32_t timeout )
+	: mServerMode( true )
+	, mHost( "" )
 	, mPort( port )
 	, mPortType( type )
+	, mBroadcast( broadcast )
+	, mTimeout( timeout )
 	, mSocket( -1 )
+	, mClientSocket( -1 )
 	, mChannel( 0 )
 {
+	fDebug( port, type, broadcast, timeout );
+#ifdef HAVE_LIBIW
 	iwstats stats;
 	wireless_config info;
 	iwrange range;
@@ -76,6 +92,36 @@ Socket::Socket( const std::string& host, uint16_t port, PortType type )
 	}
 
 	iw_sockets_close( iwSocket );
+#endif
+}
+
+
+Socket::Socket( const std::string& host, uint16_t port, PortType type )
+	: mServerMode( false )
+	, mHost( host )
+	, mPort( port )
+	, mPortType( type )
+	, mBroadcast( false )
+	, mSocket( -1 )
+	, mClientSocket( -1 )
+	, mChannel( 0 )
+{
+	fDebug( host, port, type );
+#ifdef HAVE_LIBIW
+	iwstats stats;
+	wireless_config info;
+	iwrange range;
+	int iwSocket = iw_sockets_open();
+
+	memset( &stats, 0, sizeof( stats ) );
+	if ( iw_get_basic_config( iwSocket, "wlan0", &info ) == 0 ) {
+		if ( iw_get_range_info( iwSocket, "wlan0", &range ) == 0 ) {
+			mChannel = iw_freq_to_channel( info.freq, &range );
+		}
+	}
+
+	iw_sockets_close( iwSocket );
+#endif
 }
 
 
@@ -96,7 +142,11 @@ int32_t Socket::Channel()
 
 int32_t Socket::RxQuality()
 {
+#ifdef HAVE_LIBIW
+	// TODO : use "iw dev wlan0 station dump" instead
 	iwstats stats;
+
+	errno = 0;
 
 	int32_t ret = 0;
 	int iwSocket = iw_sockets_open();
@@ -107,15 +157,19 @@ int32_t Socket::RxQuality()
 	}
 
 	iw_sockets_close( iwSocket );
+#else
+	int32_t ret = 0;
+#endif
 	return ret;
 }
 
 
 int32_t Socket::RxLevel()
 {
+#ifdef HAVE_LIBIW
 	iwstats stats;
 
-	int32_t ret = 0;
+	int32_t ret = -200;
 	int iwSocket = iw_sockets_open();
 	memset( &stats, 0, sizeof( stats ) );
 
@@ -125,51 +179,10 @@ int32_t Socket::RxLevel()
 	}
 
 	iw_sockets_close( iwSocket );
+#else
+	int32_t ret = 0;
+#endif
 	return ret;
-}
-
-
-int Socket::Connect()
-{
-	if ( mConnected ) {
-		return 0;
-	}
-	setBlocking( true );
-
-	if ( mSocket < 0 ) {
-		int type = ( mPortType == UDP or mPortType == UDPLite ) ? SOCK_DGRAM : SOCK_STREAM;
-		int proto = ( mPortType == UDPLite ) ? IPPROTO_UDPLITE : ( ( mPortType == UDP ) ? IPPROTO_UDP : 0 );
-
-		char myname[256];
-		gethostname( myname, sizeof(myname) );
-		memset( &mSin, 0, sizeof( mSin ) );
-		mSin.sin_addr.s_addr = inet_addr( mHost.c_str() );
-		mSin.sin_family = AF_INET;
-		mSin.sin_port = htons( mPort );
-
-		mSocket = socket( AF_INET, type, proto );
-		int option = 1;
-		setsockopt( mSocket, SOL_SOCKET, ( 15/*SO_REUSEPORT*/ | SO_REUSEADDR ), (char*)&option, sizeof( option ) );
-		if ( mPortType == TCP ) {
-			int flag = 1;
-			setsockopt( mSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) );
-		}
-		if ( mPortType == UDPLite ) {
-			uint16_t checksum_coverage = 8;
-			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, (DATATYPE)&checksum_coverage, sizeof(checksum_coverage) );
-			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, (DATATYPE)&checksum_coverage, sizeof(checksum_coverage) );
-		}
-		if ( connect( mSocket, (SOCKADDR*)&mSin, sizeof(mSin) ) < 0 ) {
-			std::cout << "Socket ( " << mPort << " ) connect error : " << strerror(errno) << "\n";
-			close( mSocket );
-			mSocket = -1;
-			mConnected = false;
-			return -1;
-		}
-	}
-
-	mConnected = true;
-	return 0;
 }
 
 
@@ -188,7 +201,6 @@ int Socket::setBlocking( bool blocking )
 
 int Socket::retriesCount() const
 {
-	// TODO
 	return 1;
 }
 
@@ -201,8 +213,109 @@ void Socket::setRetriesCount( int retries )
 }
 
 
+int Socket::Connect()
+{
+	fDebug();
+
+	if ( mConnected ) {
+		return 0;
+	}
+	setBlocking( true );
+
+	if ( mSocket < 0 ) {
+		if ( mHost.length() == 0 ) {
+			mServerMode = true;
+		}
+		int type = ( mPortType == UDP or mPortType == UDPLite ) ? SOCK_DGRAM : SOCK_STREAM;
+		int proto = ( mPortType == UDPLite ) ? IPPROTO_UDPLITE : ( ( mPortType == UDP ) ? IPPROTO_UDP : 0 );
+
+		char myname[256];
+		gethostname( myname, sizeof(myname) );
+		memset( &mSin, 0, sizeof( mSin ) );
+		mSin.sin_addr.s_addr = ( mServerMode ? htonl( INADDR_ANY ) : inet_addr( mHost.c_str() ) );
+		mSin.sin_family = AF_INET;
+		mSin.sin_port = htons( mPort );
+
+		mSocket = socket( AF_INET, type, proto );
+		int option = 1;
+		setsockopt( mSocket, SOL_SOCKET, ( 15/*SO_REUSEPORT*/ | SO_REUSEADDR ), (char*)&option, sizeof( option ) );
+		if ( mPortType == TCP ) {
+			int flag = 1;
+			setsockopt( mSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) );
+		}
+		if ( mBroadcast ) {
+			int broadcastEnable = 1;
+			setsockopt( mSocket, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable) );
+		}
+		if ( mPortType == UDPLite ) {
+			uint16_t checksum_coverage = 8;
+			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_SEND_CSCOV, (DATATYPE)&checksum_coverage, sizeof(checksum_coverage) );
+			setsockopt( mSocket, IPPROTO_UDPLITE, UDPLITE_RECV_CSCOV, (DATATYPE)&checksum_coverage, sizeof(checksum_coverage) );
+		}
+		if ( mServerMode ) {
+			if ( bind( mSocket, (SOCKADDR*)&mSin, sizeof(mSin) ) < 0 ) {
+				gDebug() << "Socket ( " << mPort << " ) error : " << strerror(errno);
+				mConnected = false;
+				return -1;
+			}
+		} else {
+			if ( connect( mSocket, (SOCKADDR*)&mSin, sizeof(mSin) ) < 0 ) {
+				std::cout << "Socket ( " << mPort << " ) connect error : " << strerror(errno) << "\n";
+				close( mSocket );
+				mSocket = -1;
+				mConnected = false;
+				return -1;
+			}
+		}
+	}
+
+	if ( mServerMode ) {
+		if ( mPortType == TCP ) {
+			int ret = listen( mSocket, 5 );
+			int size = 0;
+			if ( !ret ) {
+				mClientSocket = accept( mSocket, (SOCKADDR*)&mClientSin, (socklen_t*)&size );
+				if ( mClientSocket < 0 ) {
+					mConnected = false;
+					return -1;
+				}
+			} else {
+				mConnected = false;
+				return -1;
+			}
+		} else if ( mPortType == UDP or mPortType == UDPLite ) {
+			if ( not mBroadcast ) {
+				mClientSin.sin_family = AF_UNSPEC;
+				/*
+				uint32_t flag = 0;
+				uint32_t fromsize = sizeof( mClientSin );
+				int ret = recvfrom( mSocket, &flag, sizeof( flag ), 0, (SOCKADDR*)&mClientSin, &fromsize );
+				if ( ret > 0 ) {
+					flag = ntohl( flag );
+					gDebug() << "flag : " << ntohl( flag );
+					if ( flag != 0x12345678 ) {
+						mConnected = false;
+						return -1;
+					}
+				} else {
+					gDebug() << strerror( errno );
+					mConnected = false;
+					return -1;
+				}
+				*/
+			}
+		}
+	}
+
+	mConnected = true;
+	return 0;
+}
+
+
 int Socket::Read( void* buf, uint32_t len, int timeout )
 {
+	uint64_t timebase = Board::GetTicks();
+
 	if ( !mConnected ) {
 		return -1;
 	}
@@ -210,7 +323,11 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 	int ret = 0;
 	memset( buf, 0, len );
 
-// 	timeout = 500;
+	// If timeout is not set, default it to mTimeout
+	if ( timeout <= 0 ) {
+		timeout = mTimeout;
+	}
+
 	if ( timeout > 0 ) {
 		struct timeval tv;
 		tv.tv_sec = timeout / 1000;
@@ -219,21 +336,25 @@ int Socket::Read( void* buf, uint32_t len, int timeout )
 	}
 
 	if ( mPortType == UDP or mPortType == UDPLite ) {
-		socklen_t fromsize = sizeof( mSin );
-		ret = recvfrom( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)&mSin, &fromsize );
+		auto sin = ( mServerMode ? &mClientSin : &mSin );
+		socklen_t fromsize = sizeof( *sin );
+		ret = recvfrom( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)sin, &fromsize );
 		if ( ret <= 0 and errno != EAGAIN) {
+			if ( ( Board::GetTicks() - timebase >= timeout * 1000ULL ) or errno == 11 ) {
+				return TIMEOUT;
+			}
 			std::cout << "UDP disconnected ( " << ret << " : " << strerror( errno ) << " )\n";
 			mConnected = false;
 			return -1;
 		}
 // 		return -1;
 	} else {
-		ret = recv( mSocket, (DATATYPE)buf, len, MSG_NOSIGNAL );
+		int socket = ( mServerMode ? mClientSocket : mSocket );
+		ret = recv( socket, (DATATYPE)buf, len, MSG_NOSIGNAL );
 // 		if ( ( ret <= 0 and errno != EAGAIN ) or ( errno == EAGAIN and timeout > 0 ) ) {
 		if ( ret <= 0 ) {
 			std::cout << "TCP disconnected ( " << strerror( errno ) << " )\n";
 			mConnected = false;
-			mSocket = -1;
 			return -1;
 		}
 	}
@@ -261,10 +382,30 @@ int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 	int ret = 0;
 
 	if ( mPortType == UDP or mPortType == UDPLite ) {
-		uint32_t sendsize = sizeof( mSin );
-		ret = sendto( mSocket, (DATATYPE)buf, len, 0, (SOCKADDR *)&mSin, sendsize );
+		auto sin = ( mServerMode ? &mClientSin : &mSin );
+		if ( mBroadcast ) {
+			sin->sin_family = AF_INET;
+			sin->sin_port = htons( mPort );
+			sin->sin_addr.s_addr = inet_addr( "192.168.32.255" );
+		}
+		if ( sin->sin_family == AF_UNSPEC ) {
+			return 0;
+		}
+		uint32_t sendsize = sizeof( *sin );
+		uint32_t pos = 0;
+		while ( pos < len and ret >= 0 ) {
+			uint32_t sz = std::min( len - pos, 65000U );
+			int r = sendto( mSocket, (uint8_t*)buf + pos, sz, 0, (SOCKADDR *)sin, sendsize );
+			if ( r < 0 ) {
+				ret = r;
+				break;
+			}
+			pos += r;
+			ret += r;
+		}
 	} else {
-		ret = send( mSocket, (DATATYPE)buf, len, 0 );
+		int socket = ( mServerMode ? mClientSocket : mSocket );
+		ret = send( socket, (DATATYPE)buf, len, MSG_NOSIGNAL );
 	}
 
 	if ( ret <= 0 and ( errno == EAGAIN or errno == -EAGAIN ) ) {
@@ -274,7 +415,6 @@ int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 	if ( ret < 0 and mPortType != UDP and mPortType != UDPLite ) {
 		std::cout << "TCP disconnected\n";
 		mConnected = false;
-		mSocket = -1;
 		return -1;
 	}
 
@@ -288,5 +428,47 @@ int Socket::Write( const void* buf, uint32_t len, bool ack, int timeout )
 		mWriteSpeedCounter = 0;
 		mSpeedTick = GetTicks();
 	}
+	return ret;
+}
+
+
+std::string Socket::name() const
+{
+	std::stringstream ret;
+
+	ret << "Socket (";
+	if ( mServerMode ) {
+		ret << "server_mode";
+	} else {
+		ret << mHost;
+	}
+	ret << " | " << mPort << ")";
+	if ( mPortType == TCP ) {
+		ret << " | TCP)";
+	} else if ( mPortType == UDP ) {
+		ret << " | UDP)";
+	} else if ( mPortType == UDPLite ) {
+		ret << " | UDPLite)";
+	}
+
+	return ret.str();
+}
+
+
+LuaValue Socket::infos() const
+{
+	LuaValue ret;
+
+	ret[ "Port" ] = (int)mPort;
+	if ( mPortType == TCP ) {
+		ret[ "Port Type" ] = "TCP";
+	} else if ( mPortType == UDP ) {
+		ret[ "Port Type" ] = "UDP";
+	} else if ( mPortType == UDPLite ) {
+		ret[ "Port Type" ] = "UDPLite";
+	}
+	ret[ "Broadcast" ] = mBroadcast ? "true" : "false";
+	ret[ "Timeout" ] = mTimeout;
+
 	return ret;
 }

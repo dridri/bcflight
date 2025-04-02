@@ -120,6 +120,14 @@ public:
 		return n;
 	}
 
+	std::vector<T> toStdVector() const {
+		std::vector<T> ret;
+		for ( int i = 0; i < n; i++ ) {
+			ret.push_back( ptr[i] );
+		}
+		return ret;
+	}
+
 
 	Vector<T,n>& operator=( const Vector< T, n >& other )
 	{
@@ -295,6 +303,13 @@ template <typename T, int n> Vector<T, n> operator/( T im, const Vector<T, n>& v
 	for ( int i = 0; i < n; i++ ) {
 		ret.ptr[i] = im / v.ptr[i];
 	}
+	return ret;
+}
+
+
+template <typename T, int n> Vector<T, n> operator/( const Vector<T, n>& a, const Vector<T, n>& b ) {
+	Vector<T, n> ret;
+	VEC_OP( ret. , a. , / , b. );
 	return ret;
 }
 

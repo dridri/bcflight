@@ -16,10 +16,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include <Main.h>
+
+#include <unistd.h>
+#include <Debug.h>
+
+class Main {
+public:
+	static int flight_entry( int, char** );
+};
 
 int main( int ac, char** av )
 {
-	// board-specific early initializations should be done here
-	return Main::flight_entry( ac, av );
+	Debug::setDebugLevel( Debug::Verbose );
+	int ret = Main::flight_entry( ac, av );
+
+	if ( ret == 0 ) {
+		while ( 1 ) {
+			usleep( 1000 * 1000 * 100 );
+		}
+	}
+
+	return 0;
 }

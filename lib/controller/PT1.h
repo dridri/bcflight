@@ -8,7 +8,7 @@ public:
 	PT1( const V& cutoff ) : mCutOff( cutoff ), mState( V() ) {}
 
 	virtual V filter( const V& input, float dt ) {
-		V RC = 1.0f / ( float(2.0f * M_PI) * mCutOff );
+		V RC = V(1.0f) / ( float(2.0f * M_PI) * mCutOff );
 		V coeff = dt / ( RC + dt );
 		mState += mul( coeff, ( input - mState ) );
 		return mState;
