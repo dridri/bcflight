@@ -47,16 +47,19 @@ if ( RAWWIFI_ON MATCHES 1 )
 	include_directories( ../rawwifi++ )
 endif()
 
-file( GLOB_RECURSE LINKS_SOURCES *.cpp *.c */*.cpp */*.c )
-if ( ${board} MATCHES OFF OR ${board} MATCHES "generic" OR ${board} MATCHES "pc" )
-	list( REMOVE_ITEM LINKS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/nRF24L01.cpp )
-	list( REMOVE_ITEM LINKS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/SX127x.cpp )
-endif()
+set( LINKS_SOURCES
+	Link.cpp
+	# nRF24L01.cpp
+	RawWifi.cpp
+	SBUS.cpp
+	Socket.cpp
+	SX127x.cpp
+)
 add_library( links STATIC ${LINKS_SOURCES} )
 
 if ( ${RAWWIFI_ON} MATCHES 1 )
-	add_dependencies( controllerbase rawwifi )
-	target_link_libraries( links debuglib luacore rawwifi -lz -liw )
+	add_dependencies( links rawwifi )
+	target_link_libraries( links debuglib luacore rawwifi boards -lz -liw )
 else()
-	target_link_libraries( links debuglib luacore -liw )
+	target_link_libraries( links debuglib luacore boards -liw )
 endif()

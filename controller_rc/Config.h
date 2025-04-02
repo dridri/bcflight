@@ -51,10 +51,11 @@ public:
 	string DumpVariable( const string& name, int index = -1, int indent = 0 );
 	int ArrayLength( const string& name );
 
-	void setBoolean( const string& name, const bool v );
-	void setInteger( const string& name, const int v );
-	void setNumber( const string& name, const float v );
-	void setString( const string& name, const string& v );
+	// void setBoolean( const string& name, const bool v );
+	// void setInteger( const string& name, const int v );
+	// void setNumber( const string& name, const float v );
+	// void setString( const string& name, const string& v );
+	LuaValue& settings() { return mSettings; }
 
 	string ReadFile();
 	void WriteFile( const string& content );
@@ -69,7 +70,7 @@ protected:
 	string mFilename;
 	string mSettingsFilename;
 	// lua_State* L;
-	map< string, LuaValue > mSettings;
+	LuaValue mSettings;
 
 	Lua* mLua;
 

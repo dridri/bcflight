@@ -66,6 +66,7 @@ protected:
 	float setYaw( float value, bool raw = false );
 	float setThrust( float value, bool raw = false );
 	Main* mMain;
+	Link* mClientLink;
 #ifdef SYSTEM_NAME_Linux
 	mutex mSendMutex;
 #endif

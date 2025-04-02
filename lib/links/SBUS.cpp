@@ -1,5 +1,4 @@
 #include "SBUS.h"
-#include <Config.h>
 #include <Debug.h>
 #include <Board.h>
 #include <ControllerBase.h>
