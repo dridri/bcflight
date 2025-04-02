@@ -307,21 +307,19 @@ void Config::Reload()
 
 	LUAdostring( "print(joysticks)" );
 
-	if ( mSettingsFilename != "" ) {
+	if ( mSettingsFilename != "" and access(mSettingsFilename.c_str(), F_OK) == 0 ) {
 		int ret = mLua->do_file( mSettingsFilename );
 		if ( ret != 0 ) {
 			exit(0);
 		}
 	}
-
 	if ( mFilename != "" ) {
 		int ret = mLua->do_file( mFilename );
 		if ( ret != 0 ) {
 			exit(0);
 		}
 	}
-
-	if ( mSettingsFilename != "" ) {
+	if ( mSettingsFilename != "" and access(mSettingsFilename.c_str(), F_OK) == 0 ) {
 		int ret = mLua->do_file( mSettingsFilename );
 		if ( ret != 0 ) {
 			exit(0);
@@ -334,7 +332,7 @@ void Config::Apply()
 {
 }
 
-
+/*
 void Config::setBoolean( const string& name, const bool v )
 {
 	mSettings[name] = v;
@@ -361,19 +359,20 @@ void Config::setString( const string& name, const string& v )
 	mSettings[name] = v;
 	LUAdostring( "_G[\"" + name + "\"]=\"" + v + "\"" );
 }
-
+*/
 
 void Config::Save()
 {
 	ofstream file( mSettingsFilename );
-	string str;
 
 	if ( file.is_open() ) {
-		for ( pair< string, LuaValue > setting : mSettings ) {
-			str = "_G[\"" + setting.first + "\"] = " + setting.second.serialize() + "\n";
-			gDebug() << "Saving setting  : " << str;
-			file.write( str.c_str(), str.length() );
-		}
+		string str = "settings = " + mSettings.serialize();
+		file.write( str.c_str(), str.length() );
+		// for ( pair< string, LuaValue > setting : mSettings ) {
+		// 	string str = "_G[\"" + setting.first + "\"] = " + setting.second.serialize() + "\n";
+		// 	gDebug() << "Saving setting  : " << str;
+		// 	file.write( str.c_str(), str.length() );
+		// }
 		file.close();
 	}
 }

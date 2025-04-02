@@ -47,6 +47,14 @@ Matrix::Matrix( const Matrix& other )
 }
 
 
+Matrix::Matrix( const vector<float>& vec, bool asColumn ) {
+	mWidth = ( asColumn ? 1 : vec.size() );
+	mHeight = ( asColumn ? 1 : vec.size() );
+	m = (float*)malloc( sizeof(float) * mWidth * mHeight );
+	memcpy( m, vec.data(), sizeof(float) * vec.size() );
+}
+
+
 Matrix::~Matrix()
 {
 	if ( m == nullptr ) {
@@ -97,6 +105,12 @@ const int Matrix::width() const
 const int Matrix::height() const
 {
 	return mHeight;
+}
+
+
+const int Matrix::size() const
+{
+	return mWidth * mHeight;
 }
 
 
@@ -227,6 +241,13 @@ Matrix Matrix::Inverse()
 }
 
 
+void Matrix::operator+=( const Matrix& other )
+{
+	Matrix r = *this + other;
+	memcpy( m, r.m, sizeof(float) * r.size() );
+}
+
+
 void Matrix::operator=( const Matrix& other )
 {
 	if ( other.mWidth == mWidth and other.mHeight == mHeight ) {
@@ -250,7 +271,7 @@ Matrix operator+( const Matrix& m1, const Matrix& m2 )
 	int h = min( m1.height(), m2.height() );
 	Matrix ret( w, h );
 
-	for ( int j = 0, j1 = 0, j2 = 0; j < h; j++, j1 += m1.width(), j2 += m2.width() ) {
+	for ( int j = 0; j < h; j++ ) {
 		for ( int i = 0; i < w; i++ ) {
 			ret.m[ j * w + i ] = m1.m[ j * m1.width() + i ] + m2.m[ j * m2.width() + i ];
 		}
@@ -363,3 +384,14 @@ Vector4f operator*( const Matrix& m, const Vector4f& vec )
 	return ret;
 }
 
+
+Matrix operator*( const Matrix& m1, float v )
+{
+	Matrix ret( m1.width(), m1.height() );
+
+	for ( int i = 0; i < ret.size(); i++ ) {
+		ret.data()[i] = m1.constData()[i] * v;
+	}
+
+	return ret;
+}

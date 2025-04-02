@@ -74,8 +74,10 @@ public:
 	LuaValue( bool v ) : mType(Boolean), mBoolean(v), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( double v ) : mType(Number), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( float v ) : mType(Number), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
+	LuaValue( int16_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( int32_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( int64_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
+	LuaValue( uint16_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( uint32_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( uint64_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( const string& v ) : mType(String), mBoolean(v.length()>0), mInteger(0), mNumber(0), mString(v), mFunctionRef(nullptr), mUserData(nullptr) {}

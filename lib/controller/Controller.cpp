@@ -27,6 +27,7 @@
 #include <iostream>
 #include "Controller.h"
 #include "RawWifi.h"
+#include "Board.h"
 #include "Debug.h"
 
 
@@ -134,11 +135,8 @@ string Controller::debugOutput()
 
 bool Controller::run()
 {
-	uint32_t ticks = Thread::GetTick();
-	if ( ticks - mTicks < 1000 / mUpdateFrequency ) {
-		usleep( 1000 * max( 0U, 1000U / mUpdateFrequency - (int)( ticks - mTicks ) - 1U ) );
-	}
-	float dt = ((float)( Thread::GetTick() - mTicks ) ) / 1000.0f;
+	uint64_t ticks = Board::WaitTick( 1000000 / mUpdateFrequency, mTicks );
+	float dt = ((float)( Thread::GetTick() - mTicks ) ) / 1000000.0f;
 	mTicks = Thread::GetTick();
 	uint64_t ticks0 = mTicks;
 
@@ -299,24 +297,24 @@ bool Controller::run()
 		}
 	}
 
-	if ( Thread::GetTick() - mPingTimer >= 250 ) {
+	if ( Thread::GetTick() - mPingTimer >= 250000 ) {
 		uint64_t ticks = Thread::GetTick();
 		mXferMutex.lock();
 		mTxFrame.WriteU8( PING );
-		mTxFrame.WriteU16( (uint16_t)( ticks & 0x0000FFFFL ) );
+		mTxFrame.WriteU16( (uint16_t)( ( ticks / 1000 ) & 0x0000FFFFL ) );
 		mTxFrame.WriteU16( mPing ); // Report current ping to drone
 		mXferMutex.unlock();
 		mPingTimer = Thread::GetTick();
 	}
 
-	if ( Thread::GetTick() - mTelemetryTimer >= 1000 ) {
+	if ( Thread::GetTick() - mTelemetryTimer >= 1000000 ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU8( TELEMETRY );
 		mXferMutex.unlock();
 		mTelemetryTimer = Thread::GetTick();
 	}
 
-	if ( Thread::GetTick() - mStatusTimer >= 1500 ) {
+	if ( Thread::GetTick() - mStatusTimer >= 1500000 ) {
 		mXferMutex.lock();
 		mTxFrame.WriteU8( STATUS );
 		mXferMutex.unlock();
@@ -435,7 +433,7 @@ bool Controller::RxRun()
 			case PING : {
 				uint32_t ret = telemetry.ReadU16();
 				uint32_t reported_ping = telemetry.ReadU16();
-				uint32_t curr = (uint32_t)( Thread::GetTick() & 0x0000FFFFL );
+				uint32_t curr = (uint32_t)( (Thread::GetTick() / 1000) & 0x0000FFFFL );
 				mPing = curr - ret;
 				if ( mSpectate ) {
 					mPing = reported_ping;
@@ -708,7 +706,7 @@ bool Controller::RxRun()
 				rpy.x = mRPY.x;
 				rpy.y = mRPY.y;
 				rpy.z = mRPY.z;
-				rpy.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				rpy.w = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mRPYHistory.emplace_back( rpy );
 				if ( mRPYHistory.size() > 2048 ) {
@@ -722,7 +720,7 @@ bool Controller::RxRun()
 				gyro.x = telemetry.ReadFloat();
 				gyro.y = telemetry.ReadFloat();
 				gyro.z = telemetry.ReadFloat();
-				gyro.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				gyro.w = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mGyroscopeHistory.emplace_back( gyro );
 				if ( mGyroscopeHistory.size() > 2048 ) {
@@ -736,7 +734,7 @@ bool Controller::RxRun()
 				rates.x = telemetry.ReadFloat();
 				rates.y = telemetry.ReadFloat();
 				rates.z = telemetry.ReadFloat();
-				rates.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				rates.w = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mRatesHistory.emplace_back( rates );
 				if ( mRatesHistory.size() > 2048 ) {
@@ -750,7 +748,7 @@ bool Controller::RxRun()
 				rates_dterm.x = telemetry.ReadFloat();
 				rates_dterm.y = telemetry.ReadFloat();
 				rates_dterm.z = telemetry.ReadFloat();
-				rates_dterm.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				rates_dterm.w = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mRatesDerivativeHistory.emplace_back( rates_dterm );
 				if ( mRatesDerivativeHistory.size() > 2048 ) {
@@ -764,7 +762,7 @@ bool Controller::RxRun()
 				accel.x = telemetry.ReadFloat();
 				accel.y = telemetry.ReadFloat();
 				accel.z = telemetry.ReadFloat();
-				accel.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				accel.w = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mAccelerationHistory.emplace_back( accel );
 				if ( mAccelerationHistory.size() > 2048 ) {
@@ -778,7 +776,7 @@ bool Controller::RxRun()
 				magn.x = telemetry.ReadFloat();
 				magn.y = telemetry.ReadFloat();
 				magn.z = telemetry.ReadFloat();
-				magn.w = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				magn.w = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mMagnetometerHistory.emplace_back( magn );
 				if ( mMagnetometerHistory.size() > 4096 ) {
@@ -794,7 +792,7 @@ bool Controller::RxRun()
 			case ALTITUDE : {
 				vec2 alt;
 				alt.x = mAltitude;
-				alt.y = (double)( Thread::GetTick() - mTickBase ) / 1000.0;
+				alt.y = (double)( Thread::GetTick() - mTickBase ) / 1000000.0;
 				mHistoryMutex.lock();
 				mAltitude = telemetry.ReadFloat();
 				mAltitudeHistory.emplace_back( alt );

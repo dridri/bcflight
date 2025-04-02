@@ -20,7 +20,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <fstream>
-#include <Main.h>
 #include <netinet/in.h>
 #include "Board.h"
 #include "I2C.h"
@@ -31,7 +30,7 @@ decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
 map< string, bool > Board::mDefectivePeripherals;
 
 
-Board::Board( Main* main )
+Board::Board()
 {
 	srand( time( nullptr ) );
 	// hardware-specific initialization should be done here or directly in startup.cpp

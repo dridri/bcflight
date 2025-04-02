@@ -24,7 +24,7 @@
 #include "MCP320x.h"
 
 MCP320x::MCP320x( const std::string& devfile )
-	: mSPI( new SPI( devfile, 500000 ) )
+	: mSPI( new SPI( devfile, 2000000 ) )
 {
 	mSPI->Connect();
 }
@@ -43,51 +43,68 @@ void MCP320x::setSmoothFactor( uint8_t channel, float f )
 
 uint16_t MCP320x::Read( uint8_t channel, float dt )
 {
-	static const int nbx = 1;
-	// static const int nbx = 4;
-	uint32_t b[3] = { 0, 0, 0 };
-	uint8_t bx[nbx][3] = { { 0 } };
-	uint8_t buf[12];
+	static constexpr int nbx = 1;
+	uint8_t bx[3 * nbx] = { 0 };
+	uint8_t buf[3 * nbx];
 
-	buf[0] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	buf[1] = ( ( channel & 0b11 ) << 6 );
+	buf[0] = 0b00000110 | ((channel & 0b100) >> 2);
+	buf[1] = (channel & 0b011) << 6;
 	buf[2] = 0x00;
-	// buf[3] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	// buf[4] = ( ( channel & 0b11 ) << 6 );
-	// buf[5] = 0x00;
-	// buf[6] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	// buf[7] = ( ( channel & 0b11 ) << 6 );
-	// buf[8] = 0x00;
-	// buf[9] = 0b00000110 | ( ( channel & 0b100 ) >> 2 );
-	// buf[10] = ( ( channel & 0b11 ) << 6 );
-	// buf[11] = 0x00;
 
-	for ( int i = 0; i < nbx; i++ ) {
-		if ( mSPI->Transfer( buf, bx[i], 3 ) < 0 ) {
-			return 0;
+	bool ok = false;
+	static constexpr int retries = 3;
+	// for ( int i = 0; i < nbx; i++ ) {
+	for ( int i = 0; i < retries; i++ ) {
+		if ( mSPI->Transfer( buf, &bx[i * 3], 3 ) == 3 ) {
+			ok = true;
+			break;
 		}
+	}
+	if ( not ok ) {
+		return 0;
 	}
 
 	uint32_t ret[nbx] = { 0 };
 	uint32_t final_ret = 0;
 	for ( int i = 0; i < nbx; i++ ) {
-		ret[i] = ( ( bx[i][1] & 0b1111 ) << 8 ) | bx[i][2];
+		ret[i] = ( ( bx[i*3 + 1] & 0b1111 ) << 8 ) | bx[i*3 + 2];
 	}
 	final_ret = ret[0];
+
+	// int final_nbx = 0;
+	// for ( int j = 0; j < nbx; j++ ) {
+	// 	bool ignore = false;
+	// 	for ( int i = 0; i < nbx; i++ ) {
+	// 		if ( i != j and std::abs( (int32_t)(ret[i] - ret[j]) ) > 250 ) {
+	// 			ignore = true;
+	// 		}
+	// 	}
+	// 	if ( not ignore ) {
+	// 		final_ret += ret[j];
+	// 		final_nbx++;
+	// 	}
+	// }
+	// final_ret /= final_nbx;
+	// final_ret &= 0xFFFFFFF7;
+	// if ( channel >= 4 ) {
+	// 	printf( "smooth[%d] : %04d (%d / %d values)\n", channel, final_ret, final_nbx, nbx );
+	// }
 /*
-	for ( int j = 0; j < nbx; j++ ) {
-		for ( int i = 0; i < nbx; i++ ) {
-			if ( i != j and std::abs( (int32_t)(ret[i] - ret[j]) ) > 250 ) {
-				if ( channel == 3 ) {
-// 					printf( "ADC too large (%d, %d - %d)\n", ret[i] - ret[j], ret[i], ret[j] );
-				}
-				return 0;
-			}
-		}
-		final_ret += ret[j];
+	if ( channel == 0 ) {
+		printf( "\r% 6d", final_ret ); fflush(stdout);
 	}
-	final_ret /= nbx;
-	final_ret &= 0xFFFFFFF7;
+	if ( channel == 1 ) {
+		printf( "\r\033[6C% 6d", final_ret ); fflush(stdout);
+	}
+	if ( channel == 2 ) {
+		printf( "\r\033[12C% 6d", final_ret ); fflush(stdout);
+	}
+	if ( channel == 3 ) {
+		printf( "\r\033[18C% 6d", final_ret ); fflush(stdout);
+	}
+	if ( channel >= 4 ) {
+		printf( "\r\033[24C% 6d", final_ret ); fflush(stdout);
+	}
 */
 	// Raw value
 	if ( dt == 0.0f ) {
@@ -96,12 +113,10 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 
 	if ( mSmoothFactor.find(channel) != mSmoothFactor.end() ) {
 		float smooth = mSmoothFactor[channel];
-		if ( smooth > 0.0f and smooth < 1.0f ) {
+		if ( smooth > 0.0f ) {
 			float s = smooth * std::max( 0.0f, std::min( 1.0f, dt * 1000.0f ) );
+			// float s = smooth * std::max( 0.0f, dt * 1000.0f );
 			mLastValue[channel] = std::max( 0.0f, mLastValue[channel] * s + (float)final_ret * ( 1.0f - s ) );
-			if ( channel == 3 ) {
-// 				printf( "ok : %d\n", (uint16_t)mLastValue[channel] );
-			}
 			return (uint16_t)mLastValue[channel];
 		}
 	}

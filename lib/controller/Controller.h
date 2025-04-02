@@ -218,7 +218,7 @@ protected:
 	bool mUpdateUploadValid;
 	bool mConfigUploadValid;
 
-	uint32_t mTicks;
+	uint64_t mTicks;
 	uint32_t mSwitches[12];
 	bool mVideoRecording;
 	string mVideoWhiteBalance;

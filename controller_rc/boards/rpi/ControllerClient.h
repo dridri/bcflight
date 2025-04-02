@@ -25,9 +25,7 @@
 #include "Filter.h"
 #include <Lua.h>
 
-namespace rpi {
-	class Socket;
-}
+class Socket;
 
 LUA_CLASS class ControllerClient : public Controller
 {
@@ -99,8 +97,8 @@ protected:
 	Joystick mJoysticks[4];
 	bool mSimulatorEnabled;
 	HookThread<ControllerClient>* mSimulatorThread;
-	rpi::Socket* mSimulatorSocketServer;
-	rpi::Socket* mSimulatorSocket;
+	Socket* mSimulatorSocketServer;
+	Socket* mSimulatorSocket;
 	uint64_t mSimulatorTicks;
 };
 

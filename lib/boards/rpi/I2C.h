@@ -26,10 +26,10 @@
 
 using namespace std;
 
-class I2C : public Bus
+LUA_CLASS class I2C : public Bus
 {
 public:
-	I2C( int addr = 0, bool slave = false );
+	LUA_EXPORT I2C( int addr = 0, bool slave = false );
 	~I2C();
 	int Connect();
 	const int address() const;

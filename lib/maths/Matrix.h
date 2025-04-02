@@ -19,6 +19,7 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
+#include <functional>
 #include "Vector.h"
 
 class Matrix
@@ -26,6 +27,7 @@ class Matrix
 public:
 	Matrix( int w = 4, int h = 4 );
 	Matrix( const Matrix& other );
+	Matrix( const vector<float>& vec, bool asColumn = true );
 	virtual ~Matrix();
 
 	void Orthogonal( float left, float right, float bottom, float top, float zNear, float zFar );
@@ -33,11 +35,21 @@ public:
 	float operator()( int x, int y ) const {
 		return m[y * mWidth + x];
 	}
+	
+	float& operator[]( int idx ) {
+		return m[idx];
+	}
+	void applyFunction( std::function<float (float)> func ) {
+		for ( int i = 0; i < mWidth * mHeight; i++ ) {
+			m[i] = func(m[i]);
+		}
+	}
 
 	float* data();
 	const float* constData() const;
 	const int width() const;
 	const int height() const;
+	const int size() const;
 
 	void Clear();
 	void Identity();
@@ -48,6 +60,7 @@ public:
 	Matrix Inverse();
 
 	void operator*=( const Matrix& other );
+	void operator+=( const Matrix& other );
 	void operator=( const Matrix& other );
 
 // protected:
@@ -62,6 +75,7 @@ protected:
 Matrix operator+( const Matrix& m1, const Matrix& m2 );
 Matrix operator-( const Matrix& m1, const Matrix& m2 );
 Matrix operator*( const Matrix& m1, const Matrix& m2 );
+Matrix operator*( const Matrix& m1, float v );
 Vector4f operator*( const Matrix& m, const Vector4f& v );
 
 #endif // MATRIX_H

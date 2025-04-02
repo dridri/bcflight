@@ -2,7 +2,6 @@
 #include "SX127x.h"
 #include "SX127xRegs.h"
 #include "SX127xRegs-LoRa.h"
-#include <Config.h>
 #include <Debug.h>
 #include <SPI.h>
 #include <GPIO.h>
@@ -23,7 +22,7 @@
 // TODO : LoRa see https://github.com/chandrawi/LoRaRF-Python/blob/main/LoRaRF/SX127x.py
 
 static uint8_t GetFskBandwidthRegValue( uint32_t bandwidth );
-static const char* GetRegName( uint8_t reg );
+// static const char* GetRegName( uint8_t reg );
 
 typedef struct FskBandwidth_t
 {
@@ -145,9 +144,8 @@ static uint8_t crc8( const uint8_t* buf, uint32_t len );
 
 SX127x::SX127x()
 	: Link()
-	, mSPI( nullptr )
 	, mReady( false )
-	, mDevice( "/dev/spidev0.0" )
+	, mSPI( nullptr )
 	, mResetPin( -1 )
 	, mTXPin( -1 )
 	, mRXPin( -1 )
@@ -175,13 +173,12 @@ SX127x::SX127x()
 	, mPerfBlocksPerSecond( 0 )
 	, mPerfMaxBlocksPerSecond( 0 )
 	, mDiversitySpi( nullptr )
-	, mDiversityDevice( "" )
 	, mDiversityResetPin( -1 )
 	, mDiversityIrqPin( -1 )
 	, mDiversityLedPin( -1 )
 	, mTXBlockID( 0 )
 {
-// 	mDropBroken = false; // TEST (using custom CRC instead)
+	mDropBroken = false; // TEST (using custom CRC instead)
 
 }
 
@@ -207,7 +204,17 @@ void SX127x::init()
 
 	memset( &mRxBlock, 0, sizeof(mRxBlock) );
 
-	mSPI = new SPI( mDevice, 5208333 ); // 7
+	if ( not dynamic_cast<SPI*>( mSPI ) ) {
+		gError() << "SX127x supports SPI bus type only ! (0)";
+		return;
+	}
+	if ( mDiversitySpi and not dynamic_cast<SPI*>( mDiversitySpi ) ) {
+		gError() << "SX127x supports SPI bus type only ! (1)";
+		return;
+	}
+
+	// mSPI = new SPI( mDevice, 5208333 ); // 7
+	// mSPI = new SPI( mDevice, 2000000 ); // 7
 	mSPI->Connect();
 	GPIO::setMode( mResetPin, GPIO::Output );
 	GPIO::Write( mResetPin, false );
@@ -217,7 +224,7 @@ void SX127x::init()
 		GPIO::setMode( mLedPin, GPIO::Output );
 	}
 	GPIO::SetupInterrupt( mIRQPin, GPIO::Rising, [this](){
-		this->Interrupt( mSPI, mLedPin );
+		this->Interrupt( dynamic_cast<SPI*>(mSPI), mLedPin );
 		if ( mLedPin >= 0 ) {
 			GPIO::Write( mLedPin, false );
 		}
@@ -231,22 +238,26 @@ void SX127x::init()
 		GPIO::setMode( mRXPin, GPIO::Output );
 	}
 
-	if ( mDiversityDevice.length() > 0 ) {
+	if ( mDiversitySpi ) {
 		if ( mDiversityResetPin < 0 ) {
 			gDebug() << "WARNING : No Reset-pin specified for SX127x diversity, cannot create link !";
 		} else {
 			if ( mDiversityIrqPin < 0 ) {
 				gDebug() << "WARNING : No IRQ-pin specified for SX127x diversity, cannot create link !";
 			} else {
-				mDiversitySpi = new SPI( mDiversityDevice, 5 * 1000 * 1000 ); // 7
+				// mDiversitySpi = new SPI( mDiversityDevice, 5 * 1000 * 1000 ); // 7
 				mDiversitySpi->Connect();
 				GPIO::setMode( mDiversityResetPin, GPIO::Output );
 				GPIO::Write( mDiversityResetPin, false );
 				GPIO::setMode( mDiversityIrqPin, GPIO::Input );
-				GPIO::setMode( mDiversityLedPin, GPIO::Output );
+				if ( mDiversityLedPin >= 0 ) {
+					GPIO::setMode( mDiversityLedPin, GPIO::Output );
+				}
 				GPIO::SetupInterrupt( mDiversityIrqPin, GPIO::Rising, [this](){
-					this->Interrupt( mDiversitySpi, mDiversityLedPin );
-					GPIO::Write( mDiversityLedPin, false );
+					this->Interrupt( dynamic_cast<SPI*>(mDiversitySpi), mDiversityLedPin );
+					if ( mDiversityLedPin >= 0 ) {
+						GPIO::Write( mDiversityLedPin, false );
+					}
 				} );
 			}
 		}
@@ -274,9 +285,9 @@ int SX127x::Connect()
 		return -1;
 	}
 
-	int32_t ret = Setup( mSPI );
+	int32_t ret = Setup( dynamic_cast<SPI*>(mSPI) );
 	if ( ret >= 0 and mDiversitySpi ) {
-		ret = Setup( mDiversitySpi );
+		ret = Setup( dynamic_cast<SPI*>(mDiversitySpi) );
 	}
 
 	startReceiving();
@@ -362,7 +373,7 @@ int32_t SX127x::Setup( SPI* spi )
 		.bandwidth = mBandwidth,
 		.datarate = mBitrate,
 		.coderate = 5,
-		.preambleLen = 6,
+		.preambleLen = 2,
 		.crcOn = mDropBroken,
 		.freqHopOn = false,
 		.hopPeriod = 0,
@@ -522,9 +533,9 @@ void SX127x::SetupModem( SPI* spi, const TxRxConfig_t& conf )
 
 void SX127x::setFrequency( float f )
 {
-	setFrequency( mSPI, f );
+	setFrequency( dynamic_cast<SPI*>(mSPI), f );
 	if ( mDiversitySpi ) {
-		setFrequency( mDiversitySpi, f );
+		setFrequency( dynamic_cast<SPI*>(mDiversitySpi), f );
 	}
 }
 
@@ -555,7 +566,7 @@ void SX127x::startReceiving( SPI* spi )
 		setOpMode( spi, RF_OPMODE_RECEIVER );
 		writeRegister( spi, REG_LNA, RF_LNA_GAIN_G1 | RF_LNA_BOOST_ON );
 	};
-	if ( not spi or spi == mSPI ) {
+	if ( not spi or spi == dynamic_cast<SPI*>(mSPI) ) {
 		mSending = false;
 		mSendingEnd = false;
 		if ( mTXPin >= 0 ) {
@@ -568,9 +579,9 @@ void SX127x::startReceiving( SPI* spi )
 	if ( spi ) {
 		start( spi );
 	} else {
-		start( mSPI );
+		start( dynamic_cast<SPI*>(mSPI) );
 		if ( mDiversitySpi ) {
-			start( mDiversitySpi );
+			start( dynamic_cast<SPI*>(mDiversitySpi) );
 		}
 	}
 }
@@ -580,7 +591,7 @@ void SX127x::startTransmitting()
 {
 	mInterruptMutex.lock();
 	if ( mDiversitySpi ) {
-		setOpMode( mDiversitySpi, RF_OPMODE_STANDBY );
+		setOpMode( dynamic_cast<SPI*>(mDiversitySpi), RF_OPMODE_STANDBY );
 	}
 
 	if ( mRXPin >= 0 ) {
@@ -595,7 +606,7 @@ void SX127x::startTransmitting()
 		writeRegister( REG_LR_DIOMAPPING1, ( readRegister( REG_LR_DIOMAPPING1 ) & RFLR_DIOMAPPING1_DIO0_MASK ) | RFLR_DIOMAPPING1_DIO0_01 );
 	}
 
-	setOpMode( mSPI, RF_OPMODE_TRANSMITTER );
+	setOpMode( dynamic_cast<SPI*>(mSPI), RF_OPMODE_TRANSMITTER );
 	mInterruptMutex.unlock();
 }
 
@@ -692,16 +703,18 @@ SyncReturn SX127x::Read( void* pRet, uint32_t len, int32_t timeout )
 	if ( mRxQueue.size() == 0 ) {
 		mRxQueueMutex.unlock();
 		if ( timedout ) {
-			if ( mLedPin ) {
+			if ( mLedPin >= 0 ) {
 				GPIO::Write( mLedPin, 1 );
-				if ( mDiversityLedPin >= 0 ) {
-					GPIO::Write( mDiversityLedPin, 1 );
-				}
-				usleep( 500 );
+			}
+			if ( mDiversityLedPin >= 0 ) {
+				GPIO::Write( mDiversityLedPin, 1 );
+			}
+			usleep( 500 );
+			if ( mLedPin >= 0 ) {
 				GPIO::Write( mLedPin, 0 );
-				if ( mDiversityLedPin >= 0 ) {
-					GPIO::Write( mDiversityLedPin, 0 );
-				}
+			}
+			if ( mDiversityLedPin >= 0 ) {
+				GPIO::Write( mDiversityLedPin, 0 );
 			}
 			if ( !ping() ) {
 				gDebug() << "Module online : " << ping();
@@ -786,21 +799,21 @@ SyncReturn SX127x::Write( const void* data, uint32_t len, bool ack, int32_t time
 			}
 
 			mSendingEnd = false;
-
+/*
 			if ( header->small_packet ) {
 				HeaderMini* small_header = (HeaderMini*)buf;
-				// printf( "Sending [%u] { %d } [%d bytes]\n", plen + header_len, small_header->block_id, plen );
+				printf( "Sending [%u] { %d } [%d bytes]\n", plen + header_len, small_header->block_id, plen );
 			} else {
-				// printf( "Sending [%u] { %d %d %d } [%d bytes]\n", plen + header_len, header->block_id, header->packet_id, header->packets_count, plen );
+				printf( "Sending [%u] { %d %d %d } [%d bytes]\n", plen + header_len, header->block_id, header->packet_id, header->packets_count, plen );
 			}
-
+*/
 			mSendingEnd = true;
 			mSendTime = TICKS;
-			setOpMode( mSPI, RF_OPMODE_STANDBY );
+			setOpMode( dynamic_cast<SPI*>(mSPI), RF_OPMODE_STANDBY );
 			if ( mDiversitySpi ) {
-				setOpMode( mDiversitySpi, RF_OPMODE_STANDBY );
+				setOpMode( dynamic_cast<SPI*>(mDiversitySpi), RF_OPMODE_STANDBY );
 			}
-			mSPI->Transfer( tx, rx, plen + header_len + 1 + ( mModem == FSK ) );
+			dynamic_cast<SPI*>(mSPI)->Transfer( tx, rx, plen + header_len + 1 + ( mModem == FSK ) );
 			startTransmitting();
 
 			// while ( mModem == LoRa and mSending ) {
@@ -976,21 +989,21 @@ void SX127x::Interrupt( SPI* spi, int32_t ledPin )
 
 	uint64_t tick_ms = TICKS;
 
-	uint8_t opMode = getOpMode( spi );
+	// uint8_t opMode = getOpMode( spi );
 	bool txDone = false;
-	bool rxReady = false;
+	// bool rxReady = false;
 	bool crc_ok = false;
 	// fDebug( txDone, rxReady, crc_ok );
 	if ( mModem == LoRa ) {
 		uint8_t irqFlags = readRegister( spi, REG_LR_IRQFLAGS );
 		txDone = ( irqFlags & RFLR_IRQFLAGS_TXDONE );
-		rxReady = ( irqFlags & RFLR_IRQFLAGS_RXDONE );
+		// rxReady = ( irqFlags & RFLR_IRQFLAGS_RXDONE );
 		crc_ok = !( irqFlags & RFLR_IRQFLAGS_PAYLOADCRCERROR );
 	} else {
-		uint8_t irqFlags = readRegister( spi, REG_IRQFLAGS1 );
+		// uint8_t irqFlags = readRegister( spi, REG_IRQFLAGS1 );
 		uint8_t irqFlags2 = readRegister( spi, REG_IRQFLAGS2 );
 		txDone = ( irqFlags2 & RF_IRQFLAGS2_PACKETSENT );
-		rxReady = ( irqFlags2 & RF_IRQFLAGS2_PAYLOADREADY );
+		// rxReady = ( irqFlags2 & RF_IRQFLAGS2_PAYLOADREADY );
 		crc_ok = ( irqFlags2 & RF_IRQFLAGS2_CRCOK );
 	}
 
@@ -1044,7 +1057,7 @@ void SX127x::Interrupt( SPI* spi, int32_t ledPin )
 	} else {
 		len = readRegister( spi, REG_FIFO );
 	}
-	spi->Transfer( tx, rx, len + 1 );
+	dynamic_cast<SPI*>(spi)->Transfer( tx, rx, len + 1 );
 
 	if ( len > 0 ) {
 		PerfUpdate();
@@ -1094,9 +1107,9 @@ bool SX127x::ping( SPI* spi )
 		if ( mDiversitySpi ) {
 			// gDebug() << "ping 0 : " << std::hex << (int)readRegister( mSPI, REG_VERSION );
 			// gDebug() << "ping 1 : " << std::hex << (int)readRegister( mDiversitySpi, REG_VERSION );
-			return ( readRegister( mSPI, REG_VERSION ) == SAMTEC_ID ) && ( readRegister( mDiversitySpi, REG_VERSION ) == SAMTEC_ID );
+			return ( readRegister( dynamic_cast<SPI*>(mSPI), REG_VERSION ) == SAMTEC_ID ) && ( readRegister( dynamic_cast<SPI*>(mDiversitySpi), REG_VERSION ) == SAMTEC_ID );
 		} else {
-			spi = mSPI;
+			spi = dynamic_cast<SPI*>(mSPI);
 		}
 	}
 	return readRegister( spi, REG_VERSION ) == SAMTEC_ID;
@@ -1176,7 +1189,7 @@ bool SX127x::writeRegister( uint8_t address, uint8_t value )
 	tx[0] = address | 0x80;
 	tx[1] = value;
 
-	mSPI->Transfer( tx, rx, 2 );
+	dynamic_cast<SPI*>(mSPI)->Transfer( tx, rx, 2 );
 /*
 	if ( address != REG_FIFO and address != REG_LR_IRQFLAGS ) {
 		uint8_t ret = readRegister( address );
@@ -1201,7 +1214,7 @@ uint8_t SX127x::readRegister( uint8_t address )
 	tx[0] = address & 0x7F;
 	tx[1] = 0;
 
-	mSPI->Transfer( tx, rx, 2 );
+	dynamic_cast<SPI*>(mSPI)->Transfer( tx, rx, 2 );
 	return rx[1];
 }
 
@@ -1215,7 +1228,7 @@ bool SX127x::writeRegister( SPI* spi, uint8_t address, uint8_t value )
 	tx[0] = address | 0x80;
 	tx[1] = value;
 
-	spi->Transfer( tx, rx, 2 );
+	dynamic_cast<SPI*>(spi)->Transfer( tx, rx, 2 );
 /*
 	if ( address != REG_FIFO and address != REG_LR_IRQFLAGS ) {
 		uint8_t ret = readRegister( spi, address );
@@ -1241,7 +1254,7 @@ uint8_t SX127x::readRegister( SPI* spi, uint8_t address )
 	tx[0] = address & 0x7F;
 	tx[1] = 0;
 
-	spi->Transfer( tx, rx, 2 );
+	dynamic_cast<SPI*>(spi)->Transfer( tx, rx, 2 );
 	return rx[1];
 }
 
@@ -1291,16 +1304,16 @@ static uint8_t GetFskBandwidthRegValue( uint32_t bandwidth )
 }
 
 
-static const char* GetRegName( uint8_t reg )
-{
-	for ( uint32_t i = 0; regnames[i].reg != 0xFF; i++ ) {
-		if ( regnames[i].reg == reg ) {
-			return regnames[i].name;
-		}
-	}
-
-	return "unk";
-}
+// static const char* GetRegName( uint8_t reg )
+// {
+// 	for ( uint32_t i = 0; regnames[i].reg != 0xFF; i++ ) {
+// 		if ( regnames[i].reg == reg ) {
+// 			return regnames[i].name;
+// 		}
+// 	}
+// 
+// 	return "unk";
+// }
 
 
 static uint8_t crc8( const uint8_t* buf, uint32_t len )
