@@ -15,3 +15,4 @@ add_library( luacore STATIC
 
 target_link_libraries( luacore -ldl )
 target_include_directories( luacore PUBLIC ${LUA_INCLUDE_DIR} )
+target_link_libraries( luacore ${LUA_LIBRARIES} )
