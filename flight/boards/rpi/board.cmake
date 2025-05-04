@@ -44,6 +44,8 @@ include_directories( ${CROSS_ROOT}/../aarch64-linux-gnu/include )
 include_directories( ${CROSS_ROOT}/../aarch64-linux-gnu/include/libdrm )
 include_directories( ${CROSS_ROOT}/../aarch64-linux-gnu/include/libcamera )
 include_directories( /opt/vc/include )
+find_package(Lua REQUIRED)
+include_directories( ${LUA_INCLUDE_DIR} )
 
 #if ( "${rawwifi}" MATCHES 1 )
 	set( BOARD_LIBS ${BOARD_LIBS} -liw -lcamera -lcamera-base -lgps )
