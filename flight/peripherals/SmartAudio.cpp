@@ -115,6 +115,7 @@ int SmartAudio::SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_
 	do {
 		int r = mBus->Read( dummy + readi, 1 );
 		if ( r <= 0 ) {
+			printf( "echo error : %d (%s)\n", errno, strerror(errno) );
 			return r;
 		}
 		ret2 += r;
@@ -126,19 +127,38 @@ int SmartAudio::SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_
 }
 
 
-void SmartAudio::Update()
+int SmartAudio::Update()
+{
+	constexpr uint8_t nRetries = 3;
+
+	for ( uint8_t i = 0; i < nRetries; i++ ) {
+		int r = UpdateInternal();
+		if ( r == 0 ) {
+			return r;
+		}
+	}
+
+	return -1;
+}
+
+
+int SmartAudio::UpdateInternal()
 {
 	fDebug();
 
 	SendCommand( CMD_GET_SETTINGS, nullptr, 0 );
 
-	uint8_t response[ 32 ] = { 0 };
-	int sz = mBus->Read( response, sizeof(response) );
+	uint8_t response_buffer[ 64 ] = { 0 };
+	int sz = mBus->Read( response_buffer, sizeof(response_buffer) );
+	uint8_t* response = response_buffer;
+	while ( *response == 0x00 and response < response_buffer + 64 ) {
+		response++;
+	}
 
 	SmartAudioCommand* resp = (SmartAudioCommand*)response;
 	if ( resp->header != 0x55AA or ( resp->command & 0b00000111 ) != CMD_GET_SETTINGS ) {
-		gDebug() << "SmartAudio: invalid response (header=" << resp->header << ", command=" << resp->command << ")";
-		return;
+		gDebug() << "SmartAudio: invalid response (header=" << std::hex << resp->header << ", command=" << (int)resp->command << ")";
+		return -1;
 	}
 
 	mVersion = resp->command >> 3;
@@ -170,7 +190,7 @@ void SmartAudio::Update()
 	gDebug() << "    channel : " << (int)mChannel;
 	gDebug() << "    power : " << (int)mPower;
 	gDebug() << "    frequency : " << (int)mFrequency << " MHz";
-	gDebug() << "    band : " << vtxBandsFrequencies[mBand].name << "(" << mBand << ")";
+	gDebug() << "    band : " << vtxBandsFrequencies[mBand].name << "(" << (int)mBand << ")";
 	if ( mPowerTable.size() > 0 ) {
 		char powers[128] = "";
 		for ( uint8_t i = 0; i < mPowerTable.size(); i++ ) {
@@ -180,6 +200,8 @@ void SmartAudio::Update()
 		}
 		gDebug() << "    available powers : {" << powers << " }";
 	}
+
+	return 0;
 }
 
 
@@ -197,11 +219,15 @@ void SmartAudio::setFrequency( uint16_t frequency )
 	data[1] = frequency & 0xFF;
 	SendCommand( CMD_SET_FREQUENCY, data, 2 );
 
-	uint8_t response[ 32 ] = { 0 };
-	int sz = mBus->Read( response, sizeof(response) );
+	uint8_t response_buffer[ 64 ] = { 0 };
+	int sz = mBus->Read( response_buffer, sizeof(response_buffer) );
 	if ( sz <= 0 ) {
 		gWarning() << "Setting frequency failed, no response from VTX";
 		return;
+	}
+	uint8_t* response = response_buffer;
+	while ( *response == 0x00 and response < response_buffer + 64 ) {
+		response++;
 	}
 
 	mFrequency = ( response[4] << 8 ) + response[5];
@@ -221,11 +247,15 @@ void SmartAudio::setPower( uint8_t power )
 	uint8_t data[1] = { power };
 	SendCommand( CMD_SET_POWER, data, 1 );
 
-	uint8_t response[ 32 ] = { 0 };
-	int sz = mBus->Read( response, sizeof(response) );
+	uint8_t response_buffer[ 64 ] = { 0 };
+	int sz = mBus->Read( response_buffer, sizeof(response_buffer) );
 	if ( sz <= 0 ) {
 		gWarning() << "Setting power failed, no response from VTX";
 		return;
+	}
+	uint8_t* response = response_buffer;
+	while ( *response == 0x00 and response < response_buffer + 64 ) {
+		response++;
 	}
 
 	mPower = response[4];
@@ -239,15 +269,20 @@ void SmartAudio::setPower( uint8_t power )
 void SmartAudio::setChannel( uint8_t channel )
 {
 	fDebug( (int)channel );
+	channel -= 1;
 
 	uint8_t data[1] = { channel };
 	SendCommand( CMD_SET_CHANNEL, data, 1 );
 
-	uint8_t response[ 32 ] = { 0 };
-	int sz = mBus->Read( response, sizeof(response) );
+	uint8_t response_buffer[ 64 ] = { 0 };
+	int sz = mBus->Read( response_buffer, sizeof(response_buffer) );
 	if ( sz <= 0 ) {
 		gWarning() << "Setting channel failed, no response from VTX";
 		return;
+	}
+	uint8_t* response = response_buffer;
+	while ( *response == 0x00 and response < response_buffer + 64 ) {
+		response++;
 	}
 
 	mChannel = response[4];
@@ -267,11 +302,15 @@ void SmartAudio::setMode( uint8_t mode )
 	uint8_t data[1] = { mode };
 	SendCommand( CMD_SET_MODE, data, 1 );
 
-	uint8_t response[ 32 ] = { 0 };
-	int sz = mBus->Read( response, sizeof(response) );
+	uint8_t response_buffer[ 64 ] = { 0 };
+	int sz = mBus->Read( response_buffer, sizeof(response_buffer) );
 	if ( sz <= 0 ) {
 		gWarning() << "Setting mode failed, no response from VTX";
 		return;
+	}
+	uint8_t* response = response_buffer;
+	while ( *response == 0x00 and response < response_buffer + 64 ) {
+		response++;
 	}
 
 	mode = response[4];
@@ -303,7 +342,7 @@ int SmartAudio::getPowerDbm() const
 
 int SmartAudio::getChannel() const
 {
-	return mChannel;
+	return mChannel + 1;
 }
 
 

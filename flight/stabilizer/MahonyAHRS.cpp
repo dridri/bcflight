@@ -85,33 +85,33 @@ const Vector3f& MahonyAHRS::state() const
 
 void MahonyAHRS::computeMatrix()
 {
-    // Extract quaternion components
-    float qx = mState.x;
-    float qy = mState.y;
-    float qz = mState.z;
-    float qw = mState.w;
+	// Extract quaternion components
+	float qx = mState.x;
+	float qy = mState.y;
+	float qz = mState.z;
+	float qw = mState.w;
 
-    // Compute temporary variables to avoid redundant multiplications
-    float qx2 = qx * qx;
-    float qy2 = qy * qy;
-    float qz2 = qz * qz;
-    float qwqx = qw * qx;
-    float qwqy = qw * qy;
-    float qwqz = qw * qz;
-    float qxqy = qx * qy;
-    float qxqz = qx * qz;
-    float qyqz = qy * qz;
+	// Compute temporary variables to avoid redundant multiplications
+	float qx2 = qx * qx;
+	float qy2 = qy * qy;
+	float qz2 = qz * qz;
+	float qwqx = qw * qx;
+	float qwqy = qw * qy;
+	float qwqz = qw * qz;
+	float qxqy = qx * qy;
+	float qxqz = qx * qz;
+	float qyqz = qy * qz;
 
-    // Compute rotation matrix elements
-    mRotationMatrix.m[0] = 1.0f - 2.0f * ( qy2 + qz2 );
-    mRotationMatrix.m[1] = 2.0f * ( qxqy - qwqz );
-    mRotationMatrix.m[2] = 2.0f * ( qxqz + qwqy );
+	// Compute rotation matrix elements
+	mRotationMatrix.m[0] = 1.0f - 2.0f * ( qy2 + qz2 );
+	mRotationMatrix.m[1] = 2.0f * ( qxqy - qwqz );
+	mRotationMatrix.m[2] = 2.0f * ( qxqz + qwqy );
 
-    mRotationMatrix.m[3] = 2.0f * ( qxqy + qwqz );
-    mRotationMatrix.m[4] = 1.0f - 2.0f * ( qx2 + qz2 );
-    mRotationMatrix.m[5] = 2.0f * ( qyqz - qwqx );
+	mRotationMatrix.m[3] = 2.0f * ( qxqy + qwqz );
+	mRotationMatrix.m[4] = 1.0f - 2.0f * ( qx2 + qz2 );
+	mRotationMatrix.m[5] = 2.0f * ( qyqz - qwqx );
 
-    mRotationMatrix.m[6] = 2.0f * ( qxqz - qwqy );
-    mRotationMatrix.m[7] = 2.0f * ( qyqz + qwqx );
-    mRotationMatrix.m[8] = 1.0f - 2.0f * ( qx2 + qy2 );
+	mRotationMatrix.m[6] = 2.0f * ( qxqz - qwqy );
+	mRotationMatrix.m[7] = 2.0f * ( qyqz + qwqx );
+	mRotationMatrix.m[8] = 1.0f - 2.0f * ( qx2 + qy2 );
 }

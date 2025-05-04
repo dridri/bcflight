@@ -7,6 +7,8 @@
 #include "Debug.h"
 #include <thread>
 #include <sys/mman.h>
+#include <xf86drmMode.h>
+#include <drm_fourcc.h>
 
 std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
 
@@ -187,6 +189,7 @@ LuaValue LinuxCamera::infos()
 void LinuxCamera::Start()
 {
 	fDebug();
+	Camera::Start();
 
 	if ( sCameraManager->cameras().size() == 0 ) {
 		gError() << "No camera detected !";
