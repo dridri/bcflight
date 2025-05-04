@@ -2,6 +2,8 @@ cmake_minimum_required( VERSION 3.5 )
 set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
 project( controller )
 
+add_compile_options(-Wall -Werror)
+
 if ( NOT RAWWIFI_ON )
 	SET( RAWWIFI_ON 1 CACHE INTERNAL "RAWWIFI_ON" )
 endif()

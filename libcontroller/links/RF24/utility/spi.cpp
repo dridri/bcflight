@@ -191,5 +191,5 @@ void nRF24::SPI::transfern( char* buf, uint32_t len )
 	char* rbuf = new char[len];
 	transfernb( buf, rbuf, len );
 	memcpy( buf, rbuf, len );
-	delete rbuf;
+	delete [] rbuf;
 }

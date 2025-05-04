@@ -90,7 +90,7 @@ string Config::ReadFile()
 		file.read( buf, length );
 		buf[length] = 0;
 		ret = buf;
-		delete buf;
+		delete [] buf;
 		file.close();
 	}
 

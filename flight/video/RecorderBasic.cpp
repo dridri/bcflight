@@ -215,7 +215,7 @@ bool RecorderBasic::run()
 	if ( fwrite( sample->buf, 1, sample->buflen, sample->track->file ) != sample->buflen ) {
 		goto err;
 	}
-	if ( fprintf( mRecordFile, "%u,%llu,%u,%u\n", sample->track->id, sample->record_time_us, pos, sample->buflen ) <= 0 ) {
+	if ( fprintf( mRecordFile, "%u,%" PRIu64 ",%u,%u\n", sample->track->id, sample->record_time_us, pos, sample->buflen ) <= 0 ) {
 		goto err;
 	}
 

@@ -138,5 +138,5 @@ void nRF24::SPI::transfern(char* buf, uint32_t len)
 	char* rbuf = new char[len];
 	mSPI->Transfer( buf, rbuf, len );
 	memcpy( buf, rbuf, len );
-	delete rbuf;
+	delete [] rbuf;
 }

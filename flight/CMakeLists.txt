@@ -22,6 +22,10 @@ option(debug "debug")
 option(socket "socket")
 option(rawwifi "rawwifi")
 
+add_compile_options(-Wall -Werror)
+add_compile_options(-Wno-error=return-type)
+add_compile_options(-Wno-error=deprecated-declarations)
+
 include( config.cmake )
 if ( ${BUILD_links} MATCHES 0 OR ${BUILD_links} MATCHES OFF )
 	file(GLOB children RELATIVE ${CMAKE_SOURCE_DIR}/links ${CMAKE_SOURCE_DIR}/links/*)

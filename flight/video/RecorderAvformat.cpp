@@ -116,7 +116,7 @@ bool RecorderAvformat::run()
 		mPendingGyros.pop_front();
 		mGyroMutex.unlock();
 		// fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz, gyro->ax, gyro->ay, gyro->az );
-		fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz );
+		fprintf( mGyroFile, "%" PRIu64 ",%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz );
 		mGyroMutex.lock();
 	}
 	mGyroMutex.unlock();
@@ -331,7 +331,7 @@ void RecorderAvformat::Stop()
 		mPendingGyros.pop_front();
 		mGyroMutex.unlock();
 		// fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz, gyro->ax, gyro->ay, gyro->az );
-		fprintf( mGyroFile, "%llu,%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz );
+		fprintf( mGyroFile, "%" PRIu64 ",%.6f,%.6f,%.6f\n", gyro->t, gyro->gx, gyro->gy, gyro->gz );
 		mGyroMutex.lock();
 	}
 	mGyroMutex.unlock();
