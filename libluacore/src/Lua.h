@@ -74,7 +74,7 @@ public:
 	LuaValue( bool v ) : mType(Boolean), mBoolean(v), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( double v ) : mType(Number), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 	LuaValue( float v ) : mType(Number), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
-#if (!defined(ANDROID) && !defined(BOARD_rpi) && !(TARGET_CPU_BITS == 32))
+#if !(TARGET_CPU_BITS == 32)
 	LuaValue( int32_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
 #endif
 	LuaValue( uint32_t v ) : mType(Integer), mBoolean(v!=0), mInteger(v), mNumber(v), mString(to_string(v)), mFunctionRef(nullptr), mUserData(nullptr) {}
