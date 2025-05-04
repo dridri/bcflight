@@ -19,6 +19,7 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#include <vector>
 #include <cmath>
 #include <ostream>
 #ifdef LUA_CLASS

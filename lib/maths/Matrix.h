@@ -21,6 +21,12 @@
 
 #include <functional>
 #include "Vector.h"
+#include <Debug.h>
+#ifdef LUA_CLASS
+#include <Lua.h>
+#endif
+
+using namespace std;
 
 class Matrix
 {
@@ -28,6 +34,29 @@ public:
 	Matrix( int w = 4, int h = 4 );
 	Matrix( const Matrix& other );
 	Matrix( const vector<float>& vec, bool asColumn = true );
+#ifdef LUA_CLASS
+	explicit Matrix( const LuaValue& v ) {
+		if ( v.type() == LuaValue::Table ) {
+			try {
+				auto rows = std::vector<LuaValue>( v );
+				const int32_t nRows = rows.size();
+				const int32_t nColumns = std::vector<LuaValue>( rows[0] ).size();
+				mWidth = nColumns;
+				mHeight = nRows;
+				m = (float*)malloc( sizeof(float) * mWidth * mHeight );
+				Identity();
+				for ( int32_t y = 0; y < mHeight; y++ ) {
+					auto row = std::vector<LuaValue>( rows[y] );
+					for ( int32_t x = 0; x < mWidth; x++ ) {
+						m[ y * mWidth + x ] = row[x].toNumber();
+					}
+				}
+			} catch ( std::exception& e ) {
+				gError() << "Failed to load Lua matrix (" << v.serialize() << ")";
+			}
+		}
+	}
+#endif
 	virtual ~Matrix();
 
 	void Orthogonal( float left, float right, float bottom, float top, float zNear, float zFar );
