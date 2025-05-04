@@ -63,7 +63,7 @@ include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libcontroller libcontroller )
 add_subdirectory( ${CMAKE_SOURCE_DIR}/../libdebug libdebug )
 
-add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip "-m32" )
+# add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip "-m32" )
 add_custom_target( ui_headers COMMAND
 	${UIC} ${CMAKE_SOURCE_DIR}/ui/main.ui > ${CMAKE_BINARY_DIR}/ui_main.h
 	&& ${UIC} ${CMAKE_SOURCE_DIR}/ui/window.ui > ${CMAKE_BINARY_DIR}/ui_window.h
@@ -91,10 +91,10 @@ add_executable( controller_rc
 				)
 
 add_dependencies( controller_rc controller )
-add_dependencies( controller_rc libluajit_static )
+# add_dependencies( controller_rc libluajit_static )
 add_dependencies( controller_rc ui_headers )
 
 
-target_link_libraries( controller_rc -L./ controller libdebug libluajit_static.a -lrt -ldl ${RAWWIFI_LIBS} -lz pthread ${BOARD_LIBS} )
+# target_link_libraries( controller_rc -L./ controller libdebug libluajit_static.a -lrt -ldl ${RAWWIFI_LIBS} -lz pthread ${BOARD_LIBS} )
 
 install( TARGETS controller_rc RUNTIME DESTINATION bin )
