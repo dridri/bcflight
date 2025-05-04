@@ -1,7 +1,7 @@
 include(FindPackageHandleStandardArgs)
 
-set( LIBGPS_LIB "${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf/lib" )
-set( LIBGPS_INC "${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf/include" )
+set( LIBGPS_LIB "${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu/lib" )
+set( LIBGPS_INC "${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu/include" )
 
 
 find_library( GPS_LIBRARIES

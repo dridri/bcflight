@@ -2,6 +2,8 @@ cmake_minimum_required( VERSION 3.5 )
 set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
 project( controller )
 
+add_compile_options(-Wall -Werror)
+
 if ( NOT RAWWIFI_ON )
 	SET( RAWWIFI_ON 1 CACHE INTERNAL "RAWWIFI_ON" )
 endif()
@@ -39,11 +41,6 @@ if ( RAWWIFI_ON MATCHES 1 )
 	include_directories( ../librawwifi++ )
 endif()
 
-if ( "${CMAKE_SYSTEM_NAME}" MATCHES "Linux" )
-	include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
-elseif( "${CMAKE_SYSTEM_NAME}" MATCHES "Generic" )
-	include_directories( ${CMAKE_SOURCE_DIR}/../external/liblua )
-endif()
 include_directories( ${CMAKE_SOURCE_DIR}/../libluacore/src )
 
 add_library( controllerbase STATIC
@@ -67,5 +64,7 @@ if ( ${RAWWIFI_ON} MATCHES 1 )
 else()
 # 	target_link_libraries( controllerbase -lz -liw )
 endif()
+
+target_link_libraries( controllerbase PRIVATE luacore )
 
 target_link_libraries( controller controllerbase )

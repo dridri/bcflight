@@ -187,7 +187,7 @@ void BlackBox::Enqueue( const char* data[], const char* values[], int n )
 
 	mQueueMutex.lock();
 	for ( int i = 0; i < n; i++ ) {
-		sprintf( str, "%llu,%s,%s", time, data[i], values[i] );
+		sprintf( str, "%" PRIu64 ",%s,%s", time, data[i], values[i] );
 		mQueue.emplace_back( string(str) );
 	}
 	mQueueMutex.unlock();

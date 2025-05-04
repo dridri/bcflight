@@ -8,22 +8,22 @@ execute_process( COMMAND sh -c "${CMAKE_C_COMPILER} -print-search-dirs | grep li
 
 find_path(NL_ROOT_DIR
     NAMES include/libnl3
-    HINTS ${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf
+    HINTS ${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu
 )
 
 find_library (
 	NL_LIBRARY nl-3
-	HINTS ${NL_ROOT_DIR}/lib ${NL_ROOT_DIR}/lib/arm-linux-gnueabihf
+	HINTS ${NL_ROOT_DIR}/lib ${NL_ROOT_DIR}/lib/aarch64-linux-gnu
 	PATHS ${ARM_LIBS}
 )
 find_library (
 	NLGENL_LIBRARY nl-genl-3
-	HINTS ${NL_ROOT_DIR}/lib ${NL_ROOT_DIR}/lib/arm-linux-gnueabihf
+	HINTS ${NL_ROOT_DIR}/lib ${NL_ROOT_DIR}/lib/aarch64-linux-gnu
 	PATHS ${ARM_LIBS}
 )
 find_library (
 	NLROUTE_LIBRARY nl-route-3
-	HINTS ${NL_ROOT_DIR}/lib ${NL_ROOT_DIR}/lib/arm-linux-gnueabihf
+	HINTS ${NL_ROOT_DIR}/lib ${NL_ROOT_DIR}/lib/aarch64-linux-gnu
 	PATHS ${ARM_LIBS}
 )
 
@@ -32,7 +32,7 @@ find_path(
 	NL_INCLUDE_DIR
 	PATH_SUFFIXES include/libnl3
 	NAMES netlink/version.h
-    HINTS ${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf
+    HINTS ${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu
 )
 
 include(FindPackageHandleStandardArgs)

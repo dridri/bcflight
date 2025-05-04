@@ -1,7 +1,7 @@
 include(FindPackageHandleStandardArgs)
 
-set( FFMPEG_LIB "${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf/lib" )
-set( FFMPEG_INC "${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf/include" )
+set( FFMPEG_LIB "${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu/lib" )
+set( FFMPEG_INC "${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu/include" )
 
 
 foreach (_component ${FFmpeg_FIND_COMPONENTS})
@@ -23,7 +23,7 @@ foreach (_component ${FFmpeg_FIND_COMPONENTS})
 			lib
 		HINTS
 			${FFmpeg_${_component}_INCLUDE_DIR}/../lib
-			${FFmpeg_${_component}_INCLUDE_DIR}/../lib/arm-linux-gnueabihf
+			${FFmpeg_${_component}_INCLUDE_DIR}/../lib/aarch64-linux-gnu
 	)
 	if ( FFmpeg_${_component}_LIBRARIES )
 		set( FFMPEG_${_component}_FOUND 1 )

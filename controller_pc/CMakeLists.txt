@@ -63,7 +63,7 @@ if( CMAKE_SIZEOF_VOID_P EQUAL 4 )
 	set( LUA_32 "-m32" )
 endif()
 # add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_32} )
-add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} )
+# add_custom_target( libluajit_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_luajit.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} ${CMAKE_ASM_COMPILER} ${CROSS}strip ${LUA_HOST_CC_OPTIONS} )
 add_custom_target( libopenh264_static COMMAND bash ${CMAKE_SOURCE_DIR}/../external/build_openh264.sh ${CMAKE_BINARY_DIR} ${CMAKE_C_COMPILER} )
 
 qt5_wrap_ui( controller_pc_UI
@@ -91,10 +91,10 @@ add_executable( controller_pc
 				)
 
 add_dependencies( controller_pc libopenh264_static )
-add_dependencies( controller_pc libluajit_static )
+# add_dependencies( controller_pc libluajit_static )
 add_dependencies( controller_pc controller )
 add_dependencies( controller_pc libdebug )
 
-target_link_libraries( controller_pc -L./ controller libdebug -lluajit_static -ldecoder_static -lopenh264_static ${SHINE_LIBRARIES} ${MP4V2_LIBRARIES} ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
+# target_link_libraries( controller_pc -L./ controller libdebug -lluajit_static -ldecoder_static -lopenh264_static ${SHINE_LIBRARIES} ${MP4V2_LIBRARIES} ${QSCINTILLA_LIBRARY} Qt5::Widgets Qt5::OpenGL Qt5::PrintSupport Qt5::Multimedia ${OPENGL_LIBRARIES} -lpthread ${OTHER_LIBS} )
 
 install( TARGETS controller_pc RUNTIME DESTINATION bin )

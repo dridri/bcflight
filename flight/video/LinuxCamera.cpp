@@ -15,7 +15,7 @@ std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
 class LibCameraStream : private std::streambuf, public std::ostream {
 public:
 	LibCameraStream() : std::ostream(this) {}
-	
+
 
 private:
 	int overflow( int c ) override {
@@ -176,8 +176,8 @@ LuaValue LinuxCamera::infos()
 	ret["Framerate"] = mFps;
 	ret["HDR"] = ( mHDR ? "on" : "off" );
 
-	if ( mCamera->controls().find( libcamera::controls::MAX_LATENCY) != mCamera->controls().end() ) {
-		ret["Max Latency"] = mCamera->controls().at( libcamera::controls::MAX_LATENCY ).toString();
+	if ( mCamera->controls().find( libcamera::controls::draft::MAX_LATENCY) != mCamera->controls().end() ) {
+		ret["Max Latency"] = mCamera->controls().at( libcamera::controls::draft::MAX_LATENCY ).toString();
 	}
 
 	return ret;
@@ -246,7 +246,7 @@ void LinuxCamera::Start()
 		// TODO
 	}
 
-	mCameraConfiguration->transform = ( mHflip ? libcamera::Transform::HFlip : libcamera::Transform::Identity ) | ( mVflip ? libcamera::Transform::VFlip : libcamera::Transform::Identity );
+	// mCameraConfiguration->transform = ( mHflip ? libcamera::Transform::HFlip : libcamera::Transform::Identity ) | ( mVflip ? libcamera::Transform::VFlip : libcamera::Transform::Identity );
 
 	mCameraConfiguration->validate();
 	if ( mRawStreamConfiguration ) {
@@ -280,7 +280,7 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::Contrast, mContrast );
 	mAllControls.set( libcamera::controls::Saturation, mSaturation );
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
-	mAllControls.set( libcamera::controls::draft::SceneFlicker, libcamera::controls::draft::SceneFickerOff );
+	// mAllControls.set( libcamera::controls::draft::SceneFlicker, libcamera::controls::draft::SceneFickerOff );
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringMatrix );
 	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
 	mAllControls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeFast );

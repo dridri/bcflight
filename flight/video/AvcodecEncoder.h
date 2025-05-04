@@ -30,7 +30,7 @@ protected:
 	LUA_PROPERTY("framerate") int32_t mFramerate;
 
 	bool mReady;
-	AVCodec* mCodec;
+	const AVCodec* mCodec;
 	AVCodecContext* mCodecContext;
 };
 
