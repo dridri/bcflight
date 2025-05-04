@@ -159,7 +159,7 @@ Currently only Raspberry Pi boards are supported, the 4'th variants are the reco
 
 1. **Install dependencies**
   * `sudo apt update`
-  * `sudo apt install git pkg-config cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.3 libfftw3-dev`
+  * `sudo apt install git pkg-config cmake make g++ libc6-dev libraspberrypi-dev libiw-dev libdrm-dev libgbm-dev libcamera-dev libgles2-mesa-dev libgps-dev libasound2-dev libcrypt-dev zlib1g-dev libpng-dev libshine-dev libavformat-dev libavutil-dev libavcodec-dev libpigpio-dev lua5.4 liblua5.4-dev libfftw3-dev`
 
 2. **Build**
   * `git clone https://github.com/dridri/bcflight`
