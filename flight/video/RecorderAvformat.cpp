@@ -458,4 +458,3 @@ void RecorderAvformat::WriteGyro( uint64_t record_time_us, const Vector3f& gyro,
 	mPendingGyros.emplace_back( g );
 	mGyroMutex.unlock();
 }
-

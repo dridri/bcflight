@@ -99,20 +99,20 @@ void nRF24::SPI::beginTransaction( SPISettings settings )
 		{
 			std::cout << "SPI rd_mode\n";
 		}
-		if ( ioctl( mFD, SPI_IOC_WR_BITS_PER_WORD, &mBitsPerWord ) < 0 ) 
+		if ( ioctl( mFD, SPI_IOC_WR_BITS_PER_WORD, &mBitsPerWord ) < 0 )
 		{
 			std::cout << "SPI write bits_per_word\n";
 		}
-		if ( ioctl( mFD, SPI_IOC_RD_BITS_PER_WORD, &mBitsPerWord ) < 0 ) 
+		if ( ioctl( mFD, SPI_IOC_RD_BITS_PER_WORD, &mBitsPerWord ) < 0 )
 		{
 			std::cout << "SPI read bits_per_word\n";
 		}
-		if ( ioctl( mFD, SPI_IOC_WR_MAX_SPEED_HZ, &speed ) < 0 )  
+		if ( ioctl( mFD, SPI_IOC_WR_MAX_SPEED_HZ, &speed ) < 0 )
 		{
 			std::cout << "can't set max speed hz\n";
 		}
 
-		if ( ioctl( mFD, SPI_IOC_RD_MAX_SPEED_HZ, &speed ) < 0 ) 
+		if ( ioctl( mFD, SPI_IOC_RD_MAX_SPEED_HZ, &speed ) < 0 )
 		{
 			std::cout << "SPI max_speed_hz\n";
 		}
