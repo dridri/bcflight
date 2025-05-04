@@ -1703,7 +1703,7 @@ private:
  *
  * 2. Complete the install <br>
  * @code nano /etc/ld.so.conf @endcode
- * Add the line @code /usr/local/lib/arm-linux-gnueabihf @endcode
+ * Add the line @code /usr/local/lib/aarch64-linux-gnu @endcode
  * Run @code sudo ldconfig @endcode
  *
  * 3. Install RF24, using MRAA
@@ -1806,7 +1806,7 @@ private:
  * 1. Install the python-dev (or python3-dev) and boost libraries
  * @code sudo apt-get install python-dev libboost-python-dev @endcode
  * @note For python3 in Raspbian, it's needed to manually link python boost library, like this:
- * @code sudo ln -s /usr/lib/arm-linux-gnueabihf/libboost_python-py34.so /usr/lib/arm-linux-gnueabihf/libboost_python3.so @endcode
+ * @code sudo ln -s /usr/lib/aarch64-linux-gnu/libboost_python-py34.so /usr/lib/aarch64-linux-gnu/libboost_python3.so @endcode
  *
  * 2. Install python-setuptools (or python3-setuptools)
  * @code sudo apt-get install python-setuptools @endcode
@@ -1842,7 +1842,7 @@ private:
  *  - cross-compilation toolchain for your target machine; for RPi
  *  @code git clone https://github.com/raspberrypi/tools rpi_tools @endcode
  *  and cross-compilation tools must be in PATH, for example
- *  @code export PATH=$PATH:/your/dir/rpi-tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin @endcode
+ *  @code export PATH=$PATH:/your/dir/rpi-tools/arm-bcm2708/gcc-linaro-aarch64-linux-gnu-raspbian-x64/bin @endcode
  *
  * @section CxSteps Cross compilation steps:
  * 1. clone RF24 to a machine for cross-compilation

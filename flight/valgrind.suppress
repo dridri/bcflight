@@ -1,12 +1,12 @@
 {
 <insert_a_suppression_name_here>
 Memcheck:Addr8
-obj:/usr/lib/arm-linux-gnueabihf/libarmmem-v7l.so
+obj:/usr/lib/aarch64-linux-gnu/libarmmem-v7l.so
 }
 {
 <insert_a_suppression_name_here>
 Memcheck:Cond
-obj:/usr/lib/arm-linux-gnueabihf/libarmmem-v7l.so
+obj:/usr/lib/aarch64-linux-gnu/libarmmem-v7l.so
 }
 {
 bcm_host

@@ -1,10 +1,10 @@
 SET( CMAKE_SYSTEM_NAME Linux )
 SET( CMAKE_SYSTEM_VERSION 1 )
 
-SET( CROSS arm-linux-gnueabihf- )
-SET( CMAKE_C_COMPILER arm-linux-gnueabihf-gcc )
-SET( CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++ )
-SET( CMAKE_ASM_COMPILER arm-linux-gnueabihf-as )
+SET( CROSS aarch64-linux-gnu- )
+SET( CMAKE_C_COMPILER aarch64-linux-gnu-gcc )
+SET( CMAKE_CXX_COMPILER aarch64-linux-gnu-g++ )
+SET( CMAKE_ASM_COMPILER aarch64-linux-gnu-as )
 
 execute_process(
 	COMMAND bash -c "dirname $(dirname $(which aarch64-linux-gnu-gcc | cut -d':' -f2 | tr -d ' '))"
@@ -13,7 +13,7 @@ execute_process(
 )
 
 SET( CMAKE_FIND_ROOT_PATH ${ROOT_PATH} )
-set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ROOT_PATH}/arm-linux-gnueabihf/lib/arm-linux-gnueabihf")
+set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ROOT_PATH}/aarch64-linux-gnu/lib/aarch64-linux-gnu")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 SET( FREETYPE_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/freetype2" )

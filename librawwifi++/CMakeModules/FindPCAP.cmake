@@ -21,7 +21,7 @@
 
 find_path(PCAP_ROOT_DIR
     NAMES include/pcap.h
-    HINTS ${CMAKE_FIND_ROOT_PATH}/arm-linux-gnueabihf
+    HINTS ${CMAKE_FIND_ROOT_PATH}/aarch64-linux-gnu
 )
 
 find_path(PCAP_INCLUDE_DIR
@@ -32,7 +32,7 @@ find_path(PCAP_INCLUDE_DIR
 execute_process( COMMAND sh -c "${CMAKE_C_COMPILER} -print-search-dirs | grep libraries | cut -d'=' -f2 | tr : ';'" OUTPUT_VARIABLE ARM_LIBS )
 find_library(PCAP_LIBRARY
     NAMES pcap
-    HINTS ${PCAP_ROOT_DIR}/lib ${PCAP_ROOT_DIR}/lib/arm-linux-gnueabihf
+    HINTS ${PCAP_ROOT_DIR}/lib ${PCAP_ROOT_DIR}/lib/aarch64-linux-gnu
     PATHS ${ARM_LIBS}
 )
 

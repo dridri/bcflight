@@ -1,10 +1,10 @@
 execute_process( COMMAND uname -p OUTPUT_VARIABLE BUILD_ARCH )
 
 if ( ${BUILD_ARCH} MATCHES "x86*" )
-# 	message( "Cross compilation detected, setting compiler prefix to arm-linux-gnueabihf-" )
-# 	set( CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc" )
-# 	set( CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++" )
-# 	set( CMAKE_AR "arm-linux-gnueabihf-ar" )
+# 	message( "Cross compilation detected, setting compiler prefix to aarch64-linux-gnu-" )
+# 	set( CMAKE_C_COMPILER "aarch64-linux-gnu-gcc" )
+# 	set( CMAKE_CXX_COMPILER "aarch64-linux-gnu-g++" )
+# 	set( CMAKE_AR "aarch64-linux-gnu-ar" )
 endif()
 
 set( TARGET_LINUX 1 )
@@ -40,9 +40,9 @@ get_filename_component( CROSS_ROOT ${CMAKE_C_COMPILER} DIRECTORY )
 include_directories( ${CROSS_ROOT}/../include )
 include_directories( ${CROSS_ROOT}/../include/libdrm )
 include_directories( ${CROSS_ROOT}/../include/libcamera )
-include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include )
-include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libdrm )
-include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libcamera )
+include_directories( ${CROSS_ROOT}/../aarch64-linux-gnu/include )
+include_directories( ${CROSS_ROOT}/../aarch64-linux-gnu/include/libdrm )
+include_directories( ${CROSS_ROOT}/../aarch64-linux-gnu/include/libcamera )
 include_directories( /opt/vc/include )
 
 #if ( "${rawwifi}" MATCHES 1 )
@@ -62,7 +62,7 @@ endif()
 
 function( board_strip )
 	add_custom_target( flight ALL
-						COMMAND arm-linux-gnueabihf-strip -s -o flight flight_unstripped
+						COMMAND aarch64-linux-gnu-strip -s -o flight flight_unstripped
 						DEPENDS flight_unstripped
 						COMMENT "Stripping executable"
 						VERBATIM
