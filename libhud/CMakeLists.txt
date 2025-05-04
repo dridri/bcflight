@@ -19,3 +19,5 @@ set( SRCS
 	)
 
 add_library( hud STATIC ${SRCS} )
+
+target_link_libraries( hud PRIVATE luacore )
