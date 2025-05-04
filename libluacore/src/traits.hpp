@@ -311,5 +311,3 @@ typename std::add_rvalue_reference<T>::type rt_val() noexcept
 }
 
 #endif
-
-
