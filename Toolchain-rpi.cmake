@@ -7,7 +7,7 @@ SET( CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++ )
 SET( CMAKE_ASM_COMPILER arm-linux-gnueabihf-as )
 
 execute_process(
-	COMMAND bash -c "dirname $(dirname $(whereis arm-linux-gnueabihf-gcc | cut -d':' -f2 | tr -d ' '))"
+	COMMAND bash -c "dirname $(dirname $(which aarch64-linux-gnu-gcc | cut -d':' -f2 | tr -d ' '))"
 	OUTPUT_VARIABLE ROOT_PATH
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
