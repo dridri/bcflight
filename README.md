@@ -165,8 +165,7 @@ Currently only Raspberry Pi boards are supported, the 4'th variants are the reco
   * `git clone https://github.com/dridri/bcflight`
   * `cd bcflight/flight`
   * `cmake -Dboard=rpi -Ddebug=1 -S . -B build`
-  * `cd build`
-  * `make -j$(nproc)`
+  * `cmake --build build -j`
 
 This will produce two files : `flight_unstripped` which contains all debugging symbols, and `flight` which is a lightweight regular executable.
   * `flight_unstripped` can be run via gdb, or Valgrind using [flight/valgrind.sh](./flight/valgrind.sh)
