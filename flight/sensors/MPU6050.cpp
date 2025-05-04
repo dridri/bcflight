@@ -17,34 +17,45 @@
 **/
 
 #include <cmath>
+#include <algorithm>
 #include <unistd.h>
 #include "MPU6050.h"
 #include "Config.h"
 #include "SPI.h"
 
-int MPU6050::flight_register( Main* main )
+
+MPU6050::MPU6050()
+	: Sensor()
+	, mChipReady( false )
+	, mGyroscope( nullptr )
+	, mAccelerometer( nullptr )
+	, mMagnetometer( nullptr )
+	, dmpReady( false )
 {
-	Device dev1;
-	Device dev2;
-
-	dev1.iI2CAddr = 0x68;
-	dev1.name = "MPU6050";
-	dev1.fInstanciate = []( Config* config, const string& object, Bus* bus ) { return MPU6050::Instanciate( bus, config, object ); };
-
-	dev2.iI2CAddr = 0x69;
-	dev2.name = "MPU6050";
-	dev2.fInstanciate = []( Config* config, const string& object, Bus* bus ) { return MPU6050::Instanciate( bus, config, object ); };
-
-	mKnownDevices.push_back( dev1 );
-	mKnownDevices.push_back( dev2 );
-	return 0;
 }
 
 
-Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
+void MPU6050::InitChip()
 {
-
-	I2C* i2c = static_cast<I2C*>(bus);
+	if ( !mBus ) {
+		std::list<int> scan = I2C::ScanAll();
+		auto findIter68 = std::find( scan.begin(), scan.end(), 0x68 );
+		auto findIter69 = std::find( scan.begin(), scan.end(), 0x69 );
+		if ( findIter68 != scan.end() ) {
+			mBus = new I2C( *findIter68 );
+		} else if ( findIter69 != scan.end() ) {
+			mBus = new I2C( *findIter69 );
+		}
+	}
+	if ( !mBus ) {
+		gError() << "No bus set";
+		return;
+	}
+	I2C* i2c = dynamic_cast<I2C*>(mBus);
+	if ( !i2c ) {
+		gError() << "MPU6050 driver only supports I2C";
+		return;
+	}
 
 	uint8_t whoami = 0x00;
 	i2c->Read8( MPU_6050_WHO_AM_I, &whoami );
@@ -85,21 +96,11 @@ Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 
 	// TODO : use config ('use_dmp')
 	// TODO : see https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050_6Axis_MotionApps20.h
-	if ( false ) {
-		MPU6050* mpu = new MPU6050( i2c );
-		delete mpu;
-		exit(0);
-	}
-// 	delete i2c;
 
 	// Manually add sensors to mDevices since they use the same address
-	Sensor* mag = new MPU6050Mag( i2c );
-	Sensor* gyro = new MPU6050Gyro( i2c );
-	Sensor* accel = new MPU6050Accel( i2c );
-	mDevices.push_back( mag );
-	mDevices.push_back( accel );
-
-	return gyro;
+	mMagnetometer = new MPU6050Mag( i2c );
+	mGyroscope = new MPU6050Gyro( i2c );
+	mAccelerometer = new MPU6050Accel( i2c );
 
 /*
 	uint8_t read_reg = 0;
@@ -180,7 +181,78 @@ Sensor* MPU6050::Instanciate( Bus* bus, Config* config, const string& object )
 	mDevices.push_back( mag );
 	mDevices.push_back( accel );
 */
-	return gyro;
+}
+
+
+MPU6050Gyro* MPU6050::gyroscope()
+{
+	if ( !mChipReady ) {
+		InitChip();
+	}
+	if ( !mGyroscope ) {
+		mGyroscope = new MPU6050Gyro( mBus );
+		if ( mSwapMode == SwapModeAxis ) {
+			mGyroscope->setAxisSwap(mAxisSwap);
+		}
+		if ( mSwapMode == SwapModeMatrix ) {
+			mGyroscope->setAxisMatrix(mAxisMatrix);
+		}
+	}
+	return mGyroscope;
+}
+
+
+MPU6050Accel* MPU6050::accelerometer()
+{
+	if ( !mChipReady ) {
+		InitChip();
+	}
+	if ( !mAccelerometer ) {
+		mAccelerometer = new MPU6050Accel( mBus );
+		if ( mSwapMode == SwapModeAxis ) {
+			mAccelerometer->setAxisSwap(mAxisSwap);
+		}
+		if ( mSwapMode == SwapModeMatrix ) {
+			mAccelerometer->setAxisMatrix(mAxisMatrix);
+		}
+	}
+	return mAccelerometer;
+}
+
+
+MPU6050Mag* MPU6050::magnetometer()
+{
+	if ( !mChipReady ) {
+		InitChip();
+	}
+	if ( !mMagnetometer ) {
+		mMagnetometer = new MPU6050Mag( mBus );
+		if ( mSwapMode == SwapModeAxis ) {
+			mMagnetometer->setAxisSwap(mAxisSwap);
+		}
+		if ( mSwapMode == SwapModeMatrix ) {
+			mMagnetometer->setAxisMatrix(mAxisMatrix);
+		}
+	}
+	return mMagnetometer;
+}
+
+
+void MPU6050::setGyroscopeAxisSwap( const Vector4i& swap )
+{
+	gyroscope()->setAxisSwap( swap );
+}
+
+
+void MPU6050::setAccelerometerAxisSwap( const Vector4i& swap )
+{
+	accelerometer()->setAxisSwap( swap );
+}
+
+
+void MPU6050::setMagnetometerAxisSwap( const Vector4i& swap )
+{
+	magnetometer()->setAxisSwap( swap );
 }
 
 

@@ -24,6 +24,7 @@
 #include <Magnetometer.h>
 #include <I2C.h>
 #include <Quaternion.h>
+#include <Lua.h>
 
 
 class MPU6050Accel : public Accelerometer
@@ -85,15 +86,21 @@ private:
 };
 
 
-class MPU6050 : public Sensor
+LUA_CLASS class MPU6050 : public Sensor
 {
 public:
-	static int flight_register( Main* main );
+	LUA_EXPORT MPU6050();
 
-	static Sensor* Instanciate( Bus* bus, Config* config, const string& object );
+	LUA_PROPERTY() MPU6050Gyro* gyroscope();
+	LUA_PROPERTY() MPU6050Accel* accelerometer();
+	LUA_PROPERTY() MPU6050Mag* magnetometer();
+	void InitChip();
+
+	LUA_PROPERTY("gyroscope_axis_swap") void setGyroscopeAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("accelerometer_axis_swap") void setAccelerometerAxisSwap( const Vector4i& swap );
+	LUA_PROPERTY("magnetometer_axis_swap") void setMagnetometerAxisSwap( const Vector4i& swap );
 
 protected:
-	MPU6050( I2C* i2c );
 	uint8_t dmpInitialize();
 	uint8_t dmpGetAccel(int32_t* data, const uint8_t* packet);
 	uint8_t dmpGetAccel(int16_t* data, const uint8_t* packet);
@@ -140,8 +147,11 @@ protected:
 	char readBits( uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data );
 	uint8_t getIntStatus();
 
+	bool mChipReady;
+	MPU6050Gyro* mGyroscope;
+	MPU6050Accel* mAccelerometer;
+	MPU6050Mag* mMagnetometer;
 	bool dmpReady;
-	I2C* mI2C;
 
 	void Calibrate( float dt, bool last_pass = false ) {}
 	void Read( Vector3f* v, bool raw = false ) {}
