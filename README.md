@@ -102,7 +102,7 @@ This carrier board has the following features :
    * Video composite output (can be directly connected to any FPV drone VTX)
 
 ## Building `controller_pc`
-For cmake to run properly, the below dependecies should be installed first. Below commands are working for: ***Distro***: Ubuntu 22.04.2 LTS (Jammy Jellyfish), ***Kernel***: 5.15.0-69-lowlatency x86_64, ***bits***: 64, ***Desktop***: Xfce 4.16.0 
+For cmake to run properly, the below dependecies should be installed first. Below commands are working for: ***Distro***: Ubuntu 22.04.2 LTS (Jammy Jellyfish), ***Kernel***: 5.15.0-69-lowlatency x86_64, ***bits***: 64, ***Desktop***: Xfce 4.16.0
 1. **Install dependencies**
 
   * `sudo apt-get install nasm qtmultimedia5-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libiw-dev libfftw3-dev`
@@ -167,7 +167,7 @@ Currently only Raspberry Pi boards are supported, the 4'th variants are the reco
   * `cmake -Dboard=rpi -Ddebug=1 -S . -B build`
   * `cd build`
   * `make -j$(nproc)`
- 
+
 This will produce two files : `flight_unstripped` which contains all debugging symbols, and `flight` which is a lightweight regular executable.
   * `flight_unstripped` can be run via gdb, or Valgrind using [flight/valgrind.sh](./flight/valgrind.sh)
   * `flight` is intended to be used on final product
