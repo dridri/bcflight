@@ -285,7 +285,8 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
 	mAllControls.set( libcamera::controls::draft::SceneFlicker, libcamera::controls::draft::SceneFickerOff );
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringMatrix );
-	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
+	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
+	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringCentreWeighted );
 	mAllControls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeFast );
 	setWhiteBalance( mWhiteBalance, &mAllControls );
 	if ( mExposureMode == "short" ) {
