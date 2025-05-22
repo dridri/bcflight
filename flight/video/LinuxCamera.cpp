@@ -287,6 +287,8 @@ void LinuxCamera::Start()
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringMatrix );
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
 	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringCentreWeighted );
+	// mAllControls.set( libcamera::controls::AeConstraintMode, libcamera::controls::ConstraintHighlight );
+	mAllControls.set( libcamera::controls::AeConstraintMode, libcamera::controls::ConstraintNormal );
 	mAllControls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeFast );
 	setWhiteBalance( mWhiteBalance, &mAllControls );
 	if ( mExposureMode == "short" ) {
