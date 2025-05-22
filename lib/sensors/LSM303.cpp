@@ -17,9 +17,12 @@
 **/
 
 #include <unistd.h>
-#include <Main.h>
 #include "LSM303.h"
+#ifdef FLIGHT
+#include <Board.h>
+#endif
 
+/*
 int LSM303::flight_register( Main* main )
 {
 	Device dev1;
@@ -37,6 +40,7 @@ int LSM303::flight_register( Main* main )
 	mKnownDevices.push_back( dev2 );
 	return 0;
 }
+*/
 
 
 Sensor* LSM303Mag::Instanciate( Config* config, const string& object, Bus* bus )
@@ -107,9 +111,11 @@ void LSM303Accel::Calibrate( float dt, bool last_pass )
 		mCalibrated = true;
 		gDebug() << "LSM303 SAVING CALIBRATED OFFSETS !";
 		aDebug( "Offset", mOffset.x, mOffset.y, mOffset.z );
+#ifdef FLIGHT
 		Board::SaveRegister( "LSM303:Accelerometer:Offset:X", to_string( mOffset.x ) );
 		Board::SaveRegister( "LSM303:Accelerometer:Offset:Y", to_string( mOffset.y ) );
 		Board::SaveRegister( "LSM303:Accelerometer:Offset:Z", to_string( mOffset.z ) );
+#endif
 	}
 }
 

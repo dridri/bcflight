@@ -73,7 +73,6 @@ protected:
 	LuaValue mSettings;
 
 	Lua* mLua;
-
 	static Config* sConfig;
 };
 

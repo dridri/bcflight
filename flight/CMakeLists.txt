@@ -44,6 +44,7 @@ endif()
 project( flight )
 enable_language( C CXX ASM )
 
+add_definitions( -DFLIGHT )
 add_definitions( -DSYSTEM_NAME=${CMAKE_SYSTEM_NAME} -DSYSTEM_NAME_${CMAKE_SYSTEM_NAME} )
 add_definitions( -DBOARD="${board}" -DBOARD_${board} -DVARIANT="${variant}" -DVARIANT_${variant} )
 add_definitions( -DVERSION_STRING="bcflight_${board}_${VERSION_MAJOR}.${VERSION_MINOR}_${GIT_HASH}" )

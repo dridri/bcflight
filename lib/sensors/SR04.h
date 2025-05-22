@@ -21,6 +21,7 @@
 
 #include "Altimeter.h"
 
+// TODO : backport automatic LUA class system
 class SR04 : public Altimeter
 {
 public:
@@ -32,9 +33,6 @@ public:
 	virtual void Read( float* altitude );
 
 	virtual LuaValue infos();
-
-	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
-	static int flight_register( Main* main );
 
 protected:
 	void Interrupt();

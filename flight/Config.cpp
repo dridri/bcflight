@@ -30,11 +30,18 @@
 extern "C" uint32_t _mem_usage();
 extern "C" void lua_init( lua_State* L );
 
+
+Config* Config::sConfig = nullptr;
+
 Config::Config( const string& filename, const string& settings_filename )
 	: mFilename( filename )
 	, mSettingsFilename( settings_filename )
 	, mLua( nullptr )
 {
+	if ( not sConfig ) {
+		sConfig = this;
+	}
+
 	gDebug() << "step 1 : " << _mem_usage();
 
 	gDebug() << LUA_RELEASE;

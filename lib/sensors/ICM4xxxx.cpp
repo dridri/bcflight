@@ -19,8 +19,11 @@
 #include <cmath>
 #include <unistd.h>
 #include "ICM4xxxx.h"
-#include "Config.h"
 #include "SPI.h"
+#ifdef FLIGHT
+#include <Config.h>
+#include <Board.h>
+#endif
 
 
 static const map< uint8_t, string > known = {
@@ -122,8 +125,12 @@ void ICM4xxxx::InitChip()
 	// Enable all sensors in low-noise mode + never go idle
 	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00011111 );
 
-	uint32_t loopTime = Main::instance()->config()->Integer( "stabilizer.loop_time", 2000 );
+#ifdef FLIGHT
+	uint32_t loopTime = Config::instance()->Integer( "stabilizer.loop_time", 2000 );
 	uint32_t loopRate = 1000000 / loopTime;
+#else
+	uint32_t loopRate = 200;
+#endif
 	const std::list< std::tuple< uint32_t, uint8_t > > rates = {
 		{   25, 0b00001010 },
 		{   50, 0b00001001 },
@@ -230,9 +237,11 @@ ICM4xxxxAccel::ICM4xxxxAccel( Bus* bus, const std::string& name )
 {
 	mNames = { name };
 
+#ifdef FLIGHT
 	mOffset.x = atof( Board::LoadRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:X" ).c_str() );
 	mOffset.y = atof( Board::LoadRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:Y" ).c_str() );
 	mOffset.z = atof( Board::LoadRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:Z" ).c_str() );
+#endif
 	if ( mOffset.x != 0.0f and mOffset.y != 0.0f and mOffset.z != 0.0f ) {
 		mCalibrated = true;
 	}
@@ -327,9 +336,11 @@ void ICM4xxxxAccel::Calibrate( float dt, bool last_pass )
 		mCalibrated = true;
 		gDebug() << "ICM4xxxx SAVING CALIBRATED OFFSETS !";
 		aDebug( "mOffset", mOffset.x, mOffset.y, mOffset.z );
+#ifdef FLIGHT
 		Board::SaveRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:X", to_string( mOffset.x ) );
 		Board::SaveRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:Y", to_string( mOffset.y ) );
 		Board::SaveRegister( "ICM4xxxx<" + mBus->toString() + ">:Accelerometer:Offset:Z", to_string( mOffset.z ) );
+#endif
 	}
 }
 
