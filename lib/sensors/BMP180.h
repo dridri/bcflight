@@ -22,6 +22,8 @@
 #include <I2C.h>
 #include "Altimeter.h"
 
+
+// TODO : backport automatic LUA class system
 class BMP180 : public Altimeter
 {
 public:
@@ -32,7 +34,6 @@ public:
 	void Read( float* altitude );
 
 	static Sensor* Instanciate( Config* config, const string& object, Bus* bus );
-	static int flight_register( Main* main );
 
 private:
 	float ReadTemperature();

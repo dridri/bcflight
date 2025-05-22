@@ -22,7 +22,6 @@
 #include <list>
 #include <functional>
 #include <string>
-#include <Main.h>
 #include "Sensor.h"
 
 class Voltmeter : public Sensor

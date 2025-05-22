@@ -17,12 +17,13 @@
 **/
 
 #include <unistd.h>
+#include <Board.h>
 #include <Debug.h>
 #include <GPIO.h>
 #include "SR04.h"
-#include "Config.h"
 
 
+/*
 int SR04::flight_register( Main* main )
 {
 	Device dev;
@@ -40,7 +41,7 @@ Sensor* SR04::Instanciate( Config* config, const string& object, Bus* bus )
 	SR04* sr04 = new SR04( config->Integer( object + ".gpio_trigger" ), config->Integer( object + ".gpio_echo" ) );
 	return sr04;
 }
-
+*/
 
 SR04::SR04( uint32_t gpio_trigger, uint32_t gpio_echo )
 	: Altimeter()

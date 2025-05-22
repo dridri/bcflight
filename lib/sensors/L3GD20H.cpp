@@ -17,9 +17,9 @@
 **/
 
 #include <unistd.h>
-#include <Main.h>
 #include "L3GD20H.h"
 
+/*
 int L3GD20H::flight_register( Main* main )
 {
 	Device dev;
@@ -29,7 +29,7 @@ int L3GD20H::flight_register( Main* main )
 	mKnownDevices.push_back( dev );
 	return 0;
 }
-
+*/
 
 Gyroscope* L3GD20H::Instanciate( Config* config, const string& object, Bus* bus )
 {

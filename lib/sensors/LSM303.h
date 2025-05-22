@@ -61,7 +61,7 @@ private:
 class LSM303 : public Sensor
 {
 public:
-	static int flight_register( Main* main );
+	// TODO : backport automatic LUA class system
 };
 
 #define ACCEL_PRECISION 12

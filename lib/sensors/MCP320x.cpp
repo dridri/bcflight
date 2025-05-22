@@ -22,9 +22,13 @@
 #include <iostream>
 #include <string.h>
 #include "MCP320x.h"
+#include <Board.h>
+
 
 MCP320x::MCP320x( const std::string& devfile )
-	: mSPI( new SPI( devfile, 2000000 ) )
+	: Voltmeter()
+	, mSPI( new SPI( devfile, 976000 ) )
+	, mLastReadTick( 0 )
 {
 	mSPI->Connect();
 }
@@ -34,14 +38,19 @@ MCP320x::~MCP320x()
 {
 }
 
+void MCP320x::Calibrate( float dt, bool last_pass )
+{
+	// TODO ?
+}
 
-void MCP320x::setSmoothFactor( uint8_t channel, float f )
+
+void MCP320x::setSmoothFactor( int channel, float f )
 {
 	mSmoothFactor[channel] = f;
 }
 
 
-uint16_t MCP320x::Read( uint8_t channel, float dt )
+float MCP320x::Read( int channel )
 {
 	static constexpr int nbx = 1;
 	uint8_t bx[3 * nbx] = { 0 };
@@ -50,6 +59,8 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 	buf[0] = 0b00000110 | ((channel & 0b100) >> 2);
 	buf[1] = (channel & 0b011) << 6;
 	buf[2] = 0x00;
+
+	mLastReadTick = Board::WaitTick( 100, mLastReadTick );
 
 	bool ok = false;
 	static constexpr int retries = 3;
@@ -71,41 +82,14 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 	}
 	final_ret = ret[0];
 
-	// int final_nbx = 0;
-	// for ( int j = 0; j < nbx; j++ ) {
-	// 	bool ignore = false;
-	// 	for ( int i = 0; i < nbx; i++ ) {
-	// 		if ( i != j and std::abs( (int32_t)(ret[i] - ret[j]) ) > 250 ) {
-	// 			ignore = true;
-	// 		}
-	// 	}
-	// 	if ( not ignore ) {
-	// 		final_ret += ret[j];
-	// 		final_nbx++;
-	// 	}
-	// }
-	// final_ret /= final_nbx;
-	// final_ret &= 0xFFFFFFF7;
-	// if ( channel >= 4 ) {
-	// 	printf( "smooth[%d] : %04d (%d / %d values)\n", channel, final_ret, final_nbx, nbx );
-	// }
-/*
-	if ( channel == 0 ) {
-		printf( "\r% 6d", final_ret ); fflush(stdout);
-	}
-	if ( channel == 1 ) {
-		printf( "\r\033[6C% 6d", final_ret ); fflush(stdout);
-	}
-	if ( channel == 2 ) {
-		printf( "\r\033[12C% 6d", final_ret ); fflush(stdout);
-	}
-	if ( channel == 3 ) {
-		printf( "\r\033[18C% 6d", final_ret ); fflush(stdout);
-	}
-	if ( channel >= 4 ) {
-		printf( "\r\033[24C% 6d", final_ret ); fflush(stdout);
-	}
-*/
+	return float(final_ret);
+}
+
+
+uint16_t MCP320x::Read( int channel, float dt )
+{
+	uint32_t final_ret = uint32_t( Read( channel ) );
+
 	// Raw value
 	if ( dt == 0.0f ) {
 		return final_ret;
@@ -115,7 +99,6 @@ uint16_t MCP320x::Read( uint8_t channel, float dt )
 		float smooth = mSmoothFactor[channel];
 		if ( smooth > 0.0f ) {
 			float s = smooth * std::max( 0.0f, std::min( 1.0f, dt * 1000.0f ) );
-			// float s = smooth * std::max( 0.0f, dt * 1000.0f );
 			mLastValue[channel] = std::max( 0.0f, mLastValue[channel] * s + (float)final_ret * ( 1.0f - s ) );
 			return (uint16_t)mLastValue[channel];
 		}

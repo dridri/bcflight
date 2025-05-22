@@ -22,9 +22,9 @@
 #include <list>
 #include <functional>
 #include <string>
-#include <Main.h>
 #include <Matrix.h>
 #include <Mutex.h>
+#include <Lua.h>
 
 class Config;
 class Bus;

@@ -20,8 +20,10 @@
 #include <algorithm>
 #include <unistd.h>
 #include "MPU6050.h"
-#include "Config.h"
 #include "SPI.h"
+#ifdef FLIGHT
+#include <Board.h>
+#endif
 
 
 MPU6050::MPU6050()
@@ -264,9 +266,11 @@ MPU6050Accel::MPU6050Accel( Bus* bus )
 {
 	mNames = { "MPU6050" };
 
+#ifdef FLIGHT
 	mOffset.x = atof( Board::LoadRegister( "MPU6050:Accelerometer:Offset:X" ).c_str() );
 	mOffset.y = atof( Board::LoadRegister( "MPU6050:Accelerometer:Offset:Y" ).c_str() );
 	mOffset.z = atof( Board::LoadRegister( "MPU6050:Accelerometer:Offset:Z" ).c_str() );
+#endif
 	if ( mOffset.x != 0.0f and mOffset.y != 0.0f and mOffset.z != 0.0f ) {
 		mCalibrated = true;
 	}
@@ -359,9 +363,11 @@ void MPU6050Accel::Calibrate( float dt, bool last_pass )
 		mCalibrated = true;
 		gDebug() << "MPU6050 SAVING CALIBRATED OFFSETS !";
 		aDebug( "mOffset", mOffset.x, mOffset.y, mOffset.z );
+#ifdef FLIGHT
 		Board::SaveRegister( "MPU6050:Accelerometer:Offset:X", to_string( mOffset.x ) );
 		Board::SaveRegister( "MPU6050:Accelerometer:Offset:Y", to_string( mOffset.y ) );
 		Board::SaveRegister( "MPU6050:Accelerometer:Offset:Z", to_string( mOffset.z ) );
+#endif
 	}
 }
 

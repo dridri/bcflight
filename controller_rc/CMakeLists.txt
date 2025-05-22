@@ -45,11 +45,11 @@ include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 include_directories( ${CMAKE_SOURCE_DIR}/../lib/boards/${board} )
 include_directories( ${CMAKE_SOURCE_DIR}/../lib/boards/common )
 include_directories( ${CMAKE_SOURCE_DIR}/../lib/maths )
+include_directories( ${CMAKE_SOURCE_DIR}/../lib/sensors )
 add_submodule( controller )
+add_submodule( sensors )
 add_submodule( debug )
 
-
-file( GLOB_RECURSE ADCS_SOURCES ADCs/*.cpp ADCs/*.c )
 
 file( GLOB HEADERS
 	${CMAKE_SOURCE_DIR}/*.h
@@ -115,10 +115,11 @@ add_executable( controller_rc
 	${CMAKE_BINARY_DIR}/rc_data.cpp
 	${CMAKE_BINARY_DIR}/MainWindow.moc.cpp
 	${CMAKE_BINARY_DIR}/lua_init.cpp
-	${ADCS_SOURCES}
 )
 
 add_dependencies( controller_rc controller )
+add_dependencies( controller_rc sensors )
+add_dependencies( controller_rc maths )
 add_dependencies( controller_rc ui_headers )
 if ( BOARD_DEPENDENCIES )
 	add_dependencies( controller_rc ${BOARD_DEPENDENCIES} )
@@ -133,9 +134,11 @@ target_link_libraries(
 	controller_rc
 	-L./
 	controller
+	sensors
 	debuglib
 	links
 	boards
+	maths
 	${RAWWIFI_LIBS}
 	Qt5Widgets Qt5Gui Qt5PrintSupport Qt5Core
 	-lrt

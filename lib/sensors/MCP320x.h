@@ -21,21 +21,27 @@
 
 #include <stdint.h>
 #include <SPI.h>
+#include "Voltmeter.h"
 #include <map>
 
-class MCP320x
+
+// TODO : backport automatic LUA class system
+class MCP320x : public Voltmeter
 {
 public:
 	MCP320x( const std::string& devfile );
 	~MCP320x();
 
-	void setSmoothFactor( uint8_t channel, float f );
-	uint16_t Read( uint8_t channel, float dt = 0.0f );
+	void setSmoothFactor( int channel, float f );
+	uint16_t Read( int channel, float dt );
+	virtual float Read( int channel );
+	virtual void Calibrate( float dt, bool last_pass = false );
 
 private:
 	SPI* mSPI;
-	std::map< uint8_t, float > mSmoothFactor;
-	std::map< uint8_t, float >  mLastValue;
+	std::map< int, float > mSmoothFactor;
+	std::map< int, float > mLastValue;
+	uint64_t mLastReadTick;
 };
 
 #endif // MCP320X_H

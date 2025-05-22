@@ -29,6 +29,7 @@
 #define	BMP180_COMMAND_PRESSURE2 0xB4
 #define	BMP180_COMMAND_PRESSURE3 0xF4
 
+/*
 int BMP180::flight_register( Main* main )
 {
 	Device dev;
@@ -38,7 +39,7 @@ int BMP180::flight_register( Main* main )
 	mKnownDevices.push_back( dev );
 	return 0;
 }
-
+*/
 
 Sensor* BMP180::Instanciate( Config* config, const string& object, Bus* bus )
 {

@@ -22,6 +22,7 @@
 #include <Gyroscope.h>
 #include <I2C.h>
 
+// TODO : backport automatic LUA class system
 class L3GD20H : public Gyroscope
 {
 public:
@@ -31,8 +32,6 @@ public:
 	static Gyroscope* Instanciate( Config* config, const string& object, Bus* bus );
 	void Calibrate( float dt, bool last_pass = false );
 	int Read( Vector3f* v, bool raw = false );
-
-	static int flight_register( Main* main );
 
 private:
 	I2C* mI2C;

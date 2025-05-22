@@ -21,7 +21,7 @@
 
 #include "Controller.h"
 #include <Link.h>
-#include "../../ADCs/MCP320x.h"
+#include <MCP320x.h>
 #include "Filter.h"
 #include <Lua.h>
 
