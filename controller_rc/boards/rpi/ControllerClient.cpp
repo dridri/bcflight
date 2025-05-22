@@ -154,7 +154,8 @@ bool ControllerClient::run()
 			constexpr float vref = 5.0f;
 			constexpr float R1 = 47000.0f;
 			constexpr float R2 = 22000.0f;
-			constexpr float shift = 1.23978f;
+			// constexpr float shift = 1.23978f;
+			constexpr float shift = 1.1f;
 			float voltage = shift * ( (float)battery_voltage * vref ) / ( 4095.0f * ( R2 / ( R1 + R2 ) ) );
 			if ( mLocalBatteryVoltage == 0.0f ) {
 				mLocalBatteryVoltage = voltage;

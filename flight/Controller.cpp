@@ -55,7 +55,9 @@ Controller::Controller()
 	, mRollMultiplier( 1.0f )
 	, mPitchMultiplier( 1.0f )
 	, mYawMultiplier( 1.0f )
-	, mTicks( 0 )
+	, mRPYSmoothingEnabled( false )
+	, mSmoothRPY( Vector3f() )
+	, mControlsTicks( 0 )
 	, mTelemetryThread( new HookThread< Controller >( "telemetry", this, &Controller::TelemetryRun ) )
 	, mTelemetryTick( 0 )
 	, mTelemetryCounter( 0 )
@@ -104,31 +106,12 @@ bool Controller::connected() const
 	return isConnected();
 }
 
-/*
-bool Controller::armed() const
-{
-	return mArmed;
-}
-*/
 
 uint32_t Controller::ping() const
 {
 	return mPing;
 }
 
-/*
-float Controller::thrust() const
-{
-	return mThrust;
-}
-
-
-const Vector3f& Controller::RPY() const
-{
-// 	return mSmoothRPY;
-	return mRPY;
-}
-*/
 
 void Controller::onEvent( ControllerBase::Cmd cmdId, const std::function<void(const LuaValue& v)>& f )
 {
@@ -143,18 +126,11 @@ void Controller::Emergency()
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->frame()->Disarm();
 // 	mThrust = 0.0f;
-// 	mSmoothRPY = Vector3f();
+	mSmoothRPY = Vector3f();
 // 	mRPY = Vector3f();
 	mMain->stabilizer()->Reset( 0.0f );
 	mMain->stabilizer()->Disarm();
 // 	mArmed = false;
-}
-
-
-void Controller::UpdateSmoothControl( const float& dt )
-{
-// 	mSmoothControl.Predict( dt );
-// 	mSmoothRPY = mSmoothControl.Update( dt, mRPY );
 }
 
 
@@ -170,8 +146,10 @@ void Controller::SendDebug( const string& s )
 */
 }
 
+const float smoothDistanceWeight = 0.1f; // 10% influence of x on alpha
+const float smoothGain = 10.0f;
 
-float Controller::setRoll( float value, bool raw )
+float Controller::setRoll( float value, bool raw, float dt )
 {
 	if ( not raw ) {
 		if ( value >= 0.0f ) {
@@ -180,14 +158,21 @@ float Controller::setRoll( float value, bool raw )
 			value = -( exp( -value * mExpo.x ) - 1.0f ) / ( exp( mExpo.x ) - 1.0f );
 		}
 	}
-// 	mRPY.x = value;
 	value *= mRollMultiplier;
+	if ( mRPYSmoothingEnabled ) {
+		float delta = value - mSmoothRPY.x;
+		float response = std::abs(delta) + std::abs(value) * smoothDistanceWeight;
+		float alpha = 1.0f - std::clamp( response * smoothGain, 0.0f, 1.0f );
+		alpha = std::pow( std::clamp( alpha, 0.0f, 1.0f ), dt * 100.0f );
+		alpha = std::clamp( alpha, 0.001f, 0.95f );
+		value = mSmoothRPY.x = mSmoothRPY.x * alpha + value * (1.0f - alpha);
+	}
 	mMain->stabilizer()->setRoll( value );
 	return value;
 }
 
 
-float Controller::setPitch( float value, bool raw )
+float Controller::setPitch( float value, bool raw, float dt )
 {
 	if ( not raw ) {
 		if ( value >= 0.0f ) {
@@ -196,14 +181,21 @@ float Controller::setPitch( float value, bool raw )
 			value = -( exp( -value * mExpo.y ) - 1.0f ) / ( exp( mExpo.y ) - 1.0f );
 		}
 	}
-// 	mRPY.y = value;
 	value *= mPitchMultiplier;
+	if ( mRPYSmoothingEnabled ) {
+		float delta = value - mSmoothRPY.y;
+		float response = std::abs(delta) + std::abs(value) * smoothDistanceWeight;
+		float alpha = 1.0f - std::clamp( response * smoothGain, 0.0f, 1.0f );
+		alpha = std::pow( std::clamp( alpha, 0.0f, 1.0f ), dt * 100.0f );
+		alpha = std::clamp( alpha, 0.001f, 0.95f );
+		value = mSmoothRPY.y = mSmoothRPY.y * alpha + value * (1.0f - alpha);
+	}
 	mMain->stabilizer()->setPitch( value );
 	return value;
 }
 
 
-float Controller::setYaw( float value, bool raw )
+float Controller::setYaw( float value, bool raw, float dt )
 {
 	if ( abs( value ) < 0.01f ) {
 		value = 0.0f;
@@ -215,8 +207,15 @@ float Controller::setYaw( float value, bool raw )
 			value = -( exp( -value * mExpo.z ) - 1.0f ) / ( exp( mExpo.z ) - 1.0f );
 		}
 	}
-// 	mRPY.z = value;
 	value *= mYawMultiplier;
+	if ( mRPYSmoothingEnabled ) {
+		float delta = value - mSmoothRPY.z;
+		float response = std::abs(delta) + std::abs(value) * smoothDistanceWeight;
+		float alpha = 1.0f - std::clamp( response * smoothGain, 0.0f, 1.0f );
+		alpha = std::pow( std::clamp( alpha, 0.0f, 1.0f ), dt * 100.0f );
+		alpha = std::clamp( alpha, 0.001f, 0.95f );
+		value = mSmoothRPY.z = mSmoothRPY.z * alpha + value * (1.0f - alpha);
+	}
 	mMain->stabilizer()->setYaw( value );
 	return value;
 }
@@ -256,6 +255,7 @@ void Controller::Arm() {
 // 	mRPY.y = 0.0f;
 // 	mRPY.z = 0.0f;
 // 	mArmed = true;
+	mSmoothRPY = Vector3f();
 	mMain->stabilizer()->Arm();
 }
 
@@ -267,7 +267,7 @@ void Controller::Disarm() {
 // 	mThrust = 0.0f;
 	mMain->stabilizer()->Reset( 0.0f );
 // 	mRPY = Vector3f();
-// 	mSmoothRPY = Vector3f();
+	mSmoothRPY = Vector3f();
 	mMain->frame()->Disarm();
 }
 
@@ -322,7 +322,7 @@ bool Controller::run()
 			mMain->stabilizer()->Reset( 0.0f );
 			mMain->frame()->Disarm();
 // 			mRPY = Vector3f();
-// 			mSmoothRPY = Vector3f();
+			mSmoothRPY = Vector3f();
 // 			mArmed = false;
 			gDebug() << "STONE MODE !";
 			return true;
@@ -473,6 +473,9 @@ bool Controller::run()
 				break;
 			}
 			case CONTROLS : {
+				uint64_t tick = Board::GetTicks();
+				float dt = ((float)( tick - mControlsTicks ) ) / 1000000.0f;
+				mControlsTicks = tick;
 				if ( not mConnected ) {
 					// Should never happen (except at first controller connection)
 					break;
@@ -488,6 +491,7 @@ bool Controller::run()
 						mMain->stabilizer()->Disarm();
 						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 					}
+					mRPYSmoothingEnabled = ( controls.control_smoothing != 0 );
 					if ( mMain->stabilizer()->armed() ) {
 						float thrust = ((float)controls.thrust) / 511.0f;
 						float roll = ((float)controls.roll) / 511.0f;
@@ -495,9 +499,9 @@ bool Controller::run()
 						float yaw = ((float)controls.yaw) / 511.0f;
 						gTrace() << "Controls : " << thrust << ", " << roll << ", " << pitch << ", " << yaw;
 						thrust = setThrust( thrust );
-						roll = setRoll( roll );
-						pitch = setPitch( pitch );
-						yaw = setYaw( yaw );
+						roll = setRoll( roll, false, dt );
+						pitch = setPitch( pitch, false, dt );
+						yaw = setYaw( yaw, false, dt );
 						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", thrust, roll, pitch, yaw );
 						mMain->blackbox()->Enqueue( "Controller:trpy", stmp );
 					}

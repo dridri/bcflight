@@ -117,7 +117,8 @@ RendererHUDNeo::RendererHUDNeo( int width, int height, float ratio, uint32_t fon
 	, mColorShader{ 0 }
 	, mSpeedometerSize( 65 * fontsize / 28 )
 {
-	// mIconNight = LoadTexture( "data/icon_night.png" );
+	mIconNight = LoadTexture( "data/icon_night.png" );
+	mIconSmooth = LoadTexture( "data/icon_smooth.png" );
 	// mIconPhoto = LoadTexture( "data/icon_photo.png" );
 
 	LoadVertexShader( &mShader, hud_vertices_shader, sizeof(hud_vertices_shader) + 1 );
@@ -148,6 +149,8 @@ RendererHUDNeo::~RendererHUDNeo()
 
 void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats )
 {
+	const float iconWidth = mWidth * 0.04f;
+	const float iconHeight = mWidth * 0.035f;
 	if ( dronestats and dronestats->username != "" ) {
 		RenderText( mWidth * 0.5f, mBorderTop, dronestats->username, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 1.0f, TextAlignment::CENTER );
 	}
@@ -323,13 +326,13 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 3.0f, videostats->whitebalance, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
 		FontMeasureString( videostats->exposure, &w, &h );
 		RenderText( (float)mBorderRight - w*0.775f, mBorderTop + mFontHeight * 4.0f, videostats->exposure, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.8f );
-/*
+
 		if ( mNightMode ) {
-			RenderQuadTexture( mIconNight->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.15, mWidth * 0.04f, mWidth * 0.035f, false, false, { 1.0f, 1.0f, 1.0f, 1.0f } );
+			RenderQuadTexture( mIconNight->glID, mBorderRight - 230 - iconWidth * 1.1 * 2, mBorderBottom - iconHeight * 1.5, iconWidth, iconHeight, false, false, { 1.0f, 1.0f, 1.0f, 1.0f } );
 		} else {
-			RenderQuadTexture( mIconNight->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.15, mWidth * 0.04f, mWidth * 0.035f, false, false, { 0.5f, 0.5f, 0.5f, 0.5f } );
+			RenderQuadTexture( mIconNight->glID, mBorderRight - 230 - iconWidth * 1.1 * 2, mBorderBottom - iconHeight * 1.5, iconWidth, iconHeight, false, false, { 1.0f, 1.0f, 1.0f, 0.2f } );
 		}
-*/
+
 /*
 		float photo_alpha = 0.5f;
 		float photo_burn = 1.0f;
@@ -342,7 +345,7 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			photo_alpha += 0.75f * 2.0f * ( 0.5f - diff );
 			photo_burn += 2.0f * 2.0f * ( 0.5f - diff );
 		}
-		RenderQuadTexture( mIconPhoto->glID, mBorderRight - mWidth * 0.04f, mHeight / 2 - mHeight * 0.07, mWidth * 0.04f, mWidth * 0.035f, false, false, { photo_burn, photo_burn, photo_burn, photo_alpha } );
+		RenderQuadTexture( mIconPhoto->glID, mBorderRight - iconWidth, mHeight / 2 - mHeight * 0.07, iconWidth, iconHeight, false, false, { photo_burn, photo_burn, photo_burn, photo_alpha } );
 */
 		if ( videostats->vtxFrequency > 0 ) {
 			std::string text = std::to_string(videostats->vtxFrequency) + "MHz";
@@ -379,6 +382,11 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 		if ( dronestats->ping > 50 ) {
 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f - mFontSize * 2, "High Latency", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		}
+	}
+
+	if ( dronestats ) {
+		float alpha = ( dronestats->smoothControl ? 1.0f : 0.2f );
+		RenderQuadTexture( mIconSmooth->glID, mBorderRight - 230 - iconWidth * 1.1 * 1, mBorderBottom - iconHeight * 1.5, iconWidth, iconHeight, false, false, { 1.0f, 1.0f, 1.0f, alpha } );
 	}
 
 	if ( dronestats and not std::isnan( dronestats->gpsSpeed ) ) {

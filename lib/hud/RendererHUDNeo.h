@@ -56,6 +56,7 @@ protected:
 	float mSpeedometerSize;
 
 	Texture* mIconNight;
+	Texture* mIconSmooth;
 	Texture* mIconPhoto;
 };
 

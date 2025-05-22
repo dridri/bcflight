@@ -72,7 +72,8 @@ public:
 		int8_t stabilizer_mode : 1;
 		int8_t night_mode : 1;
 		int8_t take_picture : 1;
-		int8_t _unused : 4;
+		int8_t control_smoothing : 1;
+		int8_t _unused : 3;
 	} Controls;
 
 	typedef struct __attribute__((packed)) Telemetry {
