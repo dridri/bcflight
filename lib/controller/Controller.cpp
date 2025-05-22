@@ -234,6 +234,13 @@ bool Controller::run()
 			mXferMutex.unlock();
 		}
 
+		if ( mSwitches[11] and not mControls.control_smoothing ) {
+			gDebug() << "Enable control smoothing";
+		} else if ( not mSwitches[11] and mControls.control_smoothing ) {
+			gDebug() << "Disable control smoothing";
+		}
+		mControls.control_smoothing = ( mSwitches[11] != 0 );
+
 		float f_thrust = ReadThrust( dt );
 		float f_yaw = ReadYaw( dt );
 		float f_pitch = ReadPitch( dt );

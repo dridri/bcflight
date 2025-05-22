@@ -109,6 +109,7 @@ typedef struct DroneStats {
 	float gpsSpeed;
 	uint32_t gpsSatellitesSeen;
 	uint32_t gpsSatellitesUsed;
+	bool smoothControl;
 	// Battery
 	float batteryLevel;
 	float batteryVoltage;
