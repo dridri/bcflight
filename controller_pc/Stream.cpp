@@ -25,6 +25,7 @@
 #include "ControllerPC.h"
 #include "ui_mainWindow.h"
 #include "Socket.h"
+#include "Debug.h"
 
 
 #if ( defined(WIN32) && !defined(glActiveTexture) )
@@ -352,7 +353,7 @@ bool Stream::run()
 	}
 
 	if ( ( mSocketTellIPCounter = ( ( mSocketTellIPCounter + 1 ) % 16 ) ) == 1 ) {
-		// Dummy write to tell own IP address in case of Socket
+		// Dummy write to tell own IP address in case of UDP Socket
 		if ( dynamic_cast<Socket*>( mLink ) ) {
 			uint32_t uid = htonl( 0x12345678 );
 			mLink->Write( &uid, sizeof(uid), 0, -1 );

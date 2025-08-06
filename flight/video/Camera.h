@@ -21,9 +21,12 @@
 
 #include <stdint.h>
 #include <string>
+#include "Thread.h"
 #include "VideoEncoder.h"
 
 using namespace std;
+
+class Servo;
 
 class Camera
 {
@@ -37,7 +40,12 @@ public:
 		int8_t strength;
 	} LensShaderColor;
 
-	virtual void Start() = 0;
+	typedef enum {
+		FIXED,
+		DYNAMIC
+	} PTZMode;
+
+	virtual void Start();
 	virtual void Pause() = 0;
 	virtual void Resume() = 0;
 	virtual void StartRecording() = 0;
@@ -72,13 +80,31 @@ public:
 
 	virtual uint32_t* getFileSnapshot( const string& filename, uint32_t* width, uint32_t* height, uint32_t* bpp ) = 0;
 
+	void setTiltMode( const PTZMode& mode );
+	void setPanMode( const PTZMode& mode );
+	void setTiltOffset( float degres );
+	void setPanOffset( float degres );
+
 	virtual LuaValue infos() { return LuaValue(); }
 	static LuaValue infosAll();
 
 protected:
+	bool PTZThreadRun();
+
 	LUA_PROPERTY("preview_output") VideoEncoder* mLiveEncoder;
 	LUA_PROPERTY("video_output") VideoEncoder* mVideoEncoder;
 // 	_LUA_PROPERTY("still_output") ImageEncoder* mStillEncoder;
+
+	LUA_PROPERTY("tilt_motor") Servo* mTiltMotor;
+	LUA_PROPERTY("pan_motor") Servo* mPanMotor;
+	LUA_PROPERTY("tilt_mode") Camera::PTZMode mTiltMode;
+	LUA_PROPERTY("pan_mode") Camera::PTZMode mPanMode;
+	LUA_PROPERTY("tilt_offset") float mTiltOffset;
+	LUA_PROPERTY("pan_offset") float mPanOffset;
+	LUA_PROPERTY("tilt_ratio") float mTiltRatio;
+	LUA_PROPERTY("pan_ratio") float mPanRatio;
+
+	Thread* mPTZThread;
 
 	static list<Camera*> sCameras;
 };

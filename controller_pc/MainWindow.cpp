@@ -100,7 +100,7 @@ MainWindow::MainWindow()
 		std::function<Socket::PortType(const QString&)> socket_type = [](const QString& type){ if ( type == "UDPLite" ) return Socket::UDPLite; else if ( type == "UDP" ) return Socket::UDP; else return Socket::TCP; };
 		mControllerLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/controller/port", 2020 ).toInt(), socket_type( mConfig->value( "tcpip/controller/type", "TCP" ).toString() ) );
 		mStreamLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/video/port", 2021 ).toInt(), socket_type( mConfig->value( "tcpip/video/type", "UDPLite" ).toString() ) );
-		mAudioLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/audio/port", 2022 ).toInt(), socket_type( mConfig->value( "tcpip/audio/type", "TCP" ).toString() ) );
+		// mAudioLink = new Socket( mConfig->value( "tcpip/address", "192.168.32.1" ).toString().toStdString(), mConfig->value( "tcpip/audio/port", 2022 ).toInt(), socket_type( mConfig->value( "tcpip/audio/type", "TCP" ).toString() ) );
 	}
 	uint8_t test[2048];
 	// mControllerLink->Read( test, 2048, 0 );
@@ -190,7 +190,7 @@ MainWindow::MainWindow()
 
 	ui->video->setMainWindow( this );
 	ui->video->setLink( mStreamLink );
-	ui->video->setAudioLink( mAudioLink );
+	// ui->video->setAudioLink( mAudioLink );
 }
 
 
@@ -305,7 +305,7 @@ void MainWindow::updateData()
 		}
 
 		if ( mController->ping() < 10000 ) {
-			ui->latency->setText( QString::number( mController->ping() ) + " ms" );
+			ui->latency->setText( QString::number( mController->ping() / 1000 ) + " ms" );
 		}
 		ui->voltage->setText( QString::number( mController->batteryVoltage(), 'f', 2 ) + " V" );
 		ui->current->setText( QString::number( mController->currentDraw(), 'f', 2 ) + " A" );

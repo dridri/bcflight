@@ -46,10 +46,10 @@ public:
 	uint32_t ping() const;
 // 	float thrust() const;
 // 	const Vector3f& RPY() const;
+	bool rpySmoothing() const { return mRPYSmoothingEnabled; }
 
 	LUA_EXPORT void onEvent( ControllerBase::Cmd cmdId, const std::function<void(const LuaValue& v)>& f );
 
-	void UpdateSmoothControl( const float& dt );
 	void Emergency();
 
 	void SendDebug( const string& s );
@@ -61,11 +61,12 @@ protected:
 
 	void Arm();
 	void Disarm();
-	float setRoll( float value, bool raw = false );
-	float setPitch( float value, bool raw = false );
-	float setYaw( float value, bool raw = false );
+	float setRoll( float value, bool raw = false, float dt = 1.0f / 100.0f );
+	float setPitch( float value, bool raw = false, float dt = 1.0f / 100.0f );
+	float setYaw( float value, bool raw = false, float dt = 1.0f / 100.0f );
 	float setThrust( float value, bool raw = false );
 	Main* mMain;
+	Link* mClientLink;
 #ifdef SYSTEM_NAME_Linux
 	mutex mSendMutex;
 #endif
@@ -74,13 +75,18 @@ protected:
 	uint32_t mPing;
 	LUA_PROPERTY("expo") Vector4f mExpo;
 	LUA_PROPERTY("thrust_expo") Vector2f mThrustExpo;
+	LUA_PROPERTY("multipliers.thrust") float mThrustMultiplier;
+	LUA_PROPERTY("multipliers.roll") float mRollMultiplier;
+	LUA_PROPERTY("multipliers.pitch") float mPitchMultiplier;
+	LUA_PROPERTY("multipliers.yaw") float mYawMultiplier;
 /*
 	Vector3f mRPY;
 	float mThrust;
 	float mThrustAccum;
 */
+	LUA_PROPERTY("smoothing") bool mRPYSmoothingEnabled;
 	Vector3f mSmoothRPY;
-	uint64_t mTicks;
+	uint64_t mControlsTicks;
 	HookThread< Controller >* mTelemetryThread;
 	uint64_t mTelemetryTick;
 	uint64_t mTelemetryCounter;

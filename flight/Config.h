@@ -61,6 +61,8 @@ public:
 
 	Lua* luaState() const;
 
+	static Config* instance() { return sConfig; }
+
 protected:
 	int LocateValue( const string& name );
 
@@ -70,6 +72,7 @@ protected:
 	map< string, string > mSettings;
 
 	Lua* mLua;
+	static Config* sConfig;
 };
 
 #endif // CONFIG_H

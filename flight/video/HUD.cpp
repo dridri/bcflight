@@ -10,6 +10,7 @@
 #include <Link.h>
 #include <Config.h>
 #include <Sensor.h>
+#include <Controller.h>
 #include <peripherals/SmartAudio.h>
 
 
@@ -114,6 +115,7 @@ bool HUD::run()
 		dronestats.mode = (DroneMode)stabilizer->mode();
 		dronestats.ping = controller->ping();
 		dronestats.thrust = stabilizer->thrust();
+		dronestats.smoothControl = controller->rpySmoothing();
 	}
 	if ( imu ) {
 		mAccelerationAccum = ( mAccelerationAccum * 0.995f + imu->acceleration().length() * 0.005f );

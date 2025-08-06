@@ -14,7 +14,7 @@ public:
 	void setStopBits( uint8_t tx, uint8_t rx );
 
 	LUA_EXPORT void Connect();
-	LUA_EXPORT void Update();
+	LUA_EXPORT int Update();
 
 	LUA_EXPORT void setFrequency( uint16_t frequency );
 	LUA_EXPORT void setPower( uint8_t power );
@@ -42,6 +42,8 @@ private:
 	uint8_t mChannel;
 	uint8_t mBand;
 	std::vector<int32_t> mPowerTable;
+
+	int UpdateInternal();
 
 	int SendCommand( uint8_t cmd_code, const uint8_t* data, const uint8_t datalen );
 	int8_t channelFromFrequency( uint16_t freq );

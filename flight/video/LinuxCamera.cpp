@@ -7,6 +7,8 @@
 #include "Debug.h"
 #include <thread>
 #include <sys/mman.h>
+#include <xf86drmMode.h>
+#include <drm_fourcc.h>
 
 std::unique_ptr<libcamera::CameraManager> LinuxCamera::sCameraManager = nullptr;
 
@@ -187,6 +189,7 @@ LuaValue LinuxCamera::infos()
 void LinuxCamera::Start()
 {
 	fDebug();
+	Camera::Start();
 
 	if ( sCameraManager->cameras().size() == 0 ) {
 		gError() << "No camera detected !";
@@ -282,7 +285,10 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
 	mAllControls.set( libcamera::controls::draft::SceneFlicker, libcamera::controls::draft::SceneFickerOff );
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringMatrix );
-	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
+	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
+	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringCentreWeighted );
+	// mAllControls.set( libcamera::controls::AeConstraintMode, libcamera::controls::ConstraintHighlight );
+	mAllControls.set( libcamera::controls::AeConstraintMode, libcamera::controls::ConstraintNormal );
 	mAllControls.set( libcamera::controls::draft::NoiseReductionMode, libcamera::controls::draft::NoiseReductionModeEnum::NoiseReductionModeFast );
 	setWhiteBalance( mWhiteBalance, &mAllControls );
 	if ( mExposureMode == "short" ) {

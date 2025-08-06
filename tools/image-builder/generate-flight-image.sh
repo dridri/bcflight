@@ -243,6 +243,7 @@ dtoverlay=pi3-disable-bt
 dtoverlay=vc4-fkms-v3d
 
 ## DShot
+# Uncoment the lines below to enable DShot
 #dpi_output_format=0x7017
 #dpi_group=2
 #dpi_mode=87
@@ -260,6 +261,7 @@ hdmi_group=2
 hdmi_mode=82
 
 ## Analog video output
+# Uncoment the lines below to enable Composite output
 #enable_tvout=1
 #framebuffer_priority=3
 

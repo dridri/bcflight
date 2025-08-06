@@ -30,11 +30,11 @@
 #include "ControllerClient.h"
 #include "Socket.h"
 #include "Debug.h"
-#include "../../libcontroller/PT1.h"
+#include "PT1.h"
 
 Config* ControllerClient::mConfig = nullptr;
 
-ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
+ControllerClient::ControllerClient( Link* link, bool spectate )
 	: Controller( link, spectate )
 	, mADC( nullptr )
 	, mSimulatorEnabled( false )
@@ -42,8 +42,7 @@ ControllerClient::ControllerClient( Config* config, Link* link, bool spectate )
 	, mSimulatorSocket( nullptr )
 	, mSimulatorTicks( 0 )
 {
-	mConfig = config;
-
+	mConfig = Config::instance();
 	gpioInitialise();
 
 	GPIO::setPUD( 0, GPIO::PullDown );
@@ -131,17 +130,17 @@ float ControllerClient::ReadYaw( float dt )
 bool ControllerClient::run()
 {
 	if ( mADC == nullptr ) {
-		mADC = new MCP320x( mConfig->string( "adc.device", "/dev/spidev1.0" ) );
+		mADC = new MCP320x( mConfig->String( "adc.device", "/dev/spidev1.0" ) );
 		if ( mADC ) {
-			// mADC->setSmoothFactor( 0, 0.5f );
-			// mADC->setSmoothFactor( 1, 0.5f );
-			// mADC->setSmoothFactor( 2, 0.5f );
-			// mADC->setSmoothFactor( 3, 0.5f );
-			mADC->setSmoothFactor( 4, 0.75f );
-			mJoysticks[0] = Joystick( mADC, 0, 0, mConfig->boolean( "adc.inverse.thrust", false ), true );
-			mJoysticks[1] = Joystick( mADC, 1, 1, mConfig->boolean( "adc.inverse.yaw", false ) );
-			mJoysticks[2] = Joystick( mADC, 2, 3, mConfig->boolean( "adc.inverse.pitch", false ) );
-			mJoysticks[3] = Joystick( mADC, 3, 2, mConfig->boolean( "adc.inverse.roll", false ) );
+			// mADC->setSmoothFactor( 0, 0.1f );
+			// mADC->setSmoothFactor( 1, 0.1f );
+			// mADC->setSmoothFactor( 2, 0.1f );
+			// mADC->setSmoothFactor( 3, 0.1f );
+			// mADC->setSmoothFactor( 4, 0.75f );
+			mJoysticks[0] = Joystick( mADC, 1, 0, mConfig->Boolean( "adc.inverse.thrust", false ), true );
+			mJoysticks[1] = Joystick( mADC, 2, 1, mConfig->Boolean( "adc.inverse.yaw", false ) );
+			mJoysticks[2] = Joystick( mADC, 3, 3, mConfig->Boolean( "adc.inverse.pitch", false ) );
+			mJoysticks[3] = Joystick( mADC, 4, 2, mConfig->Boolean( "adc.inverse.roll", false ) );
 			mJoysticks[0].setFilter( new PT1_1( 10.0f ) );
 			mJoysticks[1].setFilter( new PT1_1( 10.0f ) );
 			mJoysticks[2].setFilter( new PT1_1( 10.0f ) );
@@ -149,13 +148,19 @@ bool ControllerClient::run()
 		}
 	}
 	if ( mADC ) {
-		uint16_t battery_voltage = mADC->Read( 4, 0.001f );
+		uint16_t battery_voltage = mADC->Read( 5, 0.001f );
 		if ( battery_voltage != 0 ) {
-			float voltage = (float)battery_voltage * 4.2902f / 1024.0f;
+			// printf( "battery_voltage : %04d\n", battery_voltage );
+			constexpr float vref = 5.0f;
+			constexpr float R1 = 47000.0f;
+			constexpr float R2 = 22000.0f;
+			// constexpr float shift = 1.23978f;
+			constexpr float shift = 1.1f;
+			float voltage = shift * ( (float)battery_voltage * vref ) / ( 4095.0f * ( R2 / ( R1 + R2 ) ) );
 			if ( mLocalBatteryVoltage == 0.0f ) {
 				mLocalBatteryVoltage = voltage;
-			} else {
-				mLocalBatteryVoltage = mLocalBatteryVoltage * 0.98f + voltage * 0.02f;
+			} else if ( voltage > 0.0f ) {
+				mLocalBatteryVoltage = mLocalBatteryVoltage * 0.9f + voltage * 0.1f;
 			}
 		}
 	}
@@ -195,12 +200,13 @@ bool ControllerClient::RunSimulator()
 	}
 
 	if ( not mSimulatorSocketServer ) {
-		mSimulatorSocketServer = new rpi::Socket( 5000 );
+		mSimulatorSocketServer = new Socket( 5000 );
 		mSimulatorSocketServer->Connect();
 		std::cout << "mSimulatorSocketServer : " << mSimulatorSocketServer << "\n";
 	}
 	if ( not mSimulatorSocket ) {
-		mSimulatorSocket = mSimulatorSocketServer->WaitClient();
+		// mSimulatorSocket = mSimulatorSocketServer->WaitClient();
+		mSimulatorSocket = mSimulatorSocketServer;
 		std::cout << "mSimulatorSocket : " << mSimulatorSocket << "\n";
 	}
 
@@ -245,8 +251,8 @@ bool ControllerClient::RunSimulator()
 		data.roll = (int8_t)( std::max( -127, std::min( 127, (int32_t)( f_roll * 127.0f ) ) ) );
 	}
 
-	if ( mSimulatorSocket->Send( &data, sizeof(data) ) <= 0 ) {
-		delete mSimulatorSocket;
+	if ( mSimulatorSocket->Write( &data, sizeof(data) ) <= 0 ) {
+		// delete mSimulatorSocket;
 		mSimulatorSocket = nullptr;
 	}
 
@@ -266,9 +272,9 @@ ControllerClient::Joystick::Joystick( MCP320x* adc, int id, int adc_channel, boo
 	, mMax( 65535 )
 {
 	fDebug( adc, id, adc_channel, inverse, thrust_mode );
-	mMin = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":min", 0 );
-	mCenter = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":cen", 32767 );
-	mMax = mConfig->setting( "Joystick:" + std::to_string( mId ) + ":max", 65535 );
+	mMin = mConfig->Integer( "settings.joysticks[" + std::to_string( mId ) + "].min", 0 );
+	mCenter = mConfig->Integer( "settings.joysticks[" + std::to_string( mId ) + "].cen", 32767 );
+	mMax = mConfig->Integer( "settings.joysticks[" + std::to_string( mId ) + "].max", 65535 );
 	if ( mMin != 0 and mCenter != 32767 and mMax != 65535 ) {
 		mCalibrated = true;
 	}
@@ -337,7 +343,7 @@ float ControllerClient::Joystick::Read( float dt )
 	if ( mFilter ) {
 		ret = mFilter->filter( ret, dt );
 	}
-//	std::cout << mADCChannel << " : " << ret << "\n";
+
 	return ret;
 }
 
@@ -345,11 +351,14 @@ float ControllerClient::Joystick::Read( float dt )
 void ControllerClient::SaveThrustCalibration( uint16_t min, uint16_t center, uint16_t max )
 {
 	mJoysticks[0].SetCalibratedValues( min, center, max );
-	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":min", min );
-	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":cen", center );
-	mConfig->setSetting( "Joystick:" + std::to_string( 0 ) + ":max", max );
+	mConfig->settings()["joysticks"][1]["min"] = min;
+	mConfig->settings()["joysticks"][1]["cen"] = center;
+	mConfig->settings()["joysticks"][1]["max"] = max;
+	// mConfig->setInteger( "joysticks[" + std::to_string( 1 ) + "].min", min );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 1 ) + "].cen", center );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 1 ) + "].max", max );
 	mount( "", "/", "", MS_REMOUNT, nullptr );
-	mConfig->SaveSettings( "/root/settings" );
+	mConfig->Save();
 	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
@@ -357,11 +366,14 @@ void ControllerClient::SaveThrustCalibration( uint16_t min, uint16_t center, uin
 void ControllerClient::SaveYawCalibration( uint16_t min, uint16_t center, uint16_t max )
 {
 	mJoysticks[1].SetCalibratedValues( min, center, max );
-	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":min", min );
-	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":cen", center );
-	mConfig->setSetting( "Joystick:" + std::to_string( 1 ) + ":max", max );
+	mConfig->settings()["joysticks"][2]["min"] = min;
+	mConfig->settings()["joysticks"][2]["cen"] = center;
+	mConfig->settings()["joysticks"][2]["max"] = max;
+	// mConfig->setInteger( "joysticks[" + std::to_string( 2 ) + "].min", min );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 2 ) + "].cen", center );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 2 ) + "].max", max );
 	mount( "", "/", "", MS_REMOUNT, nullptr );
-	mConfig->SaveSettings( "/root/settings" );
+	mConfig->Save();
 	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
@@ -369,11 +381,14 @@ void ControllerClient::SaveYawCalibration( uint16_t min, uint16_t center, uint16
 void ControllerClient::SavePitchCalibration( uint16_t min, uint16_t center, uint16_t max )
 {
 	mJoysticks[2].SetCalibratedValues( min, center, max );
-	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":min", min );
-	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":cen", center );
-	mConfig->setSetting( "Joystick:" + std::to_string( 2 ) + ":max", max );
+	mConfig->settings()["joysticks"][3]["min"] = min;
+	mConfig->settings()["joysticks"][3]["cen"] = center;
+	mConfig->settings()["joysticks"][3]["max"] = max;
+	// mConfig->setInteger( "joysticks[" + std::to_string( 3 ) + "].min", min );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 3 ) + "].cen", center );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 3 ) + "].max", max );
 	mount( "", "/", "", MS_REMOUNT, nullptr );
-	mConfig->SaveSettings( "/root/settings" );
+	mConfig->Save();
 	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
@@ -381,11 +396,14 @@ void ControllerClient::SavePitchCalibration( uint16_t min, uint16_t center, uint
 void ControllerClient::SaveRollCalibration( uint16_t min, uint16_t center, uint16_t max )
 {
 	mJoysticks[3].SetCalibratedValues( min, center, max );
-	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":min", min );
-	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":cen", center );
-	mConfig->setSetting( "Joystick:" + std::to_string( 3 ) + ":max", max );
+	mConfig->settings()["joysticks"][4]["min"] = min;
+	mConfig->settings()["joysticks"][4]["cen"] = center;
+	mConfig->settings()["joysticks"][4]["max"] = max;
+	// mConfig->setInteger( "joysticks[" + std::to_string( 4 ) + "].min", min );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 4 ) + "].cen", center );
+	// mConfig->setInteger( "joysticks[" + std::to_string( 4 ) + "].max", max );
 	mount( "", "/", "", MS_REMOUNT, nullptr );
-	mConfig->SaveSettings( "/root/settings" );
+	mConfig->Save();
 	mount( "", "/", "", MS_REMOUNT | MS_RDONLY, nullptr );
 }
 
