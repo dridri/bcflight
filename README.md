@@ -193,10 +193,10 @@ More videos on [YouTube @drichfpv](https://www.youtube.com/@drichfpv/videos)
 
 ## 📚 Documentation
 
-- [Configuration](bcflight.wiki/Configuration.md)
-- [Sensors](bcflight.wiki/Sensors.md)
-- [Motors](bcflight.wiki/Motors.md)
-- [Radio](bcflight.wiki/Radio.md)
+- [Configuration](https://github.com/dridri/bcflight/wiki/Configuration)
+- [Sensors](https://github.com/dridri/bcflight/wiki/Sensors)
+- [Motors](https://github.com/dridri/bcflight/wiki/Motors)
+- [Radio](https://github.com/dridri/bcflight/wiki/Radio)
 
 ## 🤝 Contributing
 
