@@ -172,9 +172,6 @@ More videos on [YouTube @drichfpv](https://www.youtube.com/@drichfpv/videos)
 ### Sensors and Telemetry
 <img width="1024px" style="max-width: 100%" alt="Sensors view" src="misc/controller_pc_sensors.png"/>
 
-### Controls
-<img width="1024px" style="max-width: 100%" alt="Controls view" src="misc/controller_pc_controls.png"/>
-
 ## 🔌 Hardware
 
 ### Custom CM4 Carrier Board
