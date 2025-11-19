@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include "Lua.h"
 #include "VideoEncoder.h"
+#include "Thread.h"
 
 LUA_CLASS class V4L2Encoder : public VideoEncoder, protected Thread
 {

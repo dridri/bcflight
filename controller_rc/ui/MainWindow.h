@@ -75,6 +75,7 @@ private:
 	QWidget* mPageCamera;
 	QWidget* mPageNetwork;
 	QWidget* mPageSettings;
+	uint32_t mSlowUpdateCounter;
 
 	typedef struct {
 		uint16_t min;

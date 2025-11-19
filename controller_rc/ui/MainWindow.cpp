@@ -8,9 +8,9 @@
 #include "ui_camera.h"
 #include "ui_network.h"
 #include "ui_settings.h"
-#include <links/Socket.h>
+#include <Socket.h>
 #ifdef BUILD_rawwifi
-#include <links/RawWifi.h>
+#include <RawWifi.h>
 #else
 #define NO_RAWWIFI
 #endif
@@ -19,11 +19,12 @@ MainWindow::MainWindow( Controller* controller )
 	: QMainWindow()
 	, mController( controller )
 	, mUpdateTimer( new QTimer( this ) )
+	, mSlowUpdateCounter( 0 )
 {
 	for ( uint32_t i = 0; i < 4; i++ ) {
-		mCalibrationValues[i].min = 65535;
-		mCalibrationValues[i].center = 0;
-		mCalibrationValues[i].max = 0;
+		mCalibrationValues[i].min = 2048;
+		mCalibrationValues[i].center = 2048;
+		mCalibrationValues[i].max = 2048;
 	}
 
 	mCameraLensShader.r.base = 64;
@@ -192,7 +193,9 @@ void MainWindow::Update()
 		}
 		uiPageMain->status->setText( QString::fromStdString( status ) );
 		uiPageMain->warnings->setText( QString::fromStdString( warnings ) );
-		uiPageMain->localVoltage->setText( QString("%1 V").arg( (double)mController->localBatteryVoltage(), 5, 'f', 2, '0' ) );
+		if ( mSlowUpdateCounter == 0 ) {
+			uiPageMain->localVoltage->setText( QString("%1 V").arg( (double)mController->localBatteryVoltage(), 5, 'f', 2, '0' ) );
+		}
 		uiPageMain->voltage->setText( QString("%1 V").arg( (double)mController->batteryVoltage(), 5, 'f', 2, '0' ) );
 		uiPageMain->totalCurrent->setText( QString("%1 mAh").arg( mController->totalCurrent() ) );
 		uiPageMain->latency->setText( QString("%1 ms").arg( mController->ping() ) );
@@ -221,9 +224,9 @@ void MainWindow::Update()
 			value = mController->joystick(3)->LastRaw();
 		}
 		if ( idx >= 0 and value != 0 ) {
-			mCalibrationValues[idx].min = std::min( mCalibrationValues[idx].min, value );
-			mCalibrationValues[idx].center =  value;
-			mCalibrationValues[idx].max = std::max( mCalibrationValues[idx].max, value );
+			mCalibrationValues[idx].center = mCalibrationValues[idx].center * 0.75f + value * 0.25f;
+			mCalibrationValues[idx].min = std::min( mCalibrationValues[idx].min, mCalibrationValues[idx].center );
+			mCalibrationValues[idx].max = std::max( mCalibrationValues[idx].max, mCalibrationValues[idx].center );
 			uiPageCalibrate->min->setText( QString( "Min : %1").arg( mCalibrationValues[idx].min ) );
 			uiPageCalibrate->center->setText( QString( "Center : %1").arg( mCalibrationValues[idx].center ) );
 			uiPageCalibrate->max->setText( QString( "Max : %1").arg( mCalibrationValues[idx].max ) );
@@ -232,6 +235,8 @@ void MainWindow::Update()
 		uiPageNetwork->vtxFrequency->setText( QString::fromStdString( std::to_string(mController->vtxFrequency()) + " MHz" ) );
 		uiPageNetwork->vtxPowerDbm->setText( QString::fromStdString( std::to_string(mController->vtxPowerDbm()) + " dBm" ) );
 	}
+
+	mSlowUpdateCounter = ( mSlowUpdateCounter + 1 ) % 10;
 }
 
 
@@ -382,9 +387,9 @@ void MainWindow::CalibrationReset()
 		idx = 3;
 	}
 	if ( idx >= 0 ) {
-		mCalibrationValues[idx].min = 65535;
-		mCalibrationValues[idx].center = 0;
-		mCalibrationValues[idx].max = 0;
+		mCalibrationValues[idx].min = 2048;
+		mCalibrationValues[idx].center = 2048;
+		mCalibrationValues[idx].max = 2048;
 		uiPageCalibrate->min->setText( QString( "Min : %1").arg( mCalibrationValues[idx].min ) );
 		uiPageCalibrate->center->setText( QString( "Center : %1").arg( mCalibrationValues[idx].center ) );
 		uiPageCalibrate->max->setText( QString( "Max : %1").arg( mCalibrationValues[idx].max ) );
