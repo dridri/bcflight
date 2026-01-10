@@ -29,6 +29,7 @@ protected:
 		AVStream* stream;
 		TrackType type;
 		char format[32];
+		uint64_t last_sample_time_us;
 		// video
 		uint32_t width;
 		uint32_t height;

@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <sys/statvfs.h>
 #include <dirent.h>
 
@@ -48,6 +49,7 @@ void RecorderAvformat::WriteSample( PendingSample* sample )
 	pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
 	if ( sample->track->type == TrackTypeVideo ) {
 		pkt->flags = ( sample->keyframe ? AV_PKT_FLAG_KEY : 0 );
+		pkt->duration = sample->track->stream->time_base.den / ( sample->track->average_fps * sample->track->stream->time_base.num );
 		if ( not mMuxerReady and sample->track->stream->codecpar->extradata == nullptr ) {
 			sample->track->stream->codecpar->extradata = (uint8_t*)malloc( 50 );
 			sample->track->stream->codecpar->extradata_size = 50;
@@ -232,9 +234,25 @@ void RecorderAvformat::Start()
 	}
 	gTrace() << "B";
 
-	mOutputContext->pb = avio_alloc_context( mOutputBuffer, sizeof(mOutputBuffer), 1, this, nullptr, []( void* thiz, uint8_t* buf, int sz ) {
-		return (int)fwrite( buf, 1, sz, static_cast<RecorderAvformat*>(thiz)->mOutputFile );
-	}, nullptr );
+	mOutputContext->pb = avio_alloc_context(
+		mOutputBuffer, sizeof(mOutputBuffer), 1, this,
+		nullptr,
+		[]( void* thiz, uint8_t* buf, int sz ) {
+			FILE* file = static_cast<RecorderAvformat*>(thiz)->mOutputFile;
+			return (int)fwrite( buf, 1, sz, file );
+		},
+		[]( void* thiz, int64_t offset, int whence ) {
+			FILE* file = static_cast<RecorderAvformat*>(thiz)->mOutputFile;
+			if ( whence & AVSEEK_SIZE ) {
+				int64_t pos = ftello64( file );
+				fseeko64( file, 0, SEEK_END );
+				int64_t size = ftello64( file );
+				fseeko64( file, pos, SEEK_SET );
+				return size;
+			}
+			return (int64_t)fseeko64( file, offset, whence );
+		}
+	);
 	gTrace() << "C";
 	if ( !mOutputContext->pb ) {
 		gError() << "Could not allocate AVFormat output context";
@@ -312,8 +330,15 @@ void RecorderAvformat::Stop()
 	gTrace() << "B";
 	Main::instance()->blackbox()->Enqueue( "Recorder:stop", mRecordFilename );
 
+	for ( auto* track : mTracks ) {
+		if ( track->stream && track->last_sample_time_us > 0 ) {
+			track->stream->duration = av_rescale_q( track->last_sample_time_us - track->stream->start_time, (AVRational){ 1, 1000000 }, track->stream->time_base );
+		}
+	}
 	av_write_trailer( mOutputContext );
 	avio_flush( mOutputContext->pb );
+	fflush( mOutputFile );
+	fsync( fileno( mOutputFile ) );
 	// avio_closep( &mOutputContext->pb );
 	avio_context_free( &mOutputContext->pb );
 	avformat_free_context( mOutputContext );
@@ -321,6 +346,8 @@ void RecorderAvformat::Stop()
 	for ( auto* track : mTracks ) {
 		track->stream = nullptr;
 	}
+	fclose( mOutputFile );
+	mOutputFile = nullptr;
 	mMuxerReady = false;
 	mRecordStartTick = 0;
 	mRecordStartSystemTick = 0;
@@ -363,6 +390,7 @@ uint32_t RecorderAvformat::AddVideoTrack( const std::string& format, uint32_t wi
 	track->width = width;
 	track->height = height;
 	track->average_fps = average_fps;
+	track->last_sample_time_us = 0;
 
 	track->id = mTracks.size();
 	mTracks.emplace_back( track );
@@ -380,6 +408,7 @@ uint32_t RecorderAvformat::AddAudioTrack( const std::string& format, uint32_t ch
 	strcpy( track->format, format.c_str() );
 	track->channels = channels;
 	track->sample_rate = sample_rate;
+	track->last_sample_time_us = 0;
 
 	track->id = mTracks.size();
 	mTracks.emplace_back( track );
@@ -427,13 +456,14 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 
 	PendingSample* sample = new PendingSample;
 	sample->track = track;
-	sample->record_time_us = record_time_us;
 	sample->buf = new uint8_t[buflen];
 	sample->buflen = buflen;
 	sample->keyframe = keyframe;
 	memcpy( sample->buf, buf, buflen );
 
 	mWriteMutex.lock();
+	sample->record_time_us = std::max( track->last_sample_time_us + 1, record_time_us );
+	track->last_sample_time_us = sample->record_time_us;
 	mPendingSamples.emplace_back( sample );
 	mWriteMutex.unlock();
 }

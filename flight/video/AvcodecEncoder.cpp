@@ -91,7 +91,7 @@ void AvcodecEncoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us
 		usleep( 10 * 1000 );
 	}
 
-	AVFrame *frame = av_frame_alloc();
+	AVFrame* frame = av_frame_alloc();
 	frame->format = AV_PIX_FMT_YUV420P;
 	frame->width = mWidth;
 	frame->height = mHeight;
