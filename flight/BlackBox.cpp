@@ -234,7 +234,7 @@ bool BlackBox::run()
 			mQueue.pop_front();
 			dropped++;
 		}
-		mQueue.push_back( "BlackBox overrun: dropped " + to_string(dropped) + " entries" );
+		mQueue.push_back( to_string(Board::GetTicks()) + ",BlackBox overrun: dropped " + to_string(dropped) + " entries" );
 	}
 	
 	while ( mQueue.size() > 0 ) {
@@ -252,7 +252,7 @@ bool BlackBox::run()
 				Board::setDiskFull();
 			}
 		}
-		// fsync() only every 10 cycles (100ms) instead of each cycle
+		// fsync() only every 5 cycles (50ms) instead of each cycle
 		if ( mSyncCounter == 0 ) {
 			if ( fflush( mFile ) < 0 or fsync( fileno( mFile ) ) < 0 ) {
 				if ( errno == ENOSPC ) {
@@ -260,7 +260,7 @@ bool BlackBox::run()
 				}
 			}
 		}
-		mSyncCounter = ( mSyncCounter + 1 ) % 10;
+		mSyncCounter = ( mSyncCounter + 1 ) % 5;
 	}
 #endif
 

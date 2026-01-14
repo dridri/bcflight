@@ -45,8 +45,8 @@ protected:
 #ifdef SYSTEM_NAME_Linux
 	mutex mQueueMutex;
 	uint32_t mSyncCounter;
-	static const uint32_t MAX_QUEUE_SIZE = 1000; // seuil d'overrun
-	static const uint32_t OVERRUN_DROP_COUNT = 100; // nombre d'entrées à sauter en cas d'overrun
+	static const uint32_t MAX_QUEUE_SIZE = 1000; // overrun threshold
+	static const uint32_t OVERRUN_DROP_COUNT = 100; // number of entries to skip in case of overrun
 #endif
 	list< string > mQueue;
 };
