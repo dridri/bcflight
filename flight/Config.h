@@ -51,6 +51,7 @@ public:
 	string DumpVariable( const string& name, int index = -1, int indent = 0 );
 	int ArrayLength( const string& name );
 
+	void addOverride( const string& key, const string& value );
 	void setBoolean( const string& name, const bool v );
 	void setInteger( const string& name, const int v );
 	void setNumber( const string& name, const float v );
@@ -70,6 +71,7 @@ protected:
 	string mSettingsFilename;
 	// lua_State* L;
 	map< string, string > mSettings;
+	map< string, string > mOverrides;
 
 	Lua* mLua;
 	static Config* sConfig;

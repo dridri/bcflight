@@ -287,6 +287,11 @@ static inline string& trim( string& s, const char* t = " \t\n\r\f\v" )
 }
 
 
+void Config::addOverride( const string& key, const string& value )
+{
+	mOverrides[key] = value;
+}
+
 #define LUAdostring( s ) gDebug() << "dostring : " << string(s); mLua->do_string( string(s) );
 
 
@@ -302,11 +307,18 @@ void Config::Reload()
 	LUAdostring( "Debug.TRACE = " + to_string((int)Debug::Trace) );
 
 	LUAdostring( "function Vector( x, y, z, w ) return { x = x or 0, y = y or 0, z = z or 0, w = w or 0 } end" );
-	LUAdostring( "PID = setmetatable( {}, { __call = function ( self, p, i, d ) return { p = p or 0, i = i or 0, d = d or 0 } end } )" );
+	LUAdostring( "PID = setmetatable( {}, { __call = function ( self, p, i, d, args ) return { p = p or 0, i = i or 0, d = d or 0, args = args or {} } end } )" );
 	LUAdostring( "PT1 = PT1_3" );
 
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "system = { loop_time = 2000 }" );
+
+	// Simple variables can be set before loading the config file
+	for ( pair< string, string > override : mOverrides ) {
+		if ( override.first.find( "." ) == string::npos ) {
+			LUAdostring( override.first + "=" + override.second );
+		}
+	}
 
 	if ( mFilename != "" ) {
 		int ret = mLua->do_file( mFilename );
@@ -331,6 +343,10 @@ void Config::Reload()
 				LUAdostring( key + " = " + value );
 			}
 		}
+	}
+
+	for ( pair< string, string > override : mOverrides ) {
+		LUAdostring( override.first + "=" + override.second );
 	}
 }
 
