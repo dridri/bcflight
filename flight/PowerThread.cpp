@@ -26,7 +26,7 @@
 #include <GPIO.h>
 
 static float linear_lipo_voltage_level[21] = {
-	3.27f, //   0%
+	3.00f, //   0%
 	3.61f, //   5%
 	3.69f, //  10%
 	3.71f, //  15%
