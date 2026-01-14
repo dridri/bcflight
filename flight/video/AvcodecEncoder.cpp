@@ -1,3 +1,4 @@
+#include "Socket.h"
 extern "C" {
 	#include <libavcodec/avcodec.h>
 	#include <libavformat/avformat.h>
@@ -75,7 +76,7 @@ void AvcodecEncoder::Setup()
 		mCodecContext->me_range = 16;
 		mCodecContext->me_cmp = 1; // No chroma ME
 		mCodecContext->me_subpel_quality = 0;
-		mCodecContext->thread_count = 0;
+		mCodecContext->thread_count = 3;
 		mCodecContext->thread_type = FF_THREAD_FRAME;
 		mCodecContext->slices = 1;
 		av_opt_set( mCodecContext->priv_data, "preset", "superfast", 0 );
@@ -107,6 +108,13 @@ void AvcodecEncoder::Setup()
 
 	if ( mRecorder ) {
 		mRecorderTrackId = mRecorder->AddVideoTrack( formatToString.at(mFormat), mWidth, mHeight, mFramerate, formatToString.at(mFormat) );
+	}
+	if ( mLink and not mLink->isConnected() ) {
+		mLink->Connect();
+		if ( mLink->isConnected() ) {
+			gDebug() << "AvcodecEncoder live output link connected !";
+			mLink->setBlocking( false );
+		}
 	}
 }
 
@@ -150,6 +158,16 @@ void AvcodecEncoder::EnqueueBuffer( size_t size, void* mem, int64_t timestamp_us
 	if ( mRecorder and (int32_t)mRecorderTrackId != -1 ) {
 		bool keyframe = packet.flags & AV_PKT_FLAG_KEY;
 		mRecorder->WriteSample( mRecorderTrackId, timestamp_us, packet.data, packet.size, keyframe );
+	}
+	if ( mLink and mLink->isConnected() ) {
+		if ( dynamic_cast<Socket*>(mLink) ) {
+			uint32_t dummy = 0;
+			mLink->Read( &dummy, sizeof(dummy), 0 ); // Dummy Read to get sockaddr_t from client
+		}
+		int err = mLink->Write( (uint8_t*)packet.data, packet.size, false, 0 );
+		if ( err < 0 ) {
+			gWarning() << "Link->Write() error : " << strerror(errno) << " (" << errno << ")";
+		}
 	}
 
 	av_packet_unref(&packet);
