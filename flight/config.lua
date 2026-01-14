@@ -17,7 +17,7 @@ has_camera = true
 
 
 --- Basic settings
-username = "drich" -- used by logger and Head-Up-Display
+username = "drone" -- used by logger and Head-Up-Display
 
 
 --- Setup blackbox
@@ -41,9 +41,10 @@ battery = {
 -- Setup Frame
 frame = Multicopter {
 	maxspeed = 1.0,
+	motor_slew_time = 20, -- Going from 0% to 100% will be slowed to take at least 20ms (avoids gyro noise peaks and motor noise)
 	air_mode = {
-		trigger = 0.25,
-		speed = 0.15
+		trigger = 0.1, -- Air mode will be triggered when throttle is over 10% and stay active until disarmed
+		speed = 0.065 -- Motors will never go lower than 6.5% (prevents motor from shutting down completely)
 	},
 	motors = {
 		DShot( 4 ), -- front left
@@ -68,25 +69,28 @@ PID.pscale = 0.032029 * 0.0005
 PID.iscale = 0.244381 * 0.0005
 PID.dscale = 0.000529 * 0.0005
 stabilizer = Stabilizer {
-	loop_time = 500, -- 500 µs => 2000Hz stabilizer update
-	rate_speed = 700, -- deg/sec
-	pid_roll = PID( 45, 65, 26 ),
-	pid_pitch = PID( 46, 70, 22 ),
-	pid_yaw = PID( 45, 90, 2 ),
-	horizon_angles = Vector( 25.0, 25.0 ), -- max inclination degrees
+	loop_time = 250, -- 250 µs => 4000Hz stabilizer update
+	rate_speed = 800, -- deg/sec
+	pid_roll = PID( 36, 50, 8 ),
+	pid_pitch = PID( 36, 50, 10 ),
+	pid_yaw = PID( 35, 70, 6 ),
+	derivative_filter = PT1_3( 30, 30, 45 ),
+	horizon_angles = Vector( 20.0, 20.0 ), -- max inclination in degrees
 	pid_horizon_roll = PID( 1000000, 0, 2000 ),
 	pid_horizon_pitch = PID( 1000000, 0, 2000 ),
-	derivative_filter = PT1_3( 20, 20, 20 ),
-	tpa = {
-		multiplier = 0.5, -- multiply by 0.5 on full throttle
+	tpa = { -- See https://www.desmos.com/calculator/wi8qeuzct6
+		multiplier = 0.5, -- reduce PID gains by 50% when throttle is over threshold
 		threshold = 0.5 -- enable TPA when throttle is over 50%
 	},
 	anti_gravity = {
-		gain = 1.5, -- increase I by 1.5 when active
+		gain = 2.5, -- increase I by 2.5 when active
 		threshold = 0.35, -- 35% delta
-		decay = 10.0 -- 1/10=100ms to decay
+		decay = 5.0 -- 1/5=200ms decay to go back to normal
+	},
+	anti_windup = {
+		threshold = 0.85, -- anti-windup will be active when motor saturation >85%
+		factor = 0.5 -- anti-windup is active at 50%
 	}
-
 }
 
 
@@ -104,9 +108,12 @@ imu = IMU {
 	altimeters = {},
 	gpses = {},
 	filters = {
-		rates = PT1_3( 100, 100, 100 ),
-		accelerometer = PT1_3( 50, 50, 50 ),
-		attitude = MahonyAHRS( 0.5, 0.0 ),
+		rates = FilterChain_3 {
+			PT1_3( 100, 100, 90 ),
+			DynamicNotchFilter_3(),
+		},
+		accelerometer = PT1_3( 40, 40, 40 ),
+		attitude = MahonyAHRS( 1.0, 0.0 ),
 		position = {
 			input = Vector( 1, 1, 100 ),
 			output = Vector( 1, 1, 0.1 )
@@ -118,11 +125,18 @@ imu = IMU {
 --- Setup controls
 controller = Controller {
 	expo = Vector(
-		3.5,	-- ROLL : ( exp( input * roll ) - 1 )  /  ( exp( roll ) - 1 )   => must be greater than 0
-		3.5,	-- PITCH : ( exp( input * pitch ) - 1 )  /  ( exp( pitch ) - 1 ) => must be greater than 0
-		3.25,	-- YAW : ( exp( input * yaw ) - 1 )  /  ( exp( yaw ) - 1 )     => must be greater than 0
-		2.25	-- THURST : log( input * ( thrust - 1 ) + 1 )  /  log( thrust )   => must be greater than 1
-	)
+		3.75,	-- ROLL : ( exp( input * roll ) - 1 )  /  ( exp( roll ) - 1 )   => must be greater than 0
+		3.75,	-- PITCH : ( exp( input * pitch ) - 1 )  /  ( exp( pitch ) - 1 ) => must be greater than 0
+		3.5,	-- YAW : ( exp( input * yaw ) - 1 )  /  ( exp( yaw ) - 1 )     => must be greater than 0
+		0.0
+-- 		2.25	-- THURST : log( input * ( thrust - 1 ) + 1 )  /  log( thrust )   => must be greater than 1
+	),
+	thrust_expo = Vector(
+		1.5,
+		6.0,
+		0.0,
+		0.0
+	) -- THURST = input * mThrustExpo.x * ( 1.0f - input ) + pow(input, mThrustExpo.y)
 }
 
 
@@ -198,7 +212,7 @@ if has_camera and board.type == "rpi" then
 		width = 1920,
 		height = 1080,
 		framerate = 30,
-		sharpness = 0.5,
+		sharpness = 1.5,
 		iso = camera_settings.iso,
 		brightness = camera_settings.brightness,
 		contrast = camera_settings.contrast,
