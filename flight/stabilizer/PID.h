@@ -19,6 +19,7 @@
 #ifndef PID_H
 #define PID_H
 
+#include <execinfo.h>
 #include <type_traits>
 #include "Vector.h"
 #include "PT1.h"
@@ -34,18 +35,26 @@ public:
 		mkPID = 0;
 		mState = 0;
 		mDeadBand = 0;
+		mIntegralLimit = 1000.0f;
 	}
 	~PID() {
 	}
-	PID( const LuaValue& v ) {
+	PID( const LuaValue& v ) : PID() {
 		if ( v.type() == LuaValue::Table ) {
 			float kP = Main::instance()->config()->Number( "PID.pscale", 1.0f );
 			float kI = Main::instance()->config()->Number( "PID.iscale", 1.0f );
 			float kD = Main::instance()->config()->Number( "PID.dscale", 1.0f );
 			const std::map<std::string, LuaValue >& t = v.toTable();
-			mkPID.x = kP * t.at("p").toNumber();
-			mkPID.y = kI * t.at("i").toNumber();
-			mkPID.z = kD * t.at("d").toNumber();
+			mkPID.x = kP * v["p"].toNumber();
+			mkPID.y = kI * v["i"].toNumber();
+			mkPID.z = kD * v["d"].toNumber();
+			LuaValue args = v["args"];
+			if ( args.type() == LuaValue::Table ) {
+				LuaValue i_limit = args["i_limit"];
+				if ( i_limit.type() != LuaValue::Nil ) {
+					mIntegralLimit = std::max( 0.0f, (float)i_limit.toNumber() );
+				}
+			}
 		}
 	}
 
@@ -67,14 +76,20 @@ public:
 	void setDeadBand( const T& band ) {
 		mDeadBand = band;
 	}
-
+	void setIntegralLimit( const T& limit ) {
+		mIntegralLimit = limit;
+	}
 	void Process( const T& deltaP, const T& deltaI, const T& deltaD, float dt, const Vector3f& gains = Vector3f( 1.0f, 1.0f, 1.0f ) ) {
 		ApplyDeadBand( deltaP );
 		ApplyDeadBand( deltaI );
 		ApplyDeadBand( deltaD );
 
 		T proportional = deltaP;
-		mIntegral += deltaI * dt;
+		if constexpr (std::is_same_v<T, float> ) {
+			mIntegral = std::clamp( mIntegral + deltaI * dt, -mIntegralLimit, mIntegralLimit );
+		} else {
+			mIntegral = ( mIntegral + deltaI * dt ).clamped( Vector3f(-mIntegralLimit, -mIntegralLimit, -mIntegralLimit), Vector3f(mIntegralLimit, mIntegralLimit, mIntegralLimit) );
+		}
 		T derivative = ( deltaD - mLastDerivativeDelta ) / dt;
 		float pGain = gains[0] * mkPID[0];
 		float iGain = gains[1] * mkPID[1];
@@ -134,6 +149,7 @@ private:
 	Vector3f mkPID;
 	T mState;
 	T mDeadBand;
+	T mIntegralLimit;
 };
 
 #endif // PID_H

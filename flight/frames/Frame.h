@@ -43,7 +43,7 @@ public:
 	virtual void Arm();
 	virtual void Disarm() = 0;
 	virtual void WarmUp() = 0;
-	virtual bool Stabilize( const Vector3f& pid_output, float thrust ) = 0;
+	virtual bool Stabilize( const Vector3f& pid_output, float thrust, float dt = 0.0f ) = 0;
 
 	void CalibrateESCs();
 	void MotorTest( uint32_t id );

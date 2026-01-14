@@ -1,9 +1,11 @@
+#include <execinfo.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <cmath>
 #include <algorithm>
+#include <sstream>
 #include <dlfcn.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -242,7 +244,7 @@ static int LuaLoadFile( lua_State* L )
 	int32_t ret = luaL_loadfilex( L, filename.c_str(), nullptr );
 // 	printf("ret : %d\n", ret );
 	if ( ret != 0 ) {
-		std::cout << "ERROR : " << lua_tostring( L, -1 );
+		std::cout << "Lua::LoadFile ERROR : " << lua_tostring( L, -1 );
 		return -1;
 	}
 	return 1;
@@ -267,7 +269,7 @@ int Lua::Traceback( lua_State* L )
 		return string("    in ") + name + "(" + args + ") at " + entry.short_src + ":" + to_string(entry.currentline);
 	};
 
-	std::cout << "ERROR : " << "Stack trace :";
+	std::cout << "ERROR : " << "Stack trace :\n";
 
 	lua_Debug entry;
 	int depth = 1;
@@ -299,6 +301,7 @@ int Lua::Traceback( lua_State* L )
 
 int Lua::CallError( lua_State* L )
 {
+	printf( "CallError\n" );
 	// fDebug();
 	Lua* state = Lua::states()[L];
 	const char* message = lua_tostring( L, 1 );
@@ -506,32 +509,34 @@ int32_t Lua::do_file( const string& filename_, const string& path_tip )
 	int lua_top_base = lua_gettop( mLuaState );
 	// fDebug( filename_, path_tip, " => " + filename );
 	if ( access( filename.c_str(), R_OK ) == -1 ) {
-		std::cout << "ERROR : " << "Cannot open file " << filename_ << " : " << strerror(errno) << "\n";
+		std::cout << "Lua::do_file ERROR(1) : " << "Cannot open file " << filename_ << " : " << strerror(errno) << "\n";
 		mMutex.unlock();
 		return -1;
 	}
 // 	std::cout << "luaL_loadfilex( mLuaState, " << filename << ", nullptr )";
 	int32_t ret = luaL_loadfilex( mLuaState, filename.c_str(), nullptr );
 	if ( ret != 0 ) {
-		std::cout << "ERROR : " << lua_tostring( mLuaState, -1 ) << "\n";
+		std::cout << "Lua::do_file ERROR(2) : " << lua_tostring( mLuaState, -1 ) << "\n";
 		mMutex.unlock();
 		return -1;
 	}
 	mLastCallName = "";
-	ret = lua_pcall( mLuaState, 0, LUA_MULTRET, -2 );
-	if ( ret != 0 ) {
-		std::cout << "ERROR : " << lua_tostring( mLuaState, -1 ) << "\n";
-		mMutex.unlock();
-		return -1;
-	} else {
-		if ( mOpenedFiles.count( filename ) == 0 ) {
-			mOpenedFiles.emplace( filename );
+	try {
+		ret = lua_pcall( mLuaState, 0, LUA_MULTRET, lua_top_base );
+		if ( ret != 0 ) {
+			std::cout << "Lua::do_file ERROR(3) : " << lua_tostring( mLuaState, -1 ) << "\n";
+			ret = -1;
+		} else {
+			if ( mOpenedFiles.count( filename ) == 0 ) {
+				mOpenedFiles.emplace( filename );
+			}
+			ret = lua_gettop( mLuaState ) - lua_top_base;
 		}
-		int32_t ret = lua_gettop( mLuaState ) - lua_top_base;
-		mMutex.unlock();
-		return ret;
+	} catch ( const std::exception& e ) {
+		std::cout << "Lua::do_file ERROR(4) : " << e.what() << "\n";
+		ret = -1;
 	}
-// 	mMutex.unlock();
+	mMutex.unlock();
 	return ret;
 
 /*
@@ -836,7 +841,7 @@ LuaValue Lua::CallFunction( const string& func, const vector<LuaValue>& args )
 
 	int ret = lua_pcall( mLuaState, nArgs, LUA_MULTRET, -2 - nArgs );
 	if ( ret != 0 ) {
-		std::cout << "ERROR : " << lua_tostring( mLuaState, -1 );
+		std::cout << "Lua::CallFunction ERROR : " << lua_tostring( mLuaState, -1 );
 		lua_pop( mLuaState, -1 );
 	} else {
 		int32_t nRets = ( lua_gettop( mLuaState ) - 1 ) - lua_top_base;

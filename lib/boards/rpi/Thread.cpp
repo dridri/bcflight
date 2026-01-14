@@ -135,7 +135,10 @@ void Thread::ThreadEntry()
 				cpu_set_t cpuset;
 				CPU_ZERO( &cpuset );
 				CPU_SET( mAffinity, &cpuset );
-				sched_setaffinity( 0, sizeof(cpu_set_t), &cpuset );
+				int ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpuset );
+				if ( ret != 0 ) {
+					gWarning() << "Failed to set affinity for thread " << mName << ": " << strerror( ret );
+				}
 			}
 		}
 		if ( mFrequency > 0 ) {

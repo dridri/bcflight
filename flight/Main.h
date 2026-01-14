@@ -44,7 +44,7 @@ class Main
 {
 public:
 	static int flight_entry( int ac, char** av );
-	Main();
+	Main( int ac = 0, char** av = nullptr );
 	~Main();
 
 	const bool ready() const;

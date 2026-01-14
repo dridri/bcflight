@@ -52,7 +52,7 @@ LuaValue LuaInterface::CallMember( const string& funcname, const vector<LuaValue
 	LuaValue value_ret;
 	int ret = lua_pcall( L, nArgs, LUA_MULTRET, -3 - nArgs );
 	if ( ret != 0 ) {
-		std::cout << "ERROR : " << lua_tostring( L, -1 );
+		std::cout << "Lua error : " << lua_tostring( L, -1 );
 		lua_pop( L, -1 );
 	} else {
 		int32_t nRets = ( lua_gettop( L ) - 1 ) - lua_top_base;

@@ -65,12 +65,12 @@ Main* Main::instance()
 
 int Main::flight_entry( int ac, char** av )
 {
-	new Main();
+	new Main( ac, av );
 	return 0;
 }
 
 
-Main::Main()
+Main::Main( int ac, char** av )
 	: mReady( false )
 	, mLPS( 0 )
 	, mLPSCounter( 0 )
@@ -107,6 +107,15 @@ Main::Main()
 #elif defined( SYSTEM_NAME_Linux )
 	mConfig = new Config( "/var/flight/config.lua", "/var/flight/settings.lua" );
 #endif
+	for ( int i = 1; i < ac; i++ ) {
+		gDebug() << "argv[" << i << "] = " << av[i];
+		const string arg = string(av[i]);
+		const string key = arg.substr( 0, arg.find( "=" ) );
+		if ( key.substr( 0, 2 ) == "--" ) {
+			const string value = arg.substr( arg.find( "=" ) + 1 );
+			mConfig->addOverride( key.substr( 2 ), value );
+		}
+	}
 	mConfig->Reload();
 	Debug::setDebugLevel( static_cast<Debug::Level>( mConfig->Integer( "debug_level", 3 ) ) );
 	Board::InformLoading();
@@ -165,7 +174,7 @@ Main::Main()
 	mStabilizerThread->setFrequency( 100 );
 	mTicks = mBoard->GetTicks();
 	mStabilizerThread->Start();
-	mStabilizerThread->setPriority( 99, -1, true );
+	mStabilizerThread->setPriority( 99, 3, true );
 #endif // BUILD_stabilizer
 
 #ifdef SYSTEM_NAME_Linux
@@ -203,12 +212,14 @@ bool Main::StabilizerThreadRun()
 #ifdef BUILD_stabilizer
 	uint64_t tick = mBoard->GetTicks();
 	float dt = ((float)( tick - mTicks ) ) / 1000000.0f;
-	mTicks = mBoard->GetTicks();
+	mTicks = tick;
 
-	if ( abs( dt ) >= 1.0 ) {
-		gWarning() << "Critical : dt too high !! ( " << dt << " )";
-// 		mFrame->Disarm();
-		return true;
+	// Limit dT to 2x the loop time
+	const float loopFreq = mStabilizerThread->frequency();
+	const float dtMax = 1.0f / loopFreq * 2.0f;
+	if ( abs( dt ) >= dtMax ) {
+		// gWarning() << "dt clamped from " << dt << " to " << dtMax;
+		dt = dtMax;
 	}
 
 	mIMU->Loop( tick, dt );

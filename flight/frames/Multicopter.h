@@ -14,11 +14,12 @@ public:
 	void Arm();
 	void Disarm();
 	void WarmUp();
-	virtual bool Stabilize( const Vector3f& pid_output, float thrust );
+	virtual bool Stabilize( const Vector3f& pid_output, float thrust, float dt = 0.0f ) override;
 
 protected:
 	vector< float > mStabSpeeds;
 	LUA_PROPERTY("maxspeed") float mMaxSpeed;
+	LUA_PROPERTY("motor_slew_time") float mMotorSlewTime;
 	LUA_PROPERTY("test") float mTest;
 	LUA_PROPERTY("air_mode.trigger") float mAirModeTrigger;
 	LUA_PROPERTY("air_mode.speed") float mAirModeSpeed;

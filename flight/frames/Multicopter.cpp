@@ -12,6 +12,7 @@
 Multicopter::Multicopter()
 	: Frame()
 	, mMaxSpeed( 1.0f )
+	, mMotorSlewTime( 0.0f )
 	, mAirModeTrigger( 1.0f )
 	, mAirModeSpeed( 0.0f )
 	// , mAirModeTrigger( config->Number( "frame.air_mode.trigger", 0.35f ) )
@@ -113,7 +114,7 @@ void Multicopter::WarmUp()
 }
 
 
-bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust )
+bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust, float dt )
 {
 	if ( not mArmed ) {
 		return false;
@@ -153,6 +154,13 @@ bool Multicopter::Stabilize( const Vector3f& pid_output, float thrust )
 		for ( uint32_t i = 0; i < mMotors.size(); i++ ) {
 			float v = mStabSpeeds[i];
 			mStabSpeeds[i] = expected_min + ( mStabSpeeds[i] - expected_min ) * stab_multiplier;
+			// Apply motor slew rate limiting if enabled (mMotorSlewTime in ms)
+			if ( mMotorSlewTime > 0.0f && dt > 0.0f ) {
+				float currentSpeed = mMotors[i]->speed();
+				float maxChange = dt * 1000.0f / mMotorSlewTime;
+				float delta = std::clamp( mStabSpeeds[i] - currentSpeed, -maxChange, maxChange );
+				mStabSpeeds[i] = currentSpeed + delta;
+			}
 			mMotors[i]->setSpeed( mStabSpeeds[i], ( i >= mMotors.size() - 1 ) );
 		}
 

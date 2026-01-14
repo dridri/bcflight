@@ -21,6 +21,7 @@
 
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #include <ostream>
 #ifdef LUA_CLASS
 #include <Lua.h>
@@ -162,6 +163,21 @@ public:
 		if ( l > 0.00001f ) {
 			T il = 1 / l;
 			VEC_IM( ret. , this-> , * , il );
+		}
+		return ret;
+	}
+
+	Vector<T,n> clamped(const Vector<T,n>& min, const Vector<T,n>& max) {
+		Vector<T,n> ret;
+		ret.x = std::clamp( x, min.x, max.x );
+		if ( n > 1 ) {
+			ret.y = std::clamp( y, min.y, max.y );
+			if ( n > 2 ) {
+				ret.z = std::clamp( z, min.z, max.z );
+				if ( n > 3 ) {
+					ret.w = std::clamp( w, min.w, max.w );
+				}
+			}
 		}
 		return ret;
 	}

@@ -301,11 +301,11 @@ uint16_t ControllerClient::Joystick::ReadRaw( float dt )
 		return 0;
 	}
 	uint32_t raw = mADC->Read( mADCChannel, dt );
-	if ( raw == 0 ) {
-		return 0;
-	}
 	if ( mInverse ) {
 		raw = 4096 - raw;
+	}
+	if ( (int32_t)raw <= 0 || (int32_t)raw >= 4096 ) {
+		return 0;
 	}
 	// if ( raw != 0 ) {
 	// 	mLastRaw = mLastRaw * 0.5f + raw * 0.5f;

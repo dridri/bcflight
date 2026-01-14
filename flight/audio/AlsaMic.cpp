@@ -146,7 +146,7 @@ void AlsaMic::Setup()
 
 	mLiveThread = new HookThread<AlsaMic>( "microphone", this, &AlsaMic::LiveThreadRun );
 	mLiveThread->Start();
-	mLiveThread->setPriority( 90, 3 );
+	mLiveThread->setPriority( 90, 2 );
 }
 
 

@@ -26,6 +26,12 @@
 #include "Config.h"
 #include "Stabilizer.h"
 
+
+constexpr float lerp(float a, float b, float t) {
+	return a + t * (b - a);
+}
+
+
 Stabilizer::Stabilizer()
 	: mMain( Main::instance() )
 	, mFrame( nullptr )
@@ -45,6 +51,7 @@ Stabilizer::Stabilizer()
 	, mAntiGravityThreshold( 0.0f )
 	, mAntiGravityDecay( 10.0f )
 	, mAntigravityThrustAccum( 0.0f )
+	, mAntiWindup( 0.0f )
 	, mArmed( false )
 	, mFilteredRPYDerivative( Vector3f() )
 	, mLockState( 0 )
@@ -298,7 +305,7 @@ void Stabilizer::Update( IMU* imu, float dt )
 
 	// We didn't take off yet (or really close to ground just after take-off), so we bypass stabilization, and just return
 	if ( mFrame->airMode() == false and mThrust <= 0.15f ) {
-		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), mThrust );
+		mFrame->Stabilize( Vector3f( 0.0f, 0.0f, 0.0f ), mThrust, dt );
 		return;
 	}
 
@@ -335,6 +342,8 @@ void Stabilizer::Update( IMU* imu, float dt )
 	}
 
 	switch ( mMode ) {
+		case ReturnToHome :
+		case Follow :
 		case Stabilize : {
 			Vector3f drone_state = imu->RPY();
 			Vector3f control_angles = mRPY;
@@ -350,8 +359,6 @@ void Stabilizer::Update( IMU* imu, float dt )
 			rate_control.z = mRPY.z * mRateFactor; // TEST : Bypass heading for now
 			break;
 		}
-		case ReturnToHome :
-		case Follow :
 		case Rate :
 		default : {
 			rate_control = mRPY * mRateFactor;
@@ -359,15 +366,26 @@ void Stabilizer::Update( IMU* imu, float dt )
 		}
 	}
 
+	std::vector<float> motorSpeeds;
+	for ( const auto& motor : *mFrame->motors() ) {
+		motorSpeeds.push_back( motor->speed() );
+	}
+	float satHigh = *std::max_element( motorSpeeds.begin(), motorSpeeds.end() );
+	float satLow = *std::min_element( motorSpeeds.begin(), motorSpeeds.end() );
+	float motorSaturation = std::max( satHigh, 1.0f - satLow );
+	float antiWindupValue = 1.0f - motorSaturation;
 	float deltaR = rate_control.x - rates.x;
 	float deltaP = rate_control.y - rates.y;
 	float deltaY = rate_control.z - rates.z;
+	float deltaRi = deltaR * lerp( 1.0f, antiWindupValue, mAntiWindup );
+	float deltaPi = deltaP * lerp( 1.0f, antiWindupValue, mAntiWindup );
+	float deltaYi = deltaY * lerp( 1.0f, antiWindupValue, mAntiWindup );
 	float deltaRd = rate_control.x - mFilteredRPYDerivative.x;
 	float deltaPd = rate_control.y - mFilteredRPYDerivative.y;
 	float deltaYd = rate_control.z - mFilteredRPYDerivative.z;
-	mRateRollPID.Process( deltaR, deltaR, deltaRd, dt, rollPIDMultiplier );
-	mRatePitchPID.Process( deltaP, deltaP, deltaPd, dt, pitchPIDMultiplier );
-	mRateYawPID.Process( deltaY, deltaY, deltaYd, dt, yawPIDMultiplier );
+	mRateRollPID.Process( deltaR, deltaRi, deltaRd, dt, rollPIDMultiplier );
+	mRatePitchPID.Process( deltaP, deltaPi, deltaPd, dt, pitchPIDMultiplier );
+	mRateYawPID.Process( deltaY, deltaYi, deltaYd, dt, yawPIDMultiplier );
 
 	float thrust = mThrust;
 /*
@@ -390,7 +408,7 @@ void Stabilizer::Update( IMU* imu, float dt )
 
 	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", ratePID );
 
-	if ( mFrame->Stabilize( ratePID, thrust ) == false ) {
+	if ( mFrame->Stabilize( ratePID, thrust, dt ) == false ) {
 		gDebug() << "stab error";
 		Reset( imu->RPY().z );
 	}

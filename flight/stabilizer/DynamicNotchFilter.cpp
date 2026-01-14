@@ -2,13 +2,13 @@
 #include <Main.h>
 #include <IMU.h>
 #include "DynamicNotchFilter.h"
-#include "BiquadFilter.h"
+#include "SVFFilter.h"
 #include <fftw3.h>
 
 
 template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_t n )
 	: Filter<V>()
-	, mMinFreq( 100 )
+	, mMinFreq( 50 )
 	, mMaxFreq( 600 )
 	, mN( n )
 	, mState( V() )
@@ -21,6 +21,7 @@ template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_
 	mFixedDt = 1.0f / nSamples;
 	mNumSamples = std::min( nSamples, 512U );
 	mSampleResolution = nSamples / mNumSamples;
+	mDFTs.resize( n );
 	mDFTs.reserve( n );
 	for ( uint8_t i = 0; i < n; i++ ) {
 		mDFTs[i].input = (float*)fftwf_malloc( sizeof(float) * mNumSamples );
@@ -29,8 +30,10 @@ template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_
 		mDFTs[i].plan = fftwf_plan_dft_r2c_1d( mNumSamples, mDFTs[i].inputBuffer, mDFTs[i].output, FFTW_ESTIMATE );
 		mDFTs[i].magnitude = (float*)fftwf_malloc( sizeof(float) * ( mNumSamples / 2 + 1 ) );
 		mPeakFilters.push_back( std::vector<PeakFilter>() );
+		mPeakFilters[i].resize( DYNAMIC_NOTCH_COUNT );
 		mPeakFilters[i].reserve( DYNAMIC_NOTCH_COUNT );
 		for ( uint8_t p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
+			// mPeakFilters[i][p].filter = new SVFFilter<float>( 0.707f );
 			mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
 		}
 	}
@@ -184,6 +187,7 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 	const int peakDetectionSurround = 2;
 	std::vector<Peak>* peaks = new std::vector<Peak>[mN];
 	for ( uint8_t i = 0; i < mN; i++ ) {
+		peaks[i].resize( DYNAMIC_NOTCH_COUNT );
 		peaks[i].reserve( DYNAMIC_NOTCH_COUNT );
 		memset( peaks[i].data(), 0, sizeof(Peak) * DYNAMIC_NOTCH_COUNT );
 		for ( uint32_t j = binMin + peakDetectionSurround; j < binMax - peakDetectionSurround; j++ ) {
@@ -257,10 +261,13 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 		// noiseFloor[i] *= 2.0f;
 	}
 
-	// Vector4i peaksI;
+	BlackBox* bb = Main::instance()->blackbox();
+	std::vector<float> centerFrequencies;
+	centerFrequencies.resize( DYNAMIC_NOTCH_COUNT );
 
 	//  Process peaks
 	for ( uint8_t i = 0; i < mN; i++ ) {
+		memset( centerFrequencies.data(), 0, sizeof(float) * DYNAMIC_NOTCH_COUNT );
 		// const std::vector<float>& dft = mDFTs[i].magnitude;
 		const std::vector<Peak>& axisPeaks = peaks[i];
 		for ( int p = 0; p < peaksCount[i]; p++ ) {
@@ -294,15 +301,29 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 			// printf( "%.2f → %.2f\n", peakFilter->centerFrequency, centerFrequency );
 			// peakFilter->centerFrequency += gain * ( centerFrequency - peakFilter->centerFrequency );
 			peakFilter->filter->setCenterFrequency( centerFrequency, 0.1f * smoothCutoff * dT );
+			if ( i == 0 ) {
+				centerFrequencies[p] = peakFilter->filter->centerFrequency();
+				// if ( p == 0 ) {
+					// gDebug() << "centerFrequency: " << centerFrequencies[p];
+				// }
+			}
 			// if ( i == 2 ) {
 			// 	peaksI[p] = int(peakFilter->filter->centerFrequency());
 			// }
 		}
+		if ( bb != nullptr ) {
+			bb->Enqueue( "DynamicNotchFilter:centerFrequencies[" + std::to_string(i) + "]", centerFrequencies );
+		}
 	}
-
-	// char dbgPeaks[64];
-	// sprintf( dbgPeaks, "{ % 4d, % 4d, % 4d, % 4d } [ %2.2f ]", peaksI.x, peaksI.y, peaksI.z, peaksI.w, noiseFloor[2] );
-	// gDebug() + "peaks : " + std::string(dbgPeaks);
+/*
+	static int cc = 0;
+	if ( (++cc) % 100 == 0 ) {
+		char dbgPeaks[64];
+		sprintf( dbgPeaks, "{ % 4.2f, % 4.2f, % 4.2f, % 4.2f } [ %2.2f ]", centerFrequencies[0], centerFrequencies[1], centerFrequencies[2], centerFrequencies[3], noiseFloor[2] );
+		gDebug() + "peaks : " + std::string(dbgPeaks);
+		cc = 0;
+	}
+*/
 
 	delete[] noiseFloor;
 	delete[] peaksCount;

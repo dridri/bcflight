@@ -1,11 +1,12 @@
 #pragma once
 
 #include <cassert>
+#include "BiquadFilter.h"
 #include "Lua.h"
 #include "Filter.h"
 #include "Debug.h"
 #include <Thread.h>
-#include <BiquadFilter.h>
+#include <SVFFilter.h>
 
 typedef struct fftwf_plan_s* fftwf_plan;
 typedef float fftwf_complex[2];
@@ -50,7 +51,7 @@ protected:
 		float magnitude;
 	} Peak;
 	typedef struct PeakFilter {
-		// float centerFrequency;
+		// SVFFilter<float>* filter;
 		BiquadFilter<float>* filter;
 	} PeakFilter;
 

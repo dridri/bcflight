@@ -100,6 +100,7 @@ protected:
 	LUA_PROPERTY("anti_gravity.threshold") float mAntiGravityThreshold;
 	LUA_PROPERTY("anti_gravity.decay") float mAntiGravityDecay;
 	float mAntigravityThrustAccum;
+	LUA_PROPERTY("anti_windup") float mAntiWindup;
 
 	bool mArmed;
 	Vector4f mExpo;

@@ -286,12 +286,13 @@ static std::string _debug_date() {
 
 	time_t rawtime;
 	struct tm* timeinfo;
+	char temp[64];
 	char buffer[64];
 
 	time( &rawtime );
 	timeinfo = localtime( &rawtime );
-	strftime( buffer, 63, "[%Y-%m-%d %H:%M:%S", timeinfo );
-	sprintf( buffer, "%s:%03d] ", buffer, milliseconds.count() );
+	strftime( temp, 63, "[%Y-%m-%d %H:%M:%S", timeinfo );
+	sprintf( buffer, "%s:%03lld] ", temp, milliseconds.count() );
 	return buffer;
 }
 
