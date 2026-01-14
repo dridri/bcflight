@@ -33,7 +33,7 @@ PFNGLACTIVETEXTUREPROC glActiveTexture = 0;
 #endif
 
 Stream::Stream( QWidget* parent )
-	: QGLWidget( parent )
+	: QOpenGLWidget( parent )
 	, mStreamThread( new StreamThread( this ) )
 	, mAudioThread( new AudioThread( this ) )
 	, mMainWindow( nullptr )
@@ -72,7 +72,7 @@ Stream::Stream( QWidget* parent )
 	mAudioThread->start();
 	mStreamThread->setPriority( QThread::TimeCriticalPriority );
 	mAudioThread->setPriority( QThread::TimeCriticalPriority );
-	connect( this, SIGNAL( repaintEmitter() ), this, SLOT( repaintReceiver() ) );
+	connect( this, &Stream::repaintEmitter, this, &Stream::repaintReceiver );
 
 	qDebug() << "WelsCreateDecoder :" << WelsCreateDecoder( &mDecoder );
 	SDecodingParam decParam;
@@ -170,12 +170,13 @@ void Stream::paintEvent( QPaintEvent* ev )
 }
 */
 
-
-void Stream::paintGL()
+void Stream::initializeGL()
 {
+	initializeOpenGLFunctions();
+
 	if ( not mShader ) {
-		mShader = new QGLShaderProgram();
-		mShader->addShaderFromSourceCode( QGLShader::Vertex, R"(
+		mShader = new QOpenGLShaderProgram();
+		mShader->addShaderFromSourceCode( QOpenGLShader::Vertex, R"(
 			attribute highp vec2 vertex;
 			attribute highp vec2 tex;
 			varying vec2 texcoords;
@@ -183,7 +184,7 @@ void Stream::paintGL()
 				texcoords = vec2( tex.s, 1.0 - tex.t );
 				gl_Position = vec4( vertex, 0.0, 1.0 );
 			})" );
-		mShader->addShaderFromSourceCode( QGLShader::Fragment, R"(
+		mShader->addShaderFromSourceCode( QOpenGLShader::Fragment, R"(
 			uniform sampler2D texY;
 			uniform sampler2D texU;
 // 			uniform sampler2D texV;
@@ -239,6 +240,11 @@ void Stream::paintGL()
 		mExposureID = mShader->uniformLocation( "exposure_value" );
 		mGammaID = mShader->uniformLocation( "gamma_compensation" );
 	}
+}
+
+
+void Stream::paintGL()
+{
 // 	if ( mY.tex == 0 and mU.tex == 0 and mV.tex == 0 and mY.stride > 0 and mY.height > 0 ) {
 	if ( mY.tex == 0 or mU.tex == 0 or mY.stride != mWidth or mY.height != mHeight ) {
 		if ( mY.tex ) {
@@ -249,7 +255,7 @@ void Stream::paintGL()
 		}
 		mWidth = mY.stride;
 		mHeight = mY.height;
-		printf( "====> SIZE : %d x %d\n", mY.stride, mY.height );
+		// printf( "====> SIZE : %d x %d\n", mY.stride, mY.height );
 		glGenTextures( 1, &mY.tex );
 		glBindTexture( GL_TEXTURE_2D, mY.tex );
 		glTexImage2D( GL_TEXTURE_2D, 0, GL_R8, mY.stride, mY.height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL );
@@ -328,7 +334,7 @@ void Stream::paintGL()
 
 void Stream::repaintReceiver()
 {
-	repaint();
+	update();
 }
 
 
@@ -425,7 +431,7 @@ void Stream::DecodeFrame( const uint8_t* src, size_t sliceSize )
 	memset( &bufInfo, 0, sizeof(SBufferInfo) );
 
 	DECODING_STATE ret = mDecoder->DecodeFrameNoDelay( src, (int)sliceSize, data, &bufInfo );
-	// printf( "        DecodeFrameNoDelay returned %08X\n", ret );
+	// printf( "        DecodeFrameNoDelay returned %08X (%d)\n", ret, bufInfo.iBufferStatus );
 
 	if ( bufInfo.iBufferStatus == 1 ) {
 		mY.stride = bufInfo.UsrData.sSystemBuffer.iStride[0];

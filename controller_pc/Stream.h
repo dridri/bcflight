@@ -23,8 +23,9 @@
 #include <QtCore/QThread>
 #include <QtCore/QElapsedTimer>
 #include <QtWidgets/QWidget>
-#include <QtOpenGL/QGLWidget>
-#include <QtOpenGL/QGLShaderProgram>
+#include <QtWidgets/QOpenGLWidget>
+#include <QOpenGLShaderProgram>
+#include <QOpenGLFunctions>
 #include <QtGui/QPaintEvent>
 #include <QtGui/QImage>
 #include <QtMultimedia/QAudioOutput>
@@ -37,7 +38,7 @@ extern "C" {
 
 class MainWindow;
 
-class Stream : public QGLWidget
+class Stream : public QOpenGLWidget, protected QOpenGLFunctions
 {
 	Q_OBJECT
 
@@ -50,7 +51,8 @@ public:
 	int32_t fps();
 
 protected:
-	virtual void paintGL();
+	virtual void initializeGL() override;
+	virtual void paintGL() override;
 	virtual void mouseDoubleClickEvent( QMouseEvent * e );
 	virtual void closeEvent( QCloseEvent* e );
 	bool run();
@@ -102,7 +104,7 @@ private:
 	Plane mV;
 	QImage mImage;
 	QMutex mMutex;
-	QGLShaderProgram* mShader;
+	QOpenGLShaderProgram* mShader;
 	uint32_t mFpsCounter;
 	uint32_t mFps;
 	QElapsedTimer mFpsTimer;

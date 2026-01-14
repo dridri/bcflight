@@ -438,12 +438,14 @@ void MainWindow::updateData()
 		plot( ui->magnetometer, mController->magnetometerHistory(), mDataTmagnetometer, mDataMagnetometerX, mDataMagnetometerY, mDataMagnetometerZ );
 		plot( ui->rates_dterm, mController->ratesDerivativeHistory(), mDataTratesdterm, mDataRatesdtermX, mDataRatesdtermY, mDataRatesdtermZ );
 
-		mDataTAltitude.append( mController->altitudeHistory().back().y );
-		mDataAltitude.append( mController->altitudeHistory().back().x );
-		ui->altitude->graph(0)->setData( mDataTAltitude, mDataAltitude );
-		ui->altitude->graph(0)->rescaleAxes();
-		ui->altitude->xAxis->rescale();
-		ui->altitude->replot();
+		if ( mController->altitudeHistory().size() > 0 ) {
+			mDataTAltitude.append( mController->altitudeHistory().back().y );
+			mDataAltitude.append( mController->altitudeHistory().back().x );
+			ui->altitude->graph(0)->setData( mDataTAltitude, mDataAltitude );
+			ui->altitude->graph(0)->rescaleAxes();
+			ui->altitude->xAxis->rescale();
+			ui->altitude->replot();
+		}
 
 		if ( mController->isConnected() and /*not mController->isSpectate() and*/ ( not mPIDsOk or ( ui->rateP->value() == 0.0f and ui->rateI->value() == 0.0f and ui->rateD->value() == 0.0f and ui->horizonP->value() == 0.0f and ui->horizonI->value() == 0.0f and ui->horizonD->value() == 0.0f ) ) ) {
 			mPIDsReading = true;
