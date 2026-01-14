@@ -108,6 +108,9 @@ public:
 	T state() const {
 		return mState;
 	}
+	T integral() const {
+		return mIntegral;
+	}
 	Vector3f getPID() const {
 		return mkPID;
 	}

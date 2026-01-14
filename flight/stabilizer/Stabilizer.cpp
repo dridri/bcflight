@@ -51,7 +51,8 @@ Stabilizer::Stabilizer()
 	, mAntiGravityThreshold( 0.0f )
 	, mAntiGravityDecay( 10.0f )
 	, mAntigravityThrustAccum( 0.0f )
-	, mAntiWindup( 0.0f )
+	, mAntiWindupThreshold( 0.85f )
+	, mAntiWindupFactor( 1.0f )
 	, mArmed( false )
 	, mFilteredRPYDerivative( Vector3f() )
 	, mLockState( 0 )
@@ -319,9 +320,9 @@ void Stabilizer::Update( IMU* imu, float dt )
 	if ( mTPAThreshold > 0.0f and mTPAThreshold < 1.0f ) {
 		float tpa = ( ( mThrust - mTPAThreshold ) / ( 1.0f - mTPAThreshold ) ) * mTPAMultiplier;
 		Vector3f tpaPID = Vector3f(
-			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
-			1.0f - 0.25f * std::max( 0.0f, std::min( 1.0f, tpa ) ),
-			1.0f - std::max( 0.0f, std::min( 1.0f, tpa ) )
+			1.0f - 0.25f * std::clamp( tpa, 0.0f, 1.0f ),
+			1.0f - 0.25f * std::clamp( tpa, 0.0f, 1.0f ),
+			1.0f - std::clamp( tpa, 0.0f, 1.0f )
 		);
 		rollPIDMultiplier = rollPIDMultiplier * tpaPID;
 		pitchPIDMultiplier = pitchPIDMultiplier * tpaPID;
@@ -370,16 +371,23 @@ void Stabilizer::Update( IMU* imu, float dt )
 	for ( const auto& motor : *mFrame->motors() ) {
 		motorSpeeds.push_back( motor->speed() );
 	}
+
+	// Anti-windup with progressive transition
+	// No effect below 85%, linear transition from 85% to 100%
 	float satHigh = *std::max_element( motorSpeeds.begin(), motorSpeeds.end() );
 	float satLow = *std::min_element( motorSpeeds.begin(), motorSpeeds.end() );
-	float motorSaturation = std::max( satHigh, 1.0f - satLow );
-	float antiWindupValue = 1.0f - motorSaturation;
+	float motorSaturation = std::clamp( std::max( satHigh, 1.0f - satLow ), 0.0f, 1.0f );
+	float antiWindupValue = 1.0f;
+	if ( motorSaturation > mAntiWindupThreshold ) {
+		float saturationFactor = ( motorSaturation - mAntiWindupThreshold ) / ( 1.0f - mAntiWindupThreshold );
+		antiWindupValue = 1.0f - saturationFactor;  // Linear from 1.0 at mAntiWindupThreshold (default 85%) to 0.0 at 100%
+	}
 	float deltaR = rate_control.x - rates.x;
 	float deltaP = rate_control.y - rates.y;
 	float deltaY = rate_control.z - rates.z;
-	float deltaRi = deltaR * lerp( 1.0f, antiWindupValue, mAntiWindup );
-	float deltaPi = deltaP * lerp( 1.0f, antiWindupValue, mAntiWindup );
-	float deltaYi = deltaY * lerp( 1.0f, antiWindupValue, mAntiWindup );
+	float deltaRi = deltaR * lerp( 1.0f, antiWindupValue, mAntiWindupFactor );
+	float deltaPi = deltaP * lerp( 1.0f, antiWindupValue, mAntiWindupFactor );
+	float deltaYi = deltaY * lerp( 1.0f, antiWindupValue, mAntiWindupFactor );
 	float deltaRd = rate_control.x - mFilteredRPYDerivative.x;
 	float deltaPd = rate_control.y - mFilteredRPYDerivative.y;
 	float deltaYd = rate_control.z - mFilteredRPYDerivative.z;
@@ -405,8 +413,11 @@ void Stabilizer::Update( IMU* imu, float dt )
 	}
 */
 	Vector3f ratePID( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
+	Vector3f rateIntegral( mRateRollPID.integral(), mRatePitchPID.integral(), mRateYawPID.integral() );
 
-	Main::instance()->blackbox()->Enqueue( "Stabilizer:ratePID", ratePID );
+	const std::string keys[4] = { "Stabilizer:ratePID", "Stabilizer:rateIntegral", "Stabilizer:extras" };
+	const Vector4f values[4] = { ratePID, rateIntegral, Vector3f( mAntigravityThrustAccum, motorSaturation, antiWindupValue ) };
+	Main::instance()->blackbox()->Enqueue( keys, values, 3 );
 
 	if ( mFrame->Stabilize( ratePID, thrust, dt ) == false ) {
 		gDebug() << "stab error";

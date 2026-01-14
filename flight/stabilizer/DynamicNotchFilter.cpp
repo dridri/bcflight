@@ -295,35 +295,14 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 				continue;
 			}
 			float smoothCutoff = 4.0f * std::clamp( axisPeaks[p].magnitude / noiseFloor[i], 1.0f, 10.0f );
-			// float gain = 2.0f * float(M_PI) * smoothCutoff * dT;
-			// gain = 0.5f * ( gain / ( gain + 1.0f ) );
 			float centerFrequency = axisPeaks[p].frequency * float(mNumSamples * mSampleResolution); // * 2.0f;
-			// printf( "%.2f → %.2f\n", peakFilter->centerFrequency, centerFrequency );
-			// peakFilter->centerFrequency += gain * ( centerFrequency - peakFilter->centerFrequency );
 			peakFilter->filter->setCenterFrequency( centerFrequency, 0.1f * smoothCutoff * dT );
-			if ( i == 0 ) {
-				centerFrequencies[p] = peakFilter->filter->centerFrequency();
-				// if ( p == 0 ) {
-					// gDebug() << "centerFrequency: " << centerFrequencies[p];
-				// }
-			}
-			// if ( i == 2 ) {
-			// 	peaksI[p] = int(peakFilter->filter->centerFrequency());
-			// }
+			centerFrequencies[p] = peakFilter->filter->centerFrequency();
 		}
 		if ( bb != nullptr ) {
 			bb->Enqueue( "DynamicNotchFilter:centerFrequencies[" + std::to_string(i) + "]", centerFrequencies );
 		}
 	}
-/*
-	static int cc = 0;
-	if ( (++cc) % 100 == 0 ) {
-		char dbgPeaks[64];
-		sprintf( dbgPeaks, "{ % 4.2f, % 4.2f, % 4.2f, % 4.2f } [ %2.2f ]", centerFrequencies[0], centerFrequencies[1], centerFrequencies[2], centerFrequencies[3], noiseFloor[2] );
-		gDebug() + "peaks : " + std::string(dbgPeaks);
-		cc = 0;
-	}
-*/
 
 	delete[] noiseFloor;
 	delete[] peaksCount;
