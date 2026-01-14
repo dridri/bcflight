@@ -19,6 +19,7 @@ static const std::map< AvcodecEncoder::Format, std::string > formatToString = {
 
 AvcodecEncoder::AvcodecEncoder()
 	: VideoEncoder()
+	, mFormat( FORMAT_H264 )
 {
 }
 
@@ -34,8 +35,18 @@ void AvcodecEncoder::Setup()
 	mReady = true;
 	avformat_network_init();
 
-	// Find the H.264 encoder
-	mCodec = avcodec_find_encoder( AV_CODEC_ID_H264 );
+	// Find the encoder according to format
+	switch ( mFormat ) {
+		case FORMAT_H264:
+			mCodec = avcodec_find_encoder( AV_CODEC_ID_H264 );
+			break;
+		case FORMAT_MJPEG:
+			mCodec = avcodec_find_encoder( AV_CODEC_ID_MJPEG );
+			break;
+		default:
+			gError() << "Unsupported format";
+			return;
+	}
 	if ( !mCodec ) {
 		gError() << "Codec not found";
 		return;
@@ -48,30 +59,46 @@ void AvcodecEncoder::Setup()
 		return;
 	}
 
-	// Set codec parameters
-	mCodecContext->bit_rate = mBitrate;
+	// Set common codec parameters
 	mCodecContext->width = mWidth;
 	mCodecContext->height = mHeight;
 	mCodecContext->time_base = (AVRational){ 1, 1000 * 1000 };
 	mCodecContext->framerate = (AVRational){ mFramerate * 1000, 1000 };
-	mCodecContext->gop_size = 10;
-	mCodecContext->max_b_frames = 0;
 	mCodecContext->pix_fmt = AV_PIX_FMT_YUV420P;
-	mCodecContext->sw_pix_fmt = AV_PIX_FMT_YUV420P;
-	mCodecContext->me_range = 16;
-	mCodecContext->me_cmp = 1; // No chroma ME
-	mCodecContext->me_subpel_quality = 0;
-	mCodecContext->thread_count = 0;
-	mCodecContext->thread_type = FF_THREAD_FRAME;
-	mCodecContext->slices = 1;
-	av_opt_set( mCodecContext->priv_data, "preset", "superfast", 0 );
-	av_opt_set( mCodecContext->priv_data, "partitions", "i8x8,i4x4", 0 );
-	av_opt_set( mCodecContext->priv_data, "weightp", "none", 0 );
-	av_opt_set( mCodecContext->priv_data, "weightb", "0", 0 );
-	av_opt_set( mCodecContext->priv_data, "motion-est", "dia", 0 );
-	av_opt_set( mCodecContext->priv_data, "sc_threshold", "0", 0 );
-	av_opt_set( mCodecContext->priv_data, "rc-lookahead", "0", 0 );
-	av_opt_set( mCodecContext->priv_data, "mixed_ref", "0", 0 );
+
+	if ( mFormat == FORMAT_H264 ) {
+		// H.264 specific parameters
+		mCodecContext->bit_rate = mBitrate;
+		mCodecContext->gop_size = 10;
+		mCodecContext->max_b_frames = 0;
+		mCodecContext->sw_pix_fmt = AV_PIX_FMT_YUV420P;
+		mCodecContext->me_range = 16;
+		mCodecContext->me_cmp = 1; // No chroma ME
+		mCodecContext->me_subpel_quality = 0;
+		mCodecContext->thread_count = 0;
+		mCodecContext->thread_type = FF_THREAD_FRAME;
+		mCodecContext->slices = 1;
+		av_opt_set( mCodecContext->priv_data, "preset", "superfast", 0 );
+		av_opt_set( mCodecContext->priv_data, "partitions", "i8x8,i4x4", 0 );
+		av_opt_set( mCodecContext->priv_data, "weightp", "none", 0 );
+		av_opt_set( mCodecContext->priv_data, "weightb", "0", 0 );
+		av_opt_set( mCodecContext->priv_data, "motion-est", "dia", 0 );
+		av_opt_set( mCodecContext->priv_data, "sc_threshold", "0", 0 );
+		av_opt_set( mCodecContext->priv_data, "rc-lookahead", "0", 0 );
+		av_opt_set( mCodecContext->priv_data, "mixed_ref", "0", 0 );
+	} else if ( mFormat == FORMAT_MJPEG ) {
+		// MJPEG specific parameters
+		mCodecContext->bit_rate = mBitrate;
+		mCodecContext->gop_size = 1; // Each frame is independent
+		mCodecContext->thread_count = 0; // Auto-detect thread count
+		mCodecContext->thread_type = FF_THREAD_FRAME;
+		// Use quality parameter if available (typical range: 2-31, lower = better quality)
+		if ( mQuality > 0 && mQuality <= 100 ) {
+			// Convert quality from 1-100 range to FFmpeg's 2-31 range (inverted)
+			int qscale = 2 + (100 - mQuality) * 29 / 99;
+			av_opt_set_int( mCodecContext->priv_data, "qscale", qscale, 0 );
+		}
+	}
 
 	if ( avcodec_open2( mCodecContext, mCodec, nullptr ) < 0 ) {
 		gError() << "Could not open codec";
