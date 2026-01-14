@@ -10,6 +10,9 @@ BlackBox::BlackBox()
 	: Thread( "BlackBox" )
 	, mID( 0 )
 	, mFile( nullptr )
+#ifdef SYSTEM_NAME_Linux
+	, mSyncCounter( 0 )
+#endif
 {
 #ifdef SYSTEM_NAME_Linux
 	char filename[256];
@@ -97,6 +100,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<float, 1>& v
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%.4f\"", v.x );
+	Enqueue( data, stmp );
 }
 
 
@@ -105,6 +109,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<float, 2>& v
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%.4f,%.4f\"", v.x, v.y );
+	Enqueue( data, stmp );
 }
 
 
@@ -113,6 +118,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<float, 3>& v
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%.4f,%.4f,%.4f\"", v.x, v.y, v.z );
+	Enqueue( data, stmp );
 }
 
 
@@ -121,6 +127,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<float, 4>& v
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", v.x, v.y, v.z, v.w );
+	Enqueue( data, stmp );
 }
 
 
@@ -129,6 +136,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<int, 1>& v )
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%d\"", v.x );
+	Enqueue( data, stmp );
 }
 
 
@@ -137,6 +145,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<int, 2>& v )
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%d,%d\"", v.x, v.y );
+	Enqueue( data, stmp );
 }
 
 
@@ -145,6 +154,7 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<int, 3>& v )
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%d,%d,%d\"", v.x, v.y, v.z );
+	Enqueue( data, stmp );
 }
 
 
@@ -153,14 +163,13 @@ template<> void BlackBox::Enqueue( const string& data, const Vector<int, 4>& v )
 	CHECK_ENABLED();
 	char stmp[64];
 	sprintf( stmp, "\"%d,%d,%d,%d\"", v.x, v.y, v.z, v.w );
+	Enqueue( data, stmp );
 }
 
 
 void BlackBox::Enqueue( const string* data, const string* values, int n )
 {
-	if ( this == nullptr or not Thread::running() ) {
-		return;
-	}
+	CHECK_ENABLED();
 
 #ifdef SYSTEM_NAME_Linux
 	uint64_t time = Board::GetTicks();
@@ -195,6 +204,20 @@ void BlackBox::Enqueue( const char* data[], const char* values[], int n )
 }
 
 
+void BlackBox::Enqueue( const string& data, const float* values, int n )
+{
+	if ( this == nullptr or not Thread::running() ) {
+		return;
+	}
+	char stmp[2048] = "";
+	for ( int i = 0; i < n; i++ ) {
+		sprintf( stmp + strlen(stmp), "%c%.4f", i == 0 ? '"' : ',', values[i] );
+	}
+	sprintf( stmp + strlen(stmp), "\"" );
+	Enqueue( data, stmp );
+}
+
+
 bool BlackBox::run()
 {
 	// exit(0);
@@ -203,6 +226,17 @@ bool BlackBox::run()
 	string data;
 
 	mQueueMutex.lock();
+	
+	// Overrun detection: if the queue is too big, drop entries
+	if ( mQueue.size() > MAX_QUEUE_SIZE ) {
+		uint32_t dropped = 0;
+		while ( mQueue.size() > 0 and dropped < OVERRUN_DROP_COUNT ) {
+			mQueue.pop_front();
+			dropped++;
+		}
+		mQueue.push_back( "BlackBox overrun: dropped " + to_string(dropped) + " entries" );
+	}
+	
 	while ( mQueue.size() > 0 ) {
 		string str = mQueue.front();
 		mQueue.pop_front();
@@ -218,11 +252,15 @@ bool BlackBox::run()
 				Board::setDiskFull();
 			}
 		}
-		if ( fflush( mFile ) < 0 or fsync( fileno( mFile ) ) < 0 ) {
-			if ( errno == ENOSPC ) {
-				Board::setDiskFull();
+		// fsync() only every 10 cycles (100ms) instead of each cycle
+		if ( mSyncCounter == 0 ) {
+			if ( fflush( mFile ) < 0 or fsync( fileno( mFile ) ) < 0 ) {
+				if ( errno == ENOSPC ) {
+					Board::setDiskFull();
+				}
 			}
 		}
+		mSyncCounter = ( mSyncCounter + 1 ) % 10;
 	}
 #endif
 
