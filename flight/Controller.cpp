@@ -491,6 +491,11 @@ bool Controller::run()
 						mMain->stabilizer()->Disarm();
 						mMain->blackbox()->Enqueue( "Controller:armed", mMain->stabilizer()->armed() ? "true" : "false" );
 					}
+					if ( !mRPYSmoothingEnabled and controls.control_smoothing ) {
+						gDebug() << "Enable control smoothing";
+					} else if ( mRPYSmoothingEnabled and !controls.control_smoothing ) {
+						gDebug() << "Disable control smoothing";
+					}
 					mRPYSmoothingEnabled = ( controls.control_smoothing != 0 );
 					if ( mMain->stabilizer()->armed() ) {
 						float thrust = ((float)controls.thrust) / 511.0f;
@@ -498,6 +503,8 @@ bool Controller::run()
 						float pitch = ((float)controls.pitch) / 511.0f;
 						float yaw = ((float)controls.yaw) / 511.0f;
 						gTrace() << "Controls : " << thrust << ", " << roll << ", " << pitch << ", " << yaw;
+						sprintf( stmp, "\"%.4f,%.4f,%.4f,%.4f\"", thrust, roll, pitch, yaw );
+						mMain->blackbox()->Enqueue( "Controller:trpy_raw", stmp );
 						thrust = setThrust( thrust );
 						roll = setRoll( roll, false, dt );
 						pitch = setPitch( pitch, false, dt );
