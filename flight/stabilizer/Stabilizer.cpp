@@ -388,12 +388,15 @@ void Stabilizer::Update( IMU* imu, float dt )
 	float deltaRi = deltaR * lerp( 1.0f, antiWindupValue, mAntiWindupFactor );
 	float deltaPi = deltaP * lerp( 1.0f, antiWindupValue, mAntiWindupFactor );
 	float deltaYi = deltaY * lerp( 1.0f, antiWindupValue, mAntiWindupFactor );
-	float deltaRd = rate_control.x - mFilteredRPYDerivative.x;
-	float deltaPd = rate_control.y - mFilteredRPYDerivative.y;
-	float deltaYd = rate_control.z - mFilteredRPYDerivative.z;
-	mRateRollPID.Process( deltaR, deltaRi, deltaRd, dt, rollPIDMultiplier );
-	mRatePitchPID.Process( deltaP, deltaPi, deltaPd, dt, pitchPIDMultiplier );
-	mRateYawPID.Process( deltaY, deltaYi, deltaYd, dt, yawPIDMultiplier );
+	// float deltaRd = rate_control.x - mFilteredRPYDerivative.x;
+	// float deltaPd = rate_control.y - mFilteredRPYDerivative.y;
+	// float deltaYd = rate_control.z - mFilteredRPYDerivative.z;
+	float inputRd = mFilteredRPYDerivative.x;
+	float inputPd = mFilteredRPYDerivative.y;
+	float inputYd = mFilteredRPYDerivative.z;
+	mRateRollPID.Process( deltaR, deltaRi, inputRd, dt, rollPIDMultiplier );
+	mRatePitchPID.Process( deltaP, deltaPi, inputPd, dt, pitchPIDMultiplier );
+	mRateYawPID.Process( deltaY, deltaYi, inputYd, dt, yawPIDMultiplier );
 
 	float thrust = mThrust;
 /*

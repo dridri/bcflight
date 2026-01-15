@@ -29,9 +29,18 @@
 template< typename T > class PID
 {
 public:
+/*
+	// TODO
+	typedef enum  {
+		OnMeasurement,
+		OnError
+	} DTermMode;
+	// In OnError mode the input is : delta = command - measured
+	// and output is : derivative = ( deltaD - lastDeltaD ) / dt
+*/
 	PID() {
 		mIntegral = 0;
-		mLastDerivativeDelta = 0;
+		mLastdMeasurement = 0;
 		mkPID = 0;
 		mState = 0;
 		mDeadBand = 0;
@@ -60,7 +69,7 @@ public:
 
 	void Reset() {
 		mIntegral = 0;
-		mLastDerivativeDelta = 0;
+		mLastdMeasurement = 0;
 		mState = 0;
 	}
 
@@ -79,10 +88,10 @@ public:
 	void setIntegralLimit( const T& limit ) {
 		mIntegralLimit = limit;
 	}
-	void Process( const T& deltaP, const T& deltaI, const T& deltaD, float dt, const Vector3f& gains = Vector3f( 1.0f, 1.0f, 1.0f ) ) {
+	void Process( const T& deltaP, const T& deltaI, const T& dMeasurement, float dt, const Vector3f& gains = Vector3f( 1.0f, 1.0f, 1.0f ) ) {
 		ApplyDeadBand( deltaP );
 		ApplyDeadBand( deltaI );
-		ApplyDeadBand( deltaD );
+		ApplyDeadBand( dMeasurement );
 
 		T proportional = deltaP;
 		if constexpr (std::is_same_v<T, float> ) {
@@ -90,13 +99,13 @@ public:
 		} else {
 			mIntegral = ( mIntegral + deltaI * dt ).clamped( Vector3f(-mIntegralLimit, -mIntegralLimit, -mIntegralLimit), Vector3f(mIntegralLimit, mIntegralLimit, mIntegralLimit) );
 		}
-		T derivative = ( deltaD - mLastDerivativeDelta ) / dt;
+		T derivative = -( dMeasurement - mLastdMeasurement ) / dt;
 		float pGain = gains[0] * mkPID[0];
 		float iGain = gains[1] * mkPID[1];
 		float dGain = gains[2] * mkPID[2];
 		T output = proportional * pGain + mIntegral * iGain + derivative * dGain;
 
-		mLastDerivativeDelta = deltaD;
+		mLastdMeasurement = dMeasurement;
 		mState = output;
 	}
 
@@ -148,7 +157,7 @@ private:
 	}
 
 	T mIntegral;
-	T mLastDerivativeDelta;
+	T mLastdMeasurement;
 	Vector3f mkPID;
 	T mState;
 	T mDeadBand;
