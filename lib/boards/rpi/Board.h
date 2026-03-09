@@ -61,7 +61,8 @@ public:
 	static const float LoadRegisterFloat( const string& name, float def = 0.0f );
 	static int SaveRegister( const string& name, const string& value );
 
-	static uint64_t GetTicks();
+	static uint64_t GetTicks( bool monotonic = false );
+	static uint64_t ticksBase() { return mTicksBase; }
 	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, int64_t sleep_bias = -500 );
 
 	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );

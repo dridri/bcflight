@@ -12,8 +12,7 @@
 RecorderAvformat::RecorderAvformat()
 	: Recorder()
 	, Thread( "RecorderAvformat" )
-	, mRecordStartTick( 0 )
-	, mRecordStartSystemTick( 0 )
+	, mRecordStartTickMonotonic( 0 )
 	, mActive( false )
 	, mOutputContext( nullptr )
 	, mMuxerReady( false )
@@ -298,8 +297,7 @@ void RecorderAvformat::Start()
 	gTrace() << "F";
 
 	mMuxerReady = false;
-	mRecordStartTick = 0;
-	mRecordStartSystemTick = 0;
+	mRecordStartTickMonotonic = 0;
 	Thread::Start();
 }
 
@@ -332,7 +330,7 @@ void RecorderAvformat::Stop()
 
 	for ( auto* track : mTracks ) {
 		if ( track->stream && track->last_sample_time_us > 0 ) {
-			track->stream->duration = av_rescale_q( track->last_sample_time_us - track->stream->start_time, (AVRational){ 1, 1000000 }, track->stream->time_base );
+			track->stream->duration = av_rescale_q( track->last_sample_time_us, (AVRational){ 1, 1000000 }, track->stream->time_base );
 		}
 	}
 	av_write_trailer( mOutputContext );
@@ -349,8 +347,7 @@ void RecorderAvformat::Stop()
 	fclose( mOutputFile );
 	mOutputFile = nullptr;
 	mMuxerReady = false;
-	mRecordStartTick = 0;
-	mRecordStartSystemTick = 0;
+	mRecordStartTickMonotonic = 0;
 
 	mGyroMutex.lock();
 	while ( mPendingGyros.size() > 0 ) {
@@ -437,22 +434,19 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 		return;
 	}
 
-	if ( mRecordStartTick == 0 ) {
+	if ( mRecordStartTickMonotonic == 0 ) {
 		if ( track->type == TrackTypeVideo ) {
-			mRecordStartTick = record_time_us;
-			mRecordStartSystemTick = Board::GetTicks();
+			mRecordStartTickMonotonic = record_time_us;
 		} else {
 			// Wait for the video stream to start first
 			return;
 		}
 	}
 
-	if ( track->type == TrackTypeVideo ) {
-		record_time_us -= mRecordStartTick;
+	if ( track->start_sample_time_us == 0 ) {
+		track->start_sample_time_us = record_time_us;
 	}
-	if ( track->type == TrackTypeAudio ) {
-		record_time_us -= mRecordStartSystemTick;
-	}
+	record_time_us -= track->start_sample_time_us;
 
 	PendingSample* sample = new PendingSample;
 	sample->track = track;
@@ -471,12 +465,17 @@ void RecorderAvformat::WriteSample( uint32_t track_id, uint64_t record_time_us, 
 
 void RecorderAvformat::WriteGyro( uint64_t record_time_us, const Vector3f& gyro, const Vector3f& accel )
 {
-	if ( not mGyroFile or record_time_us < mRecordStartSystemTick or mRecordStartSystemTick == 0 or not recording() or mStopWrite ) {
+	if ( not mGyroFile or mRecordStartTickMonotonic == 0 or not recording() or mStopWrite ) {
 		return;
 	}
 
+	// Convert record_time_us (relative) to absolute CLOCK_MONOTONIC, then to video-relative time
+	int64_t t = (int64_t)( record_time_us + Board::ticksBase() ) - (int64_t)mRecordStartTickMonotonic;
+	if ( t < 0 ) {
+		return;
+	}
 	PendingGyro* g = new PendingGyro();
-	g->t = record_time_us - mRecordStartSystemTick;
+	g->t = (uint64_t)t;
 	g->gx = gyro.x;
 	g->gy = gyro.y;
 	g->gz = gyro.z;

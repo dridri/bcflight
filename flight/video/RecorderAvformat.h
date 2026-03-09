@@ -29,6 +29,7 @@ protected:
 		AVStream* stream;
 		TrackType type;
 		char format[32];
+		uint64_t start_sample_time_us;
 		uint64_t last_sample_time_us;
 		// video
 		uint32_t width;
@@ -62,8 +63,7 @@ protected:
 
 	LUA_PROPERTY("base_directory") string mBaseDirectory;
 	uint32_t mRecordId;
-	uint64_t mRecordStartTick;
-	uint64_t mRecordStartSystemTick;
+	uint64_t mRecordStartTickMonotonic;
 	std::string mRecordFilename;
 	bool mActive;
 	std::mutex mActiveMutex;

@@ -521,7 +521,7 @@ int Board::SaveRegister( const string& name, const string& value )
 }
 
 
-uint64_t Board::GetTicks()
+uint64_t Board::GetTicks( bool monotonic )
 {
 	if ( mTicksBase == 0 ) {
 		struct timespec now;
@@ -531,7 +531,8 @@ uint64_t Board::GetTicks()
 
 	struct timespec now;
 	clock_gettime( CLOCK_MONOTONIC, &now );
-	return (uint64_t)now.tv_sec * 1000000ULL + (uint64_t)now.tv_nsec / 1000ULL - mTicksBase;
+	uint64_t ticks = (uint64_t)now.tv_sec * 1000000ULL + (uint64_t)now.tv_nsec / 1000ULL;
+	return monotonic ? ticks : ticks - mTicksBase;
 }
 
 

@@ -123,6 +123,14 @@ void AlsaMic::Setup()
 	gTrace() << "hw_params set";
 
 	snd_pcm_hw_params_free( hw_params );
+
+	snd_pcm_sw_params_t* sw_params;
+	snd_pcm_sw_params_malloc( &sw_params );
+	snd_pcm_sw_params_current( mPCM, sw_params );
+	snd_pcm_sw_params_set_tstamp_mode( mPCM, sw_params, SND_PCM_TSTAMP_ENABLE );
+	snd_pcm_sw_params_set_tstamp_type( mPCM, sw_params, SND_PCM_TSTAMP_TYPE_MONOTONIC );
+	snd_pcm_sw_params( mPCM, sw_params );
+	snd_pcm_sw_params_free( sw_params );
 	gTrace() << "hw_params freed";
 		
 	if ( ( err = snd_pcm_prepare ( mPCM ) ) < 0 ) {
@@ -165,10 +173,16 @@ bool AlsaMic::LiveThreadRun()
 	snd_pcm_sframes_t size = snd_pcm_readi( mPCM, data, 1152 );
 
 	if ( size > 0 ) {
+		snd_htimestamp_t hts = {};
+		snd_pcm_uframes_t avail = 0;
+		snd_pcm_htimestamp( mPCM, &avail, &hts );
+		// hts is the timestamp of the most recent sample; subtract buffered frames to get first sample of this buffer
+		uint64_t timestamp_us = (uint64_t)hts.tv_sec * 1000000ULL + (uint64_t)hts.tv_nsec / 1000ULL;
+		timestamp_us -= (uint64_t)(avail + size) * 1000000ULL / mRate;
 		if ( mLink ) {
 			mLink->Write( data, size * sizeof(int16_t), false, 0 );
 		}
-		RecordWrite( (char*)data, size );
+		RecordWrite( (char*)data, size, timestamp_us );
 	} else {
 		gDebug() << "snd_pcm_readi error : " << size;
 		if ( size == -EPIPE ) {
@@ -182,9 +196,9 @@ bool AlsaMic::LiveThreadRun()
 }
 
 
-int AlsaMic::RecordWrite( char* data, int datalen )
+int AlsaMic::RecordWrite( char* data, int datalen, uint64_t timestamp_us )
 {
-	mRecorder->WriteSample( mRecorderTrackId, Board::GetTicks(), data, datalen * 2 );
+	mRecorder->WriteSample( mRecorderTrackId, timestamp_us, data, datalen * 2 );
 	return datalen;
 
 	fTrace( (void*)data, datalen );

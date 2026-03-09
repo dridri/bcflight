@@ -43,7 +43,7 @@ public:
 
 protected:
 	bool LiveThreadRun();
-	int RecordWrite( char* data, int datalen );
+	int RecordWrite( char* data, int datalen, uint64_t timestamp_us );
 
 	LUA_PROPERTY("device") std::string mDevice;
 	LUA_PROPERTY("rate") uint32_t mRate;
