@@ -1,4 +1,4 @@
-# BCFlight 🚁
+# BCFlight
 
 [![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight)](https://ci.drich.fr/job/BCFlight/)
 [![Tests Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight-tests&subject=tests)](https://ci.drich.fr/job/BCFlight-tests/)
@@ -6,59 +6,59 @@
 
 **BCFlight** is an open-source Linux-based Raspberry Pi drone and ground controller system, offering a complete solution for flight control, stabilization, and telemetry.
 
-## 🌟 Key Features
+## Key Features
 
-### 🎯 Performance
+### Performance
 - **Low resource usage** : ~25% CPU and ~100MB RAM on Raspberry Pi 4
 - **High frequency** : Sensors and stabilizer update rate up to 8kHz (on RPi4)
 - **Ultra-low latency** : ~5ms controls latency, ~50ms video latency over composite
 - **Stabilization** : Up to 8 motors with customizable configuration matrix
 
-### 🔧 Motor Protocols
+### Motor Protocols
 - **DShot** (150 & 300) - Recommended
 - **OneShot125** and **OneShot42**
 - **Standard PWM**
 
-### 📡 Communication
+### Communication
 - **WiFi/Ethernet** : Standard TCP/UDP/IP
 - **Raw WiFi** : Based on wifibroadcast
 - **Radio** : nRF24L01, SX1276/77/78/79 (FSK/LoRa)
 - **S-BUS** : Limited functionality support
 
-### 📹 Video & Recording
+### Video & Recording
 - **Composite output** : Direct connection to 5GHz VTX modules, with SmartAudio support
 - **Multi-camera recording** : MKV format, up to ~120 MPix/s total throughput
 - **Gyroflow output** : Compatible with Gyroflow for video stabilization
 - **Live HUD** : Real-time telemetry, battery status, speed, acceleration
 
-### ⚙️ Configuration
+### Configuration
 - **LuaJIT** : Flexible configuration and customizable event handling
 - **User code** : Execution of custom Lua functions
 - **Full API** : Access to all systems
 
-## 🏗️ Architecture
+## Architecture
 
 The project consists of three main components:
 
-### 🚁 `flight/` - Flight Controller
+### `flight/` - Flight Controller
 Core system managing:
 - **Main thread** : Sensor data collection, attitude calculation, stabilization
 - **Controller thread** : User input reception, telemetry transmission
 - **Power thread** : Battery monitoring and current consumption
 
-### 🖥️ `controller_pc/` - PC Interface
+### `controller_pc/` - PC Interface
 Configurable GUI client for:
 - Remote control via PC
 - Sensor and telemetry visualization
 - Advanced configuration
 
-### 🎮 `controller_rc/` - Remote Control
+### `controller_rc/` - Remote Control
 Portable control interface with:
 - Touchscreen support
 - Adapted user interface
 - Lua configuration
 
-## 🔌 Supported Sensors
+## Supported Sensors
 
 ### IMUs
 - InvenSense ICM-42605, ICM-20608, MPU-9250, MPU-9150, MPU-6050
@@ -71,7 +71,7 @@ Portable control interface with:
 - HC-SR04 (distance sensors)
 - ADS1015/ADS1115 (ADC)
 
-## 🛠️ Installation
+## Installation
 
 ### Pre-built Images
 [![Build Status](https://ci.drich.fr/buildStatus/icon?job=BCFlight-CM4-Images)](https://ci.drich.fr/job/BCFlight-CM4-Images/)
@@ -115,7 +115,7 @@ cmake -Dboard=rpi -Ddebug=1 -S . -B build
 cd build && make -j$(nproc)
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Basic Configuration Example
 
@@ -158,13 +158,13 @@ stabilizer = Stabilizer {
 }
 ```
 
-## 🎥 Demo
+## Demo
 
 [![Demo video](https://github.com/user-attachments/assets/5b8bf825-73fa-47d5-b7b2-dfe6beb78eec)](https://github.com/user-attachments/assets/5b8bf825-73fa-47d5-b7b2-dfe6beb78eec)
 
 More videos on [YouTube @drichfpv](https://www.youtube.com/@drichfpv/videos)
 
-## 🖥️ User Interface
+## User Interface
 
 ### PC Controller
 <img width="1024px" style="max-width: 100%" alt="Camera view" src="misc/controller_pc_camera.png"/>
@@ -172,7 +172,7 @@ More videos on [YouTube @drichfpv](https://www.youtube.com/@drichfpv/videos)
 ### Sensors and Telemetry
 <img width="1024px" style="max-width: 100%" alt="Sensors view" src="misc/controller_pc_sensors.png"/>
 
-## 🔌 Hardware
+## Hardware
 
 ### Custom CM4 Carrier Board
 <img width="512px" style="max-width: 100%" alt="CM4 schematics" src="misc/cm4_schematics.png"/>
@@ -191,22 +191,22 @@ More videos on [YouTube @drichfpv](https://www.youtube.com/@drichfpv/videos)
 <img width="512px" style="max-width: 100%" alt="CM4 back" src="misc/cm4-fc-back.png"/>
 <img width="512px" style="max-width: 100%" alt="CM4 on drone" src="misc/cm4-on-drone.png"/>
 
-## 📚 Documentation
+## Documentation
 
 - [Configuration](https://github.com/dridri/bcflight/wiki/Configuration)
 - [Sensors](https://github.com/dridri/bcflight/wiki/Sensors)
 - [Motors](https://github.com/dridri/bcflight/wiki/Motors)
 - [Radio](https://github.com/dridri/bcflight/wiki/Radio)
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! The project is licensed under GPL v3.
 
-## 📄 License
+## License
 
 This project is distributed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for more details.
 
-## 🔗 Useful Links
+## Useful Links
 
 - **CI/CD** : [ci.drich.fr](https://ci.drich.fr/)
 - **Images** : [bcflight.drich.fr](https://bcflight.drich.fr/)
