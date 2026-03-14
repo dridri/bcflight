@@ -36,25 +36,27 @@ void AvcodecEncoder::Setup()
 	mReady = true;
 	avformat_network_init();
 
+	const AVCodec* codec = nullptr;
+
 	// Find the encoder according to format
 	switch ( mFormat ) {
 		case FORMAT_H264:
-			mCodec = avcodec_find_encoder( AV_CODEC_ID_H264 );
+			codec = avcodec_find_encoder( AV_CODEC_ID_H264 );
 			break;
 		case FORMAT_MJPEG:
-			mCodec = avcodec_find_encoder( AV_CODEC_ID_MJPEG );
+			codec = avcodec_find_encoder( AV_CODEC_ID_MJPEG );
 			break;
 		default:
 			gError() << "Unsupported format";
 			return;
 	}
-	if ( !mCodec ) {
+	if ( !codec ) {
 		gError() << "Codec not found";
 		return;
 	}
 
 	// Allocate codec context
-	mCodecContext = avcodec_alloc_context3( mCodec );
+	mCodecContext = avcodec_alloc_context3( codec );
 	if ( !mCodecContext ) {
 		gError() << "Could not allocate video codec context";
 		return;
@@ -101,7 +103,7 @@ void AvcodecEncoder::Setup()
 		}
 	}
 
-	if ( avcodec_open2( mCodecContext, mCodec, nullptr ) < 0 ) {
+	if ( avcodec_open2( mCodecContext, codec, nullptr ) < 0 ) {
 		gError() << "Could not open codec";
 		return;
 	}

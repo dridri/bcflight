@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#if ( defined( BOARD_rpi ) )
+#if ( defined( BUILD_AlsaMic ) )
 
 #include <dirent.h>
 #include "AlsaMic.h"
@@ -235,4 +235,4 @@ int AlsaMic::RecordWrite( char* data, int datalen, uint64_t timestamp_us )
 	return ret;
 }
 
-#endif // BOARD_rpi
+#endif // BUILD_AlsaMic

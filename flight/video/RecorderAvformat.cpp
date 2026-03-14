@@ -181,7 +181,11 @@ void RecorderAvformat::Start()
 			track->stream->start_time = 0;
 			track->stream->codecpar->codec_id = std::string(track->format) == "mp3" ? AV_CODEC_ID_MP3 : AV_CODEC_ID_PCM_S16LE;
 			track->stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+#if ( LIBAVCODEC_VERSION_MAJOR >= 60 )
+			av_channel_layout_default( &track->stream->codecpar->ch_layout, track->channels );
+#else
 			track->stream->codecpar->channels = track->channels;
+#endif
 			track->stream->codecpar->sample_rate = track->sample_rate;
 			if ( std::string(track->format) == "mp3" ) {
 				track->stream->codecpar->bit_rate = 320 * 1024;
@@ -236,7 +240,11 @@ void RecorderAvformat::Start()
 	mOutputContext->pb = avio_alloc_context(
 		mOutputBuffer, sizeof(mOutputBuffer), 1, this,
 		nullptr,
+#if ( LIBAVCODEC_VERSION_MAJOR >= 60 )
+		[]( void* thiz, const uint8_t* buf, int sz ) {
+#else
 		[]( void* thiz, uint8_t* buf, int sz ) {
+#endif
 			FILE* file = static_cast<RecorderAvformat*>(thiz)->mOutputFile;
 			return (int)fwrite( buf, 1, sz, file );
 		},

@@ -244,6 +244,17 @@ const Vector3f& Stabilizer::filteredRPYDerivative() const
 }
 
 
+LuaValue Stabilizer::controls() const
+{
+	LuaValue ret;
+	ret["roll"] = mRPY.x;
+	ret["pitch"] = mRPY.y;
+	ret["yaw"] = mRPY.z;
+	ret["thrust"] = mThrust;
+	return ret;
+}
+
+
 void Stabilizer::Reset( const float& yaw )
 {
 	mRateRollPID.Reset();

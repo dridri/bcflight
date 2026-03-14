@@ -27,6 +27,9 @@ public:
 	}
 
 	virtual V filter( const V& input, float dt ) {
+		if ( mCenterFrequency <= 0.0f ) {
+			return input;
+		}
 		// mCenterFrequency = 2073;
 		// mCenterFrequency = 100;
 		// fDebug( input, dt );
@@ -110,14 +113,20 @@ public:
 		return y1;
 	}
 
-	void setCenterFrequency( float centerFrequency, float smoothCutoff = V(1) ) {
-		// fDebug( centerFrequency, smoothCutoff );
+	void setCenterFrequency( float centerFrequency, float smoothCutoff = 1 ) {
 		if ( mCenterFrequency == 0.0f ) {
 			mCenterFrequency = centerFrequency;
 			return;
 		}
-		// mCenterFrequency = centerFrequency;
 		mCenterFrequencyDtSmoothCutoff = smoothCutoff;
+		if ( centerFrequency == 0.0f ) {
+			mCenterFrequency = 0.0f;
+			x1 = V();
+			x2 = V();
+			y1 = V();
+			y2 = V();
+			return;
+		}
 		mCenterFrequency = PT1Smooth( mCenterFrequency, centerFrequency );
 	}
 

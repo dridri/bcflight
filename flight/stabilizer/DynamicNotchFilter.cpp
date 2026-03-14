@@ -34,7 +34,8 @@ template<typename V> _DynamicNotchFilterBase<V>::_DynamicNotchFilterBase( uint8_
 		mPeakFilters[i].reserve( DYNAMIC_NOTCH_COUNT );
 		for ( uint8_t p = 0; p < DYNAMIC_NOTCH_COUNT; p++ ) {
 			// mPeakFilters[i][p].filter = new SVFFilter<float>( 0.707f );
-			mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
+			// mPeakFilters[i][p].filter = new BiquadFilter<float>( 0.707f );
+			mPeakFilters[i][p].filter = new BiquadFilter<float>( 4.0f );
 		}
 	}
 	Start();
@@ -300,7 +301,13 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 			centerFrequencies[p] = peakFilter->filter->centerFrequency();
 		}
 		if ( bb != nullptr ) {
-			bb->Enqueue( "DynamicNotchFilter:centerFrequencies[" + std::to_string(i) + "]", centerFrequencies );
+			bool allZeros = true;
+			for ( int p = 0; p < DYNAMIC_NOTCH_COUNT and allZeros; p++ ) {
+				allZeros &= ( centerFrequencies[p] == 0.0f );
+			}
+			if ( not allZeros ) {
+				bb->Enqueue( "DynamicNotchFilter:centerFrequencies[" + std::to_string(i) + "]", centerFrequencies );
+			}
 		}
 	}
 

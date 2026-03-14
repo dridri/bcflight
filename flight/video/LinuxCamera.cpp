@@ -178,9 +178,11 @@ LuaValue LinuxCamera::infos()
 	ret["Framerate"] = mFps;
 	ret["HDR"] = ( mHDR ? "on" : "off" );
 
+#ifdef BOARD_rpi
 	if ( mCamera->controls().find( libcamera::controls::MAX_LATENCY) != mCamera->controls().end() ) {
 		ret["Max Latency"] = mCamera->controls().at( libcamera::controls::MAX_LATENCY ).toString();
 	}
+#endif
 
 	return ret;
 }
@@ -249,7 +251,19 @@ void LinuxCamera::Start()
 		// TODO
 	}
 
+#ifdef BOARD_rpi
 	mCameraConfiguration->transform = ( mHflip ? libcamera::Transform::HFlip : libcamera::Transform::Identity ) | ( mVflip ? libcamera::Transform::VFlip : libcamera::Transform::Identity );
+#else
+	if ( mHflip and mVflip ) {
+		mCameraConfiguration->orientation = libcamera::Orientation::Rotate180;
+	} else if ( mHflip ) {
+		mCameraConfiguration->orientation = libcamera::Orientation::Rotate0Mirror;
+	} else if ( mVflip ) {
+		mCameraConfiguration->orientation = libcamera::Orientation::Rotate180Mirror;
+	} else {
+		mCameraConfiguration->orientation = libcamera::Orientation::Rotate0;
+	}
+#endif
 
 	mCameraConfiguration->validate();
 	if ( mRawStreamConfiguration ) {
@@ -283,7 +297,9 @@ void LinuxCamera::Start()
 	mAllControls.set( libcamera::controls::Contrast, mContrast );
 	mAllControls.set( libcamera::controls::Saturation, mSaturation );
 	mAllControls.set( libcamera::controls::AfMode, libcamera::controls::AfModeAuto ); // AfModeContinuous
+#ifdef BOARD_rpi
 	mAllControls.set( libcamera::controls::draft::SceneFlicker, libcamera::controls::draft::SceneFickerOff );
+#endif
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringMatrix );
 	// mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringSpot );
 	mAllControls.set( libcamera::controls::AeMeteringMode, libcamera::controls::MeteringCentreWeighted );

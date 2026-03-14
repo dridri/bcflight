@@ -75,6 +75,8 @@ public:
 	virtual void Reset( const float& yaw );
 	virtual void Update( IMU* imu, float dt );
 
+	LUA_PROPERTY("controls") LuaValue controls() const;
+
 	Frame* frame() const;
 	void setFrame( Frame* frame );
 
