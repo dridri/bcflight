@@ -396,6 +396,12 @@ Lua::Lua( const string& load_path )
 		return LuaValue();
 	});
 
+	RegisterMember( "os", "clock", []( const LuaValue& t ) {
+		struct timespec now;
+		clock_gettime( CLOCK_MONOTONIC, &now );
+		return LuaValue( now.tv_sec + ( now.tv_nsec / 1000000000.0 ) );
+	});
+
 	RegisterMember( "io", "readFile", [this]( const LuaValue& filename ) {
 		FILE* fp = fopen64( filename.toString().c_str(), "rb" );
 		if ( fp ) {
@@ -574,7 +580,7 @@ LuaValue Lua::value( lua_State* L, int index )
 {
 	int type = lua_type( L, index );
 	if ( type == LUA_TNUMBER and fmod((float)lua_tonumber(L, index), 1.0f) == 0.0f ) {
-		return LuaValue( lua_tointeger( L, index ) );
+		return LuaValue( (int64_t)lua_tonumber( L, index ) );
 	} else if ( type == LUA_TNUMBER ) {
 		return lua_tonumber( L, index );
 	} else if ( type == LUA_TBOOLEAN ) {
@@ -857,6 +863,37 @@ LuaValue Lua::CallFunction( const string& func, const vector<LuaValue>& args )
 
 // 	lua_pop( mLuaState, -1 );
 	return value_ret;
+}
+
+
+void Lua::setMetatable( const string& name, const function<LuaValue(const string&)>& indexFunc )
+{
+	const std::lock_guard<std::mutex> lock(mMutex);
+	int top = lua_gettop( mLuaState );
+
+	if ( LocateValue( name ) < 0 ) {
+		return;
+	}
+
+	if ( lua_type( mLuaState, -1 ) != LUA_TTABLE and lua_type( mLuaState, -1 ) != LUA_TUSERDATA ) {
+		lua_settop( mLuaState, top );
+		return;
+	}
+
+	lua_newtable( mLuaState );
+	function<LuaValue(const string&)>* funcptr = new function<LuaValue(const string&)>( indexFunc );
+	lua_pushlightuserdata( mLuaState, (void*)funcptr );
+	lua_pushcclosure( mLuaState, []( lua_State* L ) {
+		const char* field = lua_tostring( L, 2 );
+		void* upval = lua_touserdata( L, lua_upvalueindex(1) );
+		const auto indexFunc = *static_cast<const function<LuaValue(const string&)>*>( upval );
+		indexFunc( field ).push( L );
+		return 1;
+	}, 1);
+	lua_setfield( mLuaState, -2, "__index" );
+	lua_setmetatable( mLuaState, -2 );
+
+	lua_settop( mLuaState, top );
 }
 
 

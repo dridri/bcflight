@@ -72,6 +72,7 @@ void SmartAudio::setStopBits( uint8_t tx, uint8_t rx )
 void SmartAudio::Connect()
 {
 	mBus->Connect();
+	mBus->setVMin( 6 );
 	Update();
 }
 
@@ -175,6 +176,7 @@ int SmartAudio::UpdateInternal()
 
 	// Version 3
 	if ( resp->command == 0x11 && resp->length > 10 ) {
+		gDebug() << "SmartAudio is version 3, reading power table";
 		uint8_t maxPowers = ((uint8_t*)resp)[10];
 		std::vector<int32_t> powers;
 		for ( uint8_t i = 0; i <= maxPowers && i + 11 <= resp->length + 2; i++ ) {

@@ -47,7 +47,7 @@ public:
 	ControllerBase( Link* link = nullptr );
 	virtual ~ControllerBase();
 	bool isConnected() const { return ( mLink and mLink->isConnected() and mConnectionEstablished ); }
-	Link* link() const { return mLink; }
+	LUA_EXPORT Link* link() const { return mLink; }
 
 	void Lock() { printf( "Locking controller...\n" ); mLockState = 1; while ( mLockState != 2 ) { usleep(1); } printf( "Controller lock ok...\n" ); }
 	void Unlock() { mLockState = 0; }

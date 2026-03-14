@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.5 )
+cmake_minimum_required( VERSION 3.10 )
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/../CMakeModules)
 include( add_submodule )
@@ -42,6 +42,20 @@ endif()
 
 include( ${board}/board.cmake )
 
+if ( ${BUILD_video} MATCHES 1 )
+	if ( ${TARGET_LINUX} MATCHES "1" )
+		find_package( PkgConfig REQUIRED )
+
+		pkg_check_modules(LIBDRM REQUIRED IMPORTED_TARGET libdrm)
+		# set( BOARD_LIBS "${BOARD_LIBS} ${DRM_LIBRARIES}" CACHE INTERNAL "" )
+		include_directories( ${LIBDRM_INCLUDE_DIRS} )
+
+		pkg_check_modules(LIBCAMERA REQUIRED IMPORTED_TARGET libcamera)
+		include_directories(${LIBCAMERA_INCLUDE_DIRS})
+		# set( BOARD_LIBS "${BOARD_LIBS} -lcamera" CACHE INTERNAL "" )
+	endif()
+endif()
+
 add_submodule( debug )
 add_submodule( luacore )
 add_submodule( maths )
@@ -71,5 +85,6 @@ if ( ${board} MATCHES "generic" AND NOT ${TARGET_CPU_BITS} MATCHES OFF )
 endif()
 
 file( GLOB BOARD_SOURCES_AUTO ${CMAKE_CURRENT_SOURCE_DIR}/common/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/${board}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/${board}/*.c )
+message( STATUS "Board sources : ${BOARD_SOURCES_AUTO}" )
 add_library( boards STATIC ${BOARD_SOURCES_AUTO} )
 target_include_directories( boards PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/${board}" )

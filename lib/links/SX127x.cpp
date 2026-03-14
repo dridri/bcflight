@@ -671,7 +671,10 @@ void SX127x::PerfUpdate()
 	mPerfMutex.unlock();
 
 	uint32_t receivedBlocks = mPerfTotalBlocks - mPerfMissedBlocks;
-	mRxQuality = min( 100, 100 * receivedBlocks / mPerfTotalBlocks );
+	int32_t qual = min( 100, 100 * receivedBlocks / mPerfTotalBlocks );
+	// mRxQuality = qual;
+	// Smoothing RxQuality to avoid big variations
+	mRxQuality = int32_t( float(mRxQuality) * 0.8 + float(qual) * 0.2 );
 }
 
 
@@ -1024,7 +1027,11 @@ void SX127x::Interrupt( SPI* spi, int32_t ledPin )
 	if ( ledPin >= 0 ) {
 		GPIO::Write( ledPin, true );
 	}
-	mRSSI = rssi;
+	if ( rssi != 0 ) {
+		// mRSSI = rssi;
+		// Smooth RSSI value using a simple moving average
+		mRSSI = int32_t( float(mRSSI) * 0.9 + float(rssi) * 0.1 );
+	}
 
 	if( mDropBroken ) {
 		if( not crc_ok ) {

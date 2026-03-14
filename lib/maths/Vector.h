@@ -101,14 +101,32 @@ public:
 	explicit Vector( const LuaValue& v ) {
 		if ( v.type() == LuaValue::Table ) {
 			const std::map<std::string, LuaValue >& t = v.toTable();
-			try {
-				x = t.at("x").toNumber();
-				y = t.at("y").toNumber();
-				z = t.at("z").toNumber();
-				w = t.at("w").toNumber();
-			} catch ( std::exception& e ) {
+			if ( t.find( "x" ) != t.end() ) {
+				try {
+					x = t.at("x").toNumber();
+					y = t.at("y").toNumber();
+					z = t.at("z").toNumber();
+					w = t.at("w").toNumber();
+				} catch ( std::exception& e ) {
+				}
+			} else {
+				try {
+					x = t.at("1").toNumber();
+					y = t.at("2").toNumber();
+					z = t.at("3").toNumber();
+					w = t.at("4").toNumber();
+				} catch ( std::exception& e ) {
+				}
 			}
 		}
+	}
+	operator LuaValue() const {
+		LuaValue ret;
+		ret["x"] = x;
+		ret["y"] = y;
+		ret["z"] = z;
+		ret["w"] = w;
+		return ret;
 	}
 #endif
 

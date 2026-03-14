@@ -1,6 +1,7 @@
 #ifndef DSHOT_H
 #define DSHOT_H
 
+#include <atomic>
 #include <PWM.h>
 #include "Motor.h"
 
@@ -15,6 +16,9 @@ public:
 	virtual void Disarm();
 	virtual void Disable();
 	virtual void Beep( uint8_t beepMode = 0 );
+	virtual string toString();
+
+	std::atomic<bool> mRequestTelemetry { false };
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update );

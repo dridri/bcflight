@@ -27,6 +27,8 @@ using namespace STD;
 
 class Main;
 class Sensor;
+class Voltmeter;
+class CurrentSensor;
 
 class PowerThread : public Thread
 {
@@ -79,8 +81,10 @@ private:
 #ifdef SYSTEM_NAME_Linux
 	mutex mCapacityMutex;
 #endif
-	BatterySensor mVoltageSensor;
-	BatterySensor mCurrentSensor;
+	// BatterySensor mVoltageSensor;
+	// BatterySensor mCurrentSensor;
+	list<Voltmeter*> mVoltageSensors;
+	list<CurrentSensor*> mCurrentSensors;
 };
 
 

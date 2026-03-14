@@ -27,14 +27,19 @@
 
 using namespace std;
 
-class Serial : public Bus
+LUA_CLASS class Serial : public Bus
 {
 public:
-	Serial( const string& device, int speed = 9600 );
+	LUA_EXPORT Serial( const string& device = "", int speed = 9600, int read_timeout = 0 );
 	~Serial();
 
-	void setStopBits( uint8_t count );
 
+	void setStopBits( uint8_t count );
+	void setVMin( uint8_t vmin );
+	void setReadTimeout( int32_t ms );
+	void flushInput();
+
+	bool isConnected() { return mConnected; }
 	int Connect();
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );
@@ -45,7 +50,10 @@ public:
 
 private:
 	int mFD;
-	std::string mDevice;
+	struct termios2* mOptions;
+	LUA_PROPERTY("device") std::string mDevice;
+	LUA_PROPERTY("speed") uint32_t mSpeed;
+	LUA_PROPERTY("read_timeout") int32_t mReadTimeout;
 };
 
 #endif // SERIAL_H

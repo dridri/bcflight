@@ -50,12 +50,25 @@ add_definitions( -DBOARD="${board}" -DBOARD_${board} -DVARIANT="${variant}" -DVA
 add_definitions( -DVERSION_STRING="bcflight_${board}_${VERSION_MAJOR}.${VERSION_MINOR}_${GIT_HASH}" )
 add_definitions( -DTARGET_CPU_BITS=${TARGET_CPU_BITS} )
 add_submodule( boards )
+message( STATUS "System name : ${CMAKE_SYSTEM_NAME}" )
 
 
 find_package( FFmpeg COMPONENTS AVFORMAT AVUTIL AVCODEC REQUIRED )
 find_package( PkgConfig REQUIRED )
 pkg_search_module( FFTW REQUIRED fftw3f IMPORTED_TARGET )
-set( LIBS ${LIBS} ${FFMPEG_LIBRARIES} -lfftw3f )
+set(LIBS ${LIBS} ${FFMPEG_LIBRARIES} -lfftw3f)
+
+if ( ${BUILD_video} MATCHES 1 )
+	if ( ${TARGET_LINUX} MATCHES "1" )
+		pkg_check_modules(LIBDRM REQUIRED IMPORTED_TARGET libdrm)
+		message( STATUS "Found libdrm : ${LIBDRM_INCLUDE_DIRS} ${LIBDRM_LIBRARIES}" )
+		include_directories( ${LIBDRM_INCLUDE_DIRS} )
+		pkg_check_modules(LIBCAMERA REQUIRED IMPORTED_TARGET libcamera)
+		message( STATUS "Found libcamera : ${LIBCAMERA_LIBRARIES}" )
+		message( STATUS "Found libcamera : ${LIBCAMERA_INCLUDE_DIRS}" )
+		include_directories(${LIBCAMERA_INCLUDE_DIRS})
+	endif()
+endif()
 
 
 
@@ -75,12 +88,8 @@ if ( NOT ${camera} MATCHES OFF AND NOT ${camera} MATCHES 0 )
 endif()
 
 if ( ${TARGET_LINUX} MATCHES "1" )
-	get_filename_component( CROSS_ROOT ${CMAKE_C_COMPILER} DIRECTORY )
-	include_directories(${LIBCAMERA_INCLUDE_DIRS})
-	include_directories( ${CROSS_ROOT}/../include/libcamera )
-	include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libcamera )
-	include_directories( ${CROSS_ROOT}/../arm-linux-gnueabihf/include/libdrm )
 else()
+	message( WARNING "Forcibly disabling socket, rawwifi and hud on non-linux system" )
 	set( socket 0 )
 	set( rawwifi 0 )
 	set( hud 0 )
@@ -234,6 +243,8 @@ include_directories( ${CMAKE_SOURCE_DIR}/../lib/controller )
 include_directories( ${CMAKE_SOURCE_DIR}/../lib/luacore/src )
 include_directories( ${CMAKE_SOURCE_DIR}/../external/LuaJIT-2.0.4/src )
 
+add_dependencies( flight_unstripped boards )
+
 if ( "${hud}" MATCHES 1 )
 	add_definitions( -DBUILD_HUD=1 )
 	add_submodule( hud )
@@ -267,7 +278,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--unresolved-symbols=ignore-in-shared-li
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--unresolved-symbols=ignore-in-shared-libs -L${CMAKE_BINARY_DIR} ${BOARD_LIBS_PATHS}" )
 set(CMAKE_LD_FLAGS "${CMAKE_LD_FLAGS} -Wl,--unresolved-symbols=ignore-in-shared-libs -L${CMAKE_BINARY_DIR} ${BOARD_LIBS_PATHS}" )
 set(CMAKE_LINKER_FLAGS "${CMAKE_LD_FLAGS} -Wl,--unresolved-symbols=ignore-in-shared-libs -L${CMAKE_BINARY_DIR} ${BOARD_LIBS_PATHS}" )
-target_link_libraries( flight_unstripped -L./s controllerbase links sensors ${LIBS} luacore debuglib ${BOARD_LIBS} boards maths )
+message( STATUS "BOARD_LIBS : '${BOARD_LIBS}'" )
+message( STATUS "LIBS : '${LIBS}'" )
+target_link_libraries( flight_unstripped -L./s controllerbase links sensors ${LIBS} luacore debuglib boards maths ${BOARD_LIBS} )
 
 
 if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL CMAKE_SYSTEM_PROCESSOR)

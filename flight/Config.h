@@ -37,6 +37,7 @@ public:
 	void Save();
 	void Execute( const string& code, bool silent = false );
 
+	LuaValue value( const string& name );
 	string String( const string& name, const string& def = "" );
 	int Integer( const string& name, int def = 0 );
 	float Number( const string& name, float def = 0.0f );

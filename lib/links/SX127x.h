@@ -26,10 +26,10 @@ public:
 	int setBlocking( bool blocking );
 	void setRetriesCount( int retries );
 	int retriesCount() const;
-	int32_t Channel();
-	int32_t Frequency();
-	int32_t RxQuality();
-	int32_t RxLevel();
+	LUA_EXPORT int32_t Channel();
+	LUA_EXPORT int32_t Frequency();
+	LUA_EXPORT int32_t RxQuality();
+	LUA_EXPORT int32_t RxLevel();
 	uint32_t fullReadSpeed();
 
 	SyncReturn Write( const void* buf, uint32_t len, bool ack = false, int32_t timeout = -1 );

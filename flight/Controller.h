@@ -43,7 +43,7 @@ public:
 
 	bool connected() const;
 // 	bool armed() const;
-	uint32_t ping() const;
+	LUA_EXPORT const uint32_t ping() const;
 // 	float thrust() const;
 // 	const Vector3f& RPY() const;
 	bool rpySmoothing() const { return mRPYSmoothingEnabled; }

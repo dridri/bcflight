@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <list>
 #include <map>
 #include <functional>
 
@@ -44,9 +45,12 @@ public:
 	LUA_EXPORT virtual void Disable() = 0;
 	LUA_EXPORT virtual void Beep( uint8_t beepMode = 0 ) {};
 
+	virtual string toString() { return "Motor"; }
+
 	static Motor* Instanciate( const string& name, Config* config, const string& object );
 	static void RegisterMotor( const string& name, function< Motor* ( Config*, const string& ) > instanciate );
 	static const map< string, function< Motor* ( Config*, const string& ) > > knownMotors() { return mKnownMotors; }
+	static const std::list< Motor* >& instances() { return mInstances; }
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update = false ) = 0;
@@ -55,6 +59,7 @@ protected:
 
 private:
 	static map< string, function< Motor* ( Config*, const string& ) > > mKnownMotors;
+	static std::list< Motor* > mInstances;
 };
 
 #endif // MOTOR_H

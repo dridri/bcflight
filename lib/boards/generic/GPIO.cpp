@@ -19,6 +19,11 @@
 #include "GPIO.h"
 
 
+void GPIO::setPUD( int pin, PUDMode mode )
+{
+}
+
+
 void GPIO::setMode( int pin, GPIO::Mode mode )
 {
 }

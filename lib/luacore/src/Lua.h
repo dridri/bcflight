@@ -104,7 +104,7 @@ public:
 			mMap.insert( make_pair( to_string( ++i ), value ) );
 		}
 	}
-	template<typename FuncType> LuaValue( FuncType func ) : mType(CFunction), mBoolean(true), mInteger(0), mNumber(0), mString(""), mFunctionRef(nullptr), mUserData(nullptr)
+	template<typename FuncType, typename = std::enable_if_t< std::is_invocable_v<FuncType> && !std::is_pointer_v<FuncType> >> LuaValue( FuncType func ) : mType(CFunction), mBoolean(true), mInteger(0), mNumber(0), mString(""), mFunctionRef(nullptr), mUserData(nullptr)
 	{
 		mCFunction = (const function<LuaValue(const vector<LuaValue>&)>&) [this,func]( const vector<LuaValue>& args ) {
 			typedef ftraits<decltype(func)> traits;
@@ -120,10 +120,12 @@ public:
 	}
 
 	template< typename T> LuaValue( T* ptr ) : mType(UserData), mBoolean(ptr!=0), mInteger((uintptr_t)ptr), mNumber((uintptr_t)ptr), mString(to_string((uintptr_t)ptr)), mFunctionRef(nullptr), mUserData(ptr) {
-		if ( ptr ) {
-			LuaValue* val = dynamic_cast< LuaValue* >( ptr );
-			if ( val ) {
-				*this = *val;
+		if constexpr ( std::is_polymorphic_v<T> ) {
+			if ( ptr ) {
+				LuaValue* val = dynamic_cast< LuaValue* >( ptr );
+				if ( val ) {
+					*this = *val;
+				}
 			}
 		}
 	}
@@ -252,8 +254,6 @@ public:
 				new (lua_newuserdata( L, sizeof(function<LuaValue(const vector<LuaValue>&)>) ) ) function<LuaValue(const vector<LuaValue>&)> (mCFunction);
 				lua_pushcclosure( L, &_lua_bridge, 1 );
 			}
-		} else if ( mType == UserData ) {
-			lua_pushlightuserdata( L, mUserData );
 		}
 	}
 
@@ -350,6 +350,9 @@ public:
 	}
 	operator int32_t () const {
 		return toInteger();
+	}
+	operator uint32_t () const {
+		return static_cast<uint32_t>( mInteger );
 	}
 	operator int64_t () const {
 		return toInteger();
@@ -589,6 +592,8 @@ public:
 			return CallFunction( object + ( member != "" ? ":" : "" ) + member, args... );
 		};
 	}
+
+	void setMetatable( const string& name, const function<LuaValue(const string&)>& indexFunc );
 
 // 	int32_t CallFunction( const string& funcname );
 // 	int32_t CallFunction( const string& funcname, const string& fmt, ... );

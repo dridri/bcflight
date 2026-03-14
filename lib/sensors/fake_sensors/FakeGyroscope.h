@@ -21,10 +21,11 @@
 
 #include <Gyroscope.h>
 
-class FakeGyroscope : public Gyroscope
+LUA_CLASS class FakeGyroscope : public Gyroscope
 {
 public:
-	FakeGyroscope( int axisCount = 3, const Vector3f& noiseGain = Vector3f( 0.4f, 0.4f, 0.4f ) );
+	LUA_EXPORT FakeGyroscope() : FakeGyroscope( 3 ) {}
+	FakeGyroscope( int axisCount, const Vector3f& noiseGain = Vector3f( 0.4f, 0.4f, 0.4f ) );
 	~FakeGyroscope();
 
 	int Read( Vector3f* v, bool raw = false );

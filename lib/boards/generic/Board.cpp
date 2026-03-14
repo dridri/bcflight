@@ -20,13 +20,25 @@
 #include <time.h>
 #include <sys/time.h>
 #include <fstream>
+#include <sstream>
 #include <netinet/in.h>
+#include <sys/fcntl.h>
 #include "Board.h"
 #include "I2C.h"
+#include <dirent.h>
 
 
 uint64_t Board::mTicksBase = 0;
+uint64_t Board::mLastWorkJiffies = 0;
+uint64_t Board::mLastTotalJiffies = 0;
 decltype(Board::mRegisters) Board::mRegisters = decltype(Board::mRegisters)();
+
+HookThread<Board>* Board::mStatsThread = nullptr;
+uint32_t Board::mCPUTemp = 0;
+uint32_t Board::mCPULoad = 0;
+uint32_t Board::mMemoryUsage = 0;
+bool Board::mDiskFull = false;
+vector< string > Board::mBoardMessages;
 map< string, bool > Board::mDefectivePeripherals;
 
 
@@ -35,6 +47,12 @@ Board::Board()
 	srand( time( nullptr ) );
 	// hardware-specific initialization should be done here or directly in startup.cpp
 	// this->mRegisters should be loaded here
+
+	if ( mStatsThread == nullptr ) {
+		mStatsThread = new HookThread<Board>( "board_stats", this, &Board::StatsThreadRun );
+		mStatsThread->setFrequency( 1 );
+		mStatsThread->Start();
+	}
 }
 
 
@@ -90,6 +108,27 @@ static string readcmd( const string& cmd, const string& entry = "", const string
 
 	pclose( fp );
 	return res;
+}
+
+
+vector< string > Board::messages()
+{
+	vector< string > msgs;
+
+	for ( auto defect : mDefectivePeripherals ) {
+		if ( defect.second == true ) {
+			msgs.emplace_back( defect.first + " is defective !" );
+		}
+	}
+	if ( mDiskFull ) {
+		msgs.emplace_back( "No free space on disk" );
+	}
+	if ( mCPUTemp > 80 ) {
+		msgs.emplace_back( "High CPU Temp (" + to_string(mCPUTemp) + "\xB0"" C)" );
+	}
+
+	msgs.insert( msgs.end(), mBoardMessages.begin(), mBoardMessages.end() );
+	return msgs;
 }
 
 
@@ -244,15 +283,123 @@ string Board::readcmd( const string& cmd, const string& entry, const string& del
 }
 
 
+static int32_t cpuTemp() {
+	// ARM / RPi
+	int fd = open( "/sys/class/thermal/thermal_zone0/temp", O_RDONLY );
+	if ( fd >= 0 ) {
+		char buf[16] = {};
+		read(fd, buf, sizeof(buf) - 1);
+		close(fd);
+		return atoi(buf);
+	}
+	// x86 : look for any hwmon temp input with name = "k10temp" or "coretemp"
+	DIR* dir = opendir( "/sys/class/hwmon" );
+	if (!dir) return -1;
+	dirent* entry;
+	while ( (entry = readdir(dir)) != nullptr ) {
+		if (entry->d_name[0] == '.') continue;
+		char temp_path[128];
+		snprintf( temp_path, sizeof(temp_path), "/sys/class/hwmon/%s/name", entry->d_name );
+		fd = open( temp_path, O_RDONLY );
+		if (fd < 0) continue;
+		char buf[64] = {};
+		read( fd, buf, sizeof(buf) - 1 );
+		close( fd );
+		if (strstr(buf, "k10temp") || strstr(buf, "coretemp")) {
+			snprintf( temp_path, sizeof(temp_path), "/sys/class/hwmon/%s/temp1_input", entry->d_name );
+			fd = open( temp_path, O_RDONLY );
+			if (fd < 0) continue;
+			char temp_buf[16] = {};
+			read( fd, temp_buf, sizeof(temp_buf) - 1 );
+			close( fd );
+			closedir( dir );
+			return atoi(temp_buf) / 1000;
+		}
+	}
+	closedir( dir );
+	return -1;
+}
+
+
+bool Board::StatsThreadRun()
+{
+	mCPUTemp = cpuTemp();
+
+	uint32_t jiffies[7];
+	stringstream ss;
+	ss.str( readcmd( "cat /proc/stat | grep \"cpu \" | cut -d' ' -f2-", "", "" ) ); 
+
+	ss >> jiffies[0];
+	ss >> jiffies[1];
+	ss >> jiffies[2];
+	ss >> jiffies[3];
+	ss >> jiffies[4];
+	ss >> jiffies[5];
+	ss >> jiffies[6];
+
+	uint64_t work_jiffies = jiffies[0] + jiffies[1] + jiffies[2];
+	uint64_t total_jiffies = jiffies[0] + jiffies[1] + jiffies[2] + jiffies[3] + jiffies[4] + jiffies[5] + jiffies[6];
+
+	mCPULoad = ( work_jiffies - mLastWorkJiffies ) * 100 / ( total_jiffies - mLastTotalJiffies );
+
+	mLastWorkJiffies = work_jiffies;
+	mLastTotalJiffies = total_jiffies;
+
+
+	std::ifstream meminfo( "/proc/meminfo" );
+	std::string line;
+	uint64_t totalMem = 0;
+	uint64_t freeMem = 0;
+	uint64_t buffers = 0;
+	uint64_t cached = 0;
+
+	while ( std::getline( meminfo, line ) ) {
+		std::istringstream iss(line);
+		std::string key;
+		uint64_t value;
+		std::string unit;
+		iss >> key >> value >> unit;
+		if (key == "MemTotal:") {
+			totalMem = value;
+		} else if (key == "MemFree:") {
+			freeMem = value;
+		} else if (key == "Buffers:") {
+			buffers = value;
+		} else if (key == "Cached:") {
+			cached = value;
+		}
+		if ( totalMem > 0 and freeMem > 0 and buffers > 0 and cached > 0 ) {
+			break;
+		}
+	}
+
+	mMemoryUsage = ( totalMem - freeMem - buffers - cached ) * 100 / totalMem;
+
+	return true;
+}
+
+
 uint32_t Board::CPULoad()
 {
-	return 0;
+	return mCPULoad;
 }
 
 
 uint32_t Board::CPUTemp()
 {
-	return 0;
+	return mCPUTemp;
+}
+
+
+uint32_t Board::MemoryUsage()
+{
+	return mMemoryUsage;
+}
+
+
+uint32_t Board::FreeDiskSpace()
+{
+	return strtoul( readproc( "df -P /data | tail -n1 | sed 's/  */ /g' | cut -d' ' -f4" ).c_str(), nullptr, 0 );
 }
 
 

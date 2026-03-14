@@ -33,6 +33,6 @@ fi
 if [ ! -f $1/libluajit_static.a ]; then
 # 	echo "make clean libluajit.a -C ${DIR}/LuaJIT-2.0.4/src HOST_CC=\"cc $5\" BUILDMODE=static CC=\"$2\" ASM=\"$3\" STRIP=$4 $EXTRA XCFLAGS=-DLUAJIT_USE_SYSMALLOC CFLAGS=\"$6\""
 	echo "make clean libluajit.a -C ${DIR}/LuaJIT-2.0.4/src HOST_CC=\"cc $5\" BUILDMODE=static CC=\"$2\" ASM=\"$3\" STRIP=$4 $EXTRA CFLAGS=\"$6\""
-	make clean libluajit.a -C ${DIR}/LuaJIT-2.0.4/src HOST_CC="cc $5" BUILDMODE=static CC="$2" ASM="$3" STRIP=$4 $EXTRA CFLAGS="$6"
+	make clean libluajit.a -C ${DIR}/LuaJIT-2.0.4/src HOST_CC="cc $5" HOST_CFLAGS="" HOST_LDFLAGS="" BUILDMODE=static CC="$2" ASM="$3" STRIP=$4 $EXTRA CFLAGS="$6"
 	cp ${DIR}/LuaJIT-2.0.4/src/libluajit.a $1/libluajit_static.a
 fi

@@ -21,10 +21,11 @@
 
 #include <Accelerometer.h>
 
-class FakeAccelerometer : public Accelerometer
+LUA_CLASS class FakeAccelerometer : public Accelerometer
 {
 public:
-	FakeAccelerometer( int axisCount = 3, const Vector3f& noiseGain = Vector3f( 0.4f, 0.4f, 0.4f ) );
+	LUA_EXPORT FakeAccelerometer() : FakeAccelerometer( 3 ) {}
+	FakeAccelerometer( int axisCount, const Vector3f& noiseGain = Vector3f( 0.4f, 0.4f, 0.4f ) );
 	~FakeAccelerometer();
 
 	void Read( Vector3f* v, bool raw = false );

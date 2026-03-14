@@ -99,7 +99,7 @@ public:
 	uint32_t readSpeed() const { return mReadSpeed; }
 	virtual uint32_t fullReadSpeed() = 0;
 
-	virtual string name() const { return "Link"; }
+	LUA_EXPORT virtual string name() const { return "Link"; }
 	virtual LuaValue infos() const { return LuaValue(); }
 
 	static std::list< Link* > links() { return sLinks; }

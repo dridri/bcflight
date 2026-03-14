@@ -1,5 +1,6 @@
 #include "DShot.h"
 #include "DShotDriver.h"
+#include <string>
 
 #ifdef BUILD_DShot
 
@@ -27,7 +28,8 @@ void DShot::setSpeedRaw( float speed, bool force_hw_update )
 		speed = 1.0f;
 	}
 
-	mDriver->setPinValue( mPin, 48 + ( 2047 - 48 ) * speed );
+	bool tlm = mRequestTelemetry.exchange( false );
+	mDriver->setPinValue( mPin, 48 + ( 2047 - 48 ) * speed, tlm );
 
 	if ( force_hw_update ) {
 		mDriver->Update();
@@ -53,6 +55,12 @@ void DShot::Disarm()
 {
 	mDriver->setPinValue( mPin, 0 );
 	mDriver->Update();
+}
+
+
+string DShot::toString()
+{
+	return "DShot(pin=" + to_string( mPin ) + ")";
 }
 
 

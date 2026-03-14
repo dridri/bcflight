@@ -12,12 +12,25 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+SET( SYSROOT ${ROOT_PATH}/arm-linux-gnueabihf )
 SET( CMAKE_FIND_ROOT_PATH ${ROOT_PATH} )
-set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ROOT_PATH}/arm-linux-gnueabihf/lib/arm-linux-gnueabihf")
+set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${SYSROOT}/lib/arm-linux-gnueabihf")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-SET( FREETYPE_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/freetype2" )
-SET( DRM_INCLUDE_DIRS "${CMAKE_FIND_ROOT_PATH}/include/libdrm" )
+include_directories( ${SYSROOT}/include )
+link_directories( ${SYSROOT}/lib ${SYSROOT}/lib/arm-linux-gnueabihf )
+
+SET( ENV{PKG_CONFIG_DIR} "" )
+SET( ENV{PKG_CONFIG_LIBDIR} ${SYSROOT}/lib/pkgconfig:${SYSROOT}/lib/arm-linux-gnueabihf/pkgconfig )
+SET( ENV{PKG_CONFIG_SYSROOT_DIR} "" )
+
+SET( FREETYPE_INCLUDE_DIRS "${SYSROOT}/include/freetype2" )
+SET( FREETYPE_LIBRARIES freetype )
+SET( LIBDRM_INCLUDE_DIRS "${SYSROOT}/include/libdrm" )
+SET( LIBDRM_LIBRARIES drm )
+SET( LIBCAMERA_INCLUDE_DIRS "${SYSROOT}/include/libcamera" )
+SET( LIBCAMERA_LIBRARIES camera camera-base )
+SET( DRM_INCLUDE_DIRS "${SYSROOT}/include/libdrm" )
 
 SET( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
 SET( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )

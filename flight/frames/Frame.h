@@ -49,8 +49,10 @@ public:
 	void MotorTest( uint32_t id );
 	void MotorsBeep( bool enabled );
 
-	bool armed() const;
+	LUA_PROPERTY("armed") bool armed() const;
 	bool airMode() const;
+
+	LUA_EXPORT vector< Motor* > motors() const;
 
 	static void RegisterFrame( const string& name, function< Frame* ( Config* ) > instanciate );
 	static const map< string, function< Frame* ( Config* ) > > knownFrames() { return mKnownFrames; }

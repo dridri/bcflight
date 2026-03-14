@@ -12,6 +12,7 @@
 
 extern "C" int ioctl (int __fd, unsigned long int __request, ...) __THROW;
 
+
 static map< int, int > sSpeeds = {
 	{ 0, B0 },
 	{ 50, B50 },
@@ -83,7 +84,7 @@ int Serial::Connect()
 	mOptions->c_cflag &= ~PARENB; // Disable parity
 	mOptions->c_cflag &= ~PARODD; // Even parity
 
-	mOptions->c_cflag |= CRTSCTS;
+	mOptions->c_cflag &= ~CRTSCTS;
 
 	// Set data bits
 	mOptions->c_cflag &= ~CSIZE;
@@ -94,7 +95,7 @@ int Serial::Connect()
 	mOptions->c_iflag = 0;
 	mOptions->c_oflag &= ~OPOST;
 	mOptions->c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-	mOptions->c_cc[VMIN] = 6;
+	mOptions->c_cc[VMIN] = 1;
 	mOptions->c_cc[VTIME] = 0;
 
 
@@ -110,6 +111,7 @@ int Serial::Connect()
 		return -1;
 	}
 
+	mConnected = true;
 	return 0;
 }
 
@@ -117,6 +119,33 @@ int Serial::Connect()
 std::string Serial::toString()
 {
 	return mDevice;
+}
+
+
+void Serial::setReadTimeout( int32_t ms )
+{
+	mReadTimeout = ms;
+}
+
+
+void Serial::flushInput()
+{
+	ioctl( mFD, TCFLSH, TCIFLUSH );
+}
+
+
+void Serial::setVMin( uint8_t vmin )
+{
+	if ( not mOptions ) {
+		return;
+	}
+
+	ioctl( mFD, TCGETS2, mOptions );
+	mOptions->c_cc[VMIN] = vmin;
+	int ret = ioctl( mFD, TCSETS2, mOptions );
+	if ( ret < 0 ) {
+		gError() << "setVMin error : " << errno << ", " << strerror(errno);
+	}
 }
 
 

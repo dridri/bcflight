@@ -107,7 +107,7 @@ bool Controller::connected() const
 }
 
 
-uint32_t Controller::ping() const
+const uint32_t Controller::ping() const
 {
 	return mPing;
 }

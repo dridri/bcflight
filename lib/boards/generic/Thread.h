@@ -41,6 +41,7 @@ public:
 
 protected:
 	virtual bool run() = 0;
+	void setName( const string& name );
 
 private:
 	void ThreadEntry();

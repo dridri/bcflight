@@ -572,7 +572,7 @@ for __, filename in ipairs(arg) do
 						i = i + 1
 					end
 				end
-			elseif token == "class" then
+			elseif token == "class" and (i == 1 or tokens[i - 1] ~= "friend") then
 				log("ON NON-LUA CLASS " .. tokens[i+1] .. "\n")
 				curr_class = tokens[i + 1]
 			elseif token == "typedef" and tokens[i + 1] == "enum" then

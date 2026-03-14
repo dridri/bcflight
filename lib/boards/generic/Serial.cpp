@@ -12,6 +12,7 @@
 
 extern "C" int ioctl (int __fd, unsigned long int __request, ...) __THROW;
 
+
 static map< int, int > sSpeeds = {
 	{ 0, B0 },
 	{ 50, B50 },
@@ -47,10 +48,13 @@ static map< int, int > sSpeeds = {
 };
 
 
-Serial::Serial( const string& device, int speed )
+Serial::Serial( const string& device, int speed, int read_timeout )
 	: Bus()
 	, mFD( -1 )
+	, mOptions( nullptr )
 	, mDevice( device )
+	, mSpeed( speed )
+	, mReadTimeout( read_timeout )
 {
 }
 
@@ -69,6 +73,21 @@ int Serial::Connect()
 std::string Serial::toString()
 {
 	return mDevice;
+}
+
+
+void Serial::setReadTimeout( int32_t ms )
+{
+}
+
+
+void Serial::flushInput()
+{
+}
+
+
+void Serial::setVMin( uint8_t vmin )
+{
 }
 
 

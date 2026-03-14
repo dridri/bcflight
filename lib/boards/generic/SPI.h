@@ -25,10 +25,10 @@
 #include <string>
 #include "../common/Bus.h"
 
-class SPI : public Bus
+LUA_CLASS class SPI : public Bus
 {
 public:
-	SPI( const string& device, uint32_t speed_hz = 500000 ); // setting speed to 0 means slave-mode
+	LUA_EXPORT SPI( const string& device, uint32_t speed_hz = 500000 ); // setting speed to 0 means slave-mode
 	~SPI();
 	const string& device() const;
 

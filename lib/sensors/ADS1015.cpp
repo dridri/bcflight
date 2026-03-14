@@ -82,11 +82,13 @@
 
 
 ADS1015::ADS1015()
-	: mI2C( new I2C( 0x48 ) )
+	: mMultipliers( 1.0f, 1.0f, 1.0f, 1.0f )
+	, mI2C( new I2C( 0x48 ) )
 	, mRingBuffer{ 0.0f }
 	, mRingSum( 0.0f )
 	, mRingIndex( 0 )
 	, mChannelReady{ false }
+	, mChannels( vector<ADS1015Channel*>() )
 {
 	mNames = { "ADS1015" };
 	mI2C->Connect();
@@ -95,12 +97,21 @@ ADS1015::ADS1015()
 	uint16_t id = 0;
 	mI2C->Read16( 0x0B, &id );
 	gDebug() << "ADS1015 ID: " << (uint32_t)id;
+
+	for ( uint8_t i = 0; i < 4; i++ ) {
+		ADS1015Channel* channel = new ADS1015Channel( this, i );
+		mChannels.push_back( channel );
+	}
 }
 
 
 ADS1015::~ADS1015()
 {
 	delete mI2C;
+	for ( auto channel : mChannels ) {
+		delete channel;
+	}
+	mChannels.clear();
 }
 
 
@@ -151,7 +162,7 @@ float ADS1015::Read( int channel )
 	// float fret = (float)( ret * 6.144f / 32768.0f );
 	float fret = (float)( _ret1 * 4.096f / 32768.0f );
 
-	return fret;
+	return fret * mMultipliers[channel];
 }
 
 

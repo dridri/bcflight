@@ -23,6 +23,8 @@
 #include "Voltmeter.h"
 #include "CurrentSensor.h"
 
+class ADS1015Channel;
+
 LUA_CLASS class ADS1015 : public Voltmeter
 {
 public:
@@ -32,14 +34,38 @@ public:
 	void Calibrate( float dt, bool last_pass = false );
 	float Read( int channel );
 
+	LUA_EXPORT ADS1015Channel* channel( uint8_t channel ) {
+		if ( channel < mChannels.size() ) {
+			return mChannels[channel];
+		}
+		return nullptr;
+	}
+
 	LuaValue infos();
 
-private:
+protected:
+	LUA_PROPERTY("multipliers") Vector4f mMultipliers;
 	I2C* mI2C;
 	float mRingBuffer[16];
 	float mRingSum;
 	int mRingIndex;
 	bool mChannelReady[4];
+	vector<ADS1015Channel*> mChannels;
+};
+
+class ADS1015Channel : public Voltmeter {
+public:
+	void Calibrate( float dt, bool last_pass = false ) {}
+	float Read( int channel ) override { (void)channel; return mParent->Read( mChannel ); }
+	LuaValue infos() override { return mParent->infos(); }
+
+protected:
+	friend class ADS1015;
+	ADS1015Channel( ADS1015* parent, uint8_t channel ) : Voltmeter(), mParent(parent), mChannel( channel ) {
+		mNames.push_back( "ADS1015.Channel[" + to_string( channel ) + "]" );
+	}
+	ADS1015* mParent;
+	uint8_t mChannel;
 };
 
 

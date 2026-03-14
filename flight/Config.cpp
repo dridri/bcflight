@@ -26,6 +26,8 @@
 #include <Magnetometer.h>
 #include <Motor.h>
 #include <Link.h>
+#include <Board.h>
+#include <Main.h>
 
 extern "C" uint32_t _mem_usage();
 extern "C" void lua_init( lua_State* L );
@@ -113,6 +115,12 @@ void Config::WriteFile( const string& content )
 		file.write( content.c_str(), content.length() );
 		file.close();
 	}
+}
+
+
+LuaValue Config::value( const string& name )
+{
+	return mLua->value( name );
 }
 
 
@@ -312,6 +320,22 @@ void Config::Reload()
 
 	LUAdostring( "board = { type = \"" + string( BOARD ) + "\" }" );
 	LUAdostring( "system = { loop_time = 2000 }" );
+	mLua->setMetatable( "board", []( const string& key ) {
+		if ( key == "system" ) {
+			LuaValue ret;
+			ret["cpu_temp"] = Board::CPUTemp();
+			ret["cpu_load"] = Board::CPULoad();
+			ret["memory_usage"] = Board::MemoryUsage();
+			ret["free_disk_space"] = Board::FreeDiskSpace();
+			if ( Main::instance()->powerThread() ) {
+				ret["battery_voltage"] = Main::instance()->powerThread()->VBat();
+				ret["battery_current"] = Main::instance()->powerThread()->CurrentTotal();
+				ret["battery_level"] = Main::instance()->powerThread()->BatteryLevel();
+			}
+			return ret;
+		}
+		return LuaValue("caca");
+	} );
 
 	// Simple variables can be set before loading the config file
 	for ( pair< string, string > override : mOverrides ) {

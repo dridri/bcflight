@@ -22,10 +22,11 @@
 #include <stdint.h>
 #include <list>
 #include <functional>
+#include "Lua.h"
 
 using namespace std;
 
-class GPIO
+LUA_CLASS class GPIO
 {
 public:
 	typedef enum {
@@ -39,11 +40,17 @@ public:
 		Alt5,
 	} Mode;
 	typedef enum {
+		PullOff,
+		PullDown,
+		PullUp
+	} PUDMode;
+	typedef enum {
 		Falling,
 		Rising,
 		Both,
 	} ISRMode;
 
+	static void setPUD( int pin, PUDMode mode );
 	static void setMode( int pin, Mode mode );
 	static void setPWM( int pin, int initialValue, int pwmRange );
 	static void Write( int pin, bool en );

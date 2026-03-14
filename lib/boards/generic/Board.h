@@ -24,6 +24,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include "Thread.h"
 
 using namespace std;
 
@@ -58,11 +59,13 @@ public:
 	static int SaveRegister( const string& name, const string& value );
 
 	static uint64_t GetTicks();
+	static uint64_t ticksBase() { return mTicksBase; }
 	static uint64_t WaitTick( uint64_t ticks_p_second, uint64_t lastTick, uint64_t sleep_bias = -500 );
 
 	static string readcmd( const string& cmd, const string& entry = "", const string& delim = ":" );
 	static uint32_t CPULoad();
 	static uint32_t CPUTemp();
+	static uint32_t MemoryUsage();
 	static uint32_t FreeDiskSpace();
 	static void setDiskFull();
 
@@ -76,8 +79,20 @@ public:
 	static void Reset();
 
 private:
+	bool StatsThreadRun();
+
 	static uint64_t mTicksBase;
 	static map< string, string > mRegisters;
+	static uint64_t mLastWorkJiffies;
+	static uint64_t mLastTotalJiffies;
+
+	static HookThread<Board>* mStatsThread;
+	static uint32_t mCPULoad;
+	static uint32_t mCPUTemp;
+	static uint32_t mMemoryUsage;
+	static bool mDiskFull;
+
+	static vector< string > mBoardMessages;
 	static map< string, bool > mDefectivePeripherals;
 };
 

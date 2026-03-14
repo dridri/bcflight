@@ -87,28 +87,28 @@ Main::Main( int ac, char** av )
 {
 	mInstance = this;
 #ifdef SYSTEM_NAME_Linux
+	gDebug() << "Invocation ID : " << std::getenv("INVOCATION_ID");
 	if ( std::getenv("INVOCATION_ID") != nullptr ) {
 		Debug::setColors( false );
 	}
-#endif
-#ifdef BUILD_sensors
-	#ifdef BOARD_generic
-		#pragma message "Adding noisy fake accelerometer and gyroscope"
-		Sensor::AddDevice( new FakeAccelerometer( 3, Vector3f( 2.0f, 2.0f, 2.0f ) ) );
-		Sensor::AddDevice( new FakeGyroscope( 3, Vector3f( 1.3f, 1.3f, 1.3f ) ) );
-	#endif
 #endif
 
 	mBoard = new Board();
 	Board::InformLoading();
 
-#ifdef BOARD_generic
-	mConfig = new Config( "config.lua", "settings.lua" );
-#elif defined( SYSTEM_NAME_Linux )
-	mConfig = new Config( "/var/flight/config.lua", "/var/flight/settings.lua" );
+#if defined( SYSTEM_NAME_Linux )
+	string config_path = "/var/flight/config.lua";
+	if ( ac > 1 and string(av[1]).find(".lua") != string::npos ) {
+		config_path = av[1];
+	}
+	gDebug() << "Using config file : " << config_path;
+	mConfig = new Config( config_path, "/var/flight/settings.lua" );
 #endif
 	for ( int i = 1; i < ac; i++ ) {
 		gDebug() << "argv[" << i << "] = " << av[i];
+		if ( i == 1 and string(av[i]).find(".lua") != string::npos ) {
+			continue;
+		}
 		const string arg = string(av[i]);
 		const string key = arg.substr( 0, arg.find( "=" ) );
 		if ( key.substr( 0, 2 ) == "--" ) {

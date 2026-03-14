@@ -252,6 +252,9 @@ void DShotDriver::_Update()
 		channelMap[count] = mapped[0];
 		bitmaskMap[count] = mapped[1];
 		count++;
+		// Reset telemetry request
+		uint16_t value = ( iter->second >> 4 ) & 0b111111111110;
+		iter->second = ( value << 4 ) | ( (value ^ (value >> 4) ^ (value >> 8)) & 0x0F );
 	}
 
 	const uint32_t bitwidth = 32; // mDRMWidth / 16;

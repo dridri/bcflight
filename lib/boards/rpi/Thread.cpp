@@ -36,6 +36,7 @@ Thread::~Thread()
 {
 }
 
+
 void Thread::setName( const string& name )
 {
 	mName = name;

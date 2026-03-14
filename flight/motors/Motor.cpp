@@ -20,10 +20,12 @@
 #include "Motor.h"
 
 map< string, function< Motor* ( Config*, const string& ) > > Motor::mKnownMotors;
+std::list< Motor* > Motor::mInstances;
 
 Motor::Motor()
 	: mSpeed( -1 )
 {
+	mInstances.push_back( this );
 }
 
 

@@ -16,8 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifdef BOARD_generic
-
 #include <cmath>
 #include "FakeGyroscope.h"
 
@@ -63,5 +61,3 @@ LuaValue FakeGyroscope::infos()
 
 	return ret;
 }
-
-#endif // BOARD_generic

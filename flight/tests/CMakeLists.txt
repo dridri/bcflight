@@ -4,7 +4,7 @@ add_executable(
 	stabilizer/test_BiquadFilter.cpp
 )
 
-target_link_libraries(flight_tests PRIVATE -L../ controllerbase luacore libdebug ${LIBS} ${BOARD_LIBS} Catch2::Catch2)
+target_link_libraries(flight_tests PRIVATE -L../ controllerbase luacore debuglib ${LIBS} ${BOARD_LIBS} Catch2::Catch2)
 
 include(CTest)
 include(Catch)

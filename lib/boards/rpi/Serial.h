@@ -34,7 +34,11 @@ public:
 	~Serial();
 
 	void setStopBits( uint8_t count );
+	void setVMin( uint8_t vmin );
+	void setReadTimeout( int32_t ms );
+	void flushInput();
 
+	bool isConnected() { return mConnected; }
 	int Connect();
 	int Read( void* buf, uint32_t len );
 	int Write( const void* buf, uint32_t len );
