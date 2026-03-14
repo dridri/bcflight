@@ -28,6 +28,7 @@
 #include <cmath>
 #include <Thread.h>
 #include "RendererHUD.h"
+#include "Font.h"
 #include "font32.h"
 
 static const char hud_flat_vertices_shader[] =
@@ -50,7 +51,6 @@ R"(	#version 100
 		ge_TextureCoord = ge_VertexTexcoord.xy;
 		vec2 pos = offset + ge_VertexPosition.xy * scale;
 		ge_Position = ge_ProjectionMatrix * vec4(pos, 0.0, 1.0);
-		ge_Position.y = ge_Position.y * ( 720.0 / ( 1280.0 / 2.0 ) );
 	})"
 ;
 
@@ -91,6 +91,113 @@ R"(	#version 100
 	})"
 ;
 
+static const char hud_rrect_vertices_shader[] =
+R"(	#version 100
+	precision mediump float;
+
+	#define in attribute
+	#define out varying
+	#define ge_Position gl_Position
+	in vec2 ge_VertexTexcoord;
+	in vec2 ge_VertexPosition;
+
+	uniform mat4 ge_ProjectionMatrix;
+	uniform vec2 offset;
+	out vec2 ge_TextureCoord;
+
+	void main()
+	{
+		ge_TextureCoord = ge_VertexTexcoord.xy;
+		vec2 pos = offset + ge_VertexPosition.xy;
+		ge_Position = ge_ProjectionMatrix * vec4(pos, 0.0, 1.0);
+	})"
+;
+
+static const char hud_rrect_fragment_shader[] =
+R"(	#version 100
+	precision mediump float;
+
+	#define in varying
+	#define ge_FragColor gl_FragColor
+	in vec2 ge_TextureCoord;
+
+	uniform vec2  rect_size;
+	uniform float radius;
+	uniform float stroke_width;
+	uniform vec4  color;
+	uniform vec4  stroke_color;
+
+	float roundedBoxSDF( vec2 p, vec2 halfSize, float r ) {
+		vec2 d = abs(p) - halfSize + r;
+		return length(max(d, vec2(0.0))) + min(max(d.x, d.y), 0.0) - r;
+	}
+
+	void main()
+	{
+		vec2 p = (ge_TextureCoord - vec2(0.5)) * rect_size;
+		float d = roundedBoxSDF(p, rect_size * 0.5, radius);
+		// outer edge AA (bord extérieur de la forme)
+		float outer_aa = smoothstep(1.0, -1.0, d);
+		if ( stroke_width > 0.0 && d > -stroke_width ) {
+			// inner edge AA (bord intérieur du stroke = frontière fill/stroke)
+			float inner_aa = smoothstep(-1.0, 1.0, d + stroke_width);
+			float stroke_alpha = outer_aa * inner_aa;
+			ge_FragColor = vec4(stroke_color.rgb, stroke_color.a * stroke_alpha);
+		} else {
+			ge_FragColor = vec4(color.rgb, color.a * outer_aa);
+		}
+	})"
+;
+
+static const char hud_gauge_vertices_shader[] =
+R"(	#version 100
+	precision mediump float;
+
+	#define in attribute
+	#define out varying
+	#define ge_Position gl_Position
+
+	in vec2 ge_VertexTexcoord;
+	in vec2 ge_VertexPosition;
+
+	uniform mat4 ge_ProjectionMatrix;
+	uniform vec2  gauge_center;
+	uniform float gauge_radius;
+	uniform float gauge_inner_ratio;
+	out float v_band;
+
+	void main()
+	{
+		float r = mix(gauge_radius * gauge_inner_ratio, gauge_radius, ge_VertexTexcoord.x);
+		v_band = ge_VertexTexcoord.y;
+		vec2 pos = gauge_center + r * ge_VertexPosition.xy;
+		ge_Position = ge_ProjectionMatrix * vec4(pos, 0.0, 1.0);
+	})"
+;
+
+static const char hud_gauge_fragment_shader[] =
+R"(	#version 100
+	precision mediump float;
+
+	#define in varying
+	#define ge_FragColor gl_FragColor
+
+	uniform vec4 color;
+	uniform vec4 glow_color;
+	in float v_band;
+
+	void main()
+	{
+		ge_FragColor = vec4(0.0);
+		if ( v_band >= 1.0 ) {
+			ge_FragColor = vec4(color.rgb, color.a * v_band );
+		} else {
+			ge_FragColor += vec4(glow_color.rgb, glow_color.a * v_band );
+		}
+	})"
+;
+
+
 static const char hud_text_vertices_shader[] =
 R"(	#version 100
 	precision mediump float;
@@ -107,34 +214,11 @@ R"(	#version 100
 	uniform float distort;
 	out vec2 ge_TextureCoord;
 
-	vec2 VR_Distort( vec2 coords )
-	{
-		vec2 ret = coords;
-		vec2 ofs = vec2(1280.0/4.0, 720.0/2.0);
-		if ( coords.x >= 1280.0/2.0 ) {
-			ofs.x = 3.0 * 1280.0/4.0;
-		}
-		vec2 offset = coords - ofs;
-		float r2 = dot( offset.xy, offset.xy );
-		float r = sqrt(r2);
-		float k1 = 1.95304;
-		k1 = k1 / ((1280.0 / 4.0)*(1280.0 / 4.0) * 16.0);
-
-		ret = ofs + ( 1.0 - k1 * r * r ) * offset;
-
-		return ret;
-	}
-
-
 	void main()
 	{
 		ge_TextureCoord = ge_VertexTexcoord.xy;
 		vec2 pos = offset + ge_VertexPosition.xy * scale;
-		if ( distort != 0.0 ) {
-			pos = VR_Distort( pos );
-		}
 		ge_Position = ge_ProjectionMatrix * vec4(pos, 0.0, 1.0);
-// 		ge_Position.y = ge_Position.y * ( 720.0 / ( 1280.0 / 2.0 ) );
 	})"
 ;
 
@@ -147,11 +231,42 @@ R"(	#version 100
 	uniform sampler2D ge_Texture0;
 
 	uniform vec4 color;
+	uniform vec4 outline_color;
+	uniform vec4 shadow_color;
 	in vec2 ge_TextureCoord;
 
 	void main()
 	{
-		ge_FragColor = color * texture2D( ge_Texture0, ge_TextureCoord.xy );
+		vec4 t = texture2D( ge_Texture0, ge_TextureCoord.xy );
+		float a_fill     = clamp( t.r * color.a, 0.0, 1.0 );
+		float a_outline  = clamp( (t.g - t.r) * outline_color.a, 0.0, 1.0 );
+		float a_shadow   = clamp( t.b * shadow_color.a, 0.0, 1.0 );
+		vec3 rgb_shadow  = shadow_color.rgb * step( 0.0001, a_shadow );
+		vec3 rgb_outline = outline_color.rgb * step( 0.0001, a_outline );
+		vec3 rgb_fill    = color.rgb * step( 0.0001, a_fill );
+
+		vec3  rgb = vec3(0.0);
+		float a   = 0.0;
+
+		if ( a_outline == 0.0 && a_shadow == 0.0 ) {
+			rgb = rgb_fill;
+			a   = a_fill;
+		} else if ( a_outline == 0.0 && a_fill == 0.0 ) {
+			rgb = rgb_shadow;
+			a   = a_shadow;
+		} else if ( a_outline == 0.0 ) {
+			rgb = rgb_shadow;
+			a   = a_shadow;
+			rgb = mix( rgb, rgb_fill, a_fill );
+			a   = a_fill + a * ( 1.0 - a_fill );
+		} else {
+			rgb = mix( rgb, rgb_outline, a_outline );
+			a   = a_outline + a * ( 1.0 - a_outline );
+			rgb = mix( rgb, rgb_fill, a_fill );
+			a   = a_fill + a * ( 1.0 - a_fill );
+		}
+
+		ge_FragColor = vec4( rgb, a );
 	})"
 ;
 
@@ -159,6 +274,7 @@ R"(	#version 100
 Vector2f RendererHUD::VR_Distort( const Vector2f& coords )
 {
 	Vector2f ret = coords;
+/*
 	Vector2f ofs = Vector2f( 1280.0 / 4.0, 720.0 / 2.0 );
 	if ( coords.x >= 1280.0 / 2.0 ) {
 		ofs.x = 3.0 * 1280.0 / 4.0;
@@ -170,25 +286,15 @@ Vector2f RendererHUD::VR_Distort( const Vector2f& coords )
 	k1 = k1 / ( ( 1280.0 / 4.0 ) * ( 1280.0 / 4.0 ) * 16.0 );
 
 	ret = ofs + ( mBarrelCorrection ? ( 1.0f - k1 * r * r ) : 1.0f ) * offset;
-
+*/
 	return ret;
 }
 
 
 void RendererHUD::DrawArrays( RendererHUD::Shader& shader, int mode, uint32_t ofs, uint32_t count, const Vector2f& offset )
 {
-	if ( mStereo ) {
-		glViewport( mDisplayWidth / 2, 0, mDisplayWidth / 2, mDisplayHeight );
-		glUniform2f( shader.mOffsetID, 1280.0f * -m3DStrength + offset.x, offset.y );
-		glDrawArrays( mode, ofs, count );
-		glViewport( 0, 0, mDisplayWidth / 2, mDisplayHeight );
-		glUniform2f( shader.mOffsetID, 1280.0f * +m3DStrength + offset.x, offset.y );
-		glDrawArrays( mode, ofs, count );
-	} else {
-		glViewport( 0, 0, mDisplayWidth, mDisplayHeight );
-		glUniform2f( shader.mOffsetID, offset.x, offset.y );
-		glDrawArrays( mode, ofs, count );
-	}
+	glUniform2f( shader.mOffsetID, offset.x, offset.y );
+	glDrawArrays( mode, ofs, count );
 }
 
 
@@ -201,7 +307,7 @@ RendererHUD::RendererHUD( int width, int height, float ratio, uint32_t fontsize,
 	, mBorderBottom( mHeight - render_region.y )
 	, mBorderLeft( render_region.z )
 	, mBorderRight( mWidth - render_region.w )
-	, mStereo( true )
+	, mStereo( false )
 	, mNightMode( false )
 	, mBarrelCorrection( barrel_correction )
 	, m3DStrength( 0.004f )
@@ -210,7 +316,7 @@ RendererHUD::RendererHUD( int width, int height, float ratio, uint32_t fontsize,
 	, mMatrixProjection( new Matrix() )
 	, mQuadVBO( 0 )
 	, mFlatShader( { 0 } )
-	, mFontTexture( nullptr )
+	, mDefaultFont( nullptr )
 	, mFontSize( fontsize )
 	, mFontHeight( fontsize * 0.65f )
 	, mTextShader{ 0 }
@@ -250,73 +356,125 @@ RendererHUD::RendererHUD( int width, int height, float ratio, uint32_t fontsize,
 	glUseProgram( mTextShader.mShader );
 	glEnableVertexAttribArray( mTextShader.mVertexTexcoordID );
 	glEnableVertexAttribArray( mTextShader.mVertexPositionID );
+	mTextOutlineColorID = glGetUniformLocation( mTextShader.mShader, "outline_color" );
+	mTextShadowColorID = glGetUniformLocation( mTextShader.mShader, "shadow_color" );
 	glUseProgram( 0 );
+
+	LoadVertexShader( &mRRectShader, hud_rrect_vertices_shader, sizeof(hud_rrect_vertices_shader) + 1 );
+	LoadFragmentShader( &mRRectShader, hud_rrect_fragment_shader, sizeof(hud_rrect_fragment_shader) + 1 );
+	createPipeline( &mRRectShader );
+	glUseProgram( mRRectShader.mShader );
+	glEnableVertexAttribArray( mRRectShader.mVertexTexcoordID );
+	glEnableVertexAttribArray( mRRectShader.mVertexPositionID );
+	mRRectSizeID    = glGetUniformLocation( mRRectShader.mShader, "rect_size" );
+	mRRectRadiusID  = glGetUniformLocation( mRRectShader.mShader, "radius" );
+	mRRectStrokeWID = glGetUniformLocation( mRRectShader.mShader, "stroke_width" );
+	mRRectStrokeCID = glGetUniformLocation( mRRectShader.mShader, "stroke_color" );
+	glUseProgram( 0 );
+
+	LoadVertexShader( &mGaugeShader, hud_gauge_vertices_shader, sizeof(hud_gauge_vertices_shader) + 1 );
+	LoadFragmentShader( &mGaugeShader, hud_gauge_fragment_shader, sizeof(hud_gauge_fragment_shader) + 1 );
+	createPipeline( &mGaugeShader );
+	glUseProgram( mGaugeShader.mShader );
+	glEnableVertexAttribArray( mGaugeShader.mVertexTexcoordID );
+	glEnableVertexAttribArray( mGaugeShader.mVertexPositionID );
+	mGaugeShader.mGlowColorID = glGetUniformLocation( mGaugeShader.mShader, "glow_color" );
+	mGaugeCenterID     = glGetUniformLocation( mGaugeShader.mShader, "gauge_center" );
+	mGaugeRadiusID     = glGetUniformLocation( mGaugeShader.mShader, "gauge_radius" );
+	mGaugeInnerRatioID = glGetUniformLocation( mGaugeShader.mShader, "gauge_inner_ratio" );
+	glUseProgram( 0 );
+
+	{
+		const int N = 128;
+		// 3 bands of N*4 vertices each: glow_inner, solid, glow_outer
+		FastVertex gaugeBuffer[N * 4 * 3];
+		for ( int i = 0; i < N; i++ ) {
+			float a0 = (float)i       / N * M_PI * 2.0f;
+			float a1 = (float)(i + 1) / N * M_PI * 2.0f;
+			float dx0 = -sinf(a0), dy0 = cosf(a0);
+			float dx1 = -sinf(a1), dy1 = cosf(a1);
+			// Band 0: solid (t=0.0..1.0, v=1..1)
+			gaugeBuffer[N*0+i*4+0] = {  1.0f, 1.0f, dx0, dy0 };
+			gaugeBuffer[N*0+i*4+1] = {  0.0f, 1.0f, dx0, dy0 };
+			gaugeBuffer[N*0+i*4+2] = {  1.0f, 1.0f, dx1, dy1 };
+			gaugeBuffer[N*0+i*4+3] = {  0.0f, 1.0f, dx1, dy1 };
+			// Band 1: glow inner (t=-0.2..0.0, v=0..1)
+			gaugeBuffer[N*4+i*4+0] = {  0.0f, 0.5f, dx0, dy0 };
+			gaugeBuffer[N*4+i*4+1] = { -1.0f, 0.0f, dx0, dy0 };
+			gaugeBuffer[N*4+i*4+2] = {  0.0f, 0.5f, dx1, dy1 };
+			gaugeBuffer[N*4+i*4+3] = { -1.0f, 0.0f, dx1, dy1 };
+			// Band 2: glow outer (t=1.0..1.2, v=1..0)
+			gaugeBuffer[N*8+i*4+0] = {  2.0f, 0.0f, dx0, dy0 };
+			gaugeBuffer[N*8+i*4+1] = {  1.0f, 0.5f, dx0, dy0 };
+			gaugeBuffer[N*8+i*4+2] = {  2.0f, 0.0f, dx1, dy1 };
+			gaugeBuffer[N*8+i*4+3] = {  1.0f, 0.5f, dx1, dy1 };
+			/*
+			// Band 0: glow inner (t=-0.2..0.0, v=0..1)
+			gaugeBuffer[i*4+0]       = {  0.0f, 0.5f, dx0, dy0 };
+			gaugeBuffer[i*4+1]       = { -1.5f, 0.0f, dx0, dy0 };
+			gaugeBuffer[i*4+2]       = {  0.0f, 0.5f, dx1, dy1 };
+			gaugeBuffer[i*4+3]       = { -1.5f, 0.0f, dx1, dy1 };
+			// Band 1: solid (t=0.0..1.0, v=1..1)
+			gaugeBuffer[N*4+i*4+0]   = {  1.0f, 1.0f, dx0, dy0 };
+			gaugeBuffer[N*4+i*4+1]   = {  0.0f, 1.0f, dx0, dy0 };
+			gaugeBuffer[N*4+i*4+2]   = {  1.0f, 1.0f, dx1, dy1 };
+			gaugeBuffer[N*4+i*4+3]   = {  0.0f, 1.0f, dx1, dy1 };
+			// Band 2: glow outer (t=1.0..1.2, v=1..0)
+			gaugeBuffer[N*8+i*4+0]   = {  2.5f, 0.0f, dx0, dy0 };
+			gaugeBuffer[N*8+i*4+1]   = {  1.0f, 0.5f, dx0, dy0 };
+			gaugeBuffer[N*8+i*4+2]   = {  2.5f, 0.0f, dx1, dy1 };
+			gaugeBuffer[N*8+i*4+3]   = {  1.0f, 0.5f, dx1, dy1 };
+			*/
+		}
+		glGenBuffers( 1, &mGaugeVBO );
+		glBindBuffer( GL_ARRAY_BUFFER, mGaugeVBO );
+		glBufferData( GL_ARRAY_BUFFER, sizeof(gaugeBuffer), gaugeBuffer, GL_STATIC_DRAW );
+	}
 
 	glGenBuffers( 1, &mQuadVBO );
 	glBindBuffer( GL_ARRAY_BUFFER, mQuadVBO );
 	glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertex) * 6, nullptr, GL_STATIC_DRAW );
 
-	{
-		std::cout << "mFontSize : " << mFontSize << "\n";
-		mFontTexture = LoadTexture( font32, sizeof(font32) );
-		const float rx = 1.0f / (float)mFontTexture->width;
-		const float ry = 1.0f / (float)mFontTexture->height;
-		FastVertex charactersBuffer[6 * 256];
-		memset( charactersBuffer, 0, sizeof( charactersBuffer ) );
-		for ( uint32_t i = 0; i < 256; i++ ) {
-			uint8_t c = i;
-			float sx = (float)( i % 16 ) * ( mFontTexture->width / 16 ) * rx;
-			float sy = (float)( i / 16 ) * ( mFontTexture->height / 16 ) * ry;
-			float width = CharacterWidth( mFontTexture, i );
-			float height = CharacterHeight( mFontTexture, i );
-			float texMaxX = width * rx;
-			float texMaxY = height * ry;
-			width *= mFontSize / 32.0f;
-			height *= mFontSize / 32.0f;
-			float fy = (float)0.0f;// - CharacterYOffset( mFontTexture, i );
-			mTextAdv[c] = (int)width + 1;
-
-			charactersBuffer[i*6 + 0].u = sx;
-			charactersBuffer[i*6 + 0].v = sy;
-			charactersBuffer[i*6 + 0].x = 0.0f;
-			charactersBuffer[i*6 + 0].y = fy;
-
-			charactersBuffer[i*6 + 1].u = sx+texMaxX;
-			charactersBuffer[i*6 + 1].v = sy+texMaxY;
-			charactersBuffer[i*6 + 1].x = 0.0f+width;
-			charactersBuffer[i*6 + 1].y = fy+height;
-
-			charactersBuffer[i*6 + 2].u = sx+texMaxX;
-			charactersBuffer[i*6 + 2].v = sy;
-			charactersBuffer[i*6 + 2].x = 0.0f+width;
-			charactersBuffer[i*6 + 2].y = fy;
-			
-			charactersBuffer[i*6 + 3].u = sx;
-			charactersBuffer[i*6 + 3].v = sy;
-			charactersBuffer[i*6 + 3].x = 0.0f;
-			charactersBuffer[i*6 + 3].y = fy;
-
-			charactersBuffer[i*6 + 4].u = sx;
-			charactersBuffer[i*6 + 4].v = sy+texMaxY;
-			charactersBuffer[i*6 + 4].x = 0.0f;
-			charactersBuffer[i*6 + 4].y = fy+height;
-
-			charactersBuffer[i*6 + 5].u = sx+texMaxX;
-			charactersBuffer[i*6 + 5].v = sy+texMaxY;
-			charactersBuffer[i*6 + 5].x = 0.0f+width;
-			charactersBuffer[i*6 + 5].y = fy+height;
-		}
-		mTextAdv[' '] = mFontSize * 0.35f;
-
-		glGenBuffers( 1, &mTextVBO );
-		glBindBuffer( GL_ARRAY_BUFFER, mTextVBO );
-		glBufferData( GL_ARRAY_BUFFER, sizeof(FastVertex) * 6 * 256, charactersBuffer, GL_STATIC_DRAW );
-	}
+	setFont( "" );
 }
 
 
 RendererHUD::~RendererHUD()
 {
+}
+
+
+void RendererHUD::setFont( const std::string& path )
+{
+	mFontPath = path;
+	delete mDefaultFont;
+	mDefaultFont = nullptr;
+
+	if ( !mFontPath.empty() ) {
+		mDefaultFont = new Font( mFontPath, mFontSize );
+	} else {
+		// Fallback: embedded font32 PNG atlas, 512x512, 16x16 grid of 32x32 cells
+		Texture tmp;
+		memset( &tmp, 0, sizeof(Texture) );
+		struct membuf : std::streambuf {
+			membuf( const uint8_t* b, const uint8_t* e ) { setg((char*)b,(char*)b,(char*)e); }
+		};
+		membuf sbuf( font32, font32 + sizeof(font32) );
+		std::istream in_stream( &sbuf );
+		LoadPNG( &tmp, in_stream );
+		mDefaultFont = Font::fromRawPixels( tmp.data, tmp.width, tmp.height, tmp.width / 16, tmp.height / 16, mFontSize );
+		free( tmp.data );
+	}
+
+	mDefaultFont->uploadGL( mFontSize * 0.35f );
+}
+
+
+Font* RendererHUD::loadFont( const std::string& path, uint32_t pixelSize )
+{
+	Font* f = new Font( path, pixelSize );
+	f->uploadGL();
+	return f;
 }
 
 
@@ -397,19 +555,34 @@ void RendererHUD::RenderQuadTexture( GLuint textureID, int x, int y, int width, 
 	vertices[5].y = y+height;
 	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(FastVertex) * 6, vertices );
 
-	DrawArrays( mFlatShader, GL_TRIANGLES, 0, 6 );
+	glDrawArrays( GL_TRIANGLES, 0, 6 );
 }
 
 
-void RendererHUD::RenderText( int x, int y, const std::string& text, uint32_t color, float size, TextAlignment halign, TextAlignment valign )
+void RendererHUD::RenderText( int x, int y, const std::string& text, uint32_t color_, float size, TextAlignment halign, TextAlignment valign )
 {
-	RenderText( x, y, text, Vector4f( (float)( color & 0xFF ) / 256.0f, (float)( ( color >> 8 ) & 0xFF ) / 256.0f, (float)( ( color >> 16 ) & 0xFF ) / 256.0f, 1.0f ), size, halign, valign );
+	Vector4f color = Vector4f( (float)( color_ & 0xFF ) / 256.0f, (float)( ( color_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 24 ) & 0xFF ) / 256.0f );
+	RenderText( nullptr, x, y, text, color, size, halign, valign );
 }
 
 
-void RendererHUD::RenderText( int x, int y, const std::string& text, const Vector4f& _color, float size, TextAlignment halign, TextAlignment valign )
+void RendererHUD::RenderText( int x, int y, const std::string& text, const Vector4f& color, float size, TextAlignment halign, TextAlignment valign, Vector4f outlineColor, Vector4f shadowColor )
 {
-// 	y += mFontSize * size * 0.2f;
+	RenderText( nullptr, x, y, text, color, size, halign, valign, outlineColor, shadowColor );
+}
+
+
+void RendererHUD::RenderText( Font* font, int x, int y, const std::string& text, uint32_t color_, float size, TextAlignment halign, TextAlignment valign )
+{
+	Vector4f color = Vector4f( (float)( color_ & 0xFF ) / 256.0f, (float)( ( color_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 24 ) & 0xFF ) / 256.0f );
+	RenderText( font, x, y, text, color, size, halign, valign );
+}
+
+
+void RendererHUD::RenderText( Font* font, int x, int y, const std::string& text, const Vector4f& _color, float size, TextAlignment halign, TextAlignment valign, Vector4f outlineColor, Vector4f shadowColor )
+{
+	Font* f = font ? font : mDefaultFont;
+	if ( !f ) return;
 
 	glUseProgram( mTextShader.mShader );
 	Vector4f color = _color;
@@ -418,56 +591,126 @@ void RendererHUD::RenderText( int x, int y, const std::string& text, const Vecto
 		color.y = std::min( 1.0f, color.y * 1.0f );
 		color.z *= 0.5f;
 	}
-	glUniform4f( mTextShader.mColorID, color.x, color.y, color.z, color.w );
 	glUniform1f( mTextShader.mScaleID, size );
-	glBindTexture( GL_TEXTURE_2D, mFontTexture->glID );
 
 	glActiveTexture( GL_TEXTURE0 );
 	glEnable( GL_TEXTURE_2D );
-	glBindTexture( GL_TEXTURE_2D, mFontTexture->glID );
+	glBindTexture( GL_TEXTURE_2D, f->glTextureID() );
 
-	glBindBuffer( GL_ARRAY_BUFFER, mTextVBO );
-	glVertexAttribPointer( mTextShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( 0 ) );
-	glVertexAttribPointer( mTextShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof( FastVertex ), (void*)( sizeof( float ) * 2 ) );
+	glBindBuffer( GL_ARRAY_BUFFER, f->glVBO() );
+	glVertexAttribPointer( mTextShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof(FastVertex), (void*)0 );
+	glVertexAttribPointer( mTextShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof(FastVertex), (void*)(sizeof(float)*2) );
+
+	int tw, th, tyofs;
+	f->measureText( text, &tw, &th, &tyofs, size );
 
 	if ( halign == TextAlignment::CENTER ) {
-		int w = 0;
-		for ( uint32_t i = 0; i < text.length(); i++ ) {
-			w += mTextAdv[ (uint8_t)( (int)text.data()[i] ) ] * size;
-		}
-		x -= w / 2.0f;
+		x -= tw / 2;
 	} else if ( halign == TextAlignment::END ) {
-		int w = 0;
-		for ( uint32_t i = 0; i < text.length(); i++ ) {
-			w += mTextAdv[ (uint8_t)( (int)text.data()[i] ) ] * size;
-		}
-		x -= w;
+		x -= tw;
 	}
 
 	if ( valign == TextAlignment::CENTER ) {
-		int h = mFontHeight * size;
-		for ( uint32_t i = 0; i < text.length(); i++ ) {
-			if ( text.data()[i] == '\n' ) {
-				h += mFontHeight * size;
-			}
-		}
-		y -= h / 2.0f;
+		y -= tyofs + th / 2;
 	} else if ( valign == TextAlignment::END ) {
-		int h = mFontHeight * size;
-		for ( uint32_t i = 0; i < text.length(); i++ ) {
-			if ( text.data()[i] == '\n' ) {
-				h += mFontHeight * size;
-			}
-		}
-		y -= h;
+		y -= tyofs + th;
 	}
 
+	if ( shadowColor.w > 0.0f ) {
+		float origX = x;
+		glUniform4f( mTextShader.mColorID, 0.0f, 0.0f, 0.0f, 0.0f );
+		glUniform4f( mTextOutlineColorID, 0.0f, 0.0f, 0.0f, 0.0f );
+		glUniform4f( mTextShadowColorID, shadowColor.x, shadowColor.y, shadowColor.z, shadowColor.w );
+		for ( uint32_t i = 0; i < text.length(); i++ ) {
+			uint8_t c = (uint8_t)text[i];
+			glUniform2f( mTextShader.mOffsetID, x, y );
+			glDrawArrays( GL_TRIANGLES, c * 6, 6 );
+			x += f->adv[c] * size;
+		}
+		x = origX;
+	}
+	glUniform4f( mTextShader.mColorID, color.x, color.y, color.z, color.w );
+	glUniform4f( mTextOutlineColorID, outlineColor.x, outlineColor.y, outlineColor.z, outlineColor.w );
+	glUniform4f( mTextShadowColorID, 0.0f, 0.0f, 0.0f, 0.0f );
 	for ( uint32_t i = 0; i < text.length(); i++ ) {
-		uint8_t c = (uint8_t)( (int)text.data()[i] );
-// 		if ( c > 0 and c < 128 ) {
-			DrawArrays( mTextShader, GL_TRIANGLES, c * 6, 6, Vector2f( x, y ) );
-// 		}
-		x += mTextAdv[ c ] * size;
+		uint8_t c = (uint8_t)text[i];
+		glUniform2f( mTextShader.mOffsetID, x, y );
+		glDrawArrays( GL_TRIANGLES, c * 6, 6 );
+		x += f->adv[c] * size;
+	}
+}
+
+
+void RendererHUD::RenderRoundedRect( int x, int y, int width, int height, int radius, const Vector4f& bgColor, int strokeWidth, const Vector4f& strokeColor )
+{
+	glUseProgram( mRRectShader.mShader );
+	glUniform2f( mRRectSizeID,    (float)width, (float)height );
+	glUniform1f( mRRectRadiusID,  (float)radius );
+	glUniform1f( mRRectStrokeWID, (float)strokeWidth );
+	glUniform4f( mRRectShader.mColorID,  bgColor.x,     bgColor.y,     bgColor.z,     bgColor.w );
+	glUniform4f( mRRectStrokeCID,        strokeColor.x, strokeColor.y, strokeColor.z, strokeColor.w );
+
+	// Quad with texcoords [0,1] so the fragment shader gets normalised local coords
+	FastVertex v[6] = {
+		{ 0.0f, 0.0f,  (float)x,        (float)y         },
+		{ 1.0f, 1.0f,  (float)(x+width), (float)(y+height) },
+		{ 1.0f, 0.0f,  (float)(x+width), (float)y         },
+		{ 0.0f, 0.0f,  (float)x,        (float)y         },
+		{ 0.0f, 1.0f,  (float)x,        (float)(y+height) },
+		{ 1.0f, 1.0f,  (float)(x+width), (float)(y+height) },
+	};
+
+	glBindBuffer( GL_ARRAY_BUFFER, mQuadVBO );
+	glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(v), v );
+	glVertexAttribPointer( mRRectShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof(FastVertex), (void*)0 );
+	glVertexAttribPointer( mRRectShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof(FastVertex), (void*)(sizeof(float)*2) );
+
+	glDrawArrays( GL_TRIANGLES, 0, 6 );
+}
+
+
+void RendererHUD::RenderGauge( float cx, float cy, float radius, float inner_ratio, float angle_start, float angle_span, float fill, const Vector4f& color, const Vector4f& bgColor, const Vector4f& outerGlowColor, const Vector4f& innerGlowColor )
+{
+	fill  = std::max( 0.0f, std::min( 1.0f, fill ) );
+
+	const int N = 128;
+	int ofs         = (int)( angle_start / 360.0f * N + N ) % N;
+	int count_total = (int)( angle_span / 360.0f * N );
+	int count       = (int)( fill * angle_span / 360.0f * N );
+	count_total     = std::max( std::min( count_total, N - ofs ), 0 );
+	count           = std::max( std::min( count, N - ofs ), 0 );
+
+	glUseProgram( mGaugeShader.mShader );
+	glUniform2f( mGaugeCenterID,     cx, cy );
+	glUniform1f( mGaugeRadiusID,     radius );
+	glUniform1f( mGaugeInnerRatioID, inner_ratio );
+
+	glBindBuffer( GL_ARRAY_BUFFER, mGaugeVBO );
+	glVertexAttribPointer( mGaugeShader.mVertexTexcoordID, 2, GL_FLOAT, GL_FALSE, sizeof(FastVertex), (void*)0 );
+	glVertexAttribPointer( mGaugeShader.mVertexPositionID, 2, GL_FLOAT, GL_FALSE, sizeof(FastVertex), (void*)( sizeof(float) * 2 ) );
+
+	if ( bgColor.w > 0.0f ) {
+		glUniform4f( mGaugeShader.mColorID, bgColor.x, bgColor.y, bgColor.z, bgColor.w );
+		glUniform4f( mGaugeShader.mGlowColorID, 0.0f, 0.0f, 0.0f, 0.25f );
+		glDrawArrays( GL_TRIANGLE_STRIP, ofs * 4, count_total * 4 );
+		if ( innerGlowColor.w > 0.0f ) {
+			glDrawArrays( GL_TRIANGLE_STRIP, N * 4 + ofs * 4, count_total * 4 );
+		}
+		if ( outerGlowColor.w > 0.0f ) {
+			glDrawArrays( GL_TRIANGLE_STRIP, N * 8 + ofs * 4, count_total * 4 );
+		}
+	}
+
+	// Filled arc
+	glUniform4f( mGaugeShader.mColorID, color.x, color.y, color.z, color.w );
+	glDrawArrays( GL_TRIANGLE_STRIP, ofs * 4, count * 4 );
+	if ( innerGlowColor.w > 0.0f ) {
+		glUniform4f( mGaugeShader.mGlowColorID, innerGlowColor.x, innerGlowColor.y, innerGlowColor.z, innerGlowColor.w );
+		glDrawArrays( GL_TRIANGLE_STRIP, N * 4 + ofs * 4, count * 4 );
+	}
+	if ( outerGlowColor.w > 0.0f ) {
+		glUniform4f( mGaugeShader.mGlowColorID, outerGlowColor.x, outerGlowColor.y, outerGlowColor.z, outerGlowColor.w );
+		glDrawArrays( GL_TRIANGLE_STRIP, N * 8 + ofs * 4, count * 4 );
 	}
 }
 
@@ -554,7 +797,7 @@ void RendererHUD::FontMeasureString( const std::string& str, int* width, int* he
 			y += mFontSize;
 			continue;
 		}
-		x += mTextAdv[ (uint8_t)str[i] ];
+		x += mDefaultFont ? mDefaultFont->adv[ (uint8_t)str[i] ] : 0;
 	}
 	if ( x > mx ) {
 		mx = x;
@@ -628,6 +871,7 @@ int32_t RendererHUD::CharacterYOffset( Texture* tex, unsigned char c )
 
 RendererHUD::Texture* RendererHUD::LoadTexture( const std::string& filename )
 {
+	std:cout << "LoadTexture( \"" << filename << "\" )\n";
 	std::string type = "none";
 	const char* dot = strrchr( filename.c_str(), '.' );
 	if ( dot ) {

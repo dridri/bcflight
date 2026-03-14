@@ -25,6 +25,7 @@
 #include <cstring>
 #include "Vector.h"
 #include "Matrix.h"
+#include "Font.h"
 
 class Controller;
 
@@ -114,6 +115,8 @@ typedef struct DroneStats {
 	float batteryLevel;
 	float batteryVoltage;
 	uint32_t batteryTotalCurrent;
+	// ESCs
+	std::vector<float> escTemperatures;
 	// Other
 	std::string username;
 	std::vector< std::string > messages;
@@ -131,21 +134,33 @@ public:
 	RendererHUD( int width, int height, float ratio, uint32_t fontsize, Vector4i render_region = Vector4i( 10, 10, 20, 20 ), bool barrel_correction = true );
 	virtual ~RendererHUD();
 
-	virtual void Compute() = 0;
-	virtual void Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats ) = 0;
+	virtual void Compute() {}
+	virtual void Render( DroneStats* dronestats, float localVoltage, VideoStats* videostats, LinkStats* iwstats ) {}
 
 	void RenderQuadTexture( GLuint textureID, int x, int y, int width, int height, bool hmirror = false, bool vmirror = false, const Vector4f& color = { 1.0f, 1.0f, 1.0f, 1.0f } );
+	// RenderText with default font
 	void RenderText( int x, int y, const std::string& text, uint32_t color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START );
-	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START );
+	void RenderText( int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START, Vector4f outlineColor = Vector4f(), Vector4f shadowColor = Vector4f() );
+	// RenderText with explicit font (nullptr = default font)
+	void RenderText( Font* font, int x, int y, const std::string& text, uint32_t color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START );
+	void RenderText( Font* font, int x, int y, const std::string& text, const Vector4f& color, float size = 1.0f, TextAlignment halign = TextAlignment::START, TextAlignment valign = TextAlignment::START, Vector4f outlineColor = Vector4f(), Vector4f shadowColor = Vector4f()  );
 	void RenderImage( int x, int y, int width, int height, uintptr_t img );
 	Vector2f VR_Distort( const Vector2f& coords );
 
+	void RenderRoundedRect( int x, int y, int width, int height, int radius, const Vector4f& bgColor, int strokeWidth = 0, const Vector4f& strokeColor = Vector4f() );
+	void RenderGauge( float cx, float cy, float radius, float inner_ratio, float angle_start, float angle_span, float fill, const Vector4f& color, const Vector4f& bgColor = Vector4f(), const Vector4f& outerGlowColor = Vector4f(), const Vector4f& innerGlowColor = Vector4f() );
+
 	void PreRender();
+	// Set/replace the default font (empty path = fallback to embedded font32)
+	void setFont( const std::string& path );
+	// Load an additional font and return it — caller owns the pointer
+	Font* loadFont( const std::string& path, uint32_t pixelSize );
 	void setNightMode( bool m ) { mNightMode = m; }
 	void setStereo( bool en ) { mStereo = en; if ( not mStereo ) { m3DStrength = 0.0f; } }
 	void set3DStrength( float strength ) { m3DStrength = strength; }
 	uintptr_t LoadImage( const std::string& path ) { return reinterpret_cast<uintptr_t>( LoadTexture(path) ); };
-	
+
+	Font* defaultFont() { return mDefaultFont; }
 	bool nightMode() { return mNightMode; }
 
 protected:
@@ -173,6 +188,10 @@ protected:
 		uint32_t mScaleID;
 		uint32_t mColorID;
 	} Shader;
+
+	typedef struct : public Shader {
+		uint32_t mGlowColorID;
+	} GaugeShader;
 
 	typedef struct {
 		uint32_t width;
@@ -216,12 +235,25 @@ protected:
 	uint32_t mExposureID;
 	uint32_t mGammaID;
 
-	Texture* mFontTexture;
+	Font*    mDefaultFont;
 	uint32_t mFontSize;
 	uint32_t mFontHeight;
-	Shader mTextShader;
-	uint32_t mTextVBO;
-	int mTextAdv[256];
+	std::string mFontPath;
+	Shader   mTextShader;
+	uint32_t mTextOutlineColorID;
+	uint32_t mTextShadowColorID;
+
+	Shader mRRectShader;
+	uint32_t mRRectSizeID;
+	uint32_t mRRectRadiusID;
+	uint32_t mRRectStrokeWID;
+	uint32_t mRRectStrokeCID;
+
+	GaugeShader   mGaugeShader;
+	uint32_t mGaugeVBO;
+	uint32_t mGaugeCenterID;
+	uint32_t mGaugeRadiusID;
+	uint32_t mGaugeInnerRatioID;
 
 	std::string mWhiteBalance;
 	std::string mExposureMode;

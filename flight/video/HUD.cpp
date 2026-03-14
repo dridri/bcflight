@@ -11,6 +11,7 @@
 #include <Config.h>
 #include <Sensor.h>
 #include <Controller.h>
+#include <DShotTelemetry.h>
 #include <peripherals/SmartAudio.h>
 
 
@@ -23,10 +24,10 @@ HUD::HUD()
 	, mWaitTicks( 0 )
 	, mShowFrequency( false )
 	, mAccelerationAccum( 0.0f )
-	, mFrameTop( 10 )
-	, mFrameBottom( 10 )
-	, mFrameLeft( 20 )
-	, mFrameRight( 20 )
+	, mFrameTop( 0 )
+	, mFrameBottom( 0 )
+	, mFrameLeft( 0 )
+	, mFrameRight( 0 )
 	, mRatio( 1.0f )
 	, mFontSize( 60 )
 	, mCorrection( false )
@@ -37,12 +38,37 @@ HUD::HUD()
 {
 
 	mGLContext = GLContext::instance();
-	Start();
+	// Start();
+
+	mGLContext->runOnGLThread( [this]() {
+		gDebug() << "HUD Init 1";
+		Vector4i render_region = Vector4i( mFrameTop, mFrameBottom, mFrameLeft, mFrameRight );
+		gDebug() << "HUD Init 2";
+		mRendererHUD = new RendererHUD( mGLContext->glWidth(), mGLContext->glHeight(), mRatio, mFontSize, render_region, false );
+		gDebug() << "HUD Init 3 (" << mFontPath << ")";
+		if ( !mFontPath.empty() ) {
+			mRendererHUD->setFont( mFontPath );
+		}
+		mRendererHUD->setStereo( false );
+		gDebug() << "HUD Init 4";
+	}, false );
 }
 
 
 HUD::~HUD()
 {
+}
+
+
+const uint32_t HUD::width() const
+{
+	return mGLContext->glWidth();
+}
+
+
+const uint32_t HUD::height() const
+{
+	return mGLContext->glHeight();
 }
 
 
@@ -54,15 +80,24 @@ bool HUD::run()
 		mVTX = Main::instance()->config()->Object<SmartAudio>( "vtx" );
 
 		mGLContext->runOnGLThread( [this]() {
+			gDebug() << "Initializing HUD renderer 1";
 			Config* config = Main::instance()->config();
+			gDebug() << "Initializing HUD renderer 2";
 			Vector4i render_region = Vector4i( mFrameTop, mFrameBottom, mFrameLeft, mFrameRight );
+			gDebug() << "Initializing HUD renderer 3";
 			mRendererHUD = new RendererHUDNeo( mGLContext->glWidth(), mGLContext->glHeight(), mRatio, mFontSize, render_region, mCorrection );
+			gDebug() << "Initializing HUD renderer 4";
+			if ( !mFontPath.empty() ) {
+				mRendererHUD->setFont( mFontPath );
+			}
+			gDebug() << "Initializing HUD renderer 5";
 			mRendererHUD->setStereo( mStereo );
 			mRendererHUD->set3DStrength( mStereoStrength );
 			mRendererHUD->setStereo( false );
 			mRendererHUD->set3DStrength( 0.0f );
+			gDebug() << "Initializing HUD renderer 6";
 		}, true );
-
+/*
 		mGLContext->addLayer( [this]() {
 			mRendererHUD->PreRender();
 			mRendererHUD->Render( &mDroneStats, 0.0f, &mVideoStats, &mLinkStats );
@@ -83,17 +118,21 @@ bool HUD::run()
 				mRendererHUD->RenderText( 200, 200, txt, 0xFFFFFFFF, 4.0f, RendererHUD::TextAlignment::CENTER );
 			}
 		});
+*/
 	}
 
 	if ( frequency() != mHUDFramerate ) {
 		setFrequency( mHUDFramerate );
 	}
 
+	return true;
+
 	Controller* controller = Main::instance()->controller();
 	Stabilizer* stabilizer = Main::instance()->stabilizer();
 	IMU* imu = Main::instance()->imu();
 	PowerThread* powerThread = Main::instance()->powerThread();
 	Camera* camera = Main::instance()->camera();
+	DShotTelemetry* dshotTelemetry = DShotTelemetry::instance();
 
 	mFrameRate = min( camera ? camera->framerate() : 0, mGLContext->displayFrameRate() );
 
@@ -116,6 +155,12 @@ bool HUD::run()
 		dronestats.ping = controller->ping();
 		dronestats.thrust = stabilizer->thrust();
 		dronestats.smoothControl = controller->rpySmoothing();
+	}
+	if ( dshotTelemetry ) {
+		dronestats.escTemperatures.clear();
+		for ( const auto& escData : dshotTelemetry->escData() ) {
+			dronestats.escTemperatures.push_back( escData.second.temperature );
+		}
 	}
 	if ( imu ) {
 		mAccelerationAccum = ( mAccelerationAccum * 0.995f + imu->acceleration().length() * 0.005f );
@@ -200,15 +245,64 @@ void HUD::HideImage( const uintptr_t img )
 }
 
 
+uintptr_t testimg = 0;
 void HUD::AddLayer( const std::function<void()>& func )
 {
-	mGLContext->addLayer( func );
+	mGLContext->addLayer( [this, func]() {
+		// if ( !testimg ) {
+			// testimg = mRendererHUD->LoadImage( "data/hud-background.png" );
+		// }
+		// mRendererHUD->PreRender();
+		// mRendererHUD->RenderImage( 0, 0, mGLContext->glWidth(), mGLContext->glHeight(), testimg );
+		func();
+		// mRendererHUD->RenderQuadTexture( mRendererHUD->defaultFont()->glTextureID(), 0, 0, 1200, 1200 );
+	} );
 }
 
 
-void HUD::PrintText( int32_t x, int32_t y, const std::string& text, uint32_t color, TextAlignment halign, TextAlignment valign )
+void HUD::PrintText( int32_t x, int32_t y, const std::string& text, uint32_t color_, TextAlignment halign, TextAlignment valign, uint32_t outlineColor_, uint32_t shadowColor_ )
 {
-	mRendererHUD->RenderText( x, y, text, color, 0.75f, (RendererHUD::TextAlignment)halign, (RendererHUD::TextAlignment)valign );
+	Vector4f color = Vector4f( (float)( color_ & 0xFF ) / 256.0f, (float)( ( color_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f outlineColor = Vector4f( (float)( outlineColor_ & 0xFF ) / 256.0f, (float)( ( outlineColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( outlineColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( outlineColor_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f shadowColor = Vector4f( (float)( shadowColor_ & 0xFF ) / 256.0f, (float)( ( shadowColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( shadowColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( shadowColor_ >> 24 ) & 0xFF ) / 256.0f );
+	mRendererHUD->RenderText( x, y, text, color, 1.0f, (RendererHUD::TextAlignment)halign, (RendererHUD::TextAlignment)valign, outlineColor, shadowColor );
+}
+
+
+void HUD::PrintTextFont( Font* font, int32_t x, int32_t y, const std::string& text, uint32_t color_, TextAlignment halign, TextAlignment valign, uint32_t outlineColor_, uint32_t shadowColor_ )
+{
+	Vector4f color = Vector4f( (float)( color_ & 0xFF ) / 256.0f, (float)( ( color_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f outlineColor = Vector4f( (float)( outlineColor_ & 0xFF ) / 256.0f, (float)( ( outlineColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( outlineColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( outlineColor_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f shadowColor = Vector4f( (float)( shadowColor_ & 0xFF ) / 256.0f, (float)( ( shadowColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( shadowColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( shadowColor_ >> 24 ) & 0xFF ) / 256.0f );
+	mRendererHUD->RenderText( font, x, y, text, color, 1.0f, (RendererHUD::TextAlignment)halign, (RendererHUD::TextAlignment)valign, outlineColor, shadowColor );
+}
+
+
+Font* HUD::LoadFont( const std::string& path, uint32_t pixelSize )
+{
+	Font* font = nullptr;
+	mGLContext->runOnGLThread( [this, &font, path, pixelSize]() {
+		font = mRendererHUD->loadFont( path, pixelSize );
+	}, true );
+	return font;
+}
+
+
+void HUD::RenderRoundedRect( int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t radius, uint32_t bgColor, uint32_t strokeWidth, uint32_t strokeColor )
+{
+	Vector4f bg = Vector4f( (float)( bgColor & 0xFF ) / 256.0f, (float)( ( bgColor >> 8 ) & 0xFF ) / 256.0f, (float)( ( bgColor >> 16 ) & 0xFF ) / 256.0f, (float)( ( bgColor >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f stroke = Vector4f( (float)( strokeColor & 0xFF ) / 256.0f, (float)( ( strokeColor >> 8 ) & 0xFF ) / 256.0f, (float)( ( strokeColor >> 16 ) & 0xFF ) / 256.0f, (float)( ( strokeColor >> 24 ) & 0xFF ) / 256.0f );
+	mRendererHUD->RenderRoundedRect( x, y, w, h, radius, bg, strokeWidth, stroke );
+}
+
+
+void HUD::RenderGauge( float cx, float cy, float radius, float inner_ratio, float angle_start, float angle_span, float fill, uint32_t color_, uint32_t bgColor_, uint32_t outerGlowColor_, uint32_t innerGlowColor_ )
+{
+	Vector4f color = Vector4f( (float)( color_ & 0xFF ) / 256.0f, (float)( ( color_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( color_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f bgColor = Vector4f( (float)( bgColor_ & 0xFF ) / 256.0f, (float)( ( bgColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( bgColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( bgColor_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f outerGlowColor = Vector4f( (float)( outerGlowColor_ & 0xFF ) / 256.0f, (float)( ( outerGlowColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( outerGlowColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( outerGlowColor_ >> 24 ) & 0xFF ) / 256.0f );
+	Vector4f innerGlowColor = Vector4f( (float)( innerGlowColor_ & 0xFF ) / 256.0f, (float)( ( innerGlowColor_ >> 8 ) & 0xFF ) / 256.0f, (float)( ( innerGlowColor_ >> 16 ) & 0xFF ) / 256.0f, (float)( ( innerGlowColor_ >> 24 ) & 0xFF ) / 256.0f );
+	mRendererHUD->RenderGauge( cx, cy, radius, inner_ratio, angle_start, angle_span, fill, color, bgColor, outerGlowColor, innerGlowColor );
 }
 
 

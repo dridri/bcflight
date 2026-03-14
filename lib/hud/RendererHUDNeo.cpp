@@ -162,9 +162,9 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			thrust = 0.0f;
 		}
 		float acceleration = dronestats->acceleration / 9.7f;
-		// if ( dronestats->mode != DroneMode::Rate ) {
+		if ( dronestats->mode != DroneMode::Rate ) {
 			RenderAttitude( dronestats->rpy );
-		// }
+		}
 		RenderThrustAcceleration( thrust, acceleration / 5.0f );
 
 		DroneMode mode = dronestats->mode;
@@ -243,6 +243,19 @@ void RendererHUDNeo::Render( DroneStats* dronestats, float localVoltage, VideoSt
 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f + mFontHeight, "High memory usage", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
 		} else if ( dronestats->cpuUsage > 75 ) {
 			RenderText( mWidth * 0.5f, mBorderBottom - mHeight * 0.15f + mFontHeight, "High CPU usage", Vector4f( 1.0f, 0.5f, 0.5f, 1.0f ), 1.0f, TextAlignment::CENTER );
+		}
+	}
+
+	// ESCs temperatures
+	if ( dronestats and dronestats->escTemperatures.size() > 0 ) {
+		float fSize = mFontHeight * 0.5f;
+		for ( size_t i = 0; i < dronestats->escTemperatures.size(); i++ ) {
+			float temp = dronestats->escTemperatures[i];
+			if ( temp > 0.0f ) {
+				char esc_temp_str[32];
+				snprintf( esc_temp_str, sizeof(esc_temp_str), "%d %cC", (int)temp, (char)0xB0 );
+				RenderText( mBorderLeft, mBorderTop + ( mBorderBottom - mBorderTop ) / 2 - 2*fSize + i * fSize, esc_temp_str, Vector4f( 1.0f, 1.0f, 1.0f, 1.0f ), 0.5f );
+			}
 		}
 	}
 
