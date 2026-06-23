@@ -306,4 +306,10 @@ void HUD::RenderGauge( float cx, float cy, float radius, float inner_ratio, floa
 }
 
 
+void HUD::RenderImage( int32_t x, int32_t y, uint32_t w, uint32_t h, const uintptr_t img )
+{
+	mRendererHUD->RenderImage( x, y, w, h, img );
+}
+
+
 #endif // ( BUILD_HUD == 1 )

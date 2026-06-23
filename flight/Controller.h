@@ -46,7 +46,7 @@ public:
 	LUA_EXPORT const uint32_t ping() const;
 // 	float thrust() const;
 // 	const Vector3f& RPY() const;
-	bool rpySmoothing() const { return mRPYSmoothingEnabled; }
+	LUA_PROPERTY("smoothing") bool rpySmoothing() const { return mRPYSmoothingEnabled; }
 
 	LUA_EXPORT void onEvent( ControllerBase::Cmd cmdId, const std::function<void(const LuaValue& v)>& f );
 
@@ -84,7 +84,7 @@ protected:
 	float mThrust;
 	float mThrustAccum;
 */
-	LUA_PROPERTY("smoothing") bool mRPYSmoothingEnabled;
+	bool mRPYSmoothingEnabled;
 	Vector3f mSmoothRPY;
 	uint64_t mControlsTicks;
 	HookThread< Controller >* mTelemetryThread;

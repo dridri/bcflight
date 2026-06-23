@@ -214,7 +214,7 @@ else
 		fdev = settings.fdev,
 		blocking = true,
 		drop = true,
- 		modem = SX127x.FSK,
+		modem = SX127x.FSK,
 		read_timeout = 500, -- drone will stop and fall after 500ms without receiving data
 		diversity = {
 			bus = SPI("/dev/spidev1.1", 4000000),
@@ -350,9 +350,9 @@ local fontSmall = hud:LoadFont( "data/Unageo/Unageo-Regular.ttf", font_size_smal
 local fontSmallBold = hud:LoadFont( "data/Unageo/Unageo-Bold.ttf", font_size_small )
 local fontTiny = hud:LoadFont( "data/Unageo/Unageo-Regular.ttf", font_size_tiny )
 
--- Status icons (shown only when the matching feature is active)
 local iconNight = hud:LoadImage( "data/icon_night.png" )
 local iconSmooth = hud:LoadImage( "data/icon_smooth.png" )
+local blinking_views = false
 
 local function percentageColor( pct )
 	if type(pct) ~= "number" then
@@ -370,10 +370,10 @@ function RenderTemperatures( width, height, padding )
 		return
 	end
 	local dshot_temps = dshot_telemetry.temperatures
-	local line_height = font_size_tiny * 1.25
+	local line_height = font_size_small * 1.25
 	local base_y = height / 2 - line_height * ( #dshot_temps - 1 ) / 2
 	for i, temp in ipairs( dshot_temps ) do
-		hud:PrintTextFont( fontTiny, padding, base_y + line_height * ( i - 1 ), "M" .. ( i - 1 ) .. ": " .. temp .. "\xB0C", 0xFFFFFFFF, HUD.START, HUD.CENTER, 0x00000000, 0xFF000000 )
+		hud:PrintTextFont( fontSmall, padding, base_y + line_height * ( i - 1 ), "M" .. ( i - 1 ) .. ": " .. temp .. "\xB0C", 0xFFFFFFFF, HUD.START, HUD.CENTER, 0x00000000, 0xFF000000 )
 	end
 end
 
@@ -490,7 +490,6 @@ end
 local recording = false
 local record_start = os.time()
 local flight_start = os.time()
-local blinking_views = false
 
 controller:onEvent(Controller.VIDEO_START_RECORD, function()
 	print("Start video recording")
@@ -655,7 +654,7 @@ function RenderBattery( width, height, padding )
 		dt = os.date("%M:%S", dur)
 	end
 	hud:PrintText( padding, height - padding - font_size - battery_bar.h - 10, dt, 0xFFFFFFFF, HUD.START, HUD.END )
-	hud:PrintTextFont( fontSmall, padding, height - padding - font_size - battery_bar.h - 10 - font_size_small * 1.25, "BB " .. blackbox:id(), 0xFFFFFFFF, HUD.START, HUD.END, 0x00000000, 0xFF000000 )
+	hud:PrintTextFont( fontSmall, padding, height - padding - font_size - battery_bar.h - 10 - font_size_small * 1.25, "BB " .. blackbox.id, 0xFFFFFFFF, HUD.START, HUD.END, 0x00000000, 0xFF000000 )
 end
 
 
@@ -669,15 +668,11 @@ function RenderIcons( width, height, padding )
 
 	-- Night mode icon
 	if hud.night then
-		hud:ShowImage( night_x, icon_y, icon_w, icon_h, iconNight )
-	else
-		hud:HideImage( iconNight )
+		hud:RenderImage( night_x, icon_y, icon_w, icon_h, iconNight )
 	end
 	-- Smooth control icon
 	if controller.smoothing then
-		hud:ShowImage( smooth_x, icon_y, icon_w, icon_h, iconSmooth )
-	else
-		hud:HideImage( iconSmooth )
+		hud:RenderImage( smooth_x, icon_y, icon_w, icon_h, iconSmooth )
 	end
 end
 
@@ -704,8 +699,8 @@ end )
 
 
 controller:onEvent(Controller.VIDEO_NIGHT_MODE, function(enabled)
-	hud.night = enabled
-	if enabled == 1 then
+	hud.night = ( enabled == 1 )
+	if hud.night then
 		camera.brightness = 0.5
 		camera.contrast = 2.0
 		camera.saturation = 0.5

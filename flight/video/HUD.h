@@ -40,6 +40,7 @@ public:
 	LUA_EXPORT Font* LoadFont( const std::string& path, uint32_t pixelSize );
 	LUA_EXPORT void RenderRoundedRect( int32_t x, int32_t y, uint32_t w, uint32_t h, uint32_t radius, uint32_t bgColor, uint32_t strokeWidth = 0, uint32_t strokeColor = 0 );
 	LUA_EXPORT void RenderGauge( float cx, float cy, float radius, float inner_ratio, float angle_start, float angle_span, float fill, uint32_t color, uint32_t bgColor = 0, uint32_t outerGlowColor = 0, uint32_t innerGlowColor = 0 );
+	LUA_EXPORT void RenderImage( int32_t x, int32_t y, uint32_t w, uint32_t h, const uintptr_t img );
 
 	virtual bool run();
 
