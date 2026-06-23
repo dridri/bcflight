@@ -222,6 +222,7 @@ public:
 			case Function:
 			case CFunction:
 			case Reference:
+				break;
 			default: lua_pushnil( L ); break;
 		}
 		if ( mType == Reference ) {
@@ -610,7 +611,11 @@ public:
 	static LuaValue value( lua_State* L, int index = -1 );
 	template<typename T> static T value( lua_State* L, int index, int top, const T& def ) {
 		if ( index < top and lua_type( L, index ) != LUA_TNONE ) {
-			return (T)value( L, index );
+			if constexpr ( std::is_enum_v<T> ) {
+				return (T)value( L, index ).toInteger();
+			} else {
+				return (T)value( L, index );
+			}
 		}
 		return def;
 	}

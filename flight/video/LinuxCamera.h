@@ -32,8 +32,8 @@ public:
 	virtual const int32_t ISO();
 	virtual const uint32_t shutterSpeed();
 	virtual const bool nightMode();
-	virtual const string whiteBalance();
-	virtual const string exposureMode();
+	LUA_PROPERTY("white_balance") virtual const string whiteBalance();
+	LUA_PROPERTY("exposure") virtual const string exposureMode();
 	virtual const bool recording();
 	virtual const string recordFilename();
 	LUA_EXPORT virtual void setBrightness( float value );

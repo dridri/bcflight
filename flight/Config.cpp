@@ -327,6 +327,7 @@ void Config::Reload()
 			ret["cpu_load"] = Board::CPULoad();
 			ret["memory_usage"] = Board::MemoryUsage();
 			ret["free_disk_space"] = Board::FreeDiskSpace();
+			ret["messages"] = Board::messages();
 			if ( Main::instance()->powerThread() ) {
 				ret["battery_voltage"] = Main::instance()->powerThread()->VBat();
 				ret["battery_current"] = Main::instance()->powerThread()->CurrentTotal();
@@ -334,7 +335,7 @@ void Config::Reload()
 			}
 			return ret;
 		}
-		return LuaValue("caca");
+		return LuaValue("");
 	} );
 
 	// Simple variables can be set before loading the config file

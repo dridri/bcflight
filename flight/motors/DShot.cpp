@@ -19,6 +19,12 @@ DShot::~DShot()
 }
 
 
+void DShot::requestTelemetry( bool req )
+{
+	mRequestTelemetry.store( req );
+}
+
+
 void DShot::setSpeedRaw( float speed, bool force_hw_update )
 {
 	if ( speed < 0.0f ) {

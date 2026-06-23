@@ -1,3 +1,5 @@
+#ifdef BUILD_video
+
 #include <sys/fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -42,3 +44,5 @@ int DRM::drmFd()
 
 	return sDrmFd;
 }
+
+#endif // BUILD_video

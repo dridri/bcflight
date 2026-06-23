@@ -15,7 +15,7 @@ public:
 	LUA_EXPORT BlackBox();
 	~BlackBox();
 
-	const uint32_t id() const;
+	LUA_PROPERTY("id") const uint32_t id() const;
 	LUA_EXPORT void Enqueue( const string& data, const string& value );
 	template<typename T, int n> void Enqueue( const string& data, const Vector<T, n>& v );
 	void Enqueue( const string* data, const string* values, int n );

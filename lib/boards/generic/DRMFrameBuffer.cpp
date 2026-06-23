@@ -1,3 +1,5 @@
+#ifdef BUILD_video
+
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <string.h>
@@ -88,3 +90,4 @@ const uint32_t DRMFrameBuffer::height() const
 	return mHeight;
 }
 
+#endif // BUILD_video

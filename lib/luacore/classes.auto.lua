@@ -137,7 +137,7 @@ function parse_member(s)
 			local p, d = param:gmatch("(.*)%s*=%s*(.*)")()
 			p = p:match("^%s*(.-)%s*$")
 			local type, name = p:gmatch("(.*)%s+(.*)")()
-			table.insert( params, { type = type, name = name, default = nil --[[d]] } ) -- TODO : keep default parameters ?
+			table.insert( params, { type = type, name = name, default = d } )
 		else
 			local type, name = param:gmatch("(.*)%s+(.*)")()
 			table.insert( params, { type = type, name = name, default = nil } )
@@ -299,7 +299,8 @@ for __, filename in ipairs(arg) do
 			local upvalues = {}
 			for _, param in ipairs(params) do
 				if param.default ~= nil then
-					table.insert( final, "Lua::value<" .. param.type .. ">(L, " .. iarg .. ", top, " .. param.default .. ")" )
+					local vt = (param.type:gsub("const%s*", ""):gsub("%s*&%s*", ""))
+					table.insert( final, "Lua::value<" .. vt .. ">(L, " .. iarg .. ", top, " .. param.default .. ")" )
 				elseif param.type then
 					if param.type:find("std::function") ~= nil then
 						local fct = param.type:match("std::function%s*<%s*(.*)%s*>")
@@ -675,6 +676,7 @@ for __, filename in ipairs(arg) do
 							local params, upvalues = build_args( params, false )
 							params = table.concat( params, ", " )
 							table.insert( statics, string.format( "\tlua_pushcclosure( L, []( lua_State* L ) {" ) )
+							table.insert( statics, "\t\tint top = lua_gettop( L ) + 1;" )
 							if func_type ~= "void" then
 								table.insert( statics, table.concat( upvalues, "\n" ) )
 								table.insert( statics, string.format( "\t\tLuaValue ret = %s::%s(%s);", curr_class, func, params ) )
@@ -692,6 +694,7 @@ for __, filename in ipairs(arg) do
 							table.insert( members, string.format( [[
 		lua_pushcclosure( L, []( lua_State* L ) {
 			%s* object = static_cast<%s*>( lua_touserdata( L, 1 ) );]], curr_class, curr_class ) )
+							table.insert( members, "\t\tint top = lua_gettop( L ) + 1;" )
 							if func_type ~= "void" then
 								table.insert( members, table.concat( upvalues, "\n" ) )
 								table.insert( members, string.format( "\t\tLuaValue ret = object->%s(%s);", func, params ) )

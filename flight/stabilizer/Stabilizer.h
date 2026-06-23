@@ -55,7 +55,7 @@ public:
 	virtual Vector3f horizonOffset() const;
 
 	virtual void setMode( uint32_t mode );
-	virtual uint32_t mode() const;
+	LUA_EXPORT virtual uint32_t mode() const;
 	virtual void setAltitudeHold( bool enabled );
 	virtual bool altitudeHold() const;
 
@@ -65,9 +65,9 @@ public:
 	virtual const Vector3f& filteredRPYDerivative() const;
 	virtual void Arm();
 	virtual void Disarm();
-	virtual void setRoll( float value );
-	virtual void setPitch( float value );
-	virtual void setYaw( float value );
+	virtual void setRoll( float value, float dt = 0.0f );
+	virtual void setPitch( float value, float dt = 0.0f );
+	virtual void setYaw( float value, float dt = 0.0f );
 	virtual void setThrust( float value );
 
 	virtual void CalibrateESCs();
@@ -76,6 +76,8 @@ public:
 	virtual void Update( IMU* imu, float dt );
 
 	LUA_PROPERTY("controls") LuaValue controls() const;
+	LUA_PROPERTY("loop_time") void setLoopTime( uint32_t lt );
+	LUA_PROPERTY("loop_time") uint32_t loopTime() const;
 
 	Frame* frame() const;
 	void setFrame( Frame* frame );
@@ -95,6 +97,16 @@ protected:
 	PID<float> mAltitudePID;
 	float mAltitudeControl;
 	LUA_PROPERTY("derivative_filter") Filter<Vector3f>* mDerivativeFilter;
+	LUA_PROPERTY("feedforward_gain") Vector3f mFeedForwardGain;
+	LUA_PROPERTY("feedforward_cutoff") float mFeedForwardCutoff;
+	float mRateScale; // unit scale for rate gains + FF : config in "per 1000" units (1e-3)
+	Vector3f mFilteredCommandDerivative;
+	LUA_PROPERTY("d_min_ratio") float mDMinRatio;
+	LUA_PROPERTY("d_min_gain") float mDMinGain;
+	LUA_PROPERTY("d_min_release") float mDMinReleaseHz;
+	Vector3f mDMinActivity;
+	uint32_t mLoopTime;
+	float mFixedDt;
 
 	LUA_PROPERTY("tpa.multiplier") float mTPAMultiplier;
 	LUA_PROPERTY("tpa.threshold") float mTPAThreshold;
@@ -108,6 +120,8 @@ protected:
 	bool mArmed;
 	Vector4f mExpo;
 	Vector3f mRPY;
+	Vector3f mLastRPY;
+	Vector3f mCommandDerivative;
 	Vector3f mFilteredRPYDerivative;
 	float mThrust;
 	float mPreviousThrust;

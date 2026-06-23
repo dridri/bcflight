@@ -21,10 +21,10 @@
 
 #include <execinfo.h>
 #include <type_traits>
+#include <algorithm>
 #include "Vector.h"
 #include "PT1.h"
-#include "Main.h"
-#include "Config.h"
+#include "Lua.h"
 
 template< typename T > class PID
 {
@@ -50,13 +50,10 @@ public:
 	}
 	PID( const LuaValue& v ) : PID() {
 		if ( v.type() == LuaValue::Table ) {
-			float kP = Main::instance()->config()->Number( "PID.pscale", 1.0f );
-			float kI = Main::instance()->config()->Number( "PID.iscale", 1.0f );
-			float kD = Main::instance()->config()->Number( "PID.dscale", 1.0f );
-			const std::map<std::string, LuaValue >& t = v.toTable();
-			mkPID.x = kP * v["p"].toNumber();
-			mkPID.y = kI * v["i"].toNumber();
-			mkPID.z = kD * v["d"].toNumber();
+			// Neutral : gains stored as-is. Unit scaling is the owner's job (see Stabilizer::mRateScale).
+			mkPID.x = v["p"].toNumber();
+			mkPID.y = v["i"].toNumber();
+			mkPID.z = v["d"].toNumber();
 			LuaValue args = v["args"];
 			if ( args.type() == LuaValue::Table ) {
 				LuaValue i_limit = args["i_limit"];
@@ -97,7 +94,7 @@ public:
 		if constexpr (std::is_same_v<T, float> ) {
 			mIntegral = std::clamp( mIntegral + deltaI * dt, -mIntegralLimit, mIntegralLimit );
 		} else {
-			mIntegral = ( mIntegral + deltaI * dt ).clamped( Vector3f(-mIntegralLimit, -mIntegralLimit, -mIntegralLimit), Vector3f(mIntegralLimit, mIntegralLimit, mIntegralLimit) );
+			mIntegral = ( mIntegral + deltaI * dt ).clamped( T(-mIntegralLimit), T(mIntegralLimit) );
 		}
 		T derivative = -( dMeasurement - mLastdMeasurement ) / dt;
 		float pGain = gains[0] * mkPID[0];

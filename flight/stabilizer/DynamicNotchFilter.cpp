@@ -271,34 +271,79 @@ template<typename V> __attribute__((optimize("unroll-loops"))) bool _DynamicNotc
 		memset( centerFrequencies.data(), 0, sizeof(float) * DYNAMIC_NOTCH_COUNT );
 		// const std::vector<float>& dft = mDFTs[i].magnitude;
 		const std::vector<Peak>& axisPeaks = peaks[i];
+		// Collect the valid detected peaks (frequency in Hz + magnitude).
+		float peakFreq[DYNAMIC_NOTCH_COUNT];
+		float peakMag[DYNAMIC_NOTCH_COUNT];
+		int validPeaks = 0;
 		for ( int p = 0; p < peaksCount[i]; p++ ) {
 			if ( axisPeaks[p].dftIndex == 0 || axisPeaks[p].magnitude <= noiseFloor[i] ) {
 				continue;
 			}
-			PeakFilter* peakFilter = nullptr;
-			peakFilter = &mPeakFilters[i][p];
-			/*
-			float minDistance = 0.0f;
-			for ( uint8_t j = 0; j < DYNAMIC_NOTCH_COUNT; j++ ) {
-				if ( mPeakFilters[i][j].centerFrequency == 0.0f ) {
-					peakFilter = &mPeakFilters[i][j];
-					break;
+			peakFreq[validPeaks] = axisPeaks[p].frequency * float(mNumSamples * mSampleResolution);
+			peakMag[validPeaks] = axisPeaks[p].magnitude;
+			validPeaks++;
+		}
+
+		// Nearest-frequency assignment (bijection) : each peak goes to a distinct notch, matching
+		// the closest (notch, peak) pairs first. A notch keeps the peak nearest to its current
+		// frequency, so a peak appearing/disappearing doesn't cascade-shift every notch (unlike a
+		// rank-based assignment). Leftover (new) peaks then fill the remaining free notches.
+		bool peakUsed[DYNAMIC_NOTCH_COUNT] = { false };
+		bool filterUsed[DYNAMIC_NOTCH_COUNT] = { false };
+
+		// Pass 1 : match already-tuned notches to their closest peak, closest pairs first.
+		for ( int matched = 0; matched < validPeaks; matched++ ) {
+			int bestJ = -1, bestK = -1;
+			float bestDist = 0.0f;
+			for ( int j = 0; j < DYNAMIC_NOTCH_COUNT; j++ ) {
+				if ( filterUsed[j] ) {
+					continue;
 				}
-				float distance = std::abs( mPeakFilters[i][j].centerFrequency - axisPeaks[p].frequency );
-				if ( peakFilter == nullptr || distance < minDistance ) {
-					peakFilter = &mPeakFilters[i][j];
-					minDistance = distance;
+				float fc = mPeakFilters[i][j].filter->centerFrequency();
+				if ( fc <= 0.0f ) {
+					continue; // uninitialised : left for pass 2
+				}
+				for ( int k = 0; k < validPeaks; k++ ) {
+					if ( peakUsed[k] ) {
+						continue;
+					}
+					float d = std::abs( fc - peakFreq[k] );
+					if ( bestJ < 0 || d < bestDist ) {
+						bestJ = j;
+						bestK = k;
+						bestDist = d;
+					}
 				}
 			}
-			20/512*512*(4000/512)*2 = 312
-			*/
-			if ( peakFilter == nullptr ) {
+			if ( bestJ < 0 ) {
+				break; // no tuned notch left to match
+			}
+			filterUsed[bestJ] = true;
+			peakUsed[bestK] = true;
+			float smoothCutoff = 4.0f * std::clamp( peakMag[bestK] / noiseFloor[i], 1.0f, 10.0f );
+			mPeakFilters[i][bestJ].filter->setCenterFrequency( peakFreq[bestK], 0.1f * smoothCutoff * dT );
+		}
+
+		// Pass 2 : leftover (new) peaks fill the remaining free notches.
+		for ( int k = 0; k < validPeaks; k++ ) {
+			if ( peakUsed[k] ) {
 				continue;
 			}
-			float smoothCutoff = 4.0f * std::clamp( axisPeaks[p].magnitude / noiseFloor[i], 1.0f, 10.0f );
-			float centerFrequency = axisPeaks[p].frequency * float(mNumSamples * mSampleResolution); // * 2.0f;
-			peakFilter->filter->setCenterFrequency( centerFrequency, 0.1f * smoothCutoff * dT );
-			centerFrequencies[p] = peakFilter->filter->centerFrequency();
+			for ( int j = 0; j < DYNAMIC_NOTCH_COUNT; j++ ) {
+				if ( filterUsed[j] ) {
+					continue;
+				}
+				filterUsed[j] = true;
+				peakUsed[k] = true;
+				float smoothCutoff = 4.0f * std::clamp( peakMag[k] / noiseFloor[i], 1.0f, 10.0f );
+				mPeakFilters[i][j].filter->setCenterFrequency( peakFreq[k], 0.1f * smoothCutoff * dT );
+				break;
+			}
+		}
+
+		// Log every notch's actual (held) frequency, not just the ones updated this window.
+		for ( int j = 0; j < DYNAMIC_NOTCH_COUNT; j++ ) {
+			centerFrequencies[j] = mPeakFilters[i][j].filter->centerFrequency();
 		}
 		if ( bb != nullptr ) {
 			bool allZeros = true;

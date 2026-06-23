@@ -12,8 +12,8 @@ public:
 		NOTCH
 	} Type;
 
-	BiquadFilter( const float& q, const float& centerFreq = 0.0f )
-		: mType( NOTCH )
+	BiquadFilter( const float& q, const float& centerFreq = 0.0f, Type type = NOTCH )
+		: mType( type )
 		, mQ( q )
 		, mCenterFrequency(centerFreq)
 		, mCenterFrequencyDtSmoothed(0)
@@ -27,7 +27,12 @@ public:
 	}
 
 	virtual V filter( const V& input, float dt ) {
+		bool isDerivativeFilter = ( mCenterFrequency == 60.0f );
 		if ( mCenterFrequency <= 0.0f ) {
+			x1 = input;
+			x2 = input;
+			y1 = input;
+			y2 = input;
 			return input;
 		}
 		// mCenterFrequency = 2073;
@@ -38,7 +43,6 @@ public:
 		// } else {
 		// 	mCenterFrequencyDtSmoothed = PT1Smooth( mCenterFrequencyDtSmoothed, mCenterFrequency * dt, dt );
 		// }
-		// printf( "filter: %f, %f → %f\n", mCenterFrequency, dt, mCenterFrequencyDtSmoothed );
 
 		// V omega = 2.0f * float(M_PI) * mCenterFrequency * 0.000250f; //dt;
 		float omega = 2.0f * float(M_PI) * mCenterFrequency * dt;
@@ -74,8 +78,6 @@ public:
 		b2 *= a0_inv;
 		a1 *= a0_inv;
 		a2 *= a0_inv;
-		// printf( "coeffs : %.2f, %.2f, %.2f, %.2f, %.2f, %.2f\n", a0, a1, a2, b0, b1, b2 );
-		// printf( "prev : %.2f, %.2f, %.2f, %.2f\n", x1, x2, y2, y1 );
 		V state = V(b0) * input + V(b1) * x1 + V(b2) * x2 - V(a1) * y1 - V(a2) * y2;
 
 		bool isfinite = false;
@@ -91,12 +93,12 @@ public:
 			return input;
 		}
 		if ( !isfinite ) {
-			gError() << "Numerical instability detected. Resetting state.";
-			state = V();
-			x1 = V();
-			x2 = V();
-			y1 = V();
-			y2 = V();
+			gError() << "Numerical instability detected. Resetting state. (" << mType << ", " << mQ << ", " << mCenterFrequency << ")";
+			x1 = input;
+			x2 = input;
+			y1 = input;
+			y2 = input;
+			exit(0);
 			return input;
 		}
 
@@ -168,4 +170,24 @@ LUA_CLASS class BiquadFilter_3 : public BiquadFilter<Vector3f>
 {
 public:
 	LUA_EXPORT BiquadFilter_3( const LuaValue& q, const LuaValue& centerFreq ) : BiquadFilter( q.toNumber(), centerFreq.toNumber() ) {}
+};
+
+
+// 2nd-order low-pass variants. q defaults to 0.7071 (Butterworth, no resonant peak).
+LUA_CLASS class BiquadLPF_1 : public BiquadFilter<float>
+{
+public:
+	LUA_EXPORT BiquadLPF_1( float cutoff, float q = 0.7071f ) : BiquadFilter( q, cutoff, LPF ) {}
+};
+
+LUA_CLASS class BiquadLPF_2 : public BiquadFilter<Vector2f>
+{
+public:
+	LUA_EXPORT BiquadLPF_2( float cutoff, float q = 0.7071f ) : BiquadFilter( q, cutoff, LPF ) {}
+};
+
+LUA_CLASS class BiquadLPF_3 : public BiquadFilter<Vector3f>
+{
+public:
+	LUA_EXPORT BiquadLPF_3( float cutoff, float q = 0.7071f ) : BiquadFilter( q, cutoff, LPF ) {}
 };

@@ -1,3 +1,5 @@
+#ifdef BUILD_video
+
 #include "DRMSurface.h"
 
 #include <drm.h>
@@ -116,3 +118,4 @@ void DRMSurface::Show( DRMFrameBuffer* fb )
 	}
 }
 
+#endif // BUILD_video

@@ -3,6 +3,7 @@
 #include "Motor.h"
 #include "Debug.h"
 #include <Board.h>
+#include <Main.h>
 #include <GPIO.h>
 #include <iomanip>
 
@@ -92,8 +93,8 @@ bool DShotTelemetry::run()
 		}
 
 		serial->flushInput();
-		esc->mRequestTelemetry.store( true );
-		Thread::usleep( 200 );
+		esc->requestTelemetry( true );
+		Thread::usleep( 400 );
 
 		// Read bytes into a sliding window; accept first 10-byte window with valid CRC
 		const int expected = 10;
@@ -127,7 +128,7 @@ bool DShotTelemetry::run()
 		}
 		uint8_t* buf = window;
 
-		esc->mRequestTelemetry.store( false );
+		esc->requestTelemetry( false );
 		serial->flushInput();
 
 		stringstream hexdump;
@@ -153,11 +154,11 @@ bool DShotTelemetry::run()
 			// 			<< "cons=" << d.consumption << "A "
 			// 			<< "rpm=" << d.rpm;
 		} else if ( received == expected ) {
-			// gWarning() << "DShotTelemetry: CRC error " << esc->toString();
+			gWarning() << "DShotTelemetry: CRC error " << esc->toString();
 		}
 
 		// Allow the stabilizer to send at least one non-telemetry frame before next request
-		Thread::usleep( 200 );
+		Thread::usleep( 400 );
 	}
 
 	if ( mPolesCount > 0 ) {
@@ -166,6 +167,15 @@ bool DShotTelemetry::run()
 			erpm_per_pole.push_back( escData.second.rpm / ( (float)mPolesCount / 2.0f ) );
 		}
 		mRPMFilter->updateFilters( erpm_per_pole, dT );
+		BlackBox* bb = Main::instance()->blackbox();
+		vector<float> centerFrequencies;
+		for ( int i = 0; i < mRPMFilter->mMotorsCount; i++ ) {
+			for ( int h = 0; h < mRPMFilter->mHarmonicCount; h++ ) {
+				// gDebug() << "Motor " << i << " harmonic " << h << " center frequency: " << mRPMFilter->mFilters[i * mRPMFilter->mHarmonicCount + h].centerFrequency() << " Hz";
+				centerFrequencies.push_back( mRPMFilter->mFilters[i * mRPMFilter->mHarmonicCount + h].centerFrequency() );
+			}
+		}
+		bb->Enqueue( "DShotTelemetry:centerFrequencies", centerFrequencies );
 	}
 
 	return true;

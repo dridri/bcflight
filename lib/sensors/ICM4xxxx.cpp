@@ -78,19 +78,30 @@ void ICM4xxxx::InitChip()
 	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00000000 );
 
 	// Can be tweaked to :
+ 	// 99Hz : (9, 81, 9)
  	// 249Hz : (21, 440, 6)
 	// 524Hz : (39, 1536, 4)
 	// 995Hz : (63, 3968, 3)
+/*
 	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 21 );
 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 440 & 0xFF );
 	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (440 >> 8) | (6 << 4) );
 
-	// Fixed values for accelerometer
 	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 21 );
 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 440 & 0xFF );
 	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (440 >> 8) | (6 << 4) );
+*/
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 9 );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 81 & 0xFF );
+	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (81 >> 8) | (9 << 4) );
+
+	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 4 );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 16 & 0xFF );
+	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (16 >> 8) | (11 << 4) );
 
 	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
 

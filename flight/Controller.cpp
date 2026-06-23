@@ -167,7 +167,7 @@ float Controller::setRoll( float value, bool raw, float dt )
 		alpha = std::clamp( alpha, 0.001f, 0.95f );
 		value = mSmoothRPY.x = mSmoothRPY.x * alpha + value * (1.0f - alpha);
 	}
-	mMain->stabilizer()->setRoll( value );
+	mMain->stabilizer()->setRoll( value, raw ? 0.0f : dt );
 	return value;
 }
 
@@ -190,7 +190,7 @@ float Controller::setPitch( float value, bool raw, float dt )
 		alpha = std::clamp( alpha, 0.001f, 0.95f );
 		value = mSmoothRPY.y = mSmoothRPY.y * alpha + value * (1.0f - alpha);
 	}
-	mMain->stabilizer()->setPitch( value );
+	mMain->stabilizer()->setPitch( value, raw ? 0.0f : dt );
 	return value;
 }
 
@@ -216,7 +216,7 @@ float Controller::setYaw( float value, bool raw, float dt )
 		alpha = std::clamp( alpha, 0.001f, 0.95f );
 		value = mSmoothRPY.z = mSmoothRPY.z * alpha + value * (1.0f - alpha);
 	}
-	mMain->stabilizer()->setYaw( value );
+	mMain->stabilizer()->setYaw( value, raw ? 0.0f : dt );
 	return value;
 }
 

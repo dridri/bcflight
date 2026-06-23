@@ -45,6 +45,16 @@ Stabilizer::Stabilizer()
 	, mAltitudePID( PID<float>() )
 	, mAltitudeControl( 0.0f )
 	, mDerivativeFilter( nullptr )
+	, mFeedForwardGain( 0.0f )
+	, mFeedForwardCutoff( 0.0f )
+	, mRateScale( 1e-3f )
+	, mFilteredCommandDerivative( Vector3f() )
+	, mDMinRatio( 1.0f )
+	, mDMinGain( 0.0f )
+	, mDMinReleaseHz( 2.0f )
+	, mDMinActivity( Vector3f() )
+	, mLoopTime( 0 )
+	, mFixedDt( 0.0f )
 	, mTPAMultiplier( 1.0f )
 	, mTPAThreshold( 1.0f )
 	, mAntiGravityGain( 1.0f )
@@ -255,6 +265,19 @@ LuaValue Stabilizer::controls() const
 }
 
 
+void Stabilizer::setLoopTime( uint32_t lt )
+{
+	mLoopTime = lt;
+	mFixedDt = 1.0f / float( 1000000 / lt );
+}
+
+
+uint32_t Stabilizer::loopTime() const
+{
+	return mLoopTime;
+}
+
+
 void Stabilizer::Reset( const float& yaw )
 {
 	mRateRollPID.Reset();
@@ -262,6 +285,10 @@ void Stabilizer::Reset( const float& yaw )
 	mRateYawPID.Reset();
 	mRollHorizonPID.Reset();
 	mPitchHorizonPID.Reset();
+	mLastRPY = Vector3f();
+	mCommandDerivative = Vector3f();
+	mFilteredCommandDerivative = Vector3f();
+	mDMinActivity = Vector3f();
 	mRPY.x = 0.0f;
 	mRPY.y = 0.0f;
 	mRPY.z = 0.0f;
@@ -269,20 +296,28 @@ void Stabilizer::Reset( const float& yaw )
 }
 
 
-void Stabilizer::setRoll( float value )
+void Stabilizer::setRoll( float value, float dt )
 {
+	// Feed-forward : derivative of the setpoint, computed at command rate (dt = command interval).
+	// dt <= 0 marks a discontinuous/raw set : no anticipation.
+	mCommandDerivative.x = ( dt > 0.0f ) ? ( value - mLastRPY.x ) / dt : 0.0f;
+	mLastRPY.x = value;
 	mRPY.x = value;
 }
 
 
-void Stabilizer::setPitch( float value )
+void Stabilizer::setPitch( float value, float dt )
 {
+	mCommandDerivative.y = ( dt > 0.0f ) ? ( value - mLastRPY.y ) / dt : 0.0f;
+	mLastRPY.y = value;
 	mRPY.y = value;
 }
 
 
-void Stabilizer::setYaw( float value )
+void Stabilizer::setYaw( float value, float dt )
 {
+	mCommandDerivative.z = ( dt > 0.0f ) ? ( value - mLastRPY.z ) / dt : 0.0f;
+	mLastRPY.z = value;
 	mRPY.z = value;
 }
 
@@ -306,7 +341,7 @@ void Stabilizer::Update( IMU* imu, float dt )
 	Vector3f rates = imu->rate();
 
 	if ( mDerivativeFilter ) {
-		mFilteredRPYDerivative = mDerivativeFilter->filter( rates, dt );
+		mFilteredRPYDerivative = mDerivativeFilter->filter( rates, mFixedDt > 0.0f ? mFixedDt : dt );
 	} else {
 		mFilteredRPYDerivative = rates;
 	}
@@ -405,9 +440,28 @@ void Stabilizer::Update( IMU* imu, float dt )
 	float inputRd = mFilteredRPYDerivative.x;
 	float inputPd = mFilteredRPYDerivative.y;
 	float inputYd = mFilteredRPYDerivative.z;
-	mRateRollPID.Process( deltaR, deltaRi, inputRd, dt, rollPIDMultiplier );
-	mRatePitchPID.Process( deltaP, deltaPi, inputPd, dt, pitchPIDMultiplier );
-	mRateYawPID.Process( deltaY, deltaYi, inputYd, dt, yawPIDMultiplier );
+	// D-min : raise D toward d_max on pilot input (setpoint motion), keep it low otherwise.
+	// Driven by the setpoint derivative (clean) -> no parametric pumping. Fast attack, slow release.
+	// Applied only on the D multiplier (.z), through the same gains mechanism as TPA/anti-gravity.
+	if ( mDMinRatio < 1.0f and mDMinGain > 0.0f ) {
+		float releaseRC = 1.0f / ( 2.0f * float(M_PI) * mDMinReleaseHz );
+		float releaseCoeff = dt / ( releaseRC + dt );
+		for ( int i = 0; i < 3; i++ ) {
+			float target = std::clamp( std::abs( mCommandDerivative[i] ) * mDMinGain, 0.0f, 1.0f );
+			if ( target > mDMinActivity[i] ) {
+				mDMinActivity[i] = target; // instant attack
+			} else {
+				mDMinActivity[i] += ( target - mDMinActivity[i] ) * releaseCoeff; // slow release
+			}
+		}
+		rollPIDMultiplier.z *= mDMinRatio + ( 1.0f - mDMinRatio ) * mDMinActivity.x;
+		pitchPIDMultiplier.z *= mDMinRatio + ( 1.0f - mDMinRatio ) * mDMinActivity.y;
+		yawPIDMultiplier.z *= mDMinRatio + ( 1.0f - mDMinRatio ) * mDMinActivity.z;
+	}
+
+	mRateRollPID.Process( deltaR, deltaRi, inputRd, dt, rollPIDMultiplier * mRateScale );
+	mRatePitchPID.Process( deltaP, deltaPi, inputPd, dt, pitchPIDMultiplier * mRateScale );
+	mRateYawPID.Process( deltaY, deltaYi, inputYd, dt, yawPIDMultiplier * mRateScale );
 
 	float thrust = mThrust;
 /*
@@ -426,12 +480,24 @@ void Stabilizer::Update( IMU* imu, float dt )
 		thrust = mAltitudePID.state();
 	}
 */
-	Vector3f ratePID( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() );
+	// Feed-forward : gain * derivative of the actual rate setpoint (command * rate_speed),
+	// computed at command rate in setRoll/Pitch/Yaw. No differentiation here, so no loop-rate spikes.
+	// mRateScale applies the same "per 1000" unit convention as the rate PID gains.
+	// Optional PT1 on the setpoint derivative to smooth its RC-rate staircase (costs a little lag).
+	if ( mFeedForwardCutoff > 0.0f ) {
+		float RC = 1.0f / ( 2.0f * float(M_PI) * mFeedForwardCutoff );
+		float coeff = dt / ( RC + dt );
+		mFilteredCommandDerivative += ( mCommandDerivative - mFilteredCommandDerivative ) * coeff;
+	} else {
+		mFilteredCommandDerivative = mCommandDerivative;
+	}
+	Vector3f rateFF = mFeedForwardGain * mFilteredCommandDerivative * mRateFactor * mRateScale;
+	Vector3f ratePID = Vector3f( mRateRollPID.state(), mRatePitchPID.state(), mRateYawPID.state() ) + rateFF;
 	Vector3f rateIntegral( mRateRollPID.integral(), mRatePitchPID.integral(), mRateYawPID.integral() );
 
-	const std::string keys[4] = { "Stabilizer:ratePID", "Stabilizer:rateIntegral", "Stabilizer:extras" };
-	const Vector4f values[4] = { ratePID, rateIntegral, Vector3f( mAntigravityThrustAccum, motorSaturation, antiWindupValue ) };
-	Main::instance()->blackbox()->Enqueue( keys, values, 3 );
+	const std::string keys[4] = { "Stabilizer:ratePID", "Stabilizer:rateIntegral", "Stabilizer:extras", "Stabilizer:rateFF" };
+	const Vector4f values[4] = { ratePID, rateIntegral, Vector3f( mAntigravityThrustAccum, motorSaturation, antiWindupValue ), rateFF };
+	Main::instance()->blackbox()->Enqueue( keys, values, 4 );
 
 	if ( mFrame->Stabilize( ratePID, thrust, dt ) == false ) {
 		gDebug() << "stab error";

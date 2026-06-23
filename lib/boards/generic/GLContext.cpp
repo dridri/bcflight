@@ -1,3 +1,5 @@
+#ifdef BUILD_video
+
 #include <iostream>
 #include <algorithm>
 #include "Debug.h"
@@ -287,3 +289,5 @@ uint32_t GLContext::displayFrameRate()
 {
 	return sInstance ? sInstance->mBackend->displayFrameRate() : 0;
 }
+
+#endif // BUILD_video

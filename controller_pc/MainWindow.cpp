@@ -170,8 +170,8 @@ MainWindow::MainWindow()
 	graphs.emplace_back( ui->rates_dterm );
 	for ( QCustomPlot* graph : graphs ) {
 		graph->setBackground( QBrush( QColor( 0, 0, 0, 0 ) ) );
-		graph->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
-		graph->yAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
+		// graph->xAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
+		// graph->yAxis->setTickLabelColor( QColor( 255, 255, 255 ) );
 		graph->yAxis->setNumberFormat( "f" );
 		graph->yAxis->setNumberPrecision( 2 );
 		graph->xAxis->grid()->setPen( QPen( QBrush( QColor( 64, 64, 64 ) ), 1, Qt::DashDotDotLine ) );

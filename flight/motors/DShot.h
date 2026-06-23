@@ -18,12 +18,13 @@ public:
 	virtual void Beep( uint8_t beepMode = 0 );
 	virtual string toString();
 
-	std::atomic<bool> mRequestTelemetry { false };
+	void requestTelemetry( bool req );
 
 protected:
 	virtual void setSpeedRaw( float speed, bool force_hw_update );
 	DShotDriver* mDriver;
 	uint32_t mPin;
+	std::atomic<bool> mRequestTelemetry;
 };
 
 #endif // DSHOT_H
