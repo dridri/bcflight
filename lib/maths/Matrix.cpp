@@ -58,10 +58,8 @@ Matrix::Matrix( const vector<float>& vec, bool asColumn ) {
 Matrix::~Matrix()
 {
 	if ( m == nullptr ) {
-		gDebug() << "CRITICAL : corrupt matrix !!!";
-		exit(0);
+		free( m );
 	}
-	free( m );
 	m = nullptr;
 }
 
@@ -117,8 +115,7 @@ const int Matrix::size() const
 void Matrix::Clear()
 {
 	if ( m == nullptr ) {
-		gDebug() << "CRITICAL : corrupt matrix !!!";
-		exit(0);
+		m = (float*)malloc( sizeof(float) * mWidth * mHeight );
 	}
 	memset( m, 0, sizeof(float) * mWidth * mHeight );
 }

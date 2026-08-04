@@ -77,33 +77,84 @@ void ICM4xxxx::InitChip()
 	// Disable all sensors while configuring
 	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00000000 );
 
-	// Can be tweaked to :
- 	// 99Hz : (9, 81, 9)
- 	// 249Hz : (21, 440, 6)
-	// 524Hz : (39, 1536, 4)
-	// 995Hz : (63, 3968, 3)
-/*
-	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 21 );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 440 & 0xFF );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (440 >> 8) | (6 << 4) );
+	static const std::map< uint8_t, std::tuple< uint8_t, uint16_t, uint8_t > > rates = {
+		{ 10, { 1, 1, 15 } },
+		{ 21, { 2, 4, 13 } },
+		{ 32, { 3, 9, 12 } },
+		{ 42, { 4, 16, 11 } },
+		{ 53, { 5, 25, 10 } },
+		{ 64, { 6, 36, 10 } },
+		{ 76, { 7, 49, 9 } },
+		{ 87, { 8, 64, 9 } },
+		{ 99, { 9, 81, 9 } },
+		{ 110, { 10, 100, 8 } },
+		{ 122, { 11, 122, 8 } },
+		{ 134, { 12, 144, 8 } },
+		{ 146, { 13, 170, 8 } },
+		{ 158, { 14, 196, 7 } },
+		{ 171, { 15, 224, 7 } },
+		{ 184, { 16, 256, 7 } },
+		{ 196, { 17, 288, 7 } },
+		{ 209, { 18, 324, 7 } },
+		{ 222, { 19, 360, 6 } },
+		{ 236, { 20, 400, 6 } },
+		{ 249, { 21, 440, 6 } },
+		{ 263, { 22, 488, 6 } },
+		{ 277, { 23, 528, 6 } },
+		{ 291, { 24, 576, 6 } },
+		{ 305, { 25, 624, 6 } },
+		{ 319, { 26, 680, 6 } },
+		{ 334, { 27, 736, 5 } },
+		{ 349, { 28, 784, 5 } },
+		{ 364, { 29, 848, 5 } },
+		{ 379, { 30, 896, 5 } },
+		{ 394, { 31, 960, 5 } },
+		{ 410, { 32, 1024, 5 } },
+		{ 425, { 33, 1088, 5 } },
+		{ 441, { 34, 1152, 5 } },
+		{ 458, { 35, 1232, 5 } },
+		{ 474, { 36, 1296, 5 } },
+		{ 490, { 37, 1376, 4 } },
+		{ 507, { 38, 1440, 4 } },
+		{ 524, { 39, 1536, 4 } },
+		{ 541, { 40, 1600, 4 } },
+		{ 559, { 41, 1696, 4 } },
+		{ 576, { 42, 1760, 4 } },
+		{ 594, { 43, 1856, 4 } },
+		{ 612, { 44, 1952, 4 } },
+		{ 631, { 45, 2016, 4 } },
+		{ 649, { 46, 2112, 4 } },
+		{ 668, { 47, 2208, 4 } },
+		{ 687, { 48, 2304, 4 } },
+		{ 706, { 49, 2400, 4 } },
+		{ 725, { 50, 2496, 4 } },
+		{ 745, { 51, 2592, 4 } },
+		{ 764, { 52, 2720, 4 } },
+		{ 784, { 53, 2816, 3 } },
+		{ 804, { 54, 2944, 3 } },
+		{ 825, { 55, 3008, 3 } },
+		{ 845, { 56, 3136, 3 } },
+		{ 866, { 57, 3264, 3 } },
+		{ 887, { 58, 3392, 3 } },
+		{ 908, { 59, 3456, 3 } },
+		{ 930, { 60, 3584, 3 } },
+		{ 951, { 61, 3712, 3 } },
+		{ 973, { 62, 3840, 3 } },
+		{ 995, { 63, 3968, 3 } }
+	};
+	const auto setAAFRate = [this]( uint8_t bank, uint8_t configBase, uint32_t rate ) {
+		if ( rates.find( rate ) != rates.end() ) {
+			auto t = rates.at( rate );
+			mBus->Write8( ICM_4xxxx_BANK_SEL, bank );
+			mBus->Write8( configBase + 0, std::get<0>(t) );
+			mBus->Write8( configBase + 1, std::get<1>(t) & 0xFF );
+			mBus->Write8( configBase + 2, (std::get<1>(t) >> 8) | (std::get<2>(t) << 4) );
+			mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
+		}
+	};
 
-	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 21 );
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 440 & 0xFF );
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (440 >> 8) | (6 << 4) );
-*/
-	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT1 );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC3, 9 );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC4, 81 & 0xFF );
-	mBus->Write8( ICM_4xxxx_GYRO_CONFIG_STATIC5, (81 >> 8) | (9 << 4) );
-
-	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT2 );
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC2, 4 );
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC3, 16 & 0xFF );
-	mBus->Write8( ICM_4xxxx_ACCEL_CONFIG_STATIC4, (16 >> 8) | (11 << 4) );
-
-	mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
+	setAAFRate( ICM_4xxxx_BANK_SELECT1, ICM_4xxxx_GYRO_CONFIG_STATIC3, 99 );
+	setAAFRate( ICM_4xxxx_BANK_SELECT2, ICM_4xxxx_ACCEL_CONFIG_STATIC3, 42 );
 
 	// Accel & Gyro LPF : Low-latency
 	mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 14 << 4 ) | 14 );

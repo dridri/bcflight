@@ -27,8 +27,7 @@ public:
 	}
 
 	virtual V filter( const V& input, float dt ) {
-		bool isDerivativeFilter = ( mCenterFrequency == 60.0f );
-		if ( mCenterFrequency <= 0.0f ) {
+		if ( mCenterFrequency <= 0.0f or not std::isfinite( mCenterFrequency ) or not std::isfinite( mQ ) ) {
 			x1 = input;
 			x2 = input;
 			y1 = input;
@@ -98,7 +97,6 @@ public:
 			x2 = input;
 			y1 = input;
 			y2 = input;
-			exit(0);
 			return input;
 		}
 
