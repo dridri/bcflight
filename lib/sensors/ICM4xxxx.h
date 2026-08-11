@@ -94,6 +94,9 @@ public:
 	LUA_PROPERTY() ICM4xxxxMag* magnetometer();
 	void InitChip();
 
+	LUA_PROPERTY("gyro_aaf") void setGyroAAF( uint32_t rate );
+	LUA_PROPERTY("accel_aaf") void setAccelAAF( uint32_t rate );
+
 	LUA_PROPERTY("gyroscope_axis_swap") void setGyroscopeAxisSwap( const Vector4i& swap );
 	LUA_PROPERTY("accelerometer_axis_swap") void setAccelerometerAxisSwap( const Vector4i& swap );
 	LUA_PROPERTY("magnetometer_axis_swap") void setMagnetometerAxisSwap( const Vector4i& swap );
@@ -153,6 +156,8 @@ protected:
 	ICM4xxxxGyro* mGyroscope;
 	ICM4xxxxAccel* mAccelerometer;
 	ICM4xxxxMag* mMagnetometer;
+	uint32_t mGyroAAF;
+	uint32_t mAccelAAF;
 	bool dmpReady;
 
 	void Calibrate( float dt, bool last_pass = false ) {}

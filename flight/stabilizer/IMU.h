@@ -101,6 +101,7 @@ protected:
 
 	LUA_PROPERTY("filters.rates") Filter<Vector3f>* mRatesFilter;
 	LUA_PROPERTY("filters.accelerometer") Filter<Vector3f>* mAccelerometerFilter;
+	LUA_PROPERTY("full_rate_accelerometer") bool mFullRateAccelerometer;
 
 	// Running states
 	State mState;

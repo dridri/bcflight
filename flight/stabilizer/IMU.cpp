@@ -36,6 +36,7 @@ IMU::IMU()
 	, mPositionUpdate( false )
 	, mRatesFilter( nullptr )
 	, mAccelerometerFilter( nullptr )
+	, mFullRateAccelerometer( false )
 	, mState( Off )
 	, mAcceleration( Vector3f() )
 	, mGyroscope( Vector3f() )
@@ -373,7 +374,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 		mGyroscope = total_gyro.xyz() / total_gyro.w;
 	}
 
-	if ( mState == Running and ( not gyro_only or mAcroRPYCounter == 0 ) ) {
+	if ( mState == Running and ( mFullRateAccelerometer or not gyro_only or mAcroRPYCounter == 0 ) ) {
 		for ( Accelerometer* dev : mAccelerometers ) {
 			vtmp.x = vtmp.y = vtmp.z = 0.0f;
 			dev->Read( &vtmp );
@@ -384,7 +385,7 @@ void IMU::UpdateSensors( uint64_t tick, bool gyro_only )
 			mAcceleration = total_accel.xyz() / total_accel.w;
 		}
 
-		if ( mSensorsUpdateSlow % 2 == 0 ) {
+		if ( ( not gyro_only or mAcroRPYCounter == 0 ) and mSensorsUpdateSlow % 2 == 0 ) {
 			for ( Magnetometer* dev : mMagnetometers ) {
 				vtmp.x = vtmp.y = vtmp.z = 0.0f;
 				dev->Read( &vtmp );

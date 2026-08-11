@@ -35,14 +35,129 @@ static const map< uint8_t, bool > hasMagnetometer = {
 };
 
 
+static const std::map< uint32_t, std::tuple< uint8_t, uint16_t, uint8_t > > aafRates = {
+	{ 10, { 1, 1, 15 } },
+	{ 21, { 2, 4, 13 } },
+	{ 32, { 3, 9, 12 } },
+	{ 42, { 4, 16, 11 } },
+	{ 53, { 5, 25, 10 } },
+	{ 64, { 6, 36, 10 } },
+	{ 76, { 7, 49, 9 } },
+	{ 87, { 8, 64, 9 } },
+	{ 99, { 9, 81, 9 } },
+	{ 110, { 10, 100, 8 } },
+	{ 122, { 11, 122, 8 } },
+	{ 134, { 12, 144, 8 } },
+	{ 146, { 13, 170, 8 } },
+	{ 158, { 14, 196, 7 } },
+	{ 171, { 15, 224, 7 } },
+	{ 184, { 16, 256, 7 } },
+	{ 196, { 17, 288, 7 } },
+	{ 209, { 18, 324, 7 } },
+	{ 222, { 19, 360, 6 } },
+	{ 236, { 20, 400, 6 } },
+	{ 249, { 21, 440, 6 } },
+	{ 263, { 22, 488, 6 } },
+	{ 277, { 23, 528, 6 } },
+	{ 291, { 24, 576, 6 } },
+	{ 305, { 25, 624, 6 } },
+	{ 319, { 26, 680, 6 } },
+	{ 334, { 27, 736, 5 } },
+	{ 349, { 28, 784, 5 } },
+	{ 364, { 29, 848, 5 } },
+	{ 379, { 30, 896, 5 } },
+	{ 394, { 31, 960, 5 } },
+	{ 410, { 32, 1024, 5 } },
+	{ 425, { 33, 1088, 5 } },
+	{ 441, { 34, 1152, 5 } },
+	{ 458, { 35, 1232, 5 } },
+	{ 474, { 36, 1296, 5 } },
+	{ 490, { 37, 1376, 4 } },
+	{ 507, { 38, 1440, 4 } },
+	{ 524, { 39, 1536, 4 } },
+	{ 541, { 40, 1600, 4 } },
+	{ 559, { 41, 1696, 4 } },
+	{ 576, { 42, 1760, 4 } },
+	{ 594, { 43, 1856, 4 } },
+	{ 612, { 44, 1952, 4 } },
+	{ 631, { 45, 2016, 4 } },
+	{ 649, { 46, 2112, 4 } },
+	{ 668, { 47, 2208, 4 } },
+	{ 687, { 48, 2304, 4 } },
+	{ 706, { 49, 2400, 4 } },
+	{ 725, { 50, 2496, 4 } },
+	{ 745, { 51, 2592, 4 } },
+	{ 764, { 52, 2720, 4 } },
+	{ 784, { 53, 2816, 3 } },
+	{ 804, { 54, 2944, 3 } },
+	{ 825, { 55, 3008, 3 } },
+	{ 845, { 56, 3136, 3 } },
+	{ 866, { 57, 3264, 3 } },
+	{ 887, { 58, 3392, 3 } },
+	{ 908, { 59, 3456, 3 } },
+	{ 930, { 60, 3584, 3 } },
+	{ 951, { 61, 3712, 3 } },
+	{ 973, { 62, 3840, 3 } },
+	{ 995, { 63, 3968, 3 } }
+};
+
+
+static void applyAAFRate( Bus* bus, bool accel, uint32_t rate )
+{
+	auto it = aafRates.find( rate );
+	if ( it == aafRates.end() ) {
+		const auto dist = []( uint32_t a, uint32_t b ) { return a > b ? a - b : b - a; };
+		for ( auto i = aafRates.begin(); i != aafRates.end(); ++i ) {
+			if ( it == aafRates.end() or dist( i->first, rate ) < dist( it->first, rate ) ) {
+				it = i;
+			}
+		}
+		gWarning() << ( accel ? "Accelerometer" : "Gyroscope" ) << " AAF " << rate << "Hz not available, using " << it->first << "Hz";
+	}
+
+	const uint8_t delt = std::get<0>( it->second );
+	const uint16_t deltsqr = std::get<1>( it->second );
+	const uint8_t bitshift = std::get<2>( it->second );
+	const uint8_t bank = accel ? ICM_4xxxx_BANK_SELECT2 : ICM_4xxxx_BANK_SELECT1;
+	const uint8_t base = accel ? ICM_4xxxx_ACCEL_CONFIG_STATIC2 : ICM_4xxxx_GYRO_CONFIG_STATIC3;
+
+	bus->Write8( ICM_4xxxx_BANK_SEL, bank );
+	bus->Write8( base + 0, accel ? (uint8_t)( delt << 1 ) : delt ); // accel bit 0 = ACCEL_AAF_DIS
+	bus->Write8( base + 1, deltsqr & 0xFF );
+	bus->Write8( base + 2, ( deltsqr >> 8 ) | ( bitshift << 4 ) );
+	bus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
+	gDebug() << ( accel ? "Accelerometer" : "Gyroscope" ) << " AAF set to " << it->first << "Hz";
+}
+
+
 ICM4xxxx::ICM4xxxx()
 	: Sensor()
 	, mChipReady( false )
 	, mGyroscope( nullptr )
 	, mAccelerometer( nullptr )
 	, mMagnetometer( nullptr )
+	, mGyroAAF( 99 )
+	, mAccelAAF( 42 )
 	, dmpReady( false )
 {
+}
+
+
+void ICM4xxxx::setGyroAAF( uint32_t rate )
+{
+	mGyroAAF = rate;
+	if ( mChipReady ) {
+		applyAAFRate( mBus, false, mGyroAAF );
+	}
+}
+
+
+void ICM4xxxx::setAccelAAF( uint32_t rate )
+{
+	mAccelAAF = rate;
+	if ( mChipReady ) {
+		applyAAFRate( mBus, true, mAccelAAF );
+	}
 }
 
 
@@ -77,84 +192,8 @@ void ICM4xxxx::InitChip()
 	// Disable all sensors while configuring
 	mBus->Write8( ICM_4xxxx_PWR_MGMT0, 0b00000000 );
 
-	static const std::map< uint8_t, std::tuple< uint8_t, uint16_t, uint8_t > > rates = {
-		{ 10, { 1, 1, 15 } },
-		{ 21, { 2, 4, 13 } },
-		{ 32, { 3, 9, 12 } },
-		{ 42, { 4, 16, 11 } },
-		{ 53, { 5, 25, 10 } },
-		{ 64, { 6, 36, 10 } },
-		{ 76, { 7, 49, 9 } },
-		{ 87, { 8, 64, 9 } },
-		{ 99, { 9, 81, 9 } },
-		{ 110, { 10, 100, 8 } },
-		{ 122, { 11, 122, 8 } },
-		{ 134, { 12, 144, 8 } },
-		{ 146, { 13, 170, 8 } },
-		{ 158, { 14, 196, 7 } },
-		{ 171, { 15, 224, 7 } },
-		{ 184, { 16, 256, 7 } },
-		{ 196, { 17, 288, 7 } },
-		{ 209, { 18, 324, 7 } },
-		{ 222, { 19, 360, 6 } },
-		{ 236, { 20, 400, 6 } },
-		{ 249, { 21, 440, 6 } },
-		{ 263, { 22, 488, 6 } },
-		{ 277, { 23, 528, 6 } },
-		{ 291, { 24, 576, 6 } },
-		{ 305, { 25, 624, 6 } },
-		{ 319, { 26, 680, 6 } },
-		{ 334, { 27, 736, 5 } },
-		{ 349, { 28, 784, 5 } },
-		{ 364, { 29, 848, 5 } },
-		{ 379, { 30, 896, 5 } },
-		{ 394, { 31, 960, 5 } },
-		{ 410, { 32, 1024, 5 } },
-		{ 425, { 33, 1088, 5 } },
-		{ 441, { 34, 1152, 5 } },
-		{ 458, { 35, 1232, 5 } },
-		{ 474, { 36, 1296, 5 } },
-		{ 490, { 37, 1376, 4 } },
-		{ 507, { 38, 1440, 4 } },
-		{ 524, { 39, 1536, 4 } },
-		{ 541, { 40, 1600, 4 } },
-		{ 559, { 41, 1696, 4 } },
-		{ 576, { 42, 1760, 4 } },
-		{ 594, { 43, 1856, 4 } },
-		{ 612, { 44, 1952, 4 } },
-		{ 631, { 45, 2016, 4 } },
-		{ 649, { 46, 2112, 4 } },
-		{ 668, { 47, 2208, 4 } },
-		{ 687, { 48, 2304, 4 } },
-		{ 706, { 49, 2400, 4 } },
-		{ 725, { 50, 2496, 4 } },
-		{ 745, { 51, 2592, 4 } },
-		{ 764, { 52, 2720, 4 } },
-		{ 784, { 53, 2816, 3 } },
-		{ 804, { 54, 2944, 3 } },
-		{ 825, { 55, 3008, 3 } },
-		{ 845, { 56, 3136, 3 } },
-		{ 866, { 57, 3264, 3 } },
-		{ 887, { 58, 3392, 3 } },
-		{ 908, { 59, 3456, 3 } },
-		{ 930, { 60, 3584, 3 } },
-		{ 951, { 61, 3712, 3 } },
-		{ 973, { 62, 3840, 3 } },
-		{ 995, { 63, 3968, 3 } }
-	};
-	const auto setAAFRate = [this]( uint8_t bank, uint8_t configBase, uint32_t rate ) {
-		if ( rates.find( rate ) != rates.end() ) {
-			auto t = rates.at( rate );
-			mBus->Write8( ICM_4xxxx_BANK_SEL, bank );
-			mBus->Write8( configBase + 0, std::get<0>(t) );
-			mBus->Write8( configBase + 1, std::get<1>(t) & 0xFF );
-			mBus->Write8( configBase + 2, (std::get<1>(t) >> 8) | (std::get<2>(t) << 4) );
-			mBus->Write8( ICM_4xxxx_BANK_SEL, ICM_4xxxx_BANK_SELECT0 );
-		}
-	};
-
-	setAAFRate( ICM_4xxxx_BANK_SELECT1, ICM_4xxxx_GYRO_CONFIG_STATIC3, 99 );
-	setAAFRate( ICM_4xxxx_BANK_SELECT2, ICM_4xxxx_ACCEL_CONFIG_STATIC3, 42 );
+	applyAAFRate( mBus, false, mGyroAAF );
+	applyAAFRate( mBus, true, mAccelAAF );
 
 	// Accel & Gyro LPF : Low-latency
 	mBus->Write8( ICM_4xxxx_GYRO_ACCEL_CONFIG0, ( 14 << 4 ) | 14 );
