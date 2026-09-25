@@ -136,8 +136,8 @@ ICM4xxxx::ICM4xxxx()
 	, mGyroscope( nullptr )
 	, mAccelerometer( nullptr )
 	, mMagnetometer( nullptr )
-	, mGyroAAF( 99 )
-	, mAccelAAF( 42 )
+	, mGyroAAF( 249 )
+	, mAccelAAF( 99 )
 	, dmpReady( false )
 {
 }
